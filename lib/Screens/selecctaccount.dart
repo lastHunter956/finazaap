@@ -1,40 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:finazaap/widgets/bottomnavigationbar.dart'; // Asegúrate de que esta ruta sea correcta
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: MyHomePage(),
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: Color.fromRGBO(31, 38, 57, 1),
-        scaffoldBackgroundColor: Color.fromRGBO(31, 38, 57, 1),
-        dialogBackgroundColor: Color.fromRGBO(31, 38, 57, 1),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.grey[850],
-          labelStyle: TextStyle(color: Colors.white70),
-          enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.white70),
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.blueAccent),
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-        ),
-        textTheme: TextTheme(
-          bodyLarge: TextStyle(color: Colors.white),
-          bodyMedium: TextStyle(color: Colors.white70),
-        ),
-      ),
-    );
-  }
-}
 
 class AccountItem {
   IconData icon;
@@ -68,7 +37,49 @@ class AccountItem {
       );
 }
 
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Finazaap',
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: const Color.fromRGBO(31, 38, 57, 1),
+        scaffoldBackgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+        dialogBackgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.grey[850],
+          labelStyle: const TextStyle(color: Colors.white70),
+          enabledBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: Colors.white70),
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: Colors.blueAccent),
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+        ),
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(color: Colors.white),
+          bodyMedium: TextStyle(color: Colors.white70),
+        ),
+      ),
+      home: MyHomePage(
+        onBalanceUpdated: (balance) {
+          // Aquí puedes manejar el saldo total actualizado (por ejemplo, mostrarlo en otra parte de la app)
+          print("Saldo total actualizado: $balance");
+        },
+      ),
+    );
+  }
+}
+
 class MyHomePage extends StatefulWidget {
+  final Function(double) onBalanceUpdated;
+
+  MyHomePage({required this.onBalanceUpdated});
+
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
@@ -82,112 +93,64 @@ class _MyHomePageState extends State<MyHomePage> {
     loadAccounts();
   }
 
+  // Carga las cuentas desde SharedPreferences
   void loadAccounts() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? accountsData = prefs.getStringList('accounts');
-    if (accountsData != null) {
-      setState(() {
-        accountItems = accountsData
-            .map((item) => AccountItem.fromJson(json.decode(item)))
-            .toList();
-      });
-    }
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String>? accountsData = prefs.getStringList('accounts');
+  if (accountsData != null) {
+    setState(() {
+      accountItems = accountsData
+          .map((item) => AccountItem.fromJson(json.decode(item)))
+          .toList();
+    });
+    _updateTotalBalance(); // Esta llamada es crucial
+  } else {
+    // Si no hay datos, actualiza el balance a cero
+    widget.onBalanceUpdated(0.0);
   }
+}
 
+  // Guarda las cuentas en SharedPreferences y actualiza el saldo total
   void saveAccounts() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String> accountsData =
         accountItems.map((item) => json.encode(item.toJson())).toList();
     await prefs.setStringList('accounts', accountsData);
+    _updateTotalBalance();
   }
 
-  void addAccountItem(AccountItem item) {
+  void _saveAccount(AccountItem account) {
     setState(() {
-      accountItems.add(item);
+      accountItems.add(account);
     });
     saveAccounts();
   }
 
-  void _updateAccountItem(AccountItem oldItem, AccountItem newItem) {
+  void _editAccount(AccountItem oldAccount, AccountItem newAccount) {
     setState(() {
-      int index = accountItems.indexOf(oldItem);
+      int index = accountItems.indexOf(oldAccount);
       if (index != -1) {
-        accountItems[index] = newItem;
-        saveAccounts();
+        accountItems[index] = newAccount;
       }
     });
+    saveAccounts();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // Calcular el saldo total
-    double totalBalance = accountItems.fold<double>(
-      0.0,
-      (double sum, AccountItem item) =>
-          sum + (double.tryParse(item.balance) ?? 0.0),
-    );
+  // Calcula el saldo total y llama al callback correspondiente
+  void _updateTotalBalance() {
+  double totalBalance = accountItems.fold<double>(
+    0.0,
+    (sum, item) => sum + (double.tryParse(item.balance) ?? 0.0),
+  );
+  
+  // Notificar siempre, incluso si el valor no ha cambiado
+  widget.onBalanceUpdated(totalBalance);
+  
+  // Opcional: actualizar la UI para mostrar el saldo en esta pantalla también
+  setState(() {}); // Solo si necesitas refrescar la UI
+}
 
-    return Scaffold(
-      backgroundColor:
-          Color.fromRGBO(31, 38, 57, 1), // Color de fondo del Scaffold
-      appBar: AppBar(
-        backgroundColor: Color.fromRGBO(31, 38, 57, 1),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          color: Colors.white,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => Bottom()),
-            );
-          },
-        ),
-        title: Text('Cuentas', style: TextStyle(color: Colors.white)),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Mostrar el saldo total
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'Saldo total',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white70,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                '${totalBalance.toStringAsFixed(2)} \$',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            // Mostrar la lista de cuentas
-            ...accountItems.map((item) => _buildAccountItem(item)).toList(),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final newItem = await _showAddAccountDialog(context);
-          if (newItem != null) {
-            addAccountItem(newItem);
-          }
-        },
-        backgroundColor: Colors.blueAccent,
-        child: Icon(Icons.add),
-      ),
-    );
-  }
-
+  // Diálogo para agregar una nueva cuenta
   Future<AccountItem?> _showAddAccountDialog(BuildContext context) async {
     IconData? selectedIcon;
     String title = '';
@@ -199,22 +162,22 @@ class _MyHomePageState extends State<MyHomePage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor:
-              Color.fromRGBO(31, 38, 57, 1), // Color de fondo del diálogo
-          title: Text('Agregar Cuenta', style: TextStyle(color: Colors.white)),
+          backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+          title: const Text('Agregar Cuenta',
+              style: TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Column(
               children: [
                 DropdownButtonFormField<IconData>(
                   decoration: InputDecoration(
                     labelText: 'Icono',
-                    labelStyle: TextStyle(color: Colors.white70),
+                    labelStyle: const TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white70),
+                      borderSide: const BorderSide(color: Colors.white70),
                       borderRadius: BorderRadius.circular(8.0),
                     ),
                   ),
-                  dropdownColor: Color.fromRGBO(31, 38, 57, 1),
+                  dropdownColor: const Color.fromRGBO(31, 38, 57, 1),
                   items: [
                     Icons.account_balance_wallet,
                     Icons.account_balance,
@@ -224,7 +187,6 @@ class _MyHomePageState extends State<MyHomePage> {
                     Icons.savings,
                     Icons.trending_up,
                     Icons.trending_down,
-                    Icons.account_balance_wallet,
                     Icons.account_box,
                     Icons.account_circle,
                   ]
@@ -238,55 +200,59 @@ class _MyHomePageState extends State<MyHomePage> {
                   },
                   iconEnabledColor: Colors.white70,
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextField(
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Título',
                     labelStyle: TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.circular(8.0),
+                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
                     ),
                   ),
-                  style: TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Colors.white),
                   onChanged: (value) {
                     title = value;
                   },
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextField(
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Subtítulo',
                     labelStyle: TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.circular(8.0),
+                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
                     ),
                   ),
-                  style: TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Colors.white),
                   onChanged: (value) {
                     subtitle = value;
                   },
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextField(
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Balance',
                     labelStyle: TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.circular(8.0),
+                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
                     ),
                   ),
-                  style: TextStyle(color: Colors.white),
-                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                  ],
                   onChanged: (value) {
                     balance = value;
                   },
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextButton(
-                  child: Text('Seleccionar Color del Icono',
+                  child: const Text('Seleccionar Color del Icono',
                       style: TextStyle(color: Colors.white70)),
                   onPressed: () async {
                     Color? pickedColor =
@@ -303,16 +269,16 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           actions: [
             TextButton(
-              child: Text('Cancelar', style: TextStyle(color: Colors.white70)),
+              child: const Text('Cancelar',
+                  style: TextStyle(color: Colors.white70)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-              ),
-              child: Text('Agregar'),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+              child: const Text('Agregar'),
               onPressed: () {
                 if (selectedIcon != null &&
                     title.isNotEmpty &&
@@ -334,6 +300,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  // Diálogo para editar una cuenta existente
   Future<AccountItem?> _showEditAccountDialog(
       BuildContext context, AccountItem item) async {
     IconData? selectedIcon = item.icon;
@@ -349,8 +316,9 @@ class _MyHomePageState extends State<MyHomePage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Color.fromRGBO(31, 38, 57, 1),
-          title: Text('Editar Cuenta', style: TextStyle(color: Colors.white)),
+          backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+          title: const Text('Editar Cuenta',
+              style: TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Column(
               children: [
@@ -358,13 +326,13 @@ class _MyHomePageState extends State<MyHomePage> {
                   value: selectedIcon,
                   decoration: InputDecoration(
                     labelText: 'Icono',
-                    labelStyle: TextStyle(color: Colors.white70),
+                    labelStyle: const TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white70),
+                      borderSide: const BorderSide(color: Colors.white70),
                       borderRadius: BorderRadius.circular(8.0),
                     ),
                   ),
-                  dropdownColor: Color.fromRGBO(31, 38, 57, 1),
+                  dropdownColor: const Color.fromRGBO(31, 38, 57, 1),
                   items: [
                     Icons.account_balance_wallet,
                     Icons.account_balance,
@@ -374,7 +342,6 @@ class _MyHomePageState extends State<MyHomePage> {
                     Icons.savings,
                     Icons.trending_up,
                     Icons.trending_down,
-                    Icons.account_balance_wallet,
                     Icons.account_box,
                     Icons.account_circle,
                   ]
@@ -388,49 +355,53 @@ class _MyHomePageState extends State<MyHomePage> {
                   },
                   iconEnabledColor: Colors.white70,
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextField(
                   controller: titleController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Título',
                     labelStyle: TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.circular(8.0),
+                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
                     ),
                   ),
-                  style: TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Colors.white),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextField(
                   controller: subtitleController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Subtítulo',
                     labelStyle: TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.circular(8.0),
+                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
                     ),
                   ),
-                  style: TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Colors.white),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextField(
                   controller: balanceController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Balance',
                     labelStyle: TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.circular(8.0),
+                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
                     ),
                   ),
-                  style: TextStyle(color: Colors.white),
-                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                  ],
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextButton(
-                  child: Text('Seleccionar Color del Icono',
+                  child: const Text('Seleccionar Color del Icono',
                       style: TextStyle(color: Colors.white70)),
                   onPressed: () async {
                     Color? pickedColor =
@@ -447,16 +418,16 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           actions: [
             TextButton(
-              child: Text('Cancelar', style: TextStyle(color: Colors.white70)),
+              child: const Text('Cancelar',
+                  style: TextStyle(color: Colors.white70)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-              ),
-              child: Text('Guardar'),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+              child: const Text('Guardar'),
               onPressed: () {
                 if (selectedIcon != null &&
                     titleController.text.isNotEmpty &&
@@ -478,6 +449,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  // Diálogo para seleccionar color mediante un ColorPicker
   Future<Color?> _showColorPickerDialog(
       BuildContext context, Color currentColor) async {
     Color pickerColor = currentColor;
@@ -485,8 +457,8 @@ class _MyHomePageState extends State<MyHomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Color.fromRGBO(31, 38, 57, 1),
-          title: Text('Seleccione un color',
+          backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+          title: const Text('Seleccione un color',
               style: TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: ColorPicker(
@@ -498,16 +470,16 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           actions: [
             TextButton(
-              child: Text('Cancelar', style: TextStyle(color: Colors.white70)),
+              child: const Text('Cancelar',
+                  style: TextStyle(color: Colors.white70)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-              ),
-              child: Text('Seleccionar'),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+              child: const Text('Seleccionar'),
               onPressed: () {
                 Navigator.of(context).pop(pickerColor);
               },
@@ -518,41 +490,106 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  @override
+  Widget build(BuildContext context) {
+    double totalBalance = accountItems.fold<double>(
+      0.0,
+      (sum, item) => sum + (double.tryParse(item.balance) ?? 0.0),
+    );
+
+    return Scaffold(
+      backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+      appBar: AppBar(
+        backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            _updateTotalBalance(); // Actualiza el saldo total antes de salir
+            // Navega a la página de bottom navigation (verifica la ruta)
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => Bottom()),
+            );
+          },
+        ),
+        title: const Text('Cuentas', style: TextStyle(color: Colors.white)),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Mostrar saldo total
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Saldo total',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                '${totalBalance.toStringAsFixed(2)} \$',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            // Lista de cuentas
+            ...accountItems.map((item) => _buildAccountItem(item)).toList(),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final newItem = await _showAddAccountDialog(context);
+          if (newItem != null) {
+            _saveAccount(newItem); // Aquí se llama a _saveAccount
+          }
+        },
+        backgroundColor: Colors.blueAccent,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
   Widget _buildAccountItem(AccountItem item) {
     return Card(
-      color: Color.fromRGBO(31, 38, 57, 1),
+      color: const Color.fromRGBO(31, 38, 57, 1),
       child: ListTile(
         leading: GestureDetector(
           onLongPress: () async {
             final editedItem = await _showEditAccountDialog(context, item);
             if (editedItem != null) {
-              _updateAccountItem(item, editedItem);
+              _editAccount(item, editedItem);
             }
           },
           child: Icon(item.icon, color: item.iconColor),
         ),
         title: Text(
           item.title,
-          style: TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white),
         ),
         subtitle: Text(
-          item.subtitle,
-          style: TextStyle(color: Colors.white70),
-        ),
-        trailing: Text(
           '${item.balance} \$',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+          style: const TextStyle(color: Colors.white70),
         ),
         onTap: () async {
           final editedItem = await _showEditAccountDialog(context, item);
           if (editedItem != null) {
-            _updateAccountItem(item, editedItem);
+            _editAccount(item, editedItem);
           }
         },
       ),
     );
   }
+}
+
+void main() {
+  runApp(MyApp());
 }

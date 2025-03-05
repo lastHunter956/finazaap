@@ -8,7 +8,7 @@ part of 'add_date.dart';
 
 class AddDataAdapter extends TypeAdapter<Add_data> {
   @override
-  final int typeId = 1;
+  final int typeId = 0;
 
   @override
   Add_data read(BinaryReader reader) {
@@ -17,37 +17,34 @@ class AddDataAdapter extends TypeAdapter<Add_data> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
 
-    try {
-      return Add_data(
-        fields[3] as String, // IN
-        fields[2] as String, // amount
-        fields[4] as DateTime, // datetime
-        fields[1] as String, // explain
-        fields[0] as String, // name
-        fields[5] as int? ?? 0, // iconCode, con valor predeterminado si es null
-      );
-    } catch (e) {
-      throw FormatException('Error al leer los datos: $e');
-    }
+    return Add_data(
+      fields[0] as String, // type
+      fields[1] as String, // amount
+      fields[2] as DateTime, // date
+      fields[3] as String, // detail
+      fields[4] as String, // category
+      fields[5] as String, // account
+      fields[6] as int, // iconCode
+    );
   }
 
   @override
   void write(BinaryWriter writer, Add_data obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
-      ..write(obj.name)
+      ..write(obj.type)
       ..writeByte(1)
-      ..write(obj.explain)
-      ..writeByte(2)
       ..write(obj.amount)
+      ..writeByte(2)
+      ..write(obj.date)
       ..writeByte(3)
-      ..write(obj.IN)
+      ..write(obj.detail)
       ..writeByte(4)
-      ..write(obj.datetime)
+      ..write(obj.category)
       ..writeByte(5)
+      ..write(obj.account)
+      ..writeByte(6)
       ..write(obj.iconCode);
   }
 }
-
-  

@@ -1,8 +1,7 @@
-// floating_action_menu.dart
-
 import 'package:flutter/material.dart';
 import 'package:radial_button/widget/circle_floating_button.dart';
 import 'package:finazaap/screens/add.dart';
+import 'package:finazaap/screens/add_expense.dart';
 
 class FloatingActionMenu extends StatelessWidget {
   const FloatingActionMenu({Key? key}) : super(key: key);
@@ -32,7 +31,11 @@ class FloatingActionMenu extends StatelessWidget {
         ),
         FloatingActionButton(
           backgroundColor: Colors.orangeAccent,
-          onPressed: () {},
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
+            );
+          },
           child: const Icon(Icons.arrow_downward_outlined),
         ),
       ],

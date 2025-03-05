@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:finazaap/data/utlity.dart';
 import 'dart:convert';
 
 // Modelo de cuenta adaptado para recibir datos desde selecctaccount.dart
 class AccountItem {
   String title;
   double balance;
-  IconData? icon; // Opcional
-  String? subtitle; // Opcional
-  Color? iconColor; // Opcional
+  IconData? icon;
+  String? subtitle;
+  Color? iconColor;
 
   AccountItem({
     required this.title,
@@ -22,7 +23,10 @@ class AccountItem {
 
   Map<String, dynamic> toJson() => {
         'title': title,
-        'balance': balance is String ? balance : balance.toString(),
+        'subtitle': subtitle ?? '',
+        'balance': balance.toString(), // Convertir a String para compatibilidad
+        'icon': icon?.codePoint ?? Icons.account_balance_wallet.codePoint,
+        'iconColor': iconColor?.value ?? Colors.blue.value,
       };
 
   factory AccountItem.fromJson(Map<String, dynamic> json) {
@@ -37,7 +41,6 @@ class AccountItem {
     return AccountItem(
       title: json['title'],
       balance: balanceValue,
-      // Agregar campos opcionales si están presentes
       icon: json['icon'] != null
           ? IconData(json['icon'], fontFamily: 'MaterialIcons')
           : null,
@@ -47,14 +50,14 @@ class AccountItem {
   }
 }
 
-class Add_Screen extends StatefulWidget {
-  const Add_Screen({Key? key}) : super(key: key);
+class AddExpenseScreen extends StatefulWidget {
+  const AddExpenseScreen({Key? key}) : super(key: key);
 
   @override
-  State<Add_Screen> createState() => _Add_ScreenState();
+  State<AddExpenseScreen> createState() => _AddExpenseScreenState();
 }
 
-class _Add_ScreenState extends State<Add_Screen> {
+class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final box = Hive.box<Add_data>('data');
 
   // ========= CONTROLADORES DE TEXTO =========
@@ -72,8 +75,8 @@ class _Add_ScreenState extends State<Add_Screen> {
   DateTime _selectedDate = DateTime.now();
 
   // (Opcional) Para “Ingreso” / “Egreso”
-  // Si solo usarás “Ingreso” en esta vista, puedes dejarlo fijo.
-  bool _isIncome = true; // true => Ingreso, false => Egreso
+  // Si solo usarás “Egreso” en esta vista, puedes dejarlo fijo.
+  bool _isIncome = false; // true => Ingreso, false => Egreso
 
   @override
   void initState() {
@@ -88,18 +91,17 @@ class _Add_ScreenState extends State<Add_Screen> {
     List<String>? accountsData = prefs.getStringList('accounts');
     if (accountsData != null) {
       setState(() {
-        _accountItems = accountsData.map((item) {
-          final Map<String, dynamic> jsonData = json.decode(item);
-          return AccountItem.fromJson(jsonData);
-        }).toList();
+        _accountItems = accountsData
+            .map((item) => AccountItem.fromJson(json.decode(item)))
+            .toList();
       });
     }
   }
 
-  // Carga la lista de categorías guardadas en “ingresos” (ajusta la clave si usas otra)
+  // Carga la lista de categorías guardadas en “gastos” (ajusta la clave si usas otra)
   Future<void> _loadCategoriesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    List<String>? categoriesData = prefs.getStringList('ingresos');
+    List<String>? categoriesData = prefs.getStringList('gastos');
     if (categoriesData != null) {
       setState(() {
         _categories = categoriesData
@@ -129,6 +131,21 @@ class _Add_ScreenState extends State<Add_Screen> {
     // Define “Income” o “Expenses”
     final type = _isIncome ? 'Income' : 'Expenses';
 
+    // Actualiza el saldo de la cuenta asociada
+    if (_selectedAccount != null) {
+      double amount = double.tryParse(_amountCtrl.text) ?? 0.0;
+      setState(() {
+        if (_isIncome) {
+          _selectedAccount!.balance += amount;
+        } else {
+          _selectedAccount!.balance -= amount;
+        }
+      });
+
+      // Guarda la cuenta actualizada en SharedPreferences
+      _saveAccountsToPrefs();
+    }
+
     // Creamos la instancia Add_data
     final newAdd = Add_data(
       type, // 'Income' o 'Expenses'
@@ -143,41 +160,14 @@ class _Add_ScreenState extends State<Add_Screen> {
 
     // Guardamos en Hive
     box.add(newAdd);
-
-    // Actualizar el saldo de la cuenta
-    _updateAccountBalance(_selectedAccount?.title ?? '',
-        double.parse(_amountCtrl.text), _isIncome);
-
     Navigator.of(context).pop();
   }
 
-  Future<void> _updateAccountBalance(
-      String accountTitle, double amount, bool isIncome) async {
-    if (accountTitle.isEmpty) return;
-    final accountIndex =
-        _accountItems.indexWhere((a) => a.title == accountTitle);
-    if (accountIndex == -1) return;
-
-    setState(() {
-      if (isIncome) {
-        _accountItems[accountIndex].balance += amount;
-      } else {
-        _accountItems[accountIndex].balance -= amount;
-      }
-    });
-
+  // Guarda la lista de cuentas en SharedPreferences
+  Future<void> _saveAccountsToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    // Convierte solo los campos necesarios para preservar compatibilidad
-    final accountsData = _accountItems
-        .map((item) => json.encode({
-              'title': item.title,
-              'subtitle': item.subtitle ?? '',
-              'balance': item.balance.toString(),
-              'icon': item.icon?.codePoint ?? Icons.account_balance.codePoint,
-              'iconColor': item.iconColor?.value ?? Colors.blue.value,
-            }))
-        .toList();
-
+    List<String> accountsData =
+        _accountItems.map((item) => json.encode(item.toJson())).toList();
     prefs.setStringList('accounts', accountsData);
   }
 
@@ -207,11 +197,11 @@ class _Add_ScreenState extends State<Add_Screen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Título “Ingreso”
+        // Título “Egreso”
         Text(
-          _isIncome ? 'Ingreso' : 'Egreso',
+          'Egreso',
           style: const TextStyle(
-            color: Color(0xFF368983), // Verde
+            color: Color(0xFFFF6F61), // Rojo pálido
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
@@ -220,8 +210,8 @@ class _Add_ScreenState extends State<Add_Screen> {
 
         // Fila Monto
         _buildListRow(
-          icon: _isIncome ? Icons.arrow_upward : Icons.arrow_downward,
-          iconColor: const Color(0xFF368983),
+          icon: Icons.arrow_downward,
+          iconColor: const Color(0xFFFF6F61), // Rojo pálido
           trailing: Expanded(
             child: TextField(
               controller: _amountCtrl,
@@ -240,7 +230,7 @@ class _Add_ScreenState extends State<Add_Screen> {
         // Fila Cuenta (dropdown)
         _buildListRow(
           icon: Icons.account_balance_wallet,
-          iconColor: const Color(0xFF368983),
+          iconColor: const Color(0xFFFF6F61), // Rojo pálido
           trailing: Expanded(child: _buildAccountsDropdown()),
         ),
         const SizedBox(height: 10),
@@ -248,7 +238,7 @@ class _Add_ScreenState extends State<Add_Screen> {
         // Fila Categoría (dropdown)
         _buildListRow(
           icon: Icons.list_alt,
-          iconColor: const Color(0xFF368983),
+          iconColor: const Color(0xFFFF6F61), // Rojo pálido
           trailing: Expanded(child: _buildCategoriesDropdown()),
         ),
         const SizedBox(height: 10),
@@ -256,7 +246,7 @@ class _Add_ScreenState extends State<Add_Screen> {
         // Fila Descripción
         _buildListRow(
           icon: Icons.subject,
-          iconColor: const Color(0xFF368983),
+          iconColor: const Color(0xFFFF6F61), // Rojo pálido
           trailing: Expanded(
             child: TextField(
               controller: _detailCtrl,
@@ -274,7 +264,7 @@ class _Add_ScreenState extends State<Add_Screen> {
         // Fila Fecha
         _buildListRow(
           icon: Icons.calendar_month,
-          iconColor: const Color(0xFF368983),
+          iconColor: const Color(0xFFFF6F61), // Rojo pálido
           trailing: Row(
             children: [
               Expanded(
@@ -300,12 +290,12 @@ class _Add_ScreenState extends State<Add_Screen> {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text(
                 'Cancelar',
-                style: TextStyle(color: Color(0xFF368983)),
+                style: TextStyle(color: Color(0xFFFF6F61)), // Rojo pálido
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF368983),
+                backgroundColor: const Color(0xFFFF6F61), // Rojo pálido
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -362,7 +352,15 @@ class _Add_ScreenState extends State<Add_Screen> {
       items: _accountItems.map((account) {
         return DropdownMenuItem<AccountItem>(
           value: account,
-          child: Text(account.title),
+          child: Row(
+            children: [
+              if (account.icon != null)
+                Icon(account.icon,
+                    color: account.iconColor ?? Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Text(account.title),
+            ],
+          ),
         );
       }).toList(),
     );

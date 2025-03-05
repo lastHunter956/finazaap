@@ -1,21 +1,43 @@
 import 'package:hive/hive.dart';
+
 part 'add_date.g.dart';
 
-@HiveType(typeId: 1)
+@HiveType(typeId: 0)
 class Add_data extends HiveObject {
   @HiveField(0)
-  String name;
-  @HiveField(1)
-  String explain;
-  @HiveField(2)
-  String amount;
-  @HiveField(3)
-  String IN;
-  @HiveField(4)
-  DateTime datetime;
-  @HiveField(5)
-  int iconCode; // Nueva propiedad para el código del icono
+  final String type; // 'Income' o 'Expenses'
 
-  Add_data(this.IN, this.amount, this.datetime, this.explain, this.name, [int? iconCode])
-      : this.iconCode = iconCode ?? 0; // Proporciona un valor predeterminado si es null
+  @HiveField(1)
+  final String amount;
+
+  @HiveField(2)
+  final DateTime date;
+
+  @HiveField(3)
+  final String detail;
+
+  @HiveField(4)
+  final String category;
+
+  @HiveField(5)
+  final String account;
+
+  @HiveField(6)
+  final int iconCode;
+
+  Add_data(
+    this.type,
+    this.amount,
+    this.date,
+    this.detail,
+    this.category,
+    this.account,
+    this.iconCode,
+  );
+
+  // Getters para los campos utilizados en el código
+  String get IN => type;
+  DateTime get datetime => date;
+  String get explain => account;
+  String get name => category;
 }
