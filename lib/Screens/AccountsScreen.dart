@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter/services.dart';
+import 'package:finazaap/icon_lists.dart'; // Importa el archivo de listas de iconos
 
 class AccountsScreen extends StatefulWidget {
   @override
@@ -157,21 +158,7 @@ class _AccountsScreenState extends State<AccountsScreen>
                                   spacing: 12,
                                   runSpacing: 12,
                                   children: [
-                                    for (var iconData in [
-                                      Icons.account_balance_wallet,
-                                      Icons.account_balance,
-                                      Icons.credit_card,
-                                      Icons.attach_money,
-                                      Icons.money,
-                                      Icons.savings,
-                                      Icons.trending_up,
-                                      Icons.trending_down,
-                                      Icons.account_box,
-                                      Icons.account_circle,
-                                      Icons.card_giftcard,
-                                      Icons.home,
-                                      Icons.shopping_cart,
-                                    ])
+                                    for (var iconData in categoryIcons)
                                       GestureDetector(
                                         onTap: () {
                                           Navigator.of(context).pop(iconData);
@@ -298,6 +285,28 @@ class _AccountsScreenState extends State<AccountsScreen>
               onColorChanged: (Color color) {
                 tempColor = color;
               },
+              availableColors: [
+                Colors.red,
+                Colors.pink,
+                Colors.purple,
+                Colors.deepPurple,
+                Colors.indigo,
+                Colors.blue,
+                Colors.lightBlue,
+                Colors.cyan,
+                Colors.teal,
+                Colors.green,
+                Colors.lightGreen,
+                Colors.lime,
+                Colors.yellow,
+                Colors.amber,
+                Colors.orange,
+                Colors.deepOrange,
+                Colors.brown,
+                Colors.grey,
+                Colors.blueGrey,
+                Colors.black,
+              ],
             ),
           ),
           actions: [
@@ -380,8 +389,8 @@ class _AccountsScreenState extends State<AccountsScreen>
       ),
       // Botón flotante para agregar categoría
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blueAccent,
-        child: const Icon(Icons.add),
+        backgroundColor: Color.fromARGB(255, 82, 226, 255),
+        child: const Icon(Icons.add, color: Color.fromRGBO(31, 38, 57, 1)),
         onPressed: () {
           _showAddItemDialog(_currentTabIndex);
         },

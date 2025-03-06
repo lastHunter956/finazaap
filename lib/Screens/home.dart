@@ -264,9 +264,11 @@ class _HomeState extends State<Home> {
             style: TextStyle(
               fontWeight: FontWeight.w400,
               fontSize: 17,
-              color: history.IN == 'Income'
-                  ? const Color.fromARGB(255, 167, 226, 169)
-                  : const Color.fromARGB(255, 230, 172, 168),
+              color: history.IN == 'Transfer'
+                  ? Colors.grey // TRANSFERENCIA = GRIS
+                  : (history.IN == 'Income'
+                      ? const Color.fromARGB(255, 167, 226, 169) // INGRESO = VERDE
+                      : const Color.fromARGB(255, 230, 172, 168)), // GASTO = ROJO
             ),
           ),
         ],

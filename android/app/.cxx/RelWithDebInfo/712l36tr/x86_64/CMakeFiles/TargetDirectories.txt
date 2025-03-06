@@ -1,0 +1,2 @@
+D:/programacion 5.0/finazaap/android/app/.cxx/RelWithDebInfo/712l36tr/x86_64/CMakeFiles/edit_cache.dir
+D:/programacion 5.0/finazaap/android/app/.cxx/RelWithDebInfo/712l36tr/x86_64/CMakeFiles/rebuild_cache.dir

@@ -4,6 +4,8 @@ import 'package:finazaap/widgets/bottomnavigationbar.dart'; // Asegúrate de que
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:finazaap/icon_lists.dart';
+import 'package:intl/intl.dart';
 
 class AccountItem {
   IconData icon;
@@ -11,6 +13,7 @@ class AccountItem {
   String subtitle;
   String balance;
   Color iconColor;
+  bool includeInTotal; // Nueva propiedad
 
   AccountItem({
     required this.icon,
@@ -18,6 +21,7 @@ class AccountItem {
     required this.subtitle,
     required this.balance,
     required this.iconColor,
+    this.includeInTotal = true, // Por defecto, incluir en el saldo total
   });
 
   Map<String, dynamic> toJson() => {
@@ -26,6 +30,7 @@ class AccountItem {
         'subtitle': subtitle,
         'balance': balance,
         'iconColor': iconColor.value,
+        'includeInTotal': includeInTotal,
       };
 
   factory AccountItem.fromJson(Map<String, dynamic> json) => AccountItem(
@@ -34,6 +39,8 @@ class AccountItem {
         subtitle: json['subtitle'],
         balance: json['balance'],
         iconColor: Color(json['iconColor']),
+        includeInTotal: json['includeInTotal'] ??
+            true, // Por defecto true para cuentas antiguas
       );
 }
 
@@ -86,11 +93,19 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   List<AccountItem> accountItems = [];
+  bool _hideBalance = false; // Variable para controlar la visibilidad del saldo
 
   @override
   void initState() {
     super.initState();
     loadAccounts();
+  }
+
+  void _deleteAccount(AccountItem account) {
+    setState(() {
+      accountItems.remove(account);
+    });
+    saveAccounts();
   }
 
   // Carga las cuentas desde SharedPreferences
@@ -140,348 +155,612 @@ class _MyHomePageState extends State<MyHomePage> {
   void _updateTotalBalance() {
     double totalBalance = accountItems.fold<double>(
       0.0,
-      (sum, item) => sum + (double.tryParse(item.balance) ?? 0.0),
+      (sum, item) =>
+          sum +
+          (item.includeInTotal ? (double.tryParse(item.balance) ?? 0.0) : 0.0),
     );
 
     // Notificar siempre, incluso si el valor no ha cambiado
     widget.onBalanceUpdated(totalBalance);
 
-    // Opcional: actualizar la UI para mostrar el saldo en esta pantalla también
-    setState(() {}); // Solo si necesitas refrescar la UI
+    // Actualizar la UI para mostrar el saldo en esta pantalla también
+    setState(() {});
   }
 
   // Diálogo para agregar una nueva cuenta
   Future<AccountItem?> _showAddAccountDialog(BuildContext context) async {
-    IconData? selectedIcon;
-    String title = '';
-    String subtitle = '';
-    String balance = '';
-    Color iconColor = Colors.white;
+  IconData selectedIcon = Icons.account_balance_wallet; // Default
+  TextEditingController titleController = TextEditingController();
+  TextEditingController subtitleController = TextEditingController();
+  TextEditingController balanceController = TextEditingController();
+  Color iconColor = Colors.blue; // Default
+  bool includeInTotal = true; // Por defecto, incluir en el saldo total
 
-    return showDialog<AccountItem>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-          title: const Text('Agregar Cuenta',
-              style: TextStyle(color: Colors.white)),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                DropdownButtonFormField<IconData>(
-                  decoration: InputDecoration(
-                    labelText: 'Icono',
-                    labelStyle: const TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.circular(8.0),
+  return showDialog<AccountItem>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return AlertDialog(
+            backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: iconColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      selectedIcon,
+                      color: Colors.white,
+                      size: 30,
                     ),
                   ),
-                  dropdownColor: const Color.fromRGBO(31, 38, 57, 1),
-                  items: [
-                    Icons.account_balance_wallet,
-                    Icons.account_balance,
-                    Icons.credit_card,
-                    Icons.attach_money,
-                    Icons.money,
-                    Icons.savings,
-                    Icons.trending_up,
-                    Icons.trending_down,
-                    Icons.account_box,
-                    Icons.account_circle,
-                  ]
-                      .map((iconData) => DropdownMenuItem<IconData>(
-                            value: iconData,
-                            child: Icon(iconData, color: Colors.white70),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    selectedIcon = value;
-                  },
-                  iconEnabledColor: Colors.white70,
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Título',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                    ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Agregar Cuenta',
+                    style: TextStyle(color: Colors.white, fontSize: 20),
                   ),
-                  style: const TextStyle(color: Colors.white),
-                  onChanged: (value) {
-                    title = value;
-                  },
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Subtítulo',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                    ),
+                ],
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Campo de título
+                  Row(
+                    children: [
+                      Icon(Icons.account_balance_wallet_outlined, color: Colors.white70),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: titleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Título',
+                            labelStyle: TextStyle(color: Colors.white70),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white70),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
-                  style: const TextStyle(color: Colors.white),
-                  onChanged: (value) {
-                    subtitle = value;
-                  },
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Balance',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                    ),
+                  const SizedBox(height: 10),
+                  // Campo de subtítulo
+                  Row(
+                    children: [
+                      Icon(Icons.turned_in_not, color: Colors.white70),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: subtitleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Tipo de cuenta',
+                            labelStyle: TextStyle(color: Colors.white70),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white70),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
-                  style: const TextStyle(color: Colors.white),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                  ],
-                  onChanged: (value) {
-                    balance = value;
-                  },
-                ),
-                const SizedBox(height: 10),
-                TextButton(
-                  child: const Text('Seleccionar Color del Icono',
-                      style: TextStyle(color: Colors.white70)),
-                  onPressed: () async {
-                    Color? pickedColor =
-                        await _showColorPickerDialog(context, iconColor);
-                    if (pickedColor != null) {
+                  const SizedBox(height: 10),
+                  // Campo de balance
+                  Row(
+                    children: [
+                      Icon(Icons.monetization_on_outlined, color: Colors.white70),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: balanceController,
+                          decoration: const InputDecoration(
+                            labelText: 'Saldo',
+                            labelStyle: TextStyle(color: Colors.white70),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white70),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Seleccionar ícono y color
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ListTile(
+                          leading: Icon(Icons.insert_emoticon, color: Colors.white),
+                          title: const Text('Icono', style: TextStyle(color: Colors.white)),
+                          onTap: () async {
+                            IconData? icon = await showDialog<IconData>(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+                                  title: const Text(
+                                    'Elige un ícono',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  content: SingleChildScrollView(
+                                    child: Wrap(
+                                      spacing: 12,
+                                      runSpacing: 12,
+                                      children: [
+                                        for (var iconData in accountIcons)
+                                          GestureDetector(
+                                            onTap: () {
+                                              Navigator.of(context).pop(iconData);
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white24,
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Icon(
+                                                iconData,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                            if (icon != null) {
+                              setState(() {
+                                selectedIcon = icon;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                      Expanded(
+                        child: ListTile(
+                          leading: Icon(Icons.color_lens, color: Colors.white),
+                          title: const Text('Color', style: TextStyle(color: Colors.white)),
+                          onTap: () async {
+                            Color? pickedColor = await _showColorPickerDialog(context, iconColor);
+                            if (pickedColor != null) {
+                              setState(() {
+                                iconColor = pickedColor;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Checkbox para incluir en el saldo total
+                  CheckboxListTile(
+                    title: const Text(
+                      'Incluir cuenta en el saldo total',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    value: includeInTotal,
+                    activeColor: Colors.blueAccent,
+                    checkColor: Colors.white,
+                    onChanged: (bool? value) {
                       setState(() {
-                        iconColor = pickedColor;
+                        includeInTotal = value ?? true;
                       });
-                    }
-                  },
-                ),
-              ],
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancelar',
-                  style: TextStyle(color: Colors.white70)),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-              child: const Text('Agregar'),
-              onPressed: () {
-                if (selectedIcon != null &&
-                    title.isNotEmpty &&
-                    subtitle.isNotEmpty &&
-                    balance.isNotEmpty) {
-                  Navigator.of(context).pop(AccountItem(
-                    icon: selectedIcon!,
-                    title: title,
-                    subtitle: subtitle,
-                    balance: balance,
-                    iconColor: iconColor,
-                  ));
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
+            actions: [
+              TextButton(
+                child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
+                child: const Text('Agregar'),
+                onPressed: () {
+                  if (titleController.text.isNotEmpty &&
+                      subtitleController.text.isNotEmpty &&
+                      balanceController.text.isNotEmpty) {
+                    Navigator.of(context).pop(AccountItem(
+                      icon: selectedIcon,
+                      title: titleController.text,
+                      subtitle: subtitleController.text,
+                      balance: balanceController.text,
+                      iconColor: iconColor,
+                      includeInTotal: includeInTotal, // Guardar este valor
+                    ));
+                  }
+                },
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
 
   // Diálogo para editar una cuenta existente
-  Future<AccountItem?> _showEditAccountDialog(
-      BuildContext context, AccountItem item) async {
-    IconData? selectedIcon = item.icon;
-    TextEditingController titleController =
-        TextEditingController(text: item.title);
-    TextEditingController subtitleController =
-        TextEditingController(text: item.subtitle);
-    TextEditingController balanceController =
-        TextEditingController(text: item.balance);
-    Color iconColor = item.iconColor;
+  Future<dynamic> _showEditAccountDialog(BuildContext context, AccountItem item) async {
+  IconData selectedIcon = item.icon;
+  TextEditingController titleController = TextEditingController(text: item.title);
+  TextEditingController subtitleController = TextEditingController(text: item.subtitle);
+  TextEditingController balanceController = TextEditingController(text: item.balance);
+  Color iconColor = item.iconColor;
+  bool includeInTotal = item.includeInTotal;
 
-    return showDialog<AccountItem>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-          title: const Text('Editar Cuenta',
-              style: TextStyle(color: Colors.white)),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                DropdownButtonFormField<IconData>(
-                  value: selectedIcon,
-                  decoration: InputDecoration(
-                    labelText: 'Icono',
-                    labelStyle: const TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.circular(8.0),
+  return showDialog<dynamic>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return AlertDialog(
+            backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: iconColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      selectedIcon,
+                      color: Colors.white,
+                      size: 30,
                     ),
                   ),
-                  dropdownColor: const Color.fromRGBO(31, 38, 57, 1),
-                  items: [
-                    Icons.account_balance_wallet,
-                    Icons.account_balance,
-                    Icons.credit_card,
-                    Icons.attach_money,
-                    Icons.money,
-                    Icons.savings,
-                    Icons.trending_up,
-                    Icons.trending_down,
-                    Icons.account_box,
-                    Icons.account_circle,
-                  ]
-                      .map((iconData) => DropdownMenuItem<IconData>(
-                            value: iconData,
-                            child: Icon(iconData, color: Colors.white70),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    selectedIcon = value;
-                  },
-                  iconEnabledColor: Colors.white70,
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Título',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                    ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Editar Cuenta',
+                    style: TextStyle(color: Colors.white, fontSize: 20),
                   ),
-                  style: const TextStyle(color: Colors.white),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: subtitleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Subtítulo',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                    ),
+                ],
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Campo de título
+                  Row(
+                    children: [
+                      Icon(Icons.account_balance_wallet_outlined, color: Colors.white70),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: titleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Título',
+                            labelStyle: TextStyle(color: Colors.white70),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white70),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
-                  style: const TextStyle(color: Colors.white),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: balanceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Balance',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                    ),
+                  const SizedBox(height: 10),
+                  // Campo de subtítulo
+                  Row(
+                    children: [
+                      Icon(Icons.turned_in_not, color: Colors.white70),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: subtitleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Tipo de cuenta',
+                            labelStyle: TextStyle(color: Colors.white70),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white70),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
-                  style: const TextStyle(color: Colors.white),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextButton(
-                  child: const Text('Seleccionar Color del Icono',
-                      style: TextStyle(color: Colors.white70)),
-                  onPressed: () async {
-                    Color? pickedColor =
-                        await _showColorPickerDialog(context, iconColor);
-                    if (pickedColor != null) {
+                  const SizedBox(height: 10),
+                  // Campo de balance
+                  Row(
+                    children: [
+                      Icon(Icons.monetization_on_outlined, color: Colors.white70),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: balanceController,
+                          decoration: const InputDecoration(
+                            labelText: 'Saldo',
+                            labelStyle: TextStyle(color: Colors.white70),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white70),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                              borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                            ),
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Seleccionar ícono y color
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ListTile(
+                          leading: Icon(Icons.insert_emoticon, color: Colors.white),
+                          title: const Text('Icono', style: TextStyle(color: Colors.white)),
+                          onTap: () async {
+                            IconData? icon = await showDialog<IconData>(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+                                  title: const Text(
+                                    'Elige un ícono',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  content: SingleChildScrollView(
+                                    child: Wrap(
+                                      spacing: 12,
+                                      runSpacing: 12,
+                                      children: [
+                                        for (var iconData in accountIcons)
+                                          GestureDetector(
+                                            onTap: () {
+                                              Navigator.of(context).pop(iconData);
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white24,
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Icon(
+                                                iconData,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                            if (icon != null) {
+                              setState(() {
+                                selectedIcon = icon;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                      Expanded(
+                        child: ListTile(
+                          leading: Icon(Icons.color_lens, color: Colors.white),
+                          title: const Text('Color', style: TextStyle(color: Colors.white)),
+                          onTap: () async {
+                            Color? pickedColor = await _showColorPickerDialog(context, iconColor);
+                            if (pickedColor != null) {
+                              setState(() {
+                                iconColor = pickedColor;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Checkbox para incluir en el saldo total
+                  CheckboxListTile(
+                    title: const Text(
+                      'Incluir cuenta en el saldo total',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    value: includeInTotal,
+                    activeColor: Colors.blueAccent,
+                    checkColor: Colors.white,
+                    onChanged: (bool? value) {
                       setState(() {
-                        iconColor = pickedColor;
+                        includeInTotal = value ?? true;
                       });
-                    }
-                  },
-                ),
-              ],
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancelar',
-                  style: TextStyle(color: Colors.white70)),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-              child: const Text('Guardar'),
-              onPressed: () {
-                if (selectedIcon != null &&
-                    titleController.text.isNotEmpty &&
-                    subtitleController.text.isNotEmpty &&
-                    balanceController.text.isNotEmpty) {
-                  Navigator.of(context).pop(AccountItem(
-                    icon: selectedIcon!,
-                    title: titleController.text,
-                    subtitle: subtitleController.text,
-                    balance: balanceController.text,
-                    iconColor: iconColor,
-                  ));
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
+            actions: [
+              TextButton(
+                child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              TextButton(
+                child: const Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+                onPressed: () {
+                  // Mostrar diálogo de confirmación antes de eliminar
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext dialogContext) {
+                      return AlertDialog(
+                        backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+                        title: const Text('Confirmar eliminación', style: TextStyle(color: Colors.white)),
+                        content: const Text(
+                          '¿Estás seguro de que deseas eliminar esta cuenta? Esta acción no se puede deshacer.',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                        actions: [
+                          TextButton(
+                            child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+                            onPressed: () {
+                              Navigator.of(dialogContext).pop(); // Cierra el diálogo de confirmación
+                            },
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                            child: const Text('Eliminar'),
+                            onPressed: () {
+                              Navigator.of(dialogContext).pop(); // Cierra el diálogo de confirmación
+                              Navigator.of(context).pop('delete'); // Indica que se eliminará
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
+                child: const Text('Guardar'),
+                onPressed: () {
+                  if (titleController.text.isNotEmpty &&
+                      subtitleController.text.isNotEmpty &&
+                      balanceController.text.isNotEmpty) {
+                    Navigator.of(context).pop(AccountItem(
+                      icon: selectedIcon,
+                      title: titleController.text,
+                      subtitle: subtitleController.text,
+                      balance: balanceController.text,
+                      iconColor: iconColor,
+                      includeInTotal: includeInTotal, // Guardar este valor
+                    ));
+                  }
+                },
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
 
   // Diálogo para seleccionar color mediante un ColorPicker
   Future<Color?> _showColorPickerDialog(
       BuildContext context, Color currentColor) async {
-    Color pickerColor = currentColor;
+    Color tempColor = currentColor;
     return showDialog<Color>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-          title: const Text('Seleccione un color',
-              style: TextStyle(color: Colors.white)),
+          title: const Text(
+            'Selecciona un color',
+            style: TextStyle(color: Colors.white),
+          ),
           content: SingleChildScrollView(
-            child: ColorPicker(
-              pickerColor: pickerColor,
+            child: BlockPicker(
+              pickerColor: tempColor,
               onColorChanged: (Color color) {
-                pickerColor = color;
+                tempColor = color;
               },
+              availableColors: [
+                Colors.red,
+                Colors.pink,
+                Colors.purple,
+                Colors.deepPurple,
+                Colors.indigo,
+                Colors.blue,
+                Colors.lightBlue,
+                Colors.cyan,
+                Colors.teal,
+                Colors.green,
+                Colors.lightGreen,
+                Colors.lime,
+                Colors.yellow,
+                Colors.amber,
+                Colors.orange,
+                Colors.deepOrange,
+                Colors.brown,
+                Colors.grey,
+                Colors.blueGrey,
+                Colors.black,
+              ],
             ),
           ),
           actions: [
             TextButton(
-              child: const Text('Cancelar',
-                  style: TextStyle(color: Colors.white70)),
+              child:
+                  const Text('Cancelar', style: TextStyle(color: Colors.white)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Seleccionar'),
               onPressed: () {
-                Navigator.of(context).pop(pickerColor);
+                Navigator.of(context).pop(tempColor);
               },
             ),
           ],
@@ -492,53 +771,143 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Modificar este cálculo para respetar includeInTotal
     double totalBalance = accountItems.fold<double>(
       0.0,
-      (sum, item) => sum + (double.tryParse(item.balance) ?? 0.0),
+      (sum, item) =>
+          sum +
+          (item.includeInTotal ? (double.tryParse(item.balance) ?? 0.0) : 0.0),
+    );
+
+    // Formateador de moneda
+    final currencyFormat = NumberFormat.currency(
+      locale: 'es_CO',
+      symbol: '',
+      decimalDigits: 2,
     );
 
     return Scaffold(
       backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-      appBar: AppBar(
-        backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            _updateTotalBalance(); // Actualiza el saldo total
-            // Usa Navigator.pop en lugar de push para volver a la pantalla anterior
-            Navigator.pop(context);
-          },
-        ),
-        title: const Text('Cuentas', style: TextStyle(color: Colors.white)),
-      ),
-      body: SingleChildScrollView(
+      // Eliminamos el AppBar predeterminado
+      appBar: null,
+      body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Mostrar saldo total
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'Saldo total',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white70,
+            // Contenedor personalizado para el título y flecha de retroceso
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+              decoration: BoxDecoration(
+                color: const Color.fromRGBO(42, 49, 67, 1),
+              
+              ),
+              child: Row(
+                children: [
+                  // Botón de retroceso
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () {
+                      _updateTotalBalance();
+                      Navigator.pop(context);
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(),
+                  ),
+                  SizedBox(width: 16),
+                  // Título
+                  Text(
+                    'Cuentas',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // El resto del contenido en un SingleChildScrollView
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Sección de saldo total con espacio reducido y botón de ojo
+                    Padding(
+                      padding: const EdgeInsets.only(
+                          left: 16.0, right: 16.0, top: 16.0, bottom: 8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Saldo total',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white70,
+                            ),
+                          ),
+                          SizedBox(height: 5),
+                          Row(
+                            children: [
+                              // Texto formateado con el formato de moneda
+                              Text(
+                                _hideBalance
+                                    ? '******** \$'
+                                    : '${currencyFormat.format(totalBalance)} \$',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 16),
+                              // Botón de ojo para mostrar/ocultar
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _hideBalance = !_hideBalance;
+                                  });
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    _hideBalance
+                                        ? Icons.visibility_off
+                                        : Icons.visibility,
+                                    color: Colors.white70,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Divisor entre el saldo y las cuentas
+                    Divider(
+                      color: Colors.transparent,
+                      thickness: 1,
+                      height: 32,
+                      indent: 16,
+                      endIndent: 16,
+                    ),
+
+                    // Lista de cuentas
+                    ...accountItems
+                        .map((item) => _buildAccountItem(item))
+                        .toList(),
+                  ],
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                '${totalBalance.toStringAsFixed(2)} \$',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            // Lista de cuentas
-            ...accountItems.map((item) => _buildAccountItem(item)).toList(),
           ],
         ),
       ),
@@ -546,42 +915,126 @@ class _MyHomePageState extends State<MyHomePage> {
         onPressed: () async {
           final newItem = await _showAddAccountDialog(context);
           if (newItem != null) {
-            _saveAccount(newItem); // Aquí se llama a _saveAccount
+            _saveAccount(newItem);
           }
         },
-        backgroundColor: Colors.blueAccent,
-        child: const Icon(Icons.add),
+        backgroundColor: Color.fromARGB(255, 82, 226, 255),
+        child: const Icon(Icons.add, color: Color.fromRGBO(31, 38, 57, 1)),
       ),
     );
   }
 
   Widget _buildAccountItem(AccountItem item) {
+    // Formateador de moneda
+    final currencyFormat = NumberFormat.currency(
+      locale: 'es_CO',
+      symbol: '',
+      decimalDigits: 2,
+    );
+
+    // Convertir el balance a double para formatearlo
+    double balanceValue = double.tryParse(item.balance) ?? 0.0;
+
     return Card(
-      color: const Color.fromRGBO(31, 38, 57, 1),
-      child: ListTile(
-        leading: GestureDetector(
-          onLongPress: () async {
-            final editedItem = await _showEditAccountDialog(context, item);
-            if (editedItem != null) {
-              _editAccount(item, editedItem);
+    margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    color: const Color.fromRGBO(42, 49, 67, 1),
+    elevation: 4,
+    child: Column(
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
+          leading: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: item.iconColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                item.icon,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            title: Padding(
+              padding: const EdgeInsets.only(bottom: 6.0),
+              child: Row(
+                children: [
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  if (!item.includeInTotal)
+                    Tooltip(
+                      message: 'No incluida en el saldo total',
+                      child: Icon(
+                        Icons.visibility_off,
+                        color: Colors.white38,
+                        size: 18,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.subtitle,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                // Línea divisoria blanca
+                Divider(
+                  color: Colors.white30,
+                  thickness: 0.5,
+                  height: 16,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Saldo:',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                      // Texto formateado con el formato de moneda
+                      Text(
+                        '${currencyFormat.format(balanceValue)} \$',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            onTap: () async {
+            final result = await _showEditAccountDialog(context, item);
+            // Aquí está el problema - necesitamos verificar si el resultado es 'delete'
+            if (result == 'delete') {
+              _deleteAccount(item); // Eliminar la cuenta
+            } else if (result != null && result is AccountItem) {
+              _editAccount(item, result); // Actualizar la cuenta
             }
           },
-          child: Icon(item.icon, color: item.iconColor),
-        ),
-        title: Text(
-          item.title,
-          style: const TextStyle(color: Colors.white),
-        ),
-        subtitle: Text(
-          '${item.balance} \$',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        onTap: () async {
-          final editedItem = await _showEditAccountDialog(context, item);
-          if (editedItem != null) {
-            _editAccount(item, editedItem);
-          }
-        },
+          ),
+        ],
       ),
     );
   }

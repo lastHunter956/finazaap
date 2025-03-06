@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:radial_button/widget/circle_floating_button.dart';
 import 'package:finazaap/screens/add.dart';
 import 'package:finazaap/screens/add_expense.dart';
+import 'package:finazaap/screens/transfer.dart'; // Importar la nueva pantalla de transferencia
 
 class FloatingActionMenu extends StatelessWidget {
   const FloatingActionMenu({Key? key}) : super(key: key);
@@ -22,10 +23,9 @@ class FloatingActionMenu extends StatelessWidget {
         FloatingActionButton(
           backgroundColor: Colors.indigoAccent,
           onPressed: () {
-            const SnackBar snackBar = SnackBar(
-              content: Text("Sincronizando datos..."),
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => TransferScreen()),
             );
-            ScaffoldMessenger.of(context).showSnackBar(snackBar);
           },
           child: const Icon(Icons.sync_alt),
         ),
