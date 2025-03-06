@@ -125,8 +125,19 @@ class _Add_ScreenState extends State<Add_Screen> {
   }
 
   // Guardar la transacción en Hive
-  void _saveTransaction() {
-    // Define “Income” o “Expenses”
+  // Guardar la transacción en Hive y actualizar el saldo disponible global
+  Future<void> _saveTransaction() async {
+    // Validar que se han completado los campos obligatorios
+    if (_amountCtrl.text.isEmpty ||
+        _selectedAccount == null ||
+        _selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor completa todos los campos')),
+      );
+      return;
+    }
+
+    // Define "Income" o "Expenses"
     final type = _isIncome ? 'Income' : 'Expenses';
 
     // Creamos la instancia Add_data
@@ -136,19 +147,51 @@ class _Add_ScreenState extends State<Add_Screen> {
       _selectedDate,
       _detailCtrl.text,
       _selectedCategory ?? 'Sin categoría',
-      _selectedAccount?.title ??
-          'Sin cuenta', // Asegúrate de que aquí se espera un String
+      _selectedAccount?.title ?? 'Sin cuenta',
       0, // iconCode, puedes ajustar esto según sea necesario
     );
 
     // Guardamos en Hive
     box.add(newAdd);
 
-    // Actualizar el saldo de la cuenta
-    _updateAccountBalance(_selectedAccount?.title ?? '',
+    // Actualizar el saldo de la cuenta seleccionada
+    await _updateAccountBalance(_selectedAccount?.title ?? '',
         double.parse(_amountCtrl.text), _isIncome);
 
+    // Después de actualizar el saldo de la cuenta, actualizamos el saldo disponible global
+    await _updateGlobalAvailableBalance();
+
+    // Cerrar esta pantalla
     Navigator.of(context).pop();
+  }
+
+// Método auxiliar para actualizar el saldo disponible global
+  Future<void> _updateGlobalAvailableBalance() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? accountsData = prefs.getStringList('accounts');
+
+    if (accountsData != null) {
+      double totalBalance = 0.0;
+      for (var accountJson in accountsData) {
+        final Map<String, dynamic> data = json.decode(accountJson);
+        // Convertir el balance a double (puede estar como String)
+        final balance = data['balance'] is String
+            ? double.tryParse(data['balance']) ?? 0.0
+            : (data['balance'] is double ? data['balance'] : 0.0);
+        totalBalance += balance;
+      }
+
+      // Guardar el valor total calculado en SharedPreferences para que
+      // total_balance_widget pueda recuperarlo
+      await prefs.setDouble('available_balance', totalBalance);
+
+      // Si estamos usando Provider o algún sistema de estado global,
+      // podríamos actualizar directamente el notificador aquí:
+      // Provider.of<BalanceModel>(context, listen: false).updateBalance(totalBalance);
+
+      // Si tenemos acceso al notificador global:
+      // availableBalanceNotifier.value = totalBalance;
+    }
   }
 
   Future<void> _updateAccountBalance(

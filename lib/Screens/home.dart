@@ -8,6 +8,7 @@ import 'package:finazaap/widgets/total_balance_widget.dart';
 import 'package:finazaap/widgets/transaction_list_widget.dart';
 import 'package:finazaap/widgets/floating_action_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // Añade esta línea
 
 // Importa la pantalla de cuentas
 import 'package:finazaap/screens/selecctaccount.dart';
@@ -34,18 +35,19 @@ class _HomeState extends State<Home> {
   ];
 
   // Notificador de saldo disponible
-  final ValueNotifier<double> availableBalanceNotifier = ValueNotifier<double>(0.0);
+  final ValueNotifier<double> availableBalanceNotifier =
+      ValueNotifier<double>(0.0);
 
   @override
   void initState() {
     super.initState();
-    _updateAvailableBalance();
+    _updateAvailableBalance(); // Cargar el saldo inicial
   }
 
   // Funciones para calcular totales
   double total() {
-    return box.values.fold(
-        0.0, (sum, item) => sum + (double.tryParse(item.amount) ?? 0.0));
+    return box.values
+        .fold(0.0, (sum, item) => sum + (double.tryParse(item.amount) ?? 0.0));
   }
 
   double income() {
@@ -71,8 +73,24 @@ class _HomeState extends State<Home> {
     return [];
   }
 
-  void _updateAvailableBalance() {
-    availableBalanceNotifier.value = total();
+  Future<void> _updateAvailableBalance() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? accountsData = prefs.getStringList('accounts');
+
+    if (accountsData != null) {
+      double totalBalance = 0.0;
+      for (var accountJson in accountsData) {
+        final Map<String, dynamic> data = json.decode(accountJson);
+        // Convertir el balance a double (puede estar como String)
+        final balance = data['balance'] is String
+            ? double.tryParse(data['balance']) ?? 0.0
+            : (data['balance'] is double ? data['balance'] : 0.0);
+        totalBalance += balance;
+      }
+
+      // Actualiza el notificador con el valor calculado
+      availableBalanceNotifier.value = totalBalance;
+    }
   }
 
   @override
@@ -115,8 +133,8 @@ class _HomeState extends State<Home> {
                 // Contenedor con TotalBalanceWidget
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     child: TotalBalanceWidget(
                       availableBalanceNotifier: availableBalanceNotifier,
                       accountingBalance: total(), // Ajusta según tu lógica
@@ -127,10 +145,11 @@ class _HomeState extends State<Home> {
                           context,
                           MaterialPageRoute(
                               builder: (context) => MyHomePage(
-                                onBalanceUpdated: (double balance) {
-                                  availableBalanceNotifier.value = balance; // Esta es la línea clave
-                                },
-                              )),
+                                    onBalanceUpdated: (double balance) {
+                                      availableBalanceNotifier.value =
+                                          balance; // Esta es la línea clave
+                                    },
+                                  )),
                         );
                       },
                       // Se ha removido onSelectDate, ya que el widget maneja internamente la selección de fecha.
@@ -155,8 +174,8 @@ class _HomeState extends State<Home> {
                 // Título para "Historial de transacciones" (opcional)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     child: const Text(
                       'Historial de transacciones',
                       style: TextStyle(

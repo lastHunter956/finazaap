@@ -62,7 +62,7 @@ class _BottomState extends State<Bottom> {
             ),
           ),
           NavigationBarButton(
-            text: 'Cuentas',
+            text: 'Categorias',
             icon: Icons.account_balance,
             backgroundGradient: LinearGradient(
               colors: [Colors.green, Colors.yellow],

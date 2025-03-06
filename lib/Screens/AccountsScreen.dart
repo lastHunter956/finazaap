@@ -9,15 +9,30 @@ class AccountsScreen extends StatefulWidget {
   _AccountsScreenState createState() => _AccountsScreenState();
 }
 
-class _AccountsScreenState extends State<AccountsScreen> {
+class _AccountsScreenState extends State<AccountsScreen>
+    with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> ingresos = [];
   List<Map<String, dynamic>> gastos = [];
   Color selectedColor = Colors.blue;
+  late TabController _tabController;
+  int _currentTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      setState(() {
+        _currentTabIndex = _tabController.index;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   void _loadData() async {
@@ -40,194 +55,267 @@ class _AccountsScreenState extends State<AccountsScreen> {
         'gastos', gastos.map((item) => json.encode(item)).toList());
   }
 
+  /// Elimina un ítem de ingresos/gastos y guarda
+  void _removeItem(int tabIndex, int index) {
+    setState(() {
+      if (tabIndex == 0) {
+        ingresos.removeAt(index);
+      } else {
+        gastos.removeAt(index);
+      }
+    });
+    _saveData();
+  }
+
+  /// Diálogo para agregar/editar categoría
   void _showAddItemDialog(int tabIndex,
       {Map<String, dynamic>? initialData, int? index}) {
+    // Controlador para el texto
     TextEditingController _textFieldController =
         TextEditingController(text: initialData?['text']);
-    TextEditingController _balanceController = TextEditingController(
-        text: initialData?['balance']?.toString() ?? '');
-    IconData? selectedIcon = initialData?['icon'] != null
+
+    // Ícono seleccionado
+    IconData? tempIcon = initialData?['icon'] != null
         ? IconData(initialData!['icon'], fontFamily: 'MaterialIcons')
-        : null;
-    selectedColor = initialData?['color'] != null
+        : Icons.category;
+
+    // Color seleccionado
+    Color tempColor = initialData?['color'] != null
         ? Color(initialData!['color'])
         : Colors.blue;
 
     showDialog(
       context: context,
+      barrierDismissible: false, // Para forzar "Cancelar" o "Guardar"
       builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-          title: Text(
-            initialData == null ? 'Agregar' : 'Editar',
-            style: const TextStyle(color: Colors.white),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                TextField(
-                  controller: _textFieldController,
-                  decoration: const InputDecoration(
-                    labelText: 'Descripción',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              title: Text(
+                initialData == null ? 'Agregar Categoría' : 'Editar Categoría',
+                style: const TextStyle(color: Colors.white),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Vista previa (círculo con ícono blanco)
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: tempColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        tempIcon,
+                        color: Colors.white,
+                        size: 30,
+                      ),
                     ),
-                  ),
-                  style: const TextStyle(color: Colors.white),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _balanceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Balance',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                    const SizedBox(height: 16),
+                    // Nombre de la categoría
+                    TextField(
+                      controller: _textFieldController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre de la categoría',
+                        labelStyle: TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white70),
+                          borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.blueAccent),
+                          borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                        ),
+                      ),
+                      style: const TextStyle(color: Colors.white),
                     ),
-                  ),
-                  style: const TextStyle(color: Colors.white),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                    const SizedBox(height: 16),
+                    // Seleccionar ícono
+                    ListTile(
+                      leading: Icon(tempIcon, color: Colors.white),
+                      title: const Text('Seleccionar ícono',
+                          style: TextStyle(color: Colors.white)),
+                      onTap: () async {
+                        IconData? icon = await showDialog<IconData>(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              backgroundColor:
+                                  const Color.fromRGBO(31, 38, 57, 1),
+                              title: const Text(
+                                'Elige un ícono',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              content: SingleChildScrollView(
+                                child: Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: [
+                                    for (var iconData in [
+                                      Icons.account_balance_wallet,
+                                      Icons.account_balance,
+                                      Icons.credit_card,
+                                      Icons.attach_money,
+                                      Icons.money,
+                                      Icons.savings,
+                                      Icons.trending_up,
+                                      Icons.trending_down,
+                                      Icons.account_box,
+                                      Icons.account_circle,
+                                      Icons.card_giftcard,
+                                      Icons.home,
+                                      Icons.shopping_cart,
+                                    ])
+                                      GestureDetector(
+                                        onTap: () {
+                                          Navigator.of(context).pop(iconData);
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white24,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Icon(
+                                            iconData,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                        if (icon != null) {
+                          setModalState(() {
+                            tempIcon = icon;
+                          });
+                        }
+                      },
+                    ),
+                    // Seleccionar color
+                    ListTile(
+                      leading: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: tempColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      title: const Text('Seleccionar color',
+                          style: TextStyle(color: Colors.white)),
+                      onTap: () async {
+                        Color? pickedColor =
+                            await _showColorPickerDialog(context, tempColor);
+                        if (pickedColor != null) {
+                          setModalState(() {
+                            tempColor = pickedColor;
+                          });
+                        }
+                      },
+                    ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<IconData>(
-                  value: selectedIcon,
-                  decoration: InputDecoration(
-                    labelText: 'Icono',
-                    labelStyle: const TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: Colors.white70),
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                  dropdownColor: const Color.fromRGBO(31, 38, 57, 1),
-                  items: [
-                    Icons.account_balance_wallet,
-                    Icons.account_balance,
-                    Icons.credit_card,
-                    Icons.attach_money,
-                    Icons.money,
-                    Icons.savings,
-                    Icons.trending_up,
-                    Icons.trending_down,
-                    Icons.account_box,
-                    Icons.account_circle,
-                  ]
-                      .map((iconData) => DropdownMenuItem<IconData>(
-                            value: iconData,
-                            child: Icon(iconData, color: Colors.white70),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedIcon = value;
-                    });
-                  },
-                  iconEnabledColor: Colors.white70,
-                ),
-                const SizedBox(height: 10),
+              ),
+              actions: [
                 TextButton(
-                  child: const Text('Seleccionar Color del Icono',
-                      style: TextStyle(color: Colors.white70)),
-                  onPressed: () async {
-                    Color? pickedColor =
-                        await _showColorPickerDialog(context, selectedColor);
-                    if (pickedColor != null) {
+                  child: const Text('Cancelar',
+                      style: TextStyle(color: Colors.white)),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Guardar'),
+                  onPressed: () {
+                    if (_textFieldController.text.isNotEmpty &&
+                        tempIcon != null) {
+                      final newItem = {
+                        'text': _textFieldController.text,
+                        'icon': tempIcon?.codePoint,
+                        'color': tempColor.value,
+                      };
                       setState(() {
-                        selectedColor = pickedColor;
+                        if (initialData == null) {
+                          // Nuevo
+                          if (tabIndex == 0) {
+                            ingresos.add(newItem);
+                          } else {
+                            gastos.add(newItem);
+                          }
+                        } else {
+                          // Editar
+                          if (tabIndex == 0) {
+                            ingresos[index!] = newItem;
+                          } else {
+                            gastos[index!] = newItem;
+                          }
+                        }
                       });
+                      _saveData();
+                      Navigator.of(context).pop();
                     }
                   },
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancelar',
-                  style: TextStyle(color: Colors.white70)),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-              child: const Text('Guardar'),
-              onPressed: () {
-                if (_textFieldController.text.isNotEmpty &&
-                    _balanceController.text.isNotEmpty &&
-                    selectedIcon != null) {
-                  final newItem = {
-                    'text': _textFieldController.text,
-                    'balance': double.parse(_balanceController.text),
-                    'icon': selectedIcon!.codePoint,
-                    'color': selectedColor.value,
-                  };
-                  setState(() {
-                    if (initialData == null) {
-                      if (tabIndex == 0) {
-                        ingresos.add(newItem);
-                      } else {
-                        gastos.add(newItem);
-                      }
-                    } else {
-                      if (tabIndex == 0) {
-                        ingresos[index!] = newItem;
-                      } else {
-                        gastos[index!] = newItem;
-                      }
-                    }
-                  });
-                  _saveData();
-                  Navigator.of(context).pop();
-                }
-              },
-            ),
-          ],
+            );
+          },
         );
       },
     );
   }
 
+  /// Diálogo para seleccionar color
   Future<Color?> _showColorPickerDialog(
       BuildContext context, Color currentColor) async {
-    Color pickerColor = currentColor;
+    Color tempColor = currentColor;
     return showDialog<Color>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-          title: const Text('Seleccione un color',
-              style: TextStyle(color: Colors.white)),
+          title: const Text(
+            'Selecciona un color',
+            style: TextStyle(color: Colors.white),
+          ),
           content: SingleChildScrollView(
-            child: ColorPicker(
-              pickerColor: pickerColor,
+            child: BlockPicker(
+              pickerColor: tempColor,
               onColorChanged: (Color color) {
-                pickerColor = color;
+                tempColor = color;
               },
             ),
           ),
           actions: [
             TextButton(
-              child: const Text('Cancelar',
-                  style: TextStyle(color: Colors.white70)),
+              child:
+                  const Text('Cancelar', style: TextStyle(color: Colors.white)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Seleccionar'),
               onPressed: () {
-                Navigator.of(context).pop(pickerColor);
+                Navigator.of(context).pop(tempColor);
               },
             ),
           ],
@@ -239,73 +327,130 @@ class _AccountsScreenState extends State<AccountsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Fondo principal
       backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-      appBar: AppBar(
-        backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-        title: const Text('Cuentas', style: TextStyle(color: Colors.white)),
-      ),
       body: Column(
         children: [
+          // Encabezado que cubre el título y las pestañas
+          Container(
+            width: double.infinity,
+            color: const Color.fromRGBO(42, 49, 67, 1),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                // Título centrado
+                const Text(
+                  'Categorias',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // TabBar dentro del contenedor
+                TabBar(
+                  controller: _tabController,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: Colors.blueAccent,
+                  labelStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  tabs: const [
+                    Tab(text: 'Ingresos'),
+                    Tab(text: 'Gastos'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Contenido de cada pestaña
           Expanded(
-            child: DefaultTabController(
-              length: 2,
-              child: Column(
-                children: [
-                  TabBar(
-                    tabs: const [
-                      Tab(text: 'Ingresos'),
-                      Tab(text: 'Gastos'),
-                    ],
-                    indicatorColor: Colors.blueAccent,
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildListView(ingresos, 0),
-                        _buildListView(gastos, 1),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildListView(ingresos, 0),
+                _buildListView(gastos, 1),
+              ],
             ),
           ),
         ],
       ),
+      // Botón flotante para agregar categoría
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddItemDialog(0);
-        },
         backgroundColor: Colors.blueAccent,
         child: const Icon(Icons.add),
+        onPressed: () {
+          _showAddItemDialog(_currentTabIndex);
+        },
       ),
     );
   }
 
+  /// Lista de categorías (Ingresos o Gastos)
   Widget _buildListView(List<Map<String, dynamic>> items, int tabIndex) {
     return ListView.builder(
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
-        return Card(
-          color: const Color.fromRGBO(31, 38, 57, 1),
-          child: ListTile(
-            leading: Icon(
-              IconData(item['icon'], fontFamily: 'MaterialIcons'),
-              color: Color(item['color']),
+        return Column(
+          children: [
+            InkWell(
+              onTap: () {
+                _showAddItemDialog(
+                  tabIndex,
+                  initialData: item,
+                  index: index,
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 30),
+                child: Row(
+                  children: [
+                    // Círculo con ícono blanco
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Color(item['color']),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        IconData(item['icon'], fontFamily: 'MaterialIcons'),
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Nombre de la categoría
+                    Expanded(
+                      child: Text(
+                        item['text'],
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ),
+            
+                    const SizedBox(width: 4),
+                    // Botón para borrar (fuera del área tactil de edición)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_outlined, color: Colors.white),
+                      onPressed: () {
+                        _removeItem(tabIndex, index);
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ),
-            title: Text(
-              item['text'],
-              style: const TextStyle(color: Colors.white),
+            Divider(
+              color: Colors.white24,
+              height: 1,
+              thickness: 1,
+              indent: 16,
+              endIndent: 16,
             ),
-            subtitle: Text(
-              '${item['balance']} \$',
-              style: const TextStyle(color: Colors.white70),
-            ),
-            onTap: () {
-              _showAddItemDialog(tabIndex, initialData: item, index: index);
-            },
-          ),
+          ],
         );
       },
     );

@@ -95,20 +95,20 @@ class _MyHomePageState extends State<MyHomePage> {
 
   // Carga las cuentas desde SharedPreferences
   void loadAccounts() async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  List<String>? accountsData = prefs.getStringList('accounts');
-  if (accountsData != null) {
-    setState(() {
-      accountItems = accountsData
-          .map((item) => AccountItem.fromJson(json.decode(item)))
-          .toList();
-    });
-    _updateTotalBalance(); // Esta llamada es crucial
-  } else {
-    // Si no hay datos, actualiza el balance a cero
-    widget.onBalanceUpdated(0.0);
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? accountsData = prefs.getStringList('accounts');
+    if (accountsData != null) {
+      setState(() {
+        accountItems = accountsData
+            .map((item) => AccountItem.fromJson(json.decode(item)))
+            .toList();
+      });
+      _updateTotalBalance(); // Esta llamada es crucial
+    } else {
+      // Si no hay datos, actualiza el balance a cero
+      widget.onBalanceUpdated(0.0);
+    }
   }
-}
 
   // Guarda las cuentas en SharedPreferences y actualiza el saldo total
   void saveAccounts() async {
@@ -138,17 +138,17 @@ class _MyHomePageState extends State<MyHomePage> {
 
   // Calcula el saldo total y llama al callback correspondiente
   void _updateTotalBalance() {
-  double totalBalance = accountItems.fold<double>(
-    0.0,
-    (sum, item) => sum + (double.tryParse(item.balance) ?? 0.0),
-  );
-  
-  // Notificar siempre, incluso si el valor no ha cambiado
-  widget.onBalanceUpdated(totalBalance);
-  
-  // Opcional: actualizar la UI para mostrar el saldo en esta pantalla también
-  setState(() {}); // Solo si necesitas refrescar la UI
-}
+    double totalBalance = accountItems.fold<double>(
+      0.0,
+      (sum, item) => sum + (double.tryParse(item.balance) ?? 0.0),
+    );
+
+    // Notificar siempre, incluso si el valor no ha cambiado
+    widget.onBalanceUpdated(totalBalance);
+
+    // Opcional: actualizar la UI para mostrar el saldo en esta pantalla también
+    setState(() {}); // Solo si necesitas refrescar la UI
+  }
 
   // Diálogo para agregar una nueva cuenta
   Future<AccountItem?> _showAddAccountDialog(BuildContext context) async {
@@ -504,12 +504,9 @@ class _MyHomePageState extends State<MyHomePage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            _updateTotalBalance(); // Actualiza el saldo total antes de salir
-            // Navega a la página de bottom navigation (verifica la ruta)
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => Bottom()),
-            );
+            _updateTotalBalance(); // Actualiza el saldo total
+            // Usa Navigator.pop en lugar de push para volver a la pantalla anterior
+            Navigator.pop(context);
           },
         ),
         title: const Text('Cuentas', style: TextStyle(color: Colors.white)),

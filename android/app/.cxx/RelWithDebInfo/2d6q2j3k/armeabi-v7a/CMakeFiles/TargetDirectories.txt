@@ -1,0 +1,2 @@
+D:/programacion 5.0/finazaap/android/app/.cxx/RelWithDebInfo/2d6q2j3k/armeabi-v7a/CMakeFiles/edit_cache.dir
+D:/programacion 5.0/finazaap/android/app/.cxx/RelWithDebInfo/2d6q2j3k/armeabi-v7a/CMakeFiles/rebuild_cache.dir
