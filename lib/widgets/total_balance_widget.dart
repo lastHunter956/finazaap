@@ -15,6 +15,9 @@ class TotalBalanceWidget extends StatefulWidget {
   final VoidCallback onShowExpenses;
   final VoidCallback onShowIncome;
 
+  // Añadir callback para notificar selección de fecha
+  final Function(int month, int year)? onDateSelected;
+
   // Texto inicial del botón de fecha
   final String selectedMonthYear;
 
@@ -28,6 +31,7 @@ class TotalBalanceWidget extends StatefulWidget {
     required this.onShowAll,
     required this.onShowExpenses,
     required this.onShowIncome,
+    this.onDateSelected,  // <-- Nueva propiedad
     this.selectedMonthYear = 'Diciembre 2025',
   }) : super(key: key);
 
@@ -36,24 +40,45 @@ class TotalBalanceWidget extends StatefulWidget {
 }
 
 class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
+  // Variables para controlar la selección de mes y año
+  int _selectedMonth = DateTime.now().month;
+  int _selectedYear = DateTime.now().year;
+  String _selectedMonthYear = '';
+  
+  // Añadir la variable selectedFilter que falta
   String selectedFilter = 'Todos';
-
-  // Variables para manejar el mes y año seleccionados
-  late String _selectedMonthYear;  // Texto mostrado en el botón
-  late int _selectedMonth;
-  late int _selectedYear;
+  bool _isLocaleInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    // Inicializa la configuración regional (lo ideal es hacerlo una sola vez en main())
-    initializeDateFormatting('es', null);
+    
+    // Inicializar los datos de localización antes de formatear fechas
+    initializeDateFormatting('es').then((_) {
+      setState(() {
+        _isLocaleInitialized = true;
+        
+        // Inicializar con la fecha actual
+        final now = DateTime.now();
+        _selectedMonth = now.month;
+        _selectedYear = now.year;
+        _selectedMonthYear = DateFormat.yMMMM('es').format(now);
+        
+        // Notificar al padre sobre la selección inicial
+        if (widget.onDateSelected != null) {
+          widget.onDateSelected!(_selectedMonth, _selectedYear);
+        }
+      });
+    });
+  }
 
-    // Asigna valores iniciales
-    _selectedMonthYear = widget.selectedMonthYear;
-    final now = DateTime.now();
-    _selectedMonth = now.month;
-    _selectedYear = now.year;
+  // Método para formatear fecha con seguridad
+  String _formatDate(DateTime date) {
+    if (!_isLocaleInitialized) {
+      // Retornar un valor predeterminado mientras se inicializa
+      return widget.selectedMonthYear;
+    }
+    return DateFormat.yMMMM('es').format(date);
   }
 
   // Abre el menú desplegable de mes y año
@@ -176,7 +201,12 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                         _selectedMonth = localMonth;
                         _selectedYear = localYear;
                         final date = DateTime(_selectedYear, _selectedMonth);
-                        _selectedMonthYear = DateFormat.yMMMM('es').format(date);
+                        _selectedMonthYear = _formatDate(date); // <-- Usar nuestro método seguro
+                        
+                        // Notificar al padre sobre la selección
+                        if (widget.onDateSelected != null) {
+                          widget.onDateSelected!(_selectedMonth, _selectedYear);
+                        }
                       });
                       Navigator.pop(context);
                     },
@@ -252,18 +282,113 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       ),
                     ],
                   ),
-                  // Gráfica: Anillo que muestra el % de ingresos (sin ícono)
-                  SizedBox(
-                    width: 50,
-                    height: 50,
-                    child: CircularProgressIndicator(
-                      value: ratio.clamp(0, 1),
-                      strokeWidth: 5,
-                      backgroundColor: Colors.grey.shade700,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFF368983),
+                  // Gráfica: Anillo que muestra el % de ingresos/egresos con diseño mejorado
+                  Stack(
+                    alignment: Alignment.center, 
+                    children: [
+                      // El gráfico circular sin fondo y con mejor diseño - AUMENTADO DE TAMAÑO
+                      SizedBox(
+                        width: 100, // Mantenemos el mismo contenedor
+                        height: 100,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Fondo circular transparente pero con el tamaño real del gráfico
+                            Container(
+                              width: 10, // Tamaño real del gráfico
+                              height: 10,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.transparent,
+                              ),
+                            ),
+                            
+                            // Indicador circular con tamaño real aumentado
+                            SizedBox(
+                              width: 70, // Tamaño real del gráfico circular
+                              height: 70, // Tamaño real del gráfico circular
+                              child: CircularProgressIndicator(
+                                value: widget.totalExpenses > widget.totalIncome 
+                                    ? 1.0  // Lleno si hay exceso de gastos
+                                    : widget.totalIncome > 0 
+                                        ? widget.totalExpenses / widget.totalIncome  // Proporción de gastos/ingresos
+                                        : 0,
+                                strokeWidth: 8, // Mantenemos el mismo grosor
+                                strokeCap: StrokeCap.round,
+                                backgroundColor: Colors.grey.shade800.withOpacity(0.1),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  widget.totalExpenses > widget.totalIncome
+                                      ? const Color(0xFFFF7D7D) // Rojo más pálido
+                                      : const Color(0xFF50FA7B)
+                                ),
+                              ),
+                            ),
+                            
+                            // Textos centrados dentro del gráfico con mejor legibilidad - SIN FONDO
+                            if (widget.totalIncome > 0)
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Porcentaje con mejor legibilidad - SIN FONDO
+                                  Text(
+                                    widget.totalExpenses > widget.totalIncome
+                                        ? '-${((widget.totalExpenses / widget.totalIncome * 100) - 100).round()}%'
+                                        : '${((1 - widget.totalExpenses / widget.totalIncome) * 100).round()}%',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15, // Mantenemos el tamaño de fuente
+                                      fontWeight: FontWeight.bold,
+                                      shadows: [
+                                        Shadow(
+                                          offset: Offset(0, 1),
+                                          blurRadius: 2.0,
+                                          color: Color.fromARGB(100, 0, 0, 0),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  
+                                  // Etiqueta "AHORRO" o "EXCEDIDO" - sin cambios en su diseño
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: widget.totalExpenses > widget.totalIncome
+                                          ? const Color(0xFFFF7D7D).withOpacity(0.2)
+                                          : const Color(0xFF50FA7B).withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: widget.totalExpenses > widget.totalIncome
+                                            ? const Color(0xFFFF7D7D).withOpacity(0.5)
+                                            : const Color(0xFF50FA7B).withOpacity(0.5),
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      widget.totalExpenses > widget.totalIncome ? 'EXCEDIDO' : 'AHORRO',
+                                      style: TextStyle(
+                                        color: widget.totalExpenses > widget.totalIncome
+                                            ? const Color(0xFFFF7D7D)
+                                            : const Color(0xFF50FA7B),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.4,
+                                        shadows: [
+                                          Shadow(
+                                            offset: const Offset(0, 1),
+                                            blurRadius: 1.0,
+                                            color: Colors.black.withOpacity(0.3),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),

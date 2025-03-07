@@ -40,6 +40,8 @@ dependencies:
   syncfusion_flutter_core: ^28.2.7
   vm_service: ^14.3.1
   responsive_navigation_bar: ^5.0.2
+  # Añadir esta dependencia
+  flutter_speed_dial: ^7.0.0
 
 dev_dependencies:
   flutter_test:
@@ -53,6 +55,8 @@ dev_dependencies:
   font_awesome_flutter: ^10.7.0
   radial_button: ^1.0.1
   flutter_expandable_fab: ^2.3.0
+  build_runner: ^2.3.3  # Añadir esta línea
+  hive_generator: ^2.0.0  # Añadir esta línea si no está presente
 
 flutter:
   uses-material-design: true

@@ -3,6 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:convert';
+import 'package:finazaap/data/account_utils.dart';
+import 'package:finazaap/data/transaction_service.dart';
+import 'package:flutter/services.dart'; // Para FilteringTextInputFormatter
 
 // Modelo de cuenta adaptado para recibir datos desde selecctaccount.dart
 class AccountItem {
@@ -48,7 +51,18 @@ class AccountItem {
 }
 
 class Add_Screen extends StatefulWidget {
-  const Add_Screen({Key? key}) : super(key: key);
+  final bool isEditing;
+  final Add_data? transaction;
+  final dynamic transactionKey;  // Agregar esta propiedad
+  final VoidCallback? onTransactionUpdated;
+
+  const Add_Screen({
+    Key? key, 
+    this.isEditing = false, 
+    this.transaction,
+    this.transactionKey,  // Agregar a constructor
+    this.onTransactionUpdated,
+  }) : super(key: key);
 
   @override
   State<Add_Screen> createState() => _Add_ScreenState();
@@ -80,6 +94,45 @@ class _Add_ScreenState extends State<Add_Screen> {
     super.initState();
     _loadAccountsFromPrefs();
     _loadCategoriesFromPrefs();
+    
+    // Cargar datos si estamos en modo edición
+    if (widget.isEditing && widget.transaction != null) {
+      _loadTransactionData();
+    }
+  }
+
+  // Método para cargar los datos de la transacción
+  void _loadTransactionData() {
+    final transaction = widget.transaction!;
+    
+    // Cargar valores en controladores
+    _amountCtrl.text = transaction.amount;
+    _detailCtrl.text = transaction.detail;
+    _selectedDate = transaction.datetime;
+    _selectedCategory = transaction.explain; 
+    
+    // Para asegurarse que la cuenta se cargue correctamente
+    _loadAccountsFromPrefs().then((_) {
+      // Buscar la cuenta por nombre exacto después de que las cuentas estén cargadas
+      AccountItem? accountToSelect;
+      
+      try {
+        accountToSelect = _accountItems.firstWhere(
+          (account) => account.title.trim() == transaction.name.trim(),
+        );
+      } catch (_) {
+        // Si no encuentra la cuenta, usar la primera si existe
+        if (_accountItems.isNotEmpty) {
+          accountToSelect = _accountItems.first;
+        }
+      }
+      
+      if (accountToSelect != null) {
+        setState(() {
+          _selectedAccount = accountToSelect;
+        });
+      }
+    });
   }
 
   // Carga la lista de cuentas guardadas en “accounts”
@@ -124,46 +177,85 @@ class _Add_ScreenState extends State<Add_Screen> {
     }
   }
 
-  // Guardar la transacción en Hive
-  // Guardar la transacción en Hive y actualizar el saldo disponible global
-  Future<void> _saveTransaction() async {
-    // Validar que se han completado los campos obligatorios
-    if (_amountCtrl.text.isEmpty ||
-        _selectedAccount == null ||
-        _selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor completa todos los campos')),
-      );
-      return;
-    }
+  // Reemplazar el método _saveTransaction con esta versión mejorada
 
-    // Define "Income" o "Expenses"
-    final type = _isIncome ? 'Income' : 'Expenses';
+Future<void> _saveTransaction() async {
+  // Validaciones básicas
+  if (_amountCtrl.text.isEmpty || _selectedAccount == null || _selectedCategory == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Por favor completa todos los campos')),
+    );
+    return;
+  }
 
-    // Creamos la instancia Add_data
-    final newAdd = Add_data(
-      type, // 'Income' o 'Expenses'
+  try {
+    final amount = double.parse(_amountCtrl.text);
+    final int categoryIconCode = _getCategoryIconCode(_selectedCategory!);
+    
+    // Crear objeto de transacción
+    final Add_data transaction = Add_data(
+      'Income',
       _amountCtrl.text,
       _selectedDate,
       _detailCtrl.text,
-      _selectedCategory ?? 'Sin categoría',
-      _selectedAccount?.title ?? 'Sin cuenta',
-      0, // iconCode, puedes ajustar esto según sea necesario
+      _selectedCategory!,
+      _selectedAccount!.title,
+      categoryIconCode,
     );
+    
+    // Guardar transacción en Hive y actualizar saldos
+    if (widget.isEditing && widget.transaction != null && widget.transactionKey != null) {
+      // Modo edición - procesar cambios de manera atómica
+      bool success = await TransactionService.processTransaction(
+        type: 'Income',
+        amount: amount,
+        accountName: _selectedAccount!.title,
+        isNewTransaction: false,
+        oldTransaction: widget.transaction,
+      );
+      
+      if (success) {
+        // Actualizar en Hive solo si la actualización de saldo tuvo éxito
+        box.put(widget.transactionKey, transaction);
+      } else {
+        throw Exception('Error al actualizar el saldo de la cuenta');
+      }
+    } else {
+      // Modo creación - procesar cambios de manera atómica
+      bool success = await TransactionService.processTransaction(
+        type: 'Income',
+        amount: amount,
+        accountName: _selectedAccount!.title,
+        isNewTransaction: true,
+      );
+      
+      if (success) {
+        // Guardar en Hive solo si la actualización de saldo tuvo éxito
+        box.add(transaction);
+      } else {
+        throw Exception('Error al actualizar el saldo de la cuenta');
+      }
+    }
 
-    // Guardamos en Hive
-    box.add(newAdd);
+    // Notificar a la pantalla principal
+    if (widget.onTransactionUpdated != null) {
+      widget.onTransactionUpdated!();
+    }
 
-    // Actualizar el saldo de la cuenta seleccionada
-    await _updateAccountBalance(_selectedAccount?.title ?? '',
-        double.parse(_amountCtrl.text), _isIncome);
-
-    // Después de actualizar el saldo de la cuenta, actualizamos el saldo disponible global
-    await _updateGlobalAvailableBalance();
-
-    // Cerrar esta pantalla
-    Navigator.of(context).pop();
+    // Pequeño retraso para asegurar que los datos se han guardado
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    // Navegar de vuelta
+    if (mounted) {
+      Navigator.pop(context);
+    }
+  } catch (e) {
+    print('Error al guardar: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+    );
   }
+}
 
 // Método auxiliar para actualizar el saldo disponible global
   Future<void> _updateGlobalAvailableBalance() async {
@@ -224,6 +316,25 @@ class _Add_ScreenState extends State<Add_Screen> {
     prefs.setStringList('accounts', accountsData);
   }
 
+  // Método para revertir el efecto de la transacción anterior
+  Future<void> _revertPreviousTransaction(Add_data transaction) async {
+  try {
+    final amount = double.parse(transaction.amount);
+    
+    // Usar el método existente en TransactionService en lugar del que falta
+    await TransactionService.processTransaction(
+      type: transaction.IN,
+      amount: amount,
+      accountName: transaction.name,
+      isNewTransaction: false,
+      oldTransaction: transaction
+    );
+  } catch (e) {
+    print('Error al revertir transacción previa: $e');
+    throw e;
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     // Fondo oscuro general
@@ -268,8 +379,12 @@ class _Add_ScreenState extends State<Add_Screen> {
           trailing: Expanded(
             child: TextField(
               controller: _amountCtrl,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white),
+              // Añadir filtro para permitir solo números y punto decimal
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+              ],
               decoration: const InputDecoration(
                 hintText: 'Monto',
                 hintStyle: TextStyle(color: Colors.grey),
@@ -340,10 +455,13 @@ class _Add_ScreenState extends State<Add_Screen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                // Navegar directamente a la pantalla de inicio
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
               child: const Text(
                 'Cancelar',
-                style: TextStyle(color: Color(0xFF368983)),
+                style: TextStyle(color: Colors.grey),
               ),
             ),
             ElevatedButton(
@@ -353,7 +471,28 @@ class _Add_ScreenState extends State<Add_Screen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              onPressed: _saveTransaction,
+              onPressed: () async {
+                try {
+                  await _saveTransaction();
+                  
+                  // Notificar actualización primero
+                  if (widget.onTransactionUpdated != null) {
+                    widget.onTransactionUpdated!();
+                  }
+                  
+                  // Navegar hacia atrás de manera segura
+                  if (mounted && Navigator.canPop(context)) {
+                    Navigator.of(context).pop();
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
               child: const Text(
                 'Guardar',
                 style: TextStyle(color: Colors.white),
@@ -440,5 +579,42 @@ class _Add_ScreenState extends State<Add_Screen> {
     final month = d.month.toString().padLeft(2, '0');
     final year = d.year.toString();
     return '$day/$month/$year';
+  }
+
+  // Método auxiliar para obtener el código de icono
+  int _getCategoryIconCode(String categoryName) {
+    // Mapa de categorías de ingresos a iconos
+    final Map<String, int> categoryIcons = {
+      'salario': Icons.work.codePoint,
+      'inversiones': Icons.trending_up.codePoint,
+      'devoluciones': Icons.replay.codePoint,
+      'regalos': Icons.card_giftcard.codePoint,
+      'premios': Icons.emoji_events.codePoint,
+      'ventas': Icons.monetization_on.codePoint,
+      'intereses': Icons.account_balance.codePoint,
+      'otros': Icons.add_box.codePoint,
+      // Agregar también las categorías de gastos para tener todo en un solo lugar
+      'comida': Icons.restaurant.codePoint,
+      'transporte': Icons.directions_car.codePoint,
+      'entretenimiento': Icons.movie.codePoint,
+      'servicios': Icons.build.codePoint,
+    };
+    
+    // Convertir a minúsculas para evitar problemas de coincidencia
+    final normalizedCategory = categoryName.toLowerCase();
+    
+    // Devolver el icono correspondiente o un icono predeterminado
+    return categoryIcons[normalizedCategory] ?? Icons.attach_money.codePoint;
+  }
+}
+
+// filepath: d:\programacion 5.0\finazaap\lib\data\account_utils.dart
+class AccountUtils {
+  static Future<void> updateAccountBalance(String accountName, double amount, bool add) async {
+    // Código común para actualizar saldos
+  }
+  
+  static Future<void> revertTransaction(Add_data transaction) async {
+    // Código común para revertir transacciones
   }
 }

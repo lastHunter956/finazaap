@@ -27,7 +27,7 @@ class AccountItem extends HiveObject {
 // Adaptador de Hive para AccountItem
 class AccountItemAdapter extends TypeAdapter<AccountItem> {
   @override
-  final typeId = 1;
+  final typeId = 2; // Cambiar a 2 para evitar conflicto con AdddataAdapter
 
   @override
   AccountItem read(BinaryReader reader) {

@@ -1,50 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:radial_button/widget/circle_floating_button.dart';
-import 'package:finazaap/screens/add.dart';
-import 'package:finazaap/screens/add_expense.dart';
-import 'package:finazaap/screens/transfer.dart'; // Importar la nueva pantalla de transferencia
+import 'package:finazaap/widgets/floating_action_menu_screen.dart'; // Importar la nueva pantalla
 
 class FloatingActionMenu extends StatelessWidget {
   const FloatingActionMenu({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return CircleFloatingButton.floatingActionButton(
-      items: [
-        FloatingActionButton(
-          backgroundColor: Colors.greenAccent,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => const Add_Screen()),
-            );
-          },
-          child: const Icon(Icons.arrow_upward),
-        ),
-        FloatingActionButton(
-          backgroundColor: Colors.indigoAccent,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => TransferScreen()),
-            );
-          },
-          child: const Icon(Icons.sync_alt),
-        ),
-        FloatingActionButton(
-          backgroundColor: Colors.orangeAccent,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
-            );
-          },
-          child: const Icon(Icons.arrow_downward_outlined),
-        ),
-      ],
-      color:
-          const Color.fromARGB(255, 82, 226, 255), // Color del botón principal
-      icon: Icons.add, // Icono del botón principal
-      duration: const Duration(milliseconds: 300), // Duración de la animación
-      curveAnim: Curves.ease, // Curva de animación
-      useOpacity: true, // Usar opacidad
+    return FloatingActionButton(
+      backgroundColor: const Color.fromARGB(255, 82, 226, 255),
+      onPressed: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const FloatingActionMenuScreen()),
+        );
+      },
+      child: const Icon(Icons.add),
     );
   }
 }

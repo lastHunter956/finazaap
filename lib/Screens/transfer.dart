@@ -5,6 +5,10 @@ import 'dart:convert';
 import 'package:intl/intl.dart'; // Para formatear números
 import 'package:hive/hive.dart'; // Importar Hive
 import 'package:finazaap/data/model/add_date.dart'; // Importar modelo Add_data
+import 'package:finazaap/data/account_utils.dart';
+import 'package:finazaap/data/transaction_service.dart';
+// Añadir en la parte superior del archivo
+import 'package:finazaap/widgets/bottomnavigationbar.dart';
 
 class AccountItem {
   String title;
@@ -49,19 +53,37 @@ class AccountItem {
     );
   }
 }
+
 class TransferScreen extends StatefulWidget {
+  final bool isEditing;
+  final Add_data? transaction;
+  final dynamic transactionKey;  // Añadir este campo
+  final VoidCallback? onTransactionUpdated;
+
+  const TransferScreen({
+    Key? key, 
+    this.isEditing = false, 
+    this.transaction,
+    this.transactionKey,  // Añadir al constructor
+    this.onTransactionUpdated,
+  }) : super(key: key);
+  
   @override
   _TransferScreenState createState() => _TransferScreenState();
 }
 
 class _TransferScreenState extends State<TransferScreen> {
+  // Añadir esta línea para definir la variable box
+  final box = Hive.box<Add_data>('data');
+  
   final TextEditingController _amountCtrl = TextEditingController();
   final TextEditingController _detailCtrl = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   AccountItem? _selectedSourceAccount;
   AccountItem? _selectedDestinationAccount;
   List<AccountItem> _accountItems = [];
-  bool _isProcessing = false; // Para prevenir múltiples transferencias simultáneas
+  bool _isProcessing =
+      false; // Para prevenir múltiples transferencias simultáneas
 
   // Formateador para los números
   final currencyFormat = NumberFormat.currency(
@@ -73,7 +95,12 @@ class _TransferScreenState extends State<TransferScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAccounts();
+    _loadAccountsFromPrefs();
+    
+    // Cargar datos si estamos en modo edición
+    if (widget.isEditing && widget.transaction != null) {
+      _loadTransactionData();
+    }
   }
 
   Future<void> _loadAccounts() async {
@@ -88,128 +115,197 @@ class _TransferScreenState extends State<TransferScreen> {
     }
   }
 
-  Future<void> _saveTransfer() async {
-    if (_isProcessing) return; // Prevenir múltiples clics
-    
+  // Reemplazar el método _saveTransfer con esta versión mejorada
+
+Future<void> _saveTransfer() async {
+  if (_amountCtrl.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Por favor ingresa un monto')),
+    );
+    return;
+  }
+
+  if (_selectedSourceAccount == null || _selectedDestinationAccount == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Por favor selecciona cuentas')),
+    );
+    return;
+  }
+
+  // Verificar que no sean la misma cuenta
+  if (_selectedSourceAccount!.title == _selectedDestinationAccount!.title) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No puedes transferir a la misma cuenta')),
+    );
+    return;
+  }
+
+  try {
     setState(() {
       _isProcessing = true;
     });
 
-    try {
-      // Validación de campos vacíos
-      if (_amountCtrl.text.isEmpty ||
-          _selectedSourceAccount == null ||
-          _selectedDestinationAccount == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Por favor completa todos los campos')),
-        );
-        return;
-      }
+    final amount = double.parse(_amountCtrl.text);
+    
+    // Crear objeto de transferencia
+    final Add_data transferTransaction = Add_data(
+      'Transfer',
+      _amountCtrl.text,
+      _selectedDate,
+      _detailCtrl.text,
+      '${_selectedSourceAccount!.title} > ${_selectedDestinationAccount!.title}',
+      '',
+      Icons.sync_alt.codePoint,
+    );
 
-      // Validar que no se transfiera a la misma cuenta
-      if (_selectedSourceAccount!.title == _selectedDestinationAccount!.title) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No puedes transferir a la misma cuenta')),
-        );
-        return;
-      }
-
-      // Convertir y validar el monto
-      double amount = double.tryParse(_amountCtrl.text) ?? 0.0;
-      if (amount <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('El monto debe ser mayor a cero')),
-        );
-        return;
-      }
-
-      // Verificar fondos suficientes
-      if (_selectedSourceAccount!.balance < amount) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Fondos insuficientes en la cuenta origen')),
-        );
-        return;
-      }
-
-      // Buscar las cuentas reales en la lista de cuentas (para actualizar las correctas)
-      int sourceIndex = _accountItems.indexWhere((item) => item.title == _selectedSourceAccount!.title);
-      int destIndex = _accountItems.indexWhere((item) => item.title == _selectedDestinationAccount!.title);
+    // Procesar la transferencia de manera atómica
+    if (widget.isEditing && widget.transaction != null && widget.transactionKey != null) {
+      // Modo edición
+      bool success = await TransactionService.processTransaction(
+        type: 'Transfer',
+        amount: amount,
+        accountName: _selectedSourceAccount!.title,
+        destinationAccount: _selectedDestinationAccount!.title,
+        isNewTransaction: false,
+        oldTransaction: widget.transaction,
+      );
       
-      if (sourceIndex == -1 || destIndex == -1) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error al identificar las cuentas')),
-        );
-        return;
+      if (success) {
+        box.put(widget.transactionKey, transferTransaction);
+      } else {
+        throw Exception('Error al actualizar los saldos de las cuentas');
       }
-
-      // Realizar la transferencia
-      setState(() {
-        _accountItems[sourceIndex].balance -= amount;
-        _accountItems[destIndex].balance += amount;
-      });
-
-      // Guardar las cuentas actualizadas
-      await _saveAccountsToPrefs();
-
-      // Obtenemos el detalle para la transacción, usando un texto por defecto si está vacío
-      String detail = _detailCtrl.text.isNotEmpty 
-          ? _detailCtrl.text 
-          : 'Transferencia entre cuentas';
-
-      // Accedemos al box de Hive para guardar en historial
-      final box = Hive.box<Add_data>('data');
-
-      // Crear una sola transacción tipo "Transfer"
-      final transferTransaction = Add_data(
-        'Transfer',  // IMPORTANTE: Debe ser exactamente 'Transfer'
-        _amountCtrl.text,
-        _selectedDate,
-        _detailCtrl.text.isNotEmpty ? _detailCtrl.text : 'Transferencia entre cuentas',
-        '${_selectedSourceAccount!.title} > ${_selectedDestinationAccount!.title}',
-        '', // Dejamos vacío el campo de cuenta
-        Icons.sync_alt.codePoint,
+    } else {
+      // Modo creación
+      bool success = await TransactionService.processTransaction(
+        type: 'Transfer',
+        amount: amount,
+        accountName: _selectedSourceAccount!.title,
+        destinationAccount: _selectedDestinationAccount!.title,
+        isNewTransaction: true,
       );
+      
+      if (success) {
+        box.add(transferTransaction);
+      } else {
+        throw Exception('Error al actualizar los saldos de las cuentas');
+      }
+    }
 
-      // Guardar la transacción en Hive
-      box.add(transferTransaction);
+    // Notificar a la pantalla principal
+    if (widget.onTransactionUpdated != null) {
+      widget.onTransactionUpdated!();
+    }
 
-      // Mostrar mensaje de éxito
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Transferencia de ${currencyFormat.format(amount)} realizada con éxito'),
-          backgroundColor: Colors.green,
-        ),
-      );
+    // Finalizar
+    setState(() {
+      _isProcessing = false;
+    });
 
-      // Volver a la pantalla anterior después de un breve retraso
-      Future.delayed(Duration(seconds: 1), () {
-        Navigator.of(context).pop();
-      });
-    } finally {
+    // Pequeña espera para asegurar que todo se ha guardado
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    // Volver a la pantalla anterior
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  } catch (e) {
+    setState(() {
+      _isProcessing = false;
+    });
+    
+    print('Error al guardar la transferencia: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+  // Método para guardar las cuentas actualizadas
+  Future<void> _saveAccountsToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Serializar los objetos AccountItem a JSON
+    List<String> accountsData = _accountItems.map((item) {
+      // Crear mapa con todos los datos necesarios de la cuenta
+      final Map<String, dynamic> itemMap = {
+        'title': item.title,
+        'balance': item.balance.toString(), // Guardar como String para evitar problemas de precisión
+        'icon': item.icon?.codePoint ?? Icons.account_balance_wallet.codePoint,
+        'iconColor': item.iconColor?.value ?? Colors.blue.value,
+        'subtitle': item.subtitle ?? '',
+        'includeInTotal': true // Por defecto incluir en total
+      };
+      
+      return json.encode(itemMap);
+    }).toList();
+    
+    // Guardar en SharedPreferences
+    await prefs.setStringList('accounts', accountsData);
+    
+    // Imprimir para debug
+    print('Cuentas actualizadas exitosamente. Nuevos saldos: ' +
+        _accountItems.map((a) => "${a.title}: ${a.balance}").join(', '));
+  }
+
+  Future<void> _loadAccountsFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? accountsData = prefs.getStringList('accounts');
+    if (accountsData != null) {
       setState(() {
-        _isProcessing = false;
+        _accountItems = accountsData
+            .map((item) => AccountItem.fromJson(json.decode(item)))
+            .toList();
       });
     }
   }
 
-  Future<void> _saveAccountsToPrefs() async {
+  Future<void> _updateAccountBalance(String accountName, double amount, bool add) async {
     final prefs = await SharedPreferences.getInstance();
-    List<String> accountsData = _accountItems
-        .map((item) => json.encode(item.toJson()))
-        .toList();
-    await prefs.setStringList('accounts', accountsData);
+    List<String>? accountsData = prefs.getStringList('accounts');
+    
+    if (accountsData != null) {
+      List<AccountItem> accounts = [];
+      bool updated = false;
+      
+      for (var accountJson in accountsData) {
+        final Map<String, dynamic> data = json.decode(accountJson);
+        final account = AccountItem.fromJson(data);
+        
+        if (account.title == accountName) {
+          if (add) {
+            account.balance += amount;
+          } else {
+            account.balance -= amount;
+          }
+          updated = true;
+        }
+        
+        accounts.add(account);
+      }
+      
+      if (updated) {
+        List<String> updatedAccountsData = 
+            accounts.map((item) => json.encode(item.toJson())).toList();
+        await prefs.setStringList('accounts', updatedAccountsData);
+      }
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1F2639),
-      appBar: null,
-      body: SafeArea(
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: const Color(0xFF1F2639),
+    body: SafeArea(
+      child: SingleChildScrollView(
         child: Center(
           child: Container(
             width: 340,
-            padding: const EdgeInsets.all(20),
+            margin: const EdgeInsets.only(top: 50, bottom: 20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: const Color(0xFF2A2A3A),
               borderRadius: BorderRadius.circular(16),
@@ -218,247 +314,325 @@ class _TransferScreenState extends State<TransferScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Título y botón de retroceso
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Botón para volver
-            InkWell(
-              onTap: () => Navigator.pop(context),
-              child: const Icon(Icons.arrow_back, color: Colors.blueAccent),
-            ),
-            // Título centrado
-            const Text(
-              'Transferencia',
-              style: TextStyle(
-                color: Colors.blueAccent,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            // Elemento invisible para equilibrar el layout
-            const SizedBox(width: 24),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        // Cuenta origen
-        _buildListRow(
-          icon: Icons.account_balance_wallet,
-          iconColor: Colors.blueAccent,
-          trailing: _buildAccountsDropdown(
-            label: 'Cuenta de origen',
-            selectedAccount: _selectedSourceAccount,
-            onChanged: (value) {
-              setState(() {
-                _selectedSourceAccount = value;
-              });
-            },
-          ),
-        ),
-        
-        // Saldo disponible de cuenta origen
-        if (_selectedSourceAccount != null)
-          Padding(
-            padding: const EdgeInsets.only(left: 34, bottom: 10),
-            child: Text(
-              'Saldo disponible: ${currencyFormat.format(_selectedSourceAccount!.balance)} \$',
-              style: TextStyle(color: Colors.blueAccent.withOpacity(0.7), fontSize: 12),
+Widget _buildForm() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // Título centrado con tamaño consistente
+      Center(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Text(
+            'Transferencia',
+            style: TextStyle(
+              color: Colors.blueAccent,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
           ),
-
-        // Cuenta destino
-        _buildListRow(
-          icon: Icons.arrow_forward,
-          iconColor: Colors.blueAccent,
-          trailing: _buildAccountsDropdown(
-            label: 'Cuenta de destino',
-            selectedAccount: _selectedDestinationAccount,
-            onChanged: (value) {
-              setState(() {
-                _selectedDestinationAccount = value;
-              });
-            },
-          ),
-        ),
-
-        // Monto
-        _buildListRow(
-          icon: Icons.attach_money,
-          iconColor: Colors.blueAccent,
-          trailing: TextField(
-            controller: _amountCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Monto',
-              hintStyle: TextStyle(color: Colors.grey),
-              border: InputBorder.none,
-            ),
-            style: const TextStyle(color: Colors.white),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-            ],
-          ),
-        ),
-
-        // Fecha (similar a add.dart)
-        _buildListRow(
-          icon: Icons.calendar_today,
-          iconColor: Colors.blueAccent,
-          trailing: InkWell(
-            onTap: () async {
-              final newDate = await showDatePicker(
-                context: context,
-                initialDate: _selectedDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2100),
-              );
-              if (newDate != null) {
-                setState(() {
-                  _selectedDate = newDate;
-                });
-              }
-            },
-            child: Text(
-              '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-        ),
-
-        // Detalle
-        _buildListRow(
-          icon: Icons.note_alt,
-          iconColor: Colors.blueAccent,
-          trailing: TextField(
-            controller: _detailCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Detalle (opcional)',
-              hintStyle: TextStyle(color: Colors.grey),
-              border: InputBorder.none,
-            ),
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
-
-        // Espaciado adicional
-        const SizedBox(height: 20),
-
-        // Botones de acción como en add.dart
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Botón Cancel/Reset (como en add.dart)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey.shade800,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                _amountCtrl.clear();
-                _detailCtrl.clear();
-                setState(() {
-                  _selectedSourceAccount = null;
-                  _selectedDestinationAccount = null;
-                });
-              },
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ),
-            
-            // Botón Guardar (anteriormente Transferir)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: _isProcessing ? null : _saveTransfer,
-              child: _isProcessing
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Text(
-                      'Guardar',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // Método para construir filas con icono + contenido (similar a add_expense.dart)
-  Widget _buildListRow({
-    required IconData icon,
-    required Color iconColor,
-    required Widget trailing,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.grey, width: 0.3),
         ),
       ),
-      child: Row(
+
+      // Monto - sin etiqueta de texto
+      _buildListRow(
+        icon: Icons.attach_money,
+        trailing: TextField(
+          controller: _amountCtrl,
+          decoration: const InputDecoration(
+            hintText: 'Monto',
+            hintStyle: TextStyle(color: Colors.grey),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+          ),
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+          ],
+        ),
+      ),
+
+      // Cuenta origen - sin etiqueta de texto
+      _buildListRow(
+        icon: Icons.account_balance_wallet,
+        trailing: _buildAccountsDropdown(
+          hintText: 'Cuenta de origen',
+          selectedAccount: _selectedSourceAccount,
+          onChanged: (value) {
+            setState(() {
+              _selectedSourceAccount = value;
+            });
+          },
+        ),
+      ),
+
+      // Saldo disponible con alineación y estilo consistente
+      if (_selectedSourceAccount != null)
+        Padding(
+          padding: const EdgeInsets.only(left: 34, top: 4, bottom: 8),
+          child: Text(
+            'Saldo: ${currencyFormat.format(_selectedSourceAccount!.balance)} \$',
+            style: TextStyle(
+              color: Colors.blueAccent.withOpacity(0.7), 
+              fontSize: 13,
+            ),
+          ),
+        ),
+
+      // Cuenta destino - sin etiqueta de texto
+      _buildListRow(
+        icon: Icons.arrow_forward,
+        trailing: _buildAccountsDropdown(
+          hintText: 'Cuenta de destino',
+          selectedAccount: _selectedDestinationAccount,
+          onChanged: (value) {
+            setState(() {
+              _selectedDestinationAccount = value;
+            });
+          },
+        ),
+      ),
+
+      // Detalle - sin etiqueta de texto
+      _buildListRow(
+        icon: Icons.note_alt,
+        trailing: TextField(
+          controller: _detailCtrl,
+          decoration: const InputDecoration(
+            hintText: 'Detalle (opcional)',
+            hintStyle: TextStyle(color: Colors.grey),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+          ),
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+        ),
+      ),
+
+      // Fecha - sin etiqueta de texto
+      _buildListRow(
+        icon: Icons.calendar_today,
+        trailing: InkWell(
+          onTap: () async {
+            final newDate = await showDatePicker(
+              context: context,
+              initialDate: _selectedDate,
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2100),
+              builder: (context, child) {
+                return Theme(
+                  data: ThemeData.dark().copyWith(
+                    colorScheme: ColorScheme.dark(
+                      primary: Colors.blueAccent,
+                      onPrimary: Colors.white,
+                      surface: const Color(0xFF2A2A3A),
+                      onSurface: Colors.white,
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+            if (newDate != null) {
+              setState(() {
+                _selectedDate = newDate;
+              });
+            }
+          },
+          child: Text(
+            '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+          ),
+        ),
+      ),
+
+      // Espaciado adicional consistente
+      const SizedBox(height: 32),
+
+      // Botones de acción con alineación y estilo coherentes
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: iconColor),
-          const SizedBox(width: 10),
-          Expanded(child: trailing),
+          // Reemplazar el botón de Cancelar actual con esta versión
+TextButton(
+  onPressed: () {
+    // En lugar de simplemente hacer pop() que vuelve a la pantalla anterior
+    // Navegar directamente a la pantalla principal (Bottom)
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const Bottom()),
+      (route) => false, // Elimina todas las pantallas anteriores de la pila
+    );
+  },
+  child: const Text(
+    'Cancelar',
+    style: TextStyle(color: Colors.grey),
+  ),
+),
+
+          // Botón Guardar con estilo consistente
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
+            ),
+            onPressed: _isProcessing ? null : _saveTransfer,
+            child: _isProcessing
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text(
+                    'Guardar',
+                    style: TextStyle(color: Colors.white, fontSize: 15),
+                  ),
+          ),
         ],
       ),
-    );
-  }
+    ],
+  );
+}
 
-  // Simplificación del dropdown para que coincida con el estilo de add.dart
-  Widget _buildAccountsDropdown({
-    required String label,
-    required AccountItem? selectedAccount,
-    required ValueChanged<AccountItem?> onChanged,
-  }) {
-    return DropdownButton<AccountItem>(
-      value: selectedAccount,
-      hint: Text(label, style: TextStyle(color: Colors.grey)),
-      dropdownColor: const Color(0xFF2A2A3A),
-      iconEnabledColor: Colors.white,
-      underline: Container(),
-      style: const TextStyle(color: Colors.white),
-      onChanged: onChanged,
-      items: _accountItems.map((account) {
-        return DropdownMenuItem<AccountItem>(
-          value: account,
-          child: Row(
-            children: [
-              Icon(account.icon ?? Icons.account_balance, 
-                  color: account.iconColor ?? Colors.grey, size: 16),
-              const SizedBox(width: 8),
-              Text(account.title),
-            ],
-          ),
-        );
-      }).toList(),
-    );
+Widget _buildListRow({
+  required IconData icon,
+  required Widget trailing,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    margin: const EdgeInsets.only(bottom: 4),
+    decoration: const BoxDecoration(
+      border: Border(
+        bottom: BorderSide(color: Colors.grey, width: 0.2),
+      ),
+    ),
+    child: Row(
+      children: [
+        // Icono siempre azul
+        Icon(icon, color: Colors.blueAccent, size: 20),
+        const SizedBox(width: 14),
+        // Cambio de alineación a izquierda
+        Expanded(child: trailing),
+      ],
+    ),
+  );
+}
+
+// Dropdown rediseñado para mantener el icono original de la cuenta cuando se selecciona
+Widget _buildAccountsDropdown({
+  required String hintText,
+  required AccountItem? selectedAccount,
+  required ValueChanged<AccountItem?> onChanged,
+}) {
+  return DropdownButton<AccountItem>(
+    value: selectedAccount,
+    hint: Text(hintText, style: TextStyle(color: Colors.grey, fontSize: 15)),
+    dropdownColor: const Color(0xFF2A2A3A),
+    iconEnabledColor: Colors.blueAccent,
+    underline: Container(),
+    style: const TextStyle(color: Colors.white, fontSize: 15),
+    onChanged: onChanged,
+    icon: Icon(Icons.keyboard_arrow_down, color: Colors.blueAccent, size: 20),
+    items: _accountItems.map((account) {
+      return DropdownMenuItem<AccountItem>(
+        value: account,
+        // Eliminar icono, solo mostrar el nombre de la cuenta
+        child: Text(account.title, style: TextStyle(fontSize: 15)),
+      );
+    }).toList(),
+  );
+}
+
+// Método para cargar los datos de la transferencia
+void _loadTransactionData() {
+  final transaction = widget.transaction!;
+  
+  // Cargar valores básicos
+  _amountCtrl.text = transaction.amount;
+  _detailCtrl.text = transaction.detail;
+  _selectedDate = transaction.datetime;
+  
+  // Para transferencias, la categoría contiene "Cuenta origen > Cuenta destino"
+  final accountsParts = transaction.explain.split(' > ');
+  if (accountsParts.length == 2) {
+    final sourceAccountName = accountsParts[0].trim();
+    final destAccountName = accountsParts[1].trim();
+    
+    // Cargar las cuentas primero
+    _loadAccountsFromPrefs().then((_) {
+      if (_accountItems.isNotEmpty) {
+        try {
+          setState(() {
+            _selectedSourceAccount = _accountItems.firstWhere(
+              (account) => account.title.trim() == sourceAccountName,
+            );
+            
+            _selectedDestinationAccount = _accountItems.firstWhere(
+              (account) => account.title.trim() == destAccountName,
+            );
+          });
+        } catch (e) {
+          // Fallback en caso de error
+          setState(() {
+            _selectedSourceAccount = _accountItems.first;
+            _selectedDestinationAccount = _accountItems.length > 1 
+                ? _accountItems[1] 
+                : _accountItems.first;
+          });
+          print('Error al cargar cuentas: $e');
+        }
+      }
+    });
   }
+}
+
+// Método para revertir el efecto de una transferencia anterior
+Future<void> _revertPreviousTransfer(Add_data transaction) async {
+  try {
+    final amount = double.parse(transaction.amount);
+    final accountsParts = transaction.explain.split(' > ');
+    
+    if (accountsParts.length == 2) {
+      final sourceAccountName = accountsParts[0].trim();
+      final destAccountName = accountsParts[1].trim();
+      
+      // Encontrar las cuentas en la lista actual
+      AccountItem? sourceAccount;
+      AccountItem? destAccount;
+      
+      for (var account in _accountItems) {
+        if (account.title.trim() == sourceAccountName) {
+          sourceAccount = account;
+        }
+        if (account.title.trim() == destAccountName) {
+          destAccount = account;
+        }
+      }
+      
+      // Revertir la transferencia: añadir al origen, quitar del destino
+      if (sourceAccount != null) {
+        sourceAccount.balance += amount;
+      }
+      
+      if (destAccount != null) {
+        destAccount.balance -= amount;
+      }
+      
+      // No guardar aquí, se guardará después de la nueva transferencia
+    }
+  } catch (e) {
+    print('Error al revertir transferencia: $e');
+    throw Exception('No se pudo revertir la transferencia anterior');
+  }
+}
 }
