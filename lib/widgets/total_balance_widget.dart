@@ -308,18 +308,17 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                               width: 70, // Tamaño real del gráfico circular
                               height: 70, // Tamaño real del gráfico circular
                               child: CircularProgressIndicator(
-                                value: widget.totalExpenses > widget.totalIncome 
-                                    ? 1.0  // Lleno si hay exceso de gastos
-                                    : widget.totalIncome > 0 
-                                        ? widget.totalExpenses / widget.totalIncome  // Proporción de gastos/ingresos
-                                        : 0,
+                                // Nueva lógica: Comienza en 100% (1.0) y disminuye con los gastos
+                                value: widget.totalIncome > 0 
+                                    ? (widget.totalIncome - widget.totalExpenses) / widget.totalIncome  // Porcentaje restante
+                                    : 0,  // Si no hay ingresos, el valor es 0
                                 strokeWidth: 8, // Mantenemos el mismo grosor
                                 strokeCap: StrokeCap.round,
                                 backgroundColor: Colors.grey.shade800.withOpacity(0.1),
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   widget.totalExpenses > widget.totalIncome
-                                      ? const Color(0xFFFF7D7D) // Rojo más pálido
-                                      : const Color(0xFF50FA7B)
+                                      ? const Color(0xFFFF7D7D) // Rojo si hay exceso
+                                      : const Color(0xFF50FA7B)  // Verde si hay ahorro
                                 ),
                               ),
                             ),
@@ -331,9 +330,9 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                 children: [
                                   // Porcentaje con mejor legibilidad - SIN FONDO
                                   Text(
-                                    widget.totalExpenses > widget.totalIncome
-                                        ? '-${((widget.totalExpenses / widget.totalIncome * 100) - 100).round()}%'
-                                        : '${((1 - widget.totalExpenses / widget.totalIncome) * 100).round()}%',
+                                    widget.totalIncome > 0
+                                        ? '${(((widget.totalIncome - widget.totalExpenses) / widget.totalIncome) * 100).round()}%'
+                                        : '0%', // Si no hay ingresos, mostrar 0%
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 15, // Mantenemos el tamaño de fuente
@@ -365,7 +364,11 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                       ),
                                     ),
                                     child: Text(
-                                      widget.totalExpenses > widget.totalIncome ? 'EXCEDIDO' : 'AHORRO',
+                                      widget.totalExpenses > widget.totalIncome 
+                                          ? 'EXCEDIDO' 
+                                          : widget.totalExpenses == 0 
+                                              ? 'COMPLETO'  // Si no hay gastos, está completo
+                                              : 'RESTANTE', // Si hay gastos pero no exceden, muestra "RESTANTE"
                                       style: TextStyle(
                                         color: widget.totalExpenses > widget.totalIncome
                                             ? const Color(0xFFFF7D7D)

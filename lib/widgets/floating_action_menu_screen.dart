@@ -12,9 +12,9 @@ class FloatingActionMenuScreen extends StatelessWidget {
       backgroundColor: const Color(0xFF242535), // Fondo oscuro para mantener el tema
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        // Alineamos todo el contenido hacia la esquina inferior derecha
+        // Alineamos el contenido hacia la derecha pero no tan abajo
         child: Align(
-          alignment: Alignment.bottomRight,
+          alignment: Alignment.centerRight, // Cambiado de bottomRight a centerRight
           child: Column(
             mainAxisSize: MainAxisSize.min,  // Para que ocupe solo el espacio necesario
             crossAxisAlignment: CrossAxisAlignment.end,  // Alinea los elementos a la derecha
@@ -61,37 +61,16 @@ class FloatingActionMenuScreen extends StatelessWidget {
               
               const SizedBox(height: 30),
               
-              // Botón X para volver al menú principal (ahora a la derecha)
-              Row(
-                mainAxisSize: MainAxisSize.min, // Solo ocupa el espacio necesario
-                children: [
-                  // Texto descriptivo del botón Cerrar
-                  Container(
-                    margin: const EdgeInsets.only(right: 15),
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Cerrar',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  
-                  // Botón X alineado a la derecha con el mismo estilo
-                  FloatingActionButton(
-                    backgroundColor: Colors.grey.shade700, // Color más neutral como los otros botones
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Icon(Icons.close, color: Colors.white),
-                  ),
-                ],
+              // Botón X sin texto, solo el icono (corregido)
+              FloatingActionButton(
+                backgroundColor: const Color.fromARGB(255, 82, 226, 255),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Icon(
+                  Icons.close, 
+                  color: Color.fromRGBO(31, 38, 57, 1),
+                ),
               ),
               
               const SizedBox(height: 20), // Espacio al fondo para mejorar apariencia
