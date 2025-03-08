@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:flutter/material.dart';
 
 part 'add_date.g.dart';
 
@@ -19,7 +20,7 @@ class Add_data extends HiveObject {
   @HiveField(6)
   int iconCode;
 
-  // Estos getters son para compatibilidad con el código generadoo generado
+  // Estos getters son para compatibilidad con el código generado
   String get type => IN;
   DateTime get date => datetime;
   String get category => explain;
@@ -32,6 +33,16 @@ class Add_data extends HiveObject {
     this.detail,
     this.explain,
     this.name,
-    this.iconCode,
+    [this.iconCode = 0]
   );
+}
+
+// Estructura para gráficos - simplemente la clase, no los métodos
+class ChartData {
+  final String x;
+  final double y;
+  final Color color;
+  final int iconCode; // Añadido para almacenar el código del icono
+
+  ChartData(this.x, this.y, [this.color = Colors.teal, this.iconCode = 0]);
 }

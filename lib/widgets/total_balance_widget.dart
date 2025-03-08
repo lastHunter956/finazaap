@@ -305,8 +305,8 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                             
                             // Indicador circular con tamaño real aumentado
                             SizedBox(
-                              width: 70, // Tamaño real del gráfico circular
-                              height: 70, // Tamaño real del gráfico circular
+                              width: 90, // Tamaño real del gráfico circular
+                              height: 90, // Tamaño real del gráfico circular
                               child: CircularProgressIndicator(
                                 // Nueva lógica: Comienza en 100% (1.0) y disminuye con los gastos
                                 value: widget.totalIncome > 0 
@@ -360,7 +360,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                         color: widget.totalExpenses > widget.totalIncome
                                             ? const Color(0xFFFF7D7D).withOpacity(0.5)
                                             : const Color(0xFF50FA7B).withOpacity(0.5),
-                                        width: 0.5,
+                                        width: 0.1,
                                       ),
                                     ),
                                     child: Text(
@@ -373,9 +373,9 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                         color: widget.totalExpenses > widget.totalIncome
                                             ? const Color(0xFFFF7D7D)
                                             : const Color(0xFF50FA7B),
-                                        fontSize: 10,
+                                        fontSize: 9.5,
                                         fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.4,
+                                        letterSpacing: 0.1,
                                         shadows: [
                                           Shadow(
                                             offset: const Offset(0, 1),

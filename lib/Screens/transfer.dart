@@ -457,46 +457,43 @@ Widget _buildForm() {
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Reemplazar el botón de Cancelar actual con esta versión
-TextButton(
-  onPressed: () {
-    // En lugar de simplemente hacer pop() que vuelve a la pantalla anterior
-    // Navegar directamente a la pantalla principal (Bottom)
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const Bottom()),
-      (route) => false, // Elimina todas las pantallas anteriores de la pila
-    );
-  },
-  child: const Text(
-    'Cancelar',
-    style: TextStyle(color: Colors.grey),
-  ),
-),
-
-          // Botón Guardar con estilo consistente
+          // Contenedor para botones de la izquierda (Cancelar y Eliminar)
+          Row(
+            children: [
+              // Botón Cancelar
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Cancelar',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              
+              // Botón Eliminar (solo en modo edición)
+              if (widget.isEditing && widget.transaction != null)
+                TextButton.icon(
+                  onPressed: () => _showDeleteConfirmation(),
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                ),
+            ],
+          ),
+          
+          // Botón Transferir (a la derecha)
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 0,
+              backgroundColor: Colors.indigoAccent,
             ),
             onPressed: _isProcessing ? null : _saveTransfer,
             child: _isProcessing
                 ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(color: Colors.white),
                   )
-                : const Text(
-                    'Guardar',
-                    style: TextStyle(color: Colors.white, fontSize: 15),
-                  ),
+                : Text(widget.isEditing ? 'Actualizar' : 'Transferir'),
           ),
         ],
       ),
@@ -633,6 +630,103 @@ Future<void> _revertPreviousTransfer(Add_data transaction) async {
   } catch (e) {
     print('Error al revertir transferencia: $e');
     throw Exception('No se pudo revertir la transferencia anterior');
+  }
+}
+
+// Añadir dentro de la clase _TransferScreenState
+
+// Método para mostrar el diálogo de confirmación de eliminación
+void _showDeleteConfirmation() {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF2A2A3A),
+        title: const Text('Confirmar eliminación', style: TextStyle(color: Colors.white)),
+        content: const Text('¿Estás seguro que deseas eliminar esta transferencia?', style: TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Cerrar el diálogo
+              
+              try {
+                // Mostrar indicador de carga
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext context) {
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                );
+                
+                // Revertir el efecto de la transacción en el saldo de la cuenta
+                if (widget.transaction != null) {
+                  await _revertPreviousTransaction(widget.transaction!);
+                }
+                
+                // Eliminar la transacción del box de Hive
+                if (widget.transactionKey != null) {
+                  box.delete(widget.transactionKey);
+                }
+                
+                // Notificar a la pantalla principal
+                if (widget.onTransactionUpdated != null) {
+                  widget.onTransactionUpdated!();
+                }
+                
+                // Cerrar el indicador de carga
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
+                
+                // Volver a la pantalla anterior
+                if (mounted && Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
+              } catch (e) {
+                // Cerrar el indicador de carga
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
+                
+                // Mostrar error
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error al eliminar: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+// Método para revertir una transferencia previa
+Future<void> _revertPreviousTransaction(Add_data transaction) async {
+  try {
+    final amount = double.parse(transaction.amount);
+
+    // Especial para transferencias: necesitamos revertir tanto origen como destino
+    await TransactionService.processTransaction(
+      type: 'Transfer',
+      amount: amount,
+      accountName: transaction.name, // Cuenta origen
+      destinationAccount: transaction.detail, // Cuenta destino (en detail)
+      isNewTransaction: false,
+      oldTransaction: transaction
+    );
+  } catch (e) {
+    print('Error al revertir transferencia previa: $e');
+    throw e;
   }
 }
 }

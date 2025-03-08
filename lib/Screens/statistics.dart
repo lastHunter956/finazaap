@@ -2,16 +2,65 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:hive/hive.dart';
-
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+// Importar el archivo de iconos
+import '../icon_lists.dart';
 // Importaciones de tu proyecto
 import '../data/model/add_date.dart';
+
+class AccountItem {
+  String title;
+  double balance;
+  IconData? icon;
+  Color? iconColor;
+  
+  AccountItem({
+    required this.title, 
+    required this.balance,
+    this.icon,
+    this.iconColor,
+  });
+  
+  factory AccountItem.fromJson(Map<String, dynamic> json) {
+    // Extraer balance
+    double balanceValue;
+    if (json['balance'] is String) {
+      balanceValue = double.tryParse(json['balance']) ?? 0.0;
+    } else {
+      balanceValue = (json['balance'] is double) ? json['balance'] : 0.0;
+    }
+    
+    // Extraer icono
+    IconData? iconData;
+    if (json['icon'] != null) {
+      iconData = IconData(json['icon'], fontFamily: 'MaterialIcons');
+    }
+    
+    // Extraer color del icono
+    Color? iconColor;
+    if (json['iconColor'] != null) {
+      iconColor = Color(json['iconColor']);
+    }
+    
+    return AccountItem(
+      title: json['title'] ?? '',
+      balance: balanceValue,
+      icon: iconData,
+      iconColor: iconColor,
+    );
+  }
+}
 
 // Estructura para gráficos
 class ChartData {
   final String x;
   final double y;
   final Color color;
-  ChartData(this.x, this.y, [this.color = Colors.teal]);
+  final int iconCode; // Añadir este campo
+
+  ChartData(this.x, this.y, [this.color = Colors.teal, this.iconCode = 0]); // Actualizar constructor
 }
 
 class Statistics extends StatefulWidget {
@@ -43,10 +92,13 @@ class _StatisticsState extends State<Statistics> {
   int selectedYear = DateTime.now().year;
   int selectedMonth = DateTime.now().month;
 
+  List<AccountItem> _accountsList = [];
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadAccounts(); // Añadir esta línea para cargar las cuentas
   }
 
   /// Carga los datos de Hive (o tu fuente de datos) y construye
@@ -58,6 +110,19 @@ class _StatisticsState extends State<Statistics> {
     _buildAvailableDates();
     _pickInitialDate();
     _updateData();
+  }
+
+  /// Carga las cuentas desde SharedPreferences
+  Future<void> _loadAccounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? accountsData = prefs.getStringList('accounts');
+    if (accountsData != null) {
+      setState(() {
+        _accountsList = accountsData
+            .map((item) => AccountItem.fromJson(json.decode(item)))
+            .toList();
+      });
+    }
   }
 
   /// Construye los años y meses disponibles a partir de allData
@@ -147,25 +212,45 @@ final List<Color> colorPalette = [
   // ===================== LÓGICA PARA CONSTRUIR GRÁFICOS =====================
   /// Gráfico de dona “por categoría”
   List<ChartData> _getCategoryData() {
-  final Map<String, double> map = {};
+  final Map<String, Map<String, dynamic>> map = {};
+  
   for (var item in filteredData) {
     double amount = double.tryParse(item.amount) ?? 0;
-    // Usamos item.explain en lugar de item.name ya que explain contiene la categoría
     final category = item.explain.isEmpty ? 'Sin categoría' : item.explain;
-    map[category] = (map[category] ?? 0) + amount;
+    
+    if (!map.containsKey(category)) {
+      // DEBUGGING: Imprimir el iconCode encontrado
+      print("Nueva categoría: $category con iconCode: ${item.iconCode}");
+      
+      map[category] = {
+        'amount': amount,
+        'iconCode': item.iconCode > 0 ? item.iconCode : _getDefaultIconCodeForCategory(category)
+      };
+    } else {
+      map[category]!['amount'] += amount;
+      // Mantener un iconCode válido si ya existe uno
+      if (item.iconCode > 0 && map[category]!['iconCode'] == 0) {
+        print("Actualizando iconCode para $category a: ${item.iconCode}");
+        map[category]!['iconCode'] = item.iconCode;
+      }
+    }
   }
 
   final List<ChartData> list = [];
   int colorIndex = 0;
 
-  // Ordenar por monto (de mayor a menor) para una mejor visualización
   final sortedEntries = map.entries.toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
+    ..sort((a, b) => b.value['amount'].compareTo(a.value['amount']));
 
   for (var entry in sortedEntries) {
     final color = colorPalette[colorIndex % colorPalette.length];
     colorIndex++;
-    list.add(ChartData(entry.key, entry.value, color));
+    list.add(ChartData(
+      entry.key, 
+      entry.value['amount'], 
+      color,
+      entry.value['iconCode'] // Pasamos el iconCode al ChartData
+    ));
   }
 
   return list;
@@ -173,76 +258,122 @@ final List<Color> colorPalette = [
 
 
 
-  /// Gráfico de dona “por cuenta” (usando item.explain como “cuenta”)
-  List<ChartData> _getAccountData() {
-  final Map<String, double> map = {};
+List<ChartData> _getAccountData() {
+  final Map<String, Map<String, dynamic>> map = {};
+  
   for (var item in filteredData) {
     double amount = double.tryParse(item.amount) ?? 0;
-    final cuenta = item.explain.isEmpty ? 'Sin cuenta' : item.explain;
-    map[cuenta] = (map[cuenta] ?? 0) + amount;
+    final cuenta = item.name.isEmpty ? 'Sin cuenta' : item.name;
+    
+    // Buscar iconCode basado en el nombre de la cuenta
+    IconData accountIconData = _getAccountIcon(cuenta);
+    int iconCode = accountIconData.codePoint;
+    
+    if (!map.containsKey(cuenta)) {
+      map[cuenta] = {
+        'amount': amount,
+        'iconCode': iconCode
+      };
+    } else {
+      map[cuenta]!['amount'] += amount;
+    }
   }
 
   final List<ChartData> list = [];
   int colorIndex = 0;
 
-  map.forEach((key, value) {
+  final sortedEntries = map.entries.toList()
+    ..sort((a, b) => b.value['amount'].compareTo(a.value['amount']));
+
+  for (var entry in sortedEntries) {
     final color = colorPalette[colorIndex % colorPalette.length];
     colorIndex++;
-    list.add(ChartData(key, value, color));
-  });
-
-  return list;
+    list.add(ChartData(
+      entry.key, 
+      entry.value['amount'], 
+      color,
+      entry.value['iconCode'] // Incluir el iconCode en ChartData
+    ));
   }
 
+  return list;
+}
+
+// Mejora del método para obtener el iconCode para categorías usando la lista existente
+int _getDefaultIconCodeForCategory(String category) {
+  final normalizedCategory = category.toLowerCase();
+  
+  // 1. Buscar en la lista predefinida de iconos
+  // Los iconos tienen nombres descriptivos como "shopping_cart", "restaurant", etc.
+  for (int i = 0; i < categoryIcons.length; i++) {
+    // Extraer el nombre del icono (la parte después del punto)
+    String iconName = categoryIcons[i].toString().split('.').last.toLowerCase();
+    
+    // Buscar coincidencias entre el nombre de la categoría y el nombre del icono
+    if (normalizedCategory.contains(iconName) || iconName.contains(normalizedCategory)) {
+      print("Coincidencia encontrada: '$normalizedCategory' con icono '$iconName'");
+      return categoryIcons[i].codePoint;
+    }
+  }
+  
+  // 2. Si no hay coincidencia, elegir un icono apropiado de la lista
+  // Usar índices específicos para categorías comunes
+  if (normalizedCategory.contains('salario') || 
+      normalizedCategory.contains('ingreso') ||
+      normalizedCategory.contains('sueldo')) {
+    // Índice de un icono apropiado para ingresos
+    return categoryIcons[10].codePoint; // Por ejemplo: work o money
+  }
+  else if (normalizedCategory.contains('comida') || 
+           normalizedCategory.contains('restaurante')) {
+    return categoryIcons[3].codePoint; // restaurant
+  }
+  
+  // 3. Si todo lo demás falla, usar el primer icono según el tipo
+  int defaultIndex = isIncomeSelected ? 4 : 0; // Índice diferente para ingresos/gastos
+  return categoryIcons[defaultIndex].codePoint;
+}
 
   /// Gráfico de barras por mes (cuando isMonthly=false)
   /// Muestra la distribución de todos los meses del año seleccionado
   /// (filtrando además por Ingresos/Gastos).
   List<ChartData> _getMonthDataForYear() {
-  final Map<int, double> map = {};
+  final Map<int, Map<String, dynamic>> map = {};
+  
   for (var item in filteredData) {
     final mes = item.datetime.month;
     final amount = double.tryParse(item.amount) ?? 0;
-    map[mes] = (map[mes] ?? 0) + amount;
+    
+    if (!map.containsKey(mes)) {
+      map[mes] = {
+        'amount': amount,
+        // Asignar icono de calendario para representar meses
+        'iconCode': Icons.calendar_month.codePoint
+      };
+    } else {
+      map[mes]!['amount'] += amount;
+    }
   }
 
   final List<ChartData> list = [];
   int colorIndex = 0;
 
-  map.forEach((mes, total) {
+  // Ordenar los meses cronológicamente
+  final sortedMonths = map.keys.toList()..sort();
+  
+  for (var mes in sortedMonths) {
     final label = '${_nombreMes(mes)} $selectedYear';
     final color = colorPalette[colorIndex % colorPalette.length];
     colorIndex++;
-    list.add(ChartData(label, total, color));
-  });
+    list.add(ChartData(
+      label, 
+      map[mes]!['amount'], 
+      color,
+      map[mes]!['iconCode'] // Incluir el iconCode en ChartData
+    ));
+  }
 
   return list;
-  }
-
-
-  /// Helper para nombre de mes en español
-  String _nombreMes(int mes) {
-    switch (mes) {
-      case 1:  return 'Ene.';
-      case 2:  return 'Feb.';
-      case 3:  return 'Mar.';
-      case 4:  return 'Abr.';
-      case 5:  return 'May.';
-      case 6:  return 'Jun.';
-      case 7:  return 'Jul.';
-      case 8:  return 'Ago.';
-      case 9:  return 'Sep.';
-      case 10: return 'Oct.';
-      case 11: return 'Nov.';
-      case 12: return 'Dic.';
-      default: return '';
-    }
-  }
-
-  /// Formato para números grandes
-  String _formatNumber(double value) {
-  // Utiliza siempre el formato con separadores de miles, sin abreviar
-  return NumberFormat('#,##0').format(value);
 }
 
 // Opcionalmente: mantén la otra función para el resto de la interfaz si la necesitas
@@ -265,43 +396,73 @@ List<ChartData> _getIncomeGrouped() {
   final data = allData.where((t) => t.IN == 'Income').toList();
 
   if (isMonthly) {
-    // Filtramos solo el mes y año seleccionados
+    // Modo mensual: agrupar por semanas
     final currentData = data.where(
-      (t) =>
-          t.datetime.year == selectedYear &&
-          t.datetime.month == selectedMonth,
+      (t) => t.datetime.year == selectedYear && t.datetime.month == selectedMonth,
     );
 
-    // Agrupamos por semana del mes (Semana 1, 2, 3, etc.)
-    final Map<int, double> weeklyMap = {};
+    // Agrupamos por semana del mes
+    final Map<int, Map<String, dynamic>> weeklyMap = {};
     for (var item in currentData) {
       final amount = double.tryParse(item.amount) ?? 0;
       final weekNum = _getWeekOfMonth(item.datetime);
-      weeklyMap[weekNum] = (weeklyMap[weekNum] ?? 0) + amount;
+      
+      if (!weeklyMap.containsKey(weekNum)) {
+        weeklyMap[weekNum] = {
+          'amount': amount,
+          // Icono para representar semanas
+          'iconCode': Icons.date_range.codePoint
+        };
+      } else {
+        weeklyMap[weekNum]!['amount'] += amount;
+      }
     }
 
-    // Construimos la lista ChartData
+    // Construir la lista ordenada por número de semana
     final List<ChartData> weeklyList = [];
-    weeklyMap.forEach((week, total) {
-      weeklyList.add(ChartData('Semana $week', total, Colors.teal));
-    });
+    final sortedWeeks = weeklyMap.keys.toList()..sort();
+    
+    for (var week in sortedWeeks) {
+      weeklyList.add(ChartData(
+        'Semana $week', 
+        weeklyMap[week]!['amount'], 
+        Colors.teal,
+        weeklyMap[week]!['iconCode'] // Incluir el iconCode
+      ));
+    }
     return weeklyList;
   } else {
-    // Modo anual: agrupamos por mes
-    final currentData =
-        data.where((t) => t.datetime.year == selectedYear);
+    // Modo anual: agrupar por meses
+    final currentData = data.where((t) => t.datetime.year == selectedYear);
 
-    final Map<int, double> monthlyMap = {};
+    final Map<int, Map<String, dynamic>> monthlyMap = {};
     for (var item in currentData) {
       final amount = double.tryParse(item.amount) ?? 0;
-      monthlyMap[item.datetime.month] =
-          (monthlyMap[item.datetime.month] ?? 0) + amount;
+      final month = item.datetime.month;
+      
+      if (!monthlyMap.containsKey(month)) {
+        monthlyMap[month] = {
+          'amount': amount,
+          // Icono para representar meses
+          'iconCode': Icons.calendar_month.codePoint
+        };
+      } else {
+        monthlyMap[month]!['amount'] += amount;
+      }
     }
 
+    // Construir la lista ordenada por mes
     final List<ChartData> monthlyList = [];
-    monthlyMap.forEach((mes, total) {
-      monthlyList.add(ChartData(_nombreMesCompleto(mes), total, Colors.teal));
-    });
+    final sortedMonths = monthlyMap.keys.toList()..sort();
+    
+    for (var mes in sortedMonths) {
+      monthlyList.add(ChartData(
+        _nombreMesCompleto(mes), 
+        monthlyMap[mes]!['amount'], 
+        Colors.teal,
+        monthlyMap[mes]!['iconCode'] // Incluir el iconCode
+      ));
+    }
     return monthlyList;
   }
 }
@@ -330,6 +491,31 @@ String _nombreMesCompleto(int mes) {
     case 12: return 'Diciembre';
     default: return '';
   }
+}
+
+/// Helper para nombre de mes abreviado en español
+String _nombreMes(int mes) {
+  switch (mes) {
+    case 1:  return 'Ene.';
+    case 2:  return 'Feb.';
+    case 3:  return 'Mar.';
+    case 4:  return 'Abr.';
+    case 5:  return 'May.';
+    case 6:  return 'Jun.';
+    case 7:  return 'Jul.';
+    case 8:  return 'Ago.';
+    case 9:  return 'Sep.';
+    case 10: return 'Oct.';
+    case 11: return 'Nov.';
+    case 12: return 'Dic.';
+    default: return '';
+  }
+}
+
+/// Formato para números con separadores de miles
+String _formatNumber(double value) {
+  // Utiliza siempre el formato con separadores de miles, sin abreviar
+  return NumberFormat('#,##0').format(value);
 }
 
   @override
@@ -742,37 +928,49 @@ Widget _buildCategoryDetailsList(List<ChartData> data, double totalAmount) {
   return Column(
     children: data.map((item) {
       final percentage = (item.y / totalAmount * 100).toStringAsFixed(1);
-      final iconData = _getCategoryIcon(item.x);
+      
+      // Determinar el icono correcto basado en el contexto
+      IconData iconData;
+      
+      if (item.iconCode > 0) {
+        // Si tenemos un iconCode válido, usarlo directamente
+        iconData = IconData(item.iconCode, fontFamily: 'MaterialIcons');
+      } else {
+        // Si no hay iconCode, usar el método existente
+        iconData = isIncomeSelected ? Icons.trending_up : Icons.shopping_cart;
+      }
+      
+      // Determinar un color de contraste para el icono
+      final Color iconColor = Colors.white; // Alto contraste con fondos oscuros
       
       return Container(
         margin: const EdgeInsets.only(bottom: 16),
         child: Row(
           children: [
-            // ICONO con tamaño aumentado y mejor diseño
+            // ICONO con mejor diseño
             Container(
-              width: 44,
-              height: 44,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
-                color: item.color.withOpacity(0.12),
+                color: item.color,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: item.color.withOpacity(0.15),
+                    color: item.color.withOpacity(0.3),
                     blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
               child: Icon(
                 iconData,
-                color: item.color,
-                size: 22,
+                color: iconColor,
+                size: 24,
               ),
             ),
             
-            const SizedBox(width: 12),
-            
-            // CONTENIDO PRINCIPAL (nombre, barra y valores)
+            // Resto del código permanece igual...
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,11 +994,11 @@ Widget _buildCategoryDetailsList(List<ChartData> data, double totalAmount) {
                         ),
                       ),
                       
-                      // Valor numérico
+                      // Valor numérico sin comprimir
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: Text(
-                          '\$${NumberFormat('#,##0').format(item.y)}',  // Esto garantiza que NUNCA se comprima
+                          '\$${NumberFormat('#,##0').format(item.y)}',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.9),
                             fontWeight: FontWeight.w600,
@@ -816,11 +1014,11 @@ Widget _buildCategoryDetailsList(List<ChartData> data, double totalAmount) {
                   // Barra de progreso y porcentaje
                   Row(
                     children: [
-                      // Barra de progreso reducida en grosor (60% menos)
+                      // Barra de progreso
                       Expanded(
                         flex: 85,
                         child: Container(
-                          height: 6, // Reducido en 60% (de 16px a 6px)
+                          height: 6,
                           decoration: BoxDecoration(
                             color: Colors.grey.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(3),
@@ -840,13 +1038,6 @@ Widget _buildCategoryDetailsList(List<ChartData> data, double totalAmount) {
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(3),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: item.color.withOpacity(0.3),
-                                        blurRadius: 2,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
                                   ),
                                 ),
                               ),
@@ -880,127 +1071,59 @@ Widget _buildCategoryDetailsList(List<ChartData> data, double totalAmount) {
   );
 }
 
-// Método mejorado para obtener el icono según la categoría (asegurando que se muestren)
+// Método para determinar el color contrastante para un icono
+Color _getContrastColor(Color backgroundColor) {
+  // Calcular la luminancia del color de fondo
+  final double luminance = backgroundColor.computeLuminance();
+  
+  // Si el color de fondo es oscuro, usar un color claro para el icono
+  // De lo contrario, usar un color oscuro
+  return luminance > 0.5 ? Colors.black : Colors.white;
+}
+
+  // Método mejorado para obtener el icono según la categoría (asegurando que se muestren)
 IconData _getCategoryIcon(String categoryName) {
-  // Importar de lib/icon_lists.dart si no lo has hecho
-  // import '../icon_lists.dart';
-  
-  // Mapa ampliado de categorías a iconos (más completo)
-  final Map<String, IconData> categoryIcons = {
-    // Ingresos
-    'salario': Icons.work,
-    'nómina': Icons.work,
-    'sueldo': Icons.work,
-    'inversiones': Icons.trending_up,
-    'inversión': Icons.trending_up,
-    'intereses': Icons.account_balance,
-    'dividendos': Icons.account_balance,
-    'regalos': Icons.card_giftcard,
-    'premios': Icons.emoji_events,
-    'ventas': Icons.monetization_on,
-    'venta': Icons.monetization_on,
-    'negocio': Icons.store,
-    'devoluciones': Icons.replay,
-    'reembolsos': Icons.replay,
-    'transferencia': Icons.sync_alt,
-    'préstamos': Icons.attach_money,
-    'préstamo': Icons.attach_money,
-    
-    // Gastos
-    'alimentación': Icons.restaurant,
-    'comida': Icons.restaurant,
-    'restaurantes': Icons.restaurant,
-    'transporte': Icons.directions_car,
-    'taxi': Icons.local_taxi,
-    'combustible': Icons.local_gas_station,
-    'entretenimiento': Icons.movie,
-    'ocio': Icons.sports_esports,
-    'servicios': Icons.build,
-    'servicio': Icons.build,
-    'facturas': Icons.receipt,
-    'factura': Icons.receipt,
-    'agua': Icons.water_drop,
-    'luz': Icons.lightbulb,
-    'electricidad': Icons.power,
-    'gas': Icons.fireplace,
-    'internet': Icons.wifi,
-    'teléfono': Icons.phone,
-    'celular': Icons.smartphone,
-    'cable': Icons.tv,
-    'streaming': Icons.live_tv,
-    'salud': Icons.medical_services,
-    'médico': Icons.health_and_safety,
-    'farmacia': Icons.local_pharmacy,
-    'educación': Icons.school,
-    'colegio': Icons.school,
-    'universidad': Icons.school,
-    'libros': Icons.book,
-    'cursos': Icons.auto_stories,
-    'ropa': Icons.shopping_bag,
-    'vestimenta': Icons.checkroom,
-    'hogar': Icons.home,
-    'casa': Icons.home,
-    'alquiler': Icons.home,
-    'hipoteca': Icons.home,
-    'viajes': Icons.flight,
-    'vacaciones': Icons.beach_access,
-    'hoteles': Icons.hotel,
-    'tecnología': Icons.computer,
-    'electrónica': Icons.devices,
-    'gimnasio': Icons.fitness_center,
-    'deporte': Icons.sports_soccer,
-    'mascota': Icons.pets,
-    'mascotas': Icons.pets,
-    'seguro': Icons.security,
-    'seguros': Icons.security,
-    'impuestos': Icons.receipt_long,
-    'compras': Icons.shopping_cart,
-    'ahorro': Icons.savings,
-  };
-  
-  // Normalizar a minúsculas para facilitar la coincidencia
   final normalizedName = categoryName.toLowerCase();
   
-  // 1. Buscar coincidencia exacta primero
-  if (categoryIcons.containsKey(normalizedName)) {
-    return categoryIcons[normalizedName]!;
+  // PASO 1: Buscar en los datos filtrados por coincidencia exacta
+  final matchingList = filteredData.where(
+    (item) => item.explain.toLowerCase() == normalizedName,
+  ).toList();
+  
+  final Add_data? matchingData = matchingList.isNotEmpty ? matchingList.first : null;
+
+  // Si encontramos la transacción con iconCode válido, la usamos
+  if (matchingData != null && matchingData.iconCode > 0) {
+    print("Usando iconCode guardado: ${matchingData.iconCode} para '$categoryName'");
+    return IconData(matchingData.iconCode, fontFamily: 'MaterialIcons');
+  }
+
+  // PASO 2: Usar la lista de categoryIcons
+  // Buscar por nombre
+  for (int i = 0; i < categoryIcons.length; i++) {
+    String iconName = categoryIcons[i].toString().split('.').last.toLowerCase();
+    if (normalizedName.contains(iconName) || iconName.contains(normalizedName)) {
+      print("Coincidencia de nombre: '$normalizedName' con icono '$iconName'");
+      return categoryIcons[i];
+    }
+  }
+
+  // PASO 3: Usar un icono predeterminado de la lista
+  int defaultIndex = isIncomeSelected ? 4 : 0; // Índice diferente para ingresos/gastos
+  return categoryIcons[defaultIndex]; 
+}
+
+IconData _getAccountIcon(String accountName) {
+  // Buscar en la lista de cuentas cargada
+  for (var account in _accountsList) {
+    if (account.title == accountName && account.icon != null) {
+      return account.icon!;
+    }
   }
   
-  // 2. Buscar coincidencia parcial
-  for (final entry in categoryIcons.entries) {
-    if (normalizedName.contains(entry.key)) {
-      return entry.value;
-    }
-    if (entry.key.contains(normalizedName) && normalizedName.length > 3) {
-      return entry.value;
-    }
-  }
-  
-  // 3. Intentar extraer el iconCode de la categoría (si está guardado en el modelo)
-  try {
-    // Verificar si hay datos disponibles para esta categoría
-    final matchingData = filteredData.firstWhere(
-      (item) => item.explain.toLowerCase() == normalizedName,
-      orElse: () => Add_data(
-        '', // IN
-        '0', // amount
-        DateTime.now(), // datetime
-        '', // detail
-        '', // explain
-        '', // name
-        0, // iconCode
-      ),
-    );
-    
-    if (matchingData.iconCode > 0) {
-      return IconData(matchingData.iconCode, fontFamily: 'MaterialIcons');
-    }
-  } catch (e) {
-    // Ignorar errores para continuar con las opciones siguientes
-  }
-  
-  // 4. Usar icono predeterminado según sea ingreso o gasto
-  return isIncomeSelected ? Icons.arrow_upward : Icons.arrow_downward;
+  // Si no se encuentra, buscar en la lista predefinida de iconos de cuentas
+  // Usar un icono predeterminado de la lista de cuentas
+  return accountIcons[0]; // account_balance_wallet
 }
 
   Widget _buildBarChart(List<ChartData> data) {

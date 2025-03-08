@@ -33,7 +33,7 @@ class _BottomState extends State<Bottom> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromRGBO(31, 38, 57, 1),
+      backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
       body: screens[_selectedIndex],
       bottomNavigationBar: ResponsiveNavigationBar(
         selectedIndex: _selectedIndex,
@@ -42,42 +42,50 @@ class _BottomState extends State<Bottom> {
           color: Colors.white,
           fontWeight: FontWeight.bold,
         ),
-        navigationBarButtons: const <NavigationBarButton>[
+        navigationBarButtons: <NavigationBarButton>[
           NavigationBarButton(
             text: 'Inicio',
             icon: Icons.home,
-            backgroundGradient: LinearGradient(
+            backgroundGradient: const LinearGradient(
               colors: [
-                Colors.yellow,
-                Colors.green,
-                Colors.blue,
+                // Mismo color en ambas posiciones para evitar degradado
+                Color.fromRGBO(42, 49, 67, 1),
+                Color.fromRGBO(42, 49, 67, 1),
               ],
             ),
           ),
           NavigationBarButton(
             text: 'Estadísticas',
             icon: Icons.show_chart,
-            backgroundGradient: LinearGradient(
-              colors: [Colors.cyan, Colors.teal],
+            backgroundGradient: const LinearGradient(
+              colors: [
+                Color.fromRGBO(42, 49, 67, 1),
+                Color.fromRGBO(42, 49, 67, 1),
+              ],
             ),
           ),
           NavigationBarButton(
             text: 'Categorias',
             icon: Icons.account_balance,
-            backgroundGradient: LinearGradient(
-              colors: [Colors.green, Colors.yellow],
+            backgroundGradient: const LinearGradient(
+              colors: [
+                Color.fromRGBO(42, 49, 67, 1),
+                Color.fromRGBO(42, 49, 67, 1),
+              ],
             ),
           ),
           NavigationBarButton(
             text: 'Administrar',
             icon: Icons.manage_accounts,
-            backgroundGradient: LinearGradient(
-              colors: [Colors.purple, Colors.red],
+            backgroundGradient: const LinearGradient(
+              colors: [
+                Color.fromRGBO(42, 49, 67, 1),
+                Color.fromRGBO(42, 49, 67, 1),
+              ],
             ),
           ),
         ],
-        backgroundColor:
-            Color.fromRGBO(31, 38, 57, 1), // Color de fondo original
+        backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
       ),
     );
   }
