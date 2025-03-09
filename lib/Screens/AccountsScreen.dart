@@ -69,6 +69,204 @@ class _AccountsScreenState extends State<AccountsScreen>
     _saveData();
   }
 
+  /// Confirma la eliminación de una categoría
+  void _confirmRemoveItem(int tabIndex, int index) {
+    // Obtener los datos del ítem a eliminar para mostrar en el diálogo
+    final item = tabIndex == 0 ? ingresos[index] : gastos[index];
+    final itemName = item['text'];
+    final itemIcon = IconData(item['icon'], fontFamily: 'MaterialIcons');
+    final itemColor = Color(item['color']);
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.6),
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(
+                color: const Color(0xFF222939),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.4),
+                    blurRadius: 25,
+                    offset: const Offset(0, 10),
+                    spreadRadius: -5,
+                  ),
+                ],
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.08),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icono de advertencia
+                  Padding(
+                    padding: const EdgeInsets.only(top: 28),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE53935).withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Container(
+                          width: 65,
+                          height: 65,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE53935).withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.delete_rounded,
+                            color: Color(0xFFE53935),
+                            size: 32,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Detalles de la categoría a eliminar
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 10),
+                    child: Column(
+                      children: [
+                        const Text(
+                          '¿Eliminar categoría?',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Mostrar la categoría a eliminar
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: itemColor,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  itemIcon,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  itemName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        Text(
+                          'Esta acción no se puede deshacer. La categoría será eliminada permanentemente.',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Botones de acción
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      children: [
+                        // Botón Cancelar
+                        Expanded(
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                              ),
+                            ),
+                            child: const Text('Cancelar'),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        
+                        // Botón Eliminar
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE53935),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.delete_outline, size: 18),
+                                SizedBox(width: 8),
+                                Text('Eliminar'),
+                              ],
+                            ),
+                            onPressed: () {
+                              // Eliminar el ítem
+                              _removeItem(tabIndex, index);
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// Diálogo para agregar/editar categoría
   void _showAddItemDialog(int tabIndex, {Map<String, dynamic>? initialData, int? index}) {
     // Controladores y variables temporales
@@ -605,70 +803,213 @@ class _AccountsScreenState extends State<AccountsScreen>
     );
   }
 
-  /// Lista de categorías (Ingresos o Gastos)
+  /// Lista de categorías (Ingresos o Gastos) con diseño premium similar a cuentas
   Widget _buildListView(List<Map<String, dynamic>> items, int tabIndex) {
-    return ListView.builder(
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return Column(
-          children: [
-            InkWell(
-              onTap: () {
-                _showAddItemDialog(
-                  tabIndex,
-                  initialData: item,
-                  index: index,
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 30),
-                child: Row(
-                  children: [
-                    // Círculo con ícono blanco
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Color(item['color']),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        IconData(item['icon'], fontFamily: 'MaterialIcons'),
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Nombre de la categoría
-                    Expanded(
-                      child: Text(
-                        item['text'],
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                    ),
-            
-                    const SizedBox(width: 4),
-                    // Botón para borrar (fuera del área tactil de edición)
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_outlined, color: Colors.white),
-                      onPressed: () {
-                        _removeItem(tabIndex, index);
-                      },
+    return items.isEmpty
+        ? _buildEmptyState(tabIndex)
+        : ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final color = Color(item['color']);
+              final icon = IconData(item['icon'], fontFamily: 'MaterialIcons');
+              
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.08),
+                    width: 1,
+                  ),
+                  // Sombra CORREGIDA - ahora aparece por FUERA como en cuentas
+                  boxShadow: [
+                    
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1), // Segunda sombra más suave
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                      spreadRadius: -8,
                     ),
                   ],
                 ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    splashColor: color.withOpacity(0.1),
+                    highlightColor: color.withOpacity(0.05),
+                    onTap: () {
+                      _showAddItemDialog(
+                        tabIndex,
+                        initialData: item,
+                        index: index,
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                      child: Row(
+                        children: [
+                          // Icono con diseño premium
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  color,
+                                  Color.lerp(color, Colors.black, 0.2) ?? color,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.withOpacity(0.4),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                  spreadRadius: -3,
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              icon,
+                              color: Colors.white,
+                              size: 26,
+                            ),
+                          ),
+                          
+                          const SizedBox(width: 18),
+                          
+                          // Nombre de categoría
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item['text'],
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  tabIndex == 0 ? 'Categoría de ingresos' : 'Categoría de gastos',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.5),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          // Iconos de acciones
+                          Row(
+                            children: [
+                              // Botón editar
+                              IconButton(
+                                icon: Icon(
+                                  Icons.edit_outlined,
+                                  color: Colors.white.withOpacity(0.7),
+                                  size: 22,
+                                ),
+                                onPressed: () {
+                                  _showAddItemDialog(
+                                    tabIndex,
+                                    initialData: item,
+                                    index: index,
+                                  );
+                                },
+                                splashRadius: 24,
+                                tooltip: 'Editar',
+                              ),
+                              // Botón eliminar
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.white.withOpacity(0.7),
+                                  size: 22,
+                                ),
+                                onPressed: () {
+                                  _confirmRemoveItem(tabIndex, index);
+                                },
+                                splashRadius: 24,
+                                tooltip: 'Eliminar',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+  }
+
+  // Widget para mostrar cuando no hay categorías
+  Widget _buildEmptyState(int tabIndex) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            tabIndex == 0 ? Icons.savings_outlined : Icons.category_outlined,
+            size: 70,
+            color: Colors.white.withOpacity(0.2),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            tabIndex == 0 
+                ? 'No hay categorías de ingresos' 
+                : 'No hay categorías de gastos',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Pulsa el botón + para crear una categoría',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.5),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 28),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color.fromARGB(255, 82, 226, 255),
+              foregroundColor: const Color.fromRGBO(31, 38, 57, 1),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
-            Divider(
-              color: Colors.white24,
-              height: 1,
-              thickness: 1,
-              indent: 16,
-              endIndent: 16,
+            icon: const Icon(Icons.add),
+            label: const Text(
+              'Crear categoría',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ],
-        );
-      },
+            onPressed: () {
+              _showAddItemDialog(tabIndex);
+            },
+          ),
+        ],
+      ),
     );
   }
 

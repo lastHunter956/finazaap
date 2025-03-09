@@ -543,15 +543,43 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        'Balance Contable: '
-                        '${widget.accountingBalance < 0 ? "- " : ""}'
-                        '${currencyFormat.format(widget.accountingBalance.abs())} COP',
-                        style: TextStyle(
-                          color: Colors.grey.shade300,
-                          fontSize: 14,
+                      
+                      // Si el valor absoluto es mayor a 9,999, mostrar en dos líneas
+                      if (widget.accountingBalance.abs() > 9999)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Balance Contable:',
+                              style: TextStyle(
+                                color: Colors.grey.shade300,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${widget.accountingBalance < 0 ? "- " : ""}'
+                              '${currencyFormat.format(widget.accountingBalance.abs())} COP',
+                              style: TextStyle(
+                                color: widget.accountingBalance >= 0 ? 
+                                    const Color.fromARGB(255, 255, 255, 255) : Colors.redAccent,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        // Para valores pequeños mantener en una sola línea
+                        Text(
+                          'Balance Contable: '
+                          '${widget.accountingBalance < 0 ? "- " : ""}'
+                          '${currencyFormat.format(widget.accountingBalance.abs())} COP',
+                          style: TextStyle(
+                            color: Colors.grey.shade300,
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   // Gráfica: Anillo que muestra el % de ingresos/egresos con diseño mejorado

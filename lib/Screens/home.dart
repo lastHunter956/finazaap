@@ -912,86 +912,111 @@ void _showTransactionOptions(Add_data transaction) {
                       Container(
                         padding: const EdgeInsets.all(20),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Botón Editar - Solo icono con tamaño fijo
-                            Material(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(18),
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  _editTransaction(transaction);
-                                },
+                            // Botón Editar - Adaptable
+                            Expanded(
+                              child: Material(
+                                color: Colors.transparent,
                                 borderRadius: BorderRadius.circular(18),
-                                splashColor: const Color(0xFFFFA726).withOpacity(0.2),
-                                highlightColor: const Color(0xFFFFA726).withOpacity(0.1),
-                                child: Ink(
-                                  width: 160, // Tamaño fijo para el contenedor
-                                  height: 80, // Tamaño fijo para el contenedor
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        const Color(0xFFFFA726).withOpacity(0.2),
-                                        const Color(0xFFFFA726).withOpacity(0.08),
+                                child: InkWell(
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    _editTransaction(transaction);
+                                  },
+                                  borderRadius: BorderRadius.circular(18),
+                                  splashColor: const Color(0xFFFFA726).withOpacity(0.2),
+                                  highlightColor: const Color(0xFFFFA726).withOpacity(0.1),
+                                  child: Ink(
+                                    height: 75, // Solo fijar altura, ancho adaptable
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          const Color(0xFFFFA726).withOpacity(0.2),
+                                          const Color(0xFFFFA726).withOpacity(0.08),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: const Color(0xFFFFA726).withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.edit_rounded,
+                                          size: 24,
+                                          color: const Color(0xFFFFA726),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        const Text(
+                                          'Editar',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFFFFA726),
+                                          ),
+                                        ),
                                       ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(
-                                      color: const Color(0xFFFFA726).withOpacity(0.3),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.edit_rounded,
-                                      size: 28,
-                                      color: const Color(0xFFFFA726),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                            
-                            const SizedBox(width: 32),
-                            
-                            // Botón Eliminar - Solo icono con tamaño fijo
-                            Material(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(18),
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  _confirmDeleteTransaction(transaction);
-                                },
+                                    
+                            const SizedBox(width: 15), // Reducido el espacio entre botones
+                                    
+                            // Botón Eliminar - Adaptable
+                            Expanded(
+                              child: Material(
+                                color: Colors.transparent,
                                 borderRadius: BorderRadius.circular(18),
-                                splashColor: const Color(0xFFE53935).withOpacity(0.2),
-                                highlightColor: const Color(0xFFE53935).withOpacity(0.1),
-                                child: Ink(
-                                  width: 160, // Tamaño fijo para el contenedor
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        const Color(0xFFE53935).withOpacity(0.2),
-                                        const Color(0xFFE53935).withOpacity(0.08),
+                                child: InkWell(
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    _confirmDeleteTransaction(transaction);
+                                  },
+                                  borderRadius: BorderRadius.circular(18),
+                                  splashColor: const Color(0xFFE53935).withOpacity(0.2),
+                                  highlightColor: const Color(0xFFE53935).withOpacity(0.1),
+                                  child: Ink(
+                                    height: 75, // Solo fijar altura, ancho adaptable
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          const Color(0xFFE53935).withOpacity(0.2),
+                                          const Color(0xFFE53935).withOpacity(0.08),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: const Color(0xFFE53935).withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.delete_rounded,
+                                          size: 24,
+                                          color: const Color(0xFFE53935),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        const Text(
+                                          'Eliminar',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFFE53935),
+                                          ),
+                                        ),
                                       ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(
-                                      color: const Color(0xFFE53935).withOpacity(0.3),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.delete_rounded,
-                                      size: 28,
-                                      color: const Color(0xFFE53935),
                                     ),
                                   ),
                                 ),

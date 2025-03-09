@@ -685,7 +685,7 @@ String _formatCurrencyCompact(double value) {
                     },
                     color: Colors.white,
                     selectedColor: Colors.white,
-                    fillColor: const Color.fromARGB(255, 47, 125, 121),
+                    fillColor: const Color.fromARGB(255, 37, 96, 74),
                     children: const [
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -922,10 +922,10 @@ Widget _buildMonthSelector() {
       Container(
         height: 48,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.03),
+          color: Color.fromRGBO(42, 49, 67, 1).withOpacity(.8),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withOpacity(0.2),
             width: 1,
           ),
           boxShadow: [
@@ -1005,15 +1005,15 @@ Widget _buildMonthSelector() {
                         Text(
                           _nombreMesCompleto(mes),
                           style: TextStyle(
-                            color: selected ? accentColor : Colors.white.withOpacity(0.8),
+                            color: selected ? Colors.white : Colors.white.withOpacity(0.8),
                             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                             fontSize: selected ? 14 : 13.5,
                             letterSpacing: selected ? 0.2 : 0,
                             // Añadir sombra para mejor legibilidad
                             shadows: selected ? [
                               Shadow(
-                                color: Colors.black.withOpacity(0.5),
-                                blurRadius: 3,
+                                color: Colors.black.withOpacity(0.8),
+                                blurRadius: 10,
                                 offset: const Offset(0, 1),
                               )
                             ] : null,
@@ -1165,17 +1165,19 @@ Widget _buildMonthSelector() {
                   dataLabelSettings: const DataLabelSettings(
                     isVisible: false, // Sin etiquetas en el gráfico mismo
                   ),
-                  radius: '85%',
-                  innerRadius: '65%',
+                  radius: '75%',
+                  innerRadius: '79%',
                   enableTooltip: true,
                   animationDuration: 1200, // Animación más suave
                   animationDelay: 600, // Retraso para un efecto más elegante
                   explode: true,  // Permite que los segmentos se separen ligeramente al tocarlos
-                  explodeOffset: '3%', // Distancia de separación
+                  explodeOffset: '5%', // Distancia de separación
                   explodeAll: false,
                   explodeGesture: ActivationMode.singleTap,
                   strokeWidth: 1.2,
                   strokeColor: Colors.black12,
+                  //sombreado
+                  
                   cornerStyle: CornerStyle.bothCurve, // Esquinas con estilo redondeado
                 )
               ],
