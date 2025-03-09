@@ -724,21 +724,79 @@ String _formatCurrencyCompact(double value) {
               if (isMonthly)
                 _buildMonthSelector(),
 
-              // Botón para Ingresos/Gastos
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      isIncomeSelected = !isIncomeSelected;
-                      _updateData();
-                    },
-                    child: Text(
-                      isIncomeSelected ? 'Ingresos' : 'Gastos',
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+              // Botón para Ingresos/Gastos con aspecto mejorado
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // Botón con aspecto mejorado
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            spreadRadius: -2,
+                          ),
+                        ],
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withOpacity(0.1),
+                            Colors.white.withOpacity(0.05),
+                          ],
+                        ),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            isIncomeSelected = !isIncomeSelected;
+                            _updateData();
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isIncomeSelected ? Icons.arrow_upward : Icons.arrow_downward,
+                                  color: isIncomeSelected 
+                                      ? const Color(0xFF27AE60) 
+                                      : const Color(0xFFE53935),
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  isIncomeSelected ? 'Ingresos' : 'Gastos',
+                                  style: const TextStyle(
+                                    color: Colors.white, 
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.swap_vert,
+                                  color: Colors.white.withOpacity(0.7),
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
 
               // Mostrar el título de la fecha
@@ -757,13 +815,13 @@ String _formatCurrencyCompact(double value) {
               // Gráfico de dona por categoría
               _buildCard(
                 title: '${isIncomeSelected ? 'Ingresos' : 'Gastos'} por categoría',
-                child: _buildDoughnutChart(_getCategoryData()),
+                child: _buildDoughnutChart(_getCategoryData(), chartType: 'categoría'),
               ),
 
               // Gráfico de dona por cuenta
               _buildCard(
                 title: '${isIncomeSelected ? 'Ingresos' : 'Gastos'} por cuentas',
-                child: _buildDoughnutChart(_getAccountData()),
+                child: _buildDoughnutChart(_getAccountData(), chartType: 'cuenta'),
               ),
 
               // Gráfico de barras por mes (solo en modo Anual)
@@ -839,9 +897,9 @@ Widget _buildMonthSelector() {
   final months = yearToMonths[selectedYear]?.toList() ?? [];
   months.sort();
   
-  // Color para el mes seleccionado según el tipo de vista
+  // Color para el mes seleccionado según el tipo de vista - MEJORADO CONTRASTE
   final accentColor = isIncomeSelected 
-      ? const Color(0xFF2E9E5B)  // Verde para ingresos
+      ? const Color(0xFF27AE60)  // Verde más oscuro (antes era 0xFF2E9E5B)
       : const Color(0xFFE53935);  // Rojo para gastos
 
   return Column(
@@ -951,6 +1009,14 @@ Widget _buildMonthSelector() {
                             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                             fontSize: selected ? 14 : 13.5,
                             letterSpacing: selected ? 0.2 : 0,
+                            // Añadir sombra para mejor legibilidad
+                            shadows: selected ? [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.5),
+                                blurRadius: 3,
+                                offset: const Offset(0, 1),
+                              )
+                            ] : null,
                           ),
                         ),
                       ],
@@ -1000,7 +1066,7 @@ Widget _buildMonthSelector() {
     );
   }
 
-  Widget _buildDoughnutChart(List<ChartData> data) {
+  Widget _buildDoughnutChart(List<ChartData> data, {String chartType = 'categoría'}) {
   if (data.isEmpty) {
     return _buildEmptyDataIndicator('No hay datos disponibles');
   }
@@ -1011,7 +1077,7 @@ Widget _buildMonthSelector() {
   
   // Colores para el efecto de gradiente del fondo central
   final Color accentColor = isIncomeSelected 
-      ? const Color(0xFF2E9E5B)  // Verde para ingresos
+      ? const Color(0xFF27AE60)  // Verde más oscuro para mejor contraste
       : const Color(0xFFE53935);  // Rojo para gastos
 
   return Column(
@@ -1118,7 +1184,7 @@ Widget _buildMonthSelector() {
         ),
       ),
       
-      // Pequeña descripción con estilo premium
+      // Pequeña descripción con estilo premium - CORREGIDA
       Container(
         margin: const EdgeInsets.symmetric(vertical: 8.0),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
@@ -1127,7 +1193,7 @@ Widget _buildMonthSelector() {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
-          "Distribución de ${isIncomeSelected ? 'ingresos' : 'gastos'} por categoría",
+          "Distribución de ${isIncomeSelected ? 'ingresos' : 'gastos'} por $chartType",
           style: TextStyle(
             color: accentColor,
             fontWeight: FontWeight.w500,
