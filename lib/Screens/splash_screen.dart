@@ -27,25 +27,25 @@ class _SplashScreenState extends State<SplashScreen> {
       // Verificar si las boxes de Hive están abiertas
       final isDataBoxOpen = Hive.isBoxOpen('data');
       final isAccountsBoxOpen = Hive.isBoxOpen('accounts');
-      
+
       if (!isDataBoxOpen) {
         setState(() => _loadingMessage = "Cargando transacciones...");
         // Especificar el tipo correcto
         await Hive.openBox<Add_data>('data');
       }
-      
+
       if (!isAccountsBoxOpen) {
         setState(() => _loadingMessage = "Cargando cuentas...");
         // Especificar el tipo correcto
         await Hive.openBox<AccountItem>('accounts');
       }
-      
+
       // Simulamos un pequeño retraso para mostrar la animación
       await Future.delayed(const Duration(milliseconds: 800));
-      
+
       if (mounted) {
         setState(() => _isLoading = false);
-        
+
         // Navegar a la pantalla principal
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const Bottom()),
@@ -70,12 +70,28 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Por esto:
             Image.asset(
-              'assets/logo.png', // Reemplaza con la ruta de tu logo
+              'assets/images/Moneo_icon.png',
               width: 120,
               height: 120,
-              errorBuilder: (context, error, stackTrace) => 
-                  const Icon(Icons.account_balance_wallet, size: 80, color: Color(0xFF368983)),
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                // Fallback en caso de error
+                return Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF368983).withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_wallet,
+                    size: 60,
+                    color: Color(0xFF368983),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 30),
             if (_isLoading && !_hasError)

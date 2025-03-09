@@ -42,6 +42,7 @@ dependencies:
   responsive_navigation_bar: ^5.0.2
   # Añadir esta dependencia
   flutter_speed_dial: ^7.0.0
+  gradient_borders: ^1.0.1
 
 dev_dependencies:
   flutter_test:
@@ -57,6 +58,17 @@ dev_dependencies:
   flutter_expandable_fab: ^2.3.0
   build_runner: ^2.3.3  # Añadir esta línea
   hive_generator: ^2.0.0  # Añadir esta línea si no está presente
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/Moneo_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/Moneo_icon.png"  # Corregido
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icons/
+    - assets/images/

@@ -56,7 +56,7 @@ class _BottomState extends State<Bottom> {
           ),
           NavigationBarButton(
             text: 'Estadísticas',
-            icon: Icons.show_chart,
+            icon: Icons.bar_chart_rounded,
             backgroundGradient: const LinearGradient(
               colors: [
                 Color.fromRGBO(42, 49, 67, 1),
@@ -66,7 +66,7 @@ class _BottomState extends State<Bottom> {
           ),
           NavigationBarButton(
             text: 'Categorias',
-            icon: Icons.account_balance,
+            icon: Icons.dashboard_outlined,
             backgroundGradient: const LinearGradient(
               colors: [
                 Color.fromRGBO(42, 49, 67, 1),
@@ -74,16 +74,16 @@ class _BottomState extends State<Bottom> {
               ],
             ),
           ),
-          NavigationBarButton(
-            text: 'Administrar',
-            icon: Icons.manage_accounts,
-            backgroundGradient: const LinearGradient(
-              colors: [
-                Color.fromRGBO(42, 49, 67, 1),
-                Color.fromRGBO(42, 49, 67, 1),
-              ],
-            ),
-          ),
+          //NavigationBarButton(
+          //  text: 'Administrar',
+          //  icon: Icons.manage_accounts,
+          //  backgroundGradient: const LinearGradient(
+          //    colors: [
+          //      Color.fromRGBO(42, 49, 67, 1),
+          //      Color.fromRGBO(42, 49, 67, 1),
+          //    ],
+          //  ),
+          //),
         ],
         backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
       ),

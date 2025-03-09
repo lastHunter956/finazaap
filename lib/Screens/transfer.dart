@@ -297,256 +297,566 @@ Future<void> _saveTransfer() async {
 
   @override
 Widget build(BuildContext context) {
+  // Colores y constantes de diseño
+  const Color primaryColor = Color(0xFF3D7AF0); // Azul para transferencias
+  const Color surfaceColor = Color(0xFF222939);
+  const Color cardColor = Color(0xFF1A1F2B);
+  const double cornerRadius = 20.0;
+  
   return Scaffold(
     backgroundColor: const Color(0xFF1F2639),
-    body: SafeArea(
-      child: SingleChildScrollView(
-        child: Center(
-          child: Container(
-            width: 340,
-            margin: const EdgeInsets.only(top: 50, bottom: 20),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2A2A3A),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: _buildForm(),
-          ),
+    appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      title: Text(
+        widget.isEditing ? 'Editar Transferencia' : 'Nueva Transferencia',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
         ),
+      ),
+      centerTitle: true,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
       ),
     ),
-  );
-}
+    body: SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Contenedor principal más compacto
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: BoxDecoration(
+                color: surfaceColor,
+                borderRadius: BorderRadius.circular(cornerRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                    spreadRadius: -5,
+                  ),
+                ],
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.05),
+                  width: 1.0,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Encabezado más compacto con flexbox para el título
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          primaryColor.withOpacity(0.15),
+                          primaryColor.withOpacity(0.05),
+                        ],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(cornerRadius),
+                        topRight: Radius.circular(cornerRadius),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Icono más pequeño
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.swap_horiz_rounded,
+                            color: primaryColor,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Texto más compacto
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Transferencia',
+                                style: TextStyle(
+                                  color: primaryColor,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'Movimiento entre cuentas',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-Widget _buildForm() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      // Título centrado con tamaño consistente
-      Center(
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Text(
-            'Transferencia',
-            style: TextStyle(
-              color: Colors.blueAccent,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+                  // Formulario más compacto
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Campo de monto
+                        _buildInputLabel('Monto'),
+                        _buildInputField(
+                          child: TextField(
+                            controller: _amountCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+                            ],
+                            decoration: InputDecoration(
+                              hintText: '0.00',
+                              hintStyle: TextStyle(
+                                color: Colors.white.withOpacity(0.3),
+                              ),
+                              border: InputBorder.none,
+                              prefixIcon: const Icon(
+                                Icons.attach_money_rounded,
+                                color: primaryColor,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Cuenta de origen
+                        _buildInputLabel('Cuenta de origen'),
+                        _buildInputField(
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<AccountItem>(
+                              value: _selectedSourceAccount,
+                              hint: Text(
+                                'Seleccionar origen',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontSize: 14,
+                                ),
+                              ),
+                              dropdownColor: cardColor,
+                              icon: const Icon(
+                                Icons.arrow_drop_down_rounded,
+                                color: Colors.white54,
+                              ),
+                              isExpanded: true,
+                              style: const TextStyle(color: Colors.white),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedSourceAccount = value;
+                                });
+                              },
+                              items: _accountItems.map((account) {
+                                return DropdownMenuItem<AccountItem>(
+                                  value: account,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: (account.iconColor ?? Colors.blue).withOpacity(0.2),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          account.icon ?? Icons.account_balance_wallet,
+                                          color: account.iconColor ?? Colors.blue,
+                                          size: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          account.title,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                        
+                        // Mostrar saldo disponible si hay cuenta seleccionada
+                        if (_selectedSourceAccount != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 10, left: 12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.account_balance_wallet_outlined,
+                                  size: 14,
+                                  color: primaryColor.withOpacity(0.7),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Saldo disponible: ${currencyFormat.format(_selectedSourceAccount!.balance)} \$',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.7),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        
+                        const SizedBox(height: 14),
+
+                        // Cuenta de destino
+                        _buildInputLabel('Cuenta de destino'),
+                        _buildInputField(
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<AccountItem>(
+                              value: _selectedDestinationAccount,
+                              hint: Text(
+                                'Seleccionar destino',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontSize: 14,
+                                ),
+                              ),
+                              dropdownColor: cardColor,
+                              icon: const Icon(
+                                Icons.arrow_drop_down_rounded,
+                                color: Colors.white54,
+                              ),
+                              isExpanded: true,
+                              style: const TextStyle(color: Colors.white),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedDestinationAccount = value;
+                                });
+                              },
+                              items: _accountItems.map((account) {
+                                return DropdownMenuItem<AccountItem>(
+                                  value: account,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: (account.iconColor ?? Colors.blue).withOpacity(0.2),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          account.icon ?? Icons.account_balance_wallet,
+                                          color: account.iconColor ?? Colors.blue,
+                                          size: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          account.title,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Fila para descripción y fecha
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Descripción (izquierda)
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildInputLabel('Descripción'),
+                                  _buildInputField(
+                                    child: TextField(
+                                      controller: _detailCtrl,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: 'Detalle (opcional)',
+                                        hintStyle: TextStyle(
+                                          color: Colors.white.withOpacity(0.3),
+                                        ),
+                                        border: InputBorder.none,
+                                        prefixIcon: const Icon(
+                                          Icons.description_outlined,
+                                          color: primaryColor,
+                                          size: 18,
+                                        ),
+                                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            
+                            const SizedBox(width: 12),
+                            
+                            // Fecha (derecha, más pequeña)
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildInputLabel('Fecha'),
+                                  InkWell(
+                                    onTap: () async {
+                                      final newDate = await showDatePicker(
+                                        context: context,
+                                        initialDate: _selectedDate,
+                                        firstDate: DateTime(2020),
+                                        lastDate: DateTime(2100),
+                                        builder: (context, child) {
+                                          return Theme(
+                                            data: ThemeData.dark().copyWith(
+                                              colorScheme: ColorScheme.dark(
+                                                primary: primaryColor,
+                                                onPrimary: Colors.white,
+                                                surface: cardColor,
+                                                onSurface: Colors.white,
+                                              ),
+                                            ),
+                                            child: child!,
+                                          );
+                                        },
+                                      );
+                                      if (newDate != null) {
+                                        setState(() {
+                                          _selectedDate = newDate;
+                                        });
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: _buildInputField(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 11),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.calendar_today_rounded,
+                                              color: primaryColor,
+                                              size: 18,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                _formatDate(_selectedDate),
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+                        
+                        // Botones de acción más compactos
+                        Row(
+                          children: [
+                            // Botón cancelar
+                            Expanded(
+                              flex: 1,
+                              child: _buildActionButton(
+                                label: 'Cancelar',
+                                icon: Icons.close_rounded,
+                                color: Colors.white54,
+                                isOutlined: true,
+                                onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                              ),
+                            ),
+                            
+                            const SizedBox(width: 12),
+                            
+                            // Botón transferir/actualizar
+                            Expanded(
+                              flex: 2,
+                              child: _buildActionButton(
+                                label: widget.isEditing ? 'Actualizar' : 'Transferir',
+                                icon: Icons.swap_horiz_rounded,
+                                color: primaryColor,
+                                isLoading: _isProcessing,
+                                onPressed: _isProcessing ? null : () async {
+                                  try {
+                                    // Mostrar indicador de carga inline
+                                    setState(() {
+                                      _isProcessing = true;
+                                    });
+                                    
+                                    // Guardar la transferencia
+                                    await _saveTransfer();
+                                    
+                                    // Volver a la pantalla principal
+                                    if (mounted) {
+                                      Navigator.of(context).popUntil((route) => route.isFirst);
+                                    }
+                                  } catch (e) {
+                                    setState(() {
+                                      _isProcessing = false;
+                                    });
+                                    // Error manejado en _saveTransfer
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-      ),
-
-      // Monto - sin etiqueta de texto
-      _buildListRow(
-        icon: Icons.attach_money,
-        trailing: TextField(
-          controller: _amountCtrl,
-          decoration: const InputDecoration(
-            hintText: 'Monto',
-            hintStyle: TextStyle(color: Colors.grey),
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.zero,
-          ),
-          style: const TextStyle(color: Colors.white, fontSize: 15),
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
           ],
         ),
       ),
+    ),
+  );
+}
 
-      // Cuenta origen - sin etiqueta de texto
-      _buildListRow(
-        icon: Icons.account_balance_wallet,
-        trailing: _buildAccountsDropdown(
-          hintText: 'Cuenta de origen',
-          selectedAccount: _selectedSourceAccount,
-          onChanged: (value) {
-            setState(() {
-              _selectedSourceAccount = value;
-            });
-          },
-        ),
+// Para corregir el error de _formatDate, añadir este método
+String _formatDate(DateTime date) {
+  return '${date.day}/${date.month}/${date.year}';
+}
+
+// Método helper para etiquetas de campos más compactas
+Widget _buildInputLabel(String label) {
+  return Padding(
+    padding: const EdgeInsets.only(left: 4, bottom: 6),
+    child: Text(
+      label,
+      style: TextStyle(
+        color: Colors.white.withOpacity(0.7),
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
       ),
+    ),
+  );
+}
 
-      // Saldo disponible con alineación y estilo consistente
-      if (_selectedSourceAccount != null)
-        Padding(
-          padding: const EdgeInsets.only(left: 34, top: 4, bottom: 8),
-          child: Text(
-            'Saldo: ${currencyFormat.format(_selectedSourceAccount!.balance)} \$',
-            style: TextStyle(
-              color: Colors.blueAccent.withOpacity(0.7), 
-              fontSize: 13,
-            ),
-          ),
-        ),
-
-      // Cuenta destino - sin etiqueta de texto
-      _buildListRow(
-        icon: Icons.arrow_forward,
-        trailing: _buildAccountsDropdown(
-          hintText: 'Cuenta de destino',
-          selectedAccount: _selectedDestinationAccount,
-          onChanged: (value) {
-            setState(() {
-              _selectedDestinationAccount = value;
-            });
-          },
-        ),
+// Método helper para campos de entrada más compactos
+Widget _buildInputField({required Widget child}) {
+  return Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFF1A1F2B),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: Colors.white.withOpacity(0.08),
+        width: 1,
       ),
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    child: child,
+  );
+}
 
-      // Detalle - sin etiqueta de texto
-      _buildListRow(
-        icon: Icons.note_alt,
-        trailing: TextField(
-          controller: _detailCtrl,
-          decoration: const InputDecoration(
-            hintText: 'Detalle (opcional)',
-            hintStyle: TextStyle(color: Colors.grey),
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.zero,
-          ),
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+// Método helper para botones de acción más compactos
+Widget _buildActionButton({
+  required String label,
+  required IconData icon,
+  required Color color,
+  required VoidCallback? onPressed,
+  bool isOutlined = false,
+  bool isLoading = false,
+}) {
+  return Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(12),
+      child: Ink(
+        decoration: BoxDecoration(
+          color: isOutlined ? Colors.transparent : color,
+          borderRadius: BorderRadius.circular(12),
+          border: isOutlined
+              ? Border.all(color: Colors.white24, width: 1)
+              : null,
         ),
-      ),
-
-      // Fecha - sin etiqueta de texto
-      _buildListRow(
-        icon: Icons.calendar_today,
-        trailing: InkWell(
-          onTap: () async {
-            final newDate = await showDatePicker(
-              context: context,
-              initialDate: _selectedDate,
-              firstDate: DateTime(2020),
-              lastDate: DateTime(2100),
-              builder: (context, child) {
-                return Theme(
-                  data: ThemeData.dark().copyWith(
-                    colorScheme: ColorScheme.dark(
-                      primary: Colors.blueAccent,
-                      onPrimary: Colors.white,
-                      surface: const Color(0xFF2A2A3A),
-                      onSurface: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isLoading)
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isOutlined ? color : Colors.white
                     ),
                   ),
-                  child: child!,
-                );
-              },
-            );
-            if (newDate != null) {
-              setState(() {
-                _selectedDate = newDate;
-              });
-            }
-          },
-          child: Text(
-            '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-            style: const TextStyle(color: Colors.white, fontSize: 15),
+                )
+              else
+                Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
+                
+              const SizedBox(width: 6),
+              
+              Text(
+                label,
+                style: TextStyle(
+                  color: isOutlined ? color : Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
         ),
       ),
-
-      // Espaciado adicional consistente
-      const SizedBox(height: 32),
-
-      // Botones de acción con alineación y estilo coherentes
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Contenedor para botones de la izquierda (Cancelar y Eliminar)
-          Row(
-            children: [
-              // Botón Cancelar
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  'Cancelar',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-              
-              // Botón Eliminar (solo en modo edición)
-              if (widget.isEditing && widget.transaction != null)
-                TextButton.icon(
-                  onPressed: () => _showDeleteConfirmation(),
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-                ),
-            ],
-          ),
-          
-          // Botón Transferir (a la derecha)
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.indigoAccent,
-            ),
-            onPressed: _isProcessing ? null : _saveTransfer,
-            child: _isProcessing
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(color: Colors.white),
-                  )
-                : Text(widget.isEditing ? 'Actualizar' : 'Transferir'),
-          ),
-        ],
-      ),
-    ],
-  );
-}
-
-Widget _buildListRow({
-  required IconData icon,
-  required Widget trailing,
-}) {
-  return Container(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    margin: const EdgeInsets.only(bottom: 4),
-    decoration: const BoxDecoration(
-      border: Border(
-        bottom: BorderSide(color: Colors.grey, width: 0.2),
-      ),
     ),
-    child: Row(
-      children: [
-        // Icono siempre azul
-        Icon(icon, color: Colors.blueAccent, size: 20),
-        const SizedBox(width: 14),
-        // Cambio de alineación a izquierda
-        Expanded(child: trailing),
-      ],
-    ),
-  );
-}
-
-// Dropdown rediseñado para mantener el icono original de la cuenta cuando se selecciona
-Widget _buildAccountsDropdown({
-  required String hintText,
-  required AccountItem? selectedAccount,
-  required ValueChanged<AccountItem?> onChanged,
-}) {
-  return DropdownButton<AccountItem>(
-    value: selectedAccount,
-    hint: Text(hintText, style: TextStyle(color: Colors.grey, fontSize: 15)),
-    dropdownColor: const Color(0xFF2A2A3A),
-    iconEnabledColor: Colors.blueAccent,
-    underline: Container(),
-    style: const TextStyle(color: Colors.white, fontSize: 15),
-    onChanged: onChanged,
-    icon: Icon(Icons.keyboard_arrow_down, color: Colors.blueAccent, size: 20),
-    items: _accountItems.map((account) {
-      return DropdownMenuItem<AccountItem>(
-        value: account,
-        // Eliminar icono, solo mostrar el nombre de la cuenta
-        child: Text(account.title, style: TextStyle(fontSize: 15)),
-      );
-    }).toList(),
   );
 }
 

@@ -415,210 +415,514 @@ void _showDeleteConfirmation() {
 
   @override
   Widget build(BuildContext context) {
-    // Fondo oscuro general
+    // Colores y constantes de diseño
+    const Color primaryColor = Color(0xFF368983);
+    const Color surfaceColor = Color(0xFF222939);
+    const Color cardColor = Color(0xFF1A1F2B);
+    const double cornerRadius = 20.0;
+    
     return Scaffold(
       backgroundColor: const Color(0xFF1F2639),
-      body: SafeArea(
-        child: Center(
-          child: Container(
-            width: 340,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2A2A3A),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: _buildForm(),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          widget.isEditing ? 'Editar Ingreso' : 'Nuevo Ingreso',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
-    );
-  }
-
-  // Construye el formulario estilo imagen
-  Widget _buildForm() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Título “Ingreso”
-        Text(
-          _isIncome ? 'Ingreso' : 'Egreso',
-          style: const TextStyle(
-            color: Color(0xFF368983), // Verde
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Fila Monto
-        _buildListRow(
-          icon: _isIncome ? Icons.arrow_upward : Icons.arrow_downward,
-          iconColor: const Color(0xFF368983),
-          trailing: Expanded(
-            child: TextField(
-              controller: _amountCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white),
-              // Añadir filtro para permitir solo números y punto decimal
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
-              ],
-              decoration: const InputDecoration(
-                hintText: 'Monto',
-                hintStyle: TextStyle(color: Colors.grey),
-                border: InputBorder.none,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // Fila Cuenta (dropdown)
-        _buildListRow(
-          icon: Icons.account_balance_wallet,
-          iconColor: const Color(0xFF368983),
-          trailing: Expanded(child: _buildAccountsDropdown()),
-        ),
-        const SizedBox(height: 10),
-
-        // Fila Categoría (dropdown)
-        _buildListRow(
-          icon: Icons.list_alt,
-          iconColor: const Color(0xFF368983),
-          trailing: Expanded(child: _buildCategoriesDropdown()),
-        ),
-        const SizedBox(height: 10),
-
-        // Fila Descripción
-        _buildListRow(
-          icon: Icons.subject,
-          iconColor: const Color(0xFF368983),
-          trailing: Expanded(
-            child: TextField(
-              controller: _detailCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                hintText: 'Detalles',
-                hintStyle: TextStyle(color: Colors.grey),
-                border: InputBorder.none,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // Fila Fecha
-        _buildListRow(
-          icon: Icons.calendar_month,
-          iconColor: const Color(0xFF368983),
-          trailing: Row(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
             children: [
-              Expanded(
-                child: Text(
-                  _formatDate(_selectedDate),
-                  style: const TextStyle(color: Colors.white),
+              // Contenedor principal más compacto
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                decoration: BoxDecoration(
+                  color: surfaceColor,
+                  borderRadius: BorderRadius.circular(cornerRadius),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                      spreadRadius: -5,
+                    ),
+                  ],
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.05),
+                    width: 1.0,
+                  ),
                 ),
-              ),
-              IconButton(
-                onPressed: _pickDate,
-                icon: const Icon(Icons.edit_calendar, color: Colors.white),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Encabezado más compacto con flexbox para el título
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            primaryColor.withOpacity(0.15),
+                            primaryColor.withOpacity(0.05),
+                          ],
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(cornerRadius),
+                          topRight: Radius.circular(cornerRadius),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Icono más pequeño
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.arrow_upward_rounded,
+                              color: primaryColor,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Texto más compacto
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Ingreso',
+                                  style: TextStyle(
+                                    color: primaryColor,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Registra un nuevo ingreso',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.6),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Formulario más compacto
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Campo de monto
+                          _buildInputLabel('Monto'),
+                          _buildInputField(
+                            child: TextField(
+                              controller: _amountCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+                              ],
+                              decoration: InputDecoration(
+                                hintText: '0.00',
+                                hintStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
+                                border: InputBorder.none,
+                                prefixIcon: const Icon(
+                                  Icons.attach_money_rounded,
+                                  color: primaryColor,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Fila para cuenta y categoría (dos columnas)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Cuenta (izquierda)
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildInputLabel('Cuenta'),
+                                    _buildInputField(
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<AccountItem>(
+                                          value: _selectedAccount,
+                                          hint: Text(
+                                            'Cuenta',
+                                            style: TextStyle(
+                                              color: Colors.white.withOpacity(0.5),
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          dropdownColor: cardColor,
+                                          icon: const Icon(
+                                            Icons.arrow_drop_down_rounded,
+                                            color: Colors.white54,
+                                          ),
+                                          isExpanded: true,
+                                          style: const TextStyle(color: Colors.white),
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _selectedAccount = value;
+                                            });
+                                          },
+                                          items: _accountItems.map((account) {
+                                            return DropdownMenuItem<AccountItem>(
+                                              value: account,
+                                              child: Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      color: (account.iconColor ?? Colors.blue).withOpacity(0.2),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: Icon(
+                                                      account.icon ?? Icons.account_balance_wallet,
+                                                      color: account.iconColor ?? Colors.blue,
+                                                      size: 14,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Flexible(
+                                                    child: Text(
+                                                      account.title,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.w500,
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              
+                              const SizedBox(width: 12),
+                              
+                              // Categoría (derecha)
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildInputLabel('Categoría'),
+                                    _buildInputField(
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<String>(
+                                          value: _selectedCategory,
+                                          hint: Text(
+                                            'Categoría',
+                                            style: TextStyle(
+                                              color: Colors.white.withOpacity(0.5),
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          dropdownColor: cardColor,
+                                          icon: const Icon(
+                                            Icons.arrow_drop_down_rounded,
+                                            color: Colors.white54,
+                                          ),
+                                          isExpanded: true,
+                                          style: const TextStyle(color: Colors.white),
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _selectedCategory = value;
+                                            });
+                                          },
+                                          items: _categories.map((category) {
+                                            return DropdownMenuItem<String>(
+                                              value: category,
+                                              child: Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      color: primaryColor.withOpacity(0.2),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: Icon(
+                                                      _getCategoryIcon(category),
+                                                      color: primaryColor,
+                                                      size: 14,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Flexible(
+                                                    child: Text(
+                                                      category,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.w500,
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Fila para descripción y fecha
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Descripción (izquierda)
+                              Expanded(
+                                flex: 3,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildInputLabel('Descripción'),
+                                    _buildInputField(
+                                      child: TextField(
+                                        controller: _detailCtrl,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText: 'Detalles...',
+                                          hintStyle: TextStyle(
+                                            color: Colors.white.withOpacity(0.3),
+                                          ),
+                                          border: InputBorder.none,
+                                          prefixIcon: const Icon(
+                                            Icons.description_outlined,
+                                            color: primaryColor,
+                                            size: 18,
+                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              
+                              const SizedBox(width: 12),
+                              
+                              // Fecha (derecha, más pequeña)
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildInputLabel('Fecha'),
+                                    InkWell(
+                                      onTap: _pickDate,
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: _buildInputField(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 11),
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.calendar_today_rounded,
+                                                color: primaryColor,
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  _formatDate(_selectedDate),
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 20),
+                          
+                          // Botones de acción más compactos
+                          Row(
+                            children: [
+                              // Botón cancelar
+                              Expanded(
+                                flex: 1,
+                                child: _buildActionButton(
+                                  label: 'Cancelar',
+                                  icon: Icons.close_rounded,
+                                  color: Colors.white54,
+                                  isOutlined: true,
+                                  onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                                ),
+                              ),
+                              
+                              const SizedBox(width: 12),
+                              
+                              // Botón guardar
+                              Expanded(
+                                flex: 2,
+                                child: _buildActionButton(
+                                  label: 'Guardar',
+                                  icon: Icons.check_rounded,
+                                  color: primaryColor,
+                                  onPressed: _saveTransaction,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 20),
-
-        // Botones Cancelar y Guardar
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Contenedor para botones de la izquierda (Cancelar y Eliminar)
-            Row(
-              children: [
-                // Botón Cancelar
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  },
-                  child: const Text(
-                    'Cancelar',
-                    style: TextStyle(color: Color(0xFF5FBFB7)),
-                  ),
-                ),
-                
-                // Botón Eliminar (solo en modo edición)
-                if (widget.isEditing && widget.transaction != null)
-                  TextButton.icon(
-                    onPressed: () => _showDeleteConfirmation(),
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-                  ),
-              ],
-            ),
-            
-            // Botón Guardar (a la derecha)
-            // Mantener el botón Guardar existente igual que antes
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF368983),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () async {
-                try {
-                  await _saveTransaction();
-                  
-                  // Notificar actualización primero
-                  if (widget.onTransactionUpdated != null) {
-                    widget.onTransactionUpdated!();
-                  }
-                  
-                  // Navegar hacia atrás de manera segura
-                  if (mounted && Navigator.canPop(context)) {
-                    Navigator.of(context).pop();
-                  }
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: ${e.toString()}'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              child: const Text(
-                'Guardar',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
-  // Construye una fila con ícono + trailing
-  Widget _buildListRow({
-    required IconData icon,
-    required Color iconColor,
-    required Widget trailing,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.grey, width: 0.3),
+  // Método helper para etiquetas de campos más compactas
+  Widget _buildInputLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 6),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.7),
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
         ),
       ),
-      child: Row(
-        children: [
-          Icon(icon, color: iconColor),
-          const SizedBox(width: 10),
-          Expanded(child: trailing),
-        ],
+    );
+  }
+
+  // Método helper para campos de entrada más compactos
+  Widget _buildInputField({required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1F2B),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.08),
+          width: 1,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: child,
+    );
+  }
+
+  // Método helper para botones de acción más compactos
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    bool isOutlined = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: isOutlined ? Colors.transparent : color,
+            borderRadius: BorderRadius.circular(12),
+            border: isOutlined
+                ? Border.all(color: Colors.white24, width: 1)
+                : null,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isOutlined ? color : Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
+  }
+
+  // Método para obtener iconos por categoría
+  IconData _getCategoryIcon(String category) {
+    final Map<String, IconData> categoryIcons = {
+      'salario': Icons.work_rounded,
+      'inversiones': Icons.trending_up_rounded,
+      'devoluciones': Icons.replay_rounded,
+      'regalos': Icons.card_giftcard_rounded,
+      'premios': Icons.emoji_events_rounded,
+      'ventas': Icons.store_rounded,
+      'intereses': Icons.account_balance_rounded,
+      'otros': Icons.attach_money_rounded,
+    };
+    
+    final String normalizedCategory = category.toLowerCase();
+    return categoryIcons[normalizedCategory] ?? Icons.attach_money_rounded;
   }
 
   // Dropdown de Cuentas
