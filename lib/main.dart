@@ -5,32 +5,31 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'data/model/add_date.dart';
 import 'data/utlity.dart'; // Para AccountItem
 import 'package:finazaap/Screens/splash_screen.dart';
+import 'data/category_service.dart'; 
+import 'package:finazaap/data/account_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
-    // Inicializar los datos de localización
+    // Inicializar dependencias
     await initializeDateFormatting('es');
-    
-    // Inicializar Hive
     await Hive.initFlutter();
     
-    // Registrar adaptadores con typeIds ÚNICOS
+    // Registrar adaptadores
     if (!Hive.isAdapterRegistered(1)) {
       Hive.registerAdapter(AdddataAdapter());
     }
     
-    if (!Hive.isAdapterRegistered(2)) { // Cambiar a typeId=2
+    if (!Hive.isAdapterRegistered(2)) {
       Hive.registerAdapter(AccountItemAdapter());
     }
     
-    // NO abrir las cajas aquí, dejar que SplashScreen lo haga
-    // Comentar estas líneas:
-    // await Hive.openBox<Add_data>('data');
-    // await Hive.openBox<AccountItem>('accounts');
+    // Ejecutar limpieza de categorías al inicio
+    await CategoryService.cleanupCategories();
+    
   } catch (e) {
-    print('Error durante la inicialización: $e');
+    print('Error durante inicialización: $e');
   }
   
   runApp(const MyApp());

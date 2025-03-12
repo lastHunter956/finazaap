@@ -2,6 +2,10 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:finazaap/data/models/account_item.dart';
+import 'package:flutter/material.dart';
+import 'dart:collection';
+import 'package:intl/intl.dart';
 
 class TransactionService {
   // Singleton para acceso global
@@ -285,6 +289,171 @@ class TransactionService {
     } catch (e) {
       print('Error al eliminar transacción: $e');
       return false;
+    }
+  }
+
+  // Agregar este método al TransactionService
+  static Future<void> updateTransactionsAfterAccountEdit(String oldAccountName, AccountItem newAccount) async {
+    try {
+      // Crear un nuevo box para asegurar que no hay problemas de caché
+      final box = await Hive.openBox<Add_data>('data');
+      
+      debugPrint('🔄 Iniciando actualización de transacciones: $oldAccountName → ${newAccount.title}');
+      int updated = 0;
+
+      // Primero, obtener todas las keys y transacciones para evitar problemas de iteración
+      List<int> keys = [];
+      List<Add_data> transactions = [];
+      
+      for (var i = 0; i < box.length; i++) {
+        keys.add(box.keyAt(i));
+        transactions.add(box.getAt(i)!);
+      }
+      
+      // Ahora iterar sobre la lista copiada para hacer las actualizaciones
+      for (var i = 0; i < keys.length; i++) {
+        final key = keys[i];
+        final transaction = transactions[i];
+        bool needsUpdate = false;
+
+        if (transaction.IN == 'Income' || transaction.IN == 'Expenses') {
+          if (transaction.name == oldAccountName) {
+            // Actualizar nombre de cuenta
+            transaction.name = newAccount.title;
+            
+            // Actualizar iconCode (asegurarse de que sea válido)
+            if (newAccount.icon != null) {
+              transaction.iconCode = newAccount.icon.codePoint;
+            }
+            
+            needsUpdate = true;
+            debugPrint('✅ Actualizada transacción ${transaction.IN}: ${transaction.explain}');
+          }
+        } else if (transaction.IN == 'Transfer') {
+          List<String> accounts = transaction.explain.split(' > ');
+          if (accounts.length == 2) {
+            String source = accounts[0].trim();
+            String destination = accounts[1].trim();
+            
+            if (source == oldAccountName) {
+              source = newAccount.title;
+              needsUpdate = true;
+            }
+            if (destination == oldAccountName) {
+              destination = newAccount.title;
+              needsUpdate = true;
+            }
+            
+            if (needsUpdate) {
+              transaction.explain = '$source > $destination';
+              debugPrint('✅ Actualizada transferencia: ${transaction.explain}');
+            }
+          }
+        }
+
+        if (needsUpdate) {
+          // IMPORTANTE: Usar put en lugar de putAt para asegurar que la key se mantiene
+          await box.put(key, transaction);
+          updated++;
+        }
+      }
+
+      debugPrint('✅ Actualización completada - Se actualizaron $updated transacciones');
+      
+      // Sincronizar saldos inmediatamente después de actualizar las transacciones
+      await syncAccountBalances();
+      
+    } catch (e) {
+      debugPrint('❌ Error al actualizar transacciones: $e');
+      rethrow;
+    }
+  }
+
+  // Método para sincronizar los saldos entre transacciones y cuentas
+  static Future<void> syncAccountBalances() async {
+    try {
+      debugPrint('🔄 Iniciando sincronización de saldos de cuentas...');
+      
+      // Obtener datos frescos
+      final prefs = await SharedPreferences.getInstance();
+      final box = await Hive.openBox<Add_data>('data'); // Usar openBox en lugar de box
+      List<String>? accountsData = prefs.getStringList('accounts');
+      
+      if (accountsData == null) {
+        debugPrint('⚠️ No hay cuentas para sincronizar');
+        return;
+      }
+      
+      // Depuración adicional
+      debugPrint('📊 Transacciones totales: ${box.length}');
+      
+      // Resto del método...
+    } catch (e) {
+      debugPrint('❌ Error durante sincronización de saldos: $e');
+    }
+  }
+
+  static Future<void> verifyDatabaseIntegrity() async {
+    try {
+      debugPrint('🔍 Verificando integridad de la base de datos...');
+      final box = await Hive.openBox<Add_data>('data');
+      final prefs = await SharedPreferences.getInstance();
+      List<String>? accountsData = prefs.getStringList('accounts');
+      
+      if (accountsData == null) {
+        debugPrint('⚠️ No hay cuentas para verificar');
+        return;
+      }
+      
+      // Extraer nombres de todas las cuentas disponibles
+      Set<String> validAccountNames = accountsData
+          .map((acc) => (json.decode(acc) as Map<String, dynamic>)['title'] as String)
+          .toSet();
+          
+      debugPrint('📋 Cuentas válidas: ${validAccountNames.join(', ')}');
+      
+      // Verificar cada transacción para referencias a cuentas inválidas
+      int problemsFound = 0;
+      for (int i = 0; i < box.length; i++) {
+        final transaction = box.getAt(i);
+        if (transaction != null) {
+          bool hasIssue = false;
+          
+          if (transaction.IN == 'Income' || transaction.IN == 'Expenses') {
+            // Verificar si la cuenta existe
+            if (!validAccountNames.contains(transaction.name)) {
+              debugPrint('⚠️ Transacción #$i: Cuenta inválida "${transaction.name}"');
+              hasIssue = true;
+            }
+          } else if (transaction.IN == 'Transfer') {
+            List<String> parts = transaction.explain.split(' > ');
+            if (parts.length == 2) {
+              String source = parts[0].trim();
+              String destination = parts[1].trim();
+              
+              if (!validAccountNames.contains(source) || !validAccountNames.contains(destination)) {
+                debugPrint('⚠️ Transferencia #$i: Cuenta inválida en "${transaction.explain}"');
+                hasIssue = true;
+              }
+            } else {
+              debugPrint('⚠️ Transferencia #$i: Formato inválido "${transaction.explain}"');
+              hasIssue = true;
+            }
+          }
+          
+          if (hasIssue) {
+            problemsFound++;
+          }
+        }
+      }
+      
+      debugPrint('✅ Verificación completada. Problemas encontrados: $problemsFound');
+      
+      // Sincronizar saldos para asegurar consistencia
+      await syncAccountBalances();
+      
+    } catch (e) {
+      debugPrint('❌ Error durante verificación de integridad: $e');
     }
   }
 }

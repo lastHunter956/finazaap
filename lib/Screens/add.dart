@@ -6,6 +6,9 @@ import 'dart:convert';
 import 'package:finazaap/data/account_utils.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:flutter/services.dart'; // Para FilteringTextInputFormatter
+import 'dart:collection';
+import 'package:finazaap/data/category_service.dart';
+import 'package:finazaap/data/account_service.dart';
 
 // Modelo de cuenta adaptado para recibir datos desde selecctaccount.dart
 class AccountItem {
@@ -53,14 +56,14 @@ class AccountItem {
 class Add_Screen extends StatefulWidget {
   final bool isEditing;
   final Add_data? transaction;
-  final dynamic transactionKey;  // Agregar esta propiedad
+  final dynamic transactionKey; // Agregar esta propiedad
   final VoidCallback? onTransactionUpdated;
 
   const Add_Screen({
-    Key? key, 
-    this.isEditing = false, 
+    Key? key,
+    this.isEditing = false,
     this.transaction,
-    this.transactionKey,  // Agregar a constructor
+    this.transactionKey, // Agregar a constructor
     this.onTransactionUpdated,
   }) : super(key: key);
 
@@ -94,7 +97,7 @@ class _Add_ScreenState extends State<Add_Screen> {
     super.initState();
     _loadAccountsFromPrefs();
     _loadCategoriesFromPrefs();
-    
+
     // Cargar datos si estamos en modo edición
     if (widget.isEditing && widget.transaction != null) {
       _loadTransactionData();
@@ -104,18 +107,18 @@ class _Add_ScreenState extends State<Add_Screen> {
   // Método para cargar los datos de la transacción
   void _loadTransactionData() {
     final transaction = widget.transaction!;
-    
+
     // Cargar valores en controladores
     _amountCtrl.text = transaction.amount;
     _detailCtrl.text = transaction.detail;
     _selectedDate = transaction.datetime;
-    _selectedCategory = transaction.explain; 
-    
+    _selectedCategory = transaction.explain;
+
     // Para asegurarse que la cuenta se cargue correctamente
     _loadAccountsFromPrefs().then((_) {
       // Buscar la cuenta por nombre exacto después de que las cuentas estén cargadas
       AccountItem? accountToSelect;
-      
+
       try {
         accountToSelect = _accountItems.firstWhere(
           (account) => account.title.trim() == transaction.name.trim(),
@@ -126,7 +129,7 @@ class _Add_ScreenState extends State<Add_Screen> {
           accountToSelect = _accountItems.first;
         }
       }
-      
+
       if (accountToSelect != null) {
         setState(() {
           _selectedAccount = accountToSelect;
@@ -135,31 +138,97 @@ class _Add_ScreenState extends State<Add_Screen> {
     });
   }
 
-  // Carga la lista de cuentas guardadas en “accounts”
+  // (hacer lo mismo en add_expense.dart y transfer.dart)
+
   Future<void> _loadAccountsFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? accountsData = prefs.getStringList('accounts');
-    if (accountsData != null) {
+    try {
+      // Obtener solo cuentas activas
+      final activeAccountsData = await AccountService.getActiveAccounts();
+      final deletedAccountNames = await AccountService.getDeletedAccountNames();
+
       setState(() {
-        _accountItems = accountsData.map((item) {
-          final Map<String, dynamic> jsonData = json.decode(item);
-          return AccountItem.fromJson(jsonData);
-        }).toList();
+        _accountItems = activeAccountsData
+            .map((jsonData) => AccountItem.fromJson(jsonData))
+            .toList();
       });
+
+      // Caso especial para edición con cuenta eliminada
+      if (widget.isEditing && widget.transaction != null) {
+        final transactionAccountName = widget.transaction!.name;
+
+        // Si la cuenta existe, seleccionarla
+        try {
+          AccountItem? accountToSelect = _accountItems.firstWhere(
+            (account) => account.title.trim() == transactionAccountName.trim(),
+          );
+
+          setState(() {
+            _selectedAccount = accountToSelect;
+          });
+        } catch (_) {
+          // Si no existe, es porque fue eliminada
+          debugPrint('⚠️ Cuenta eliminada detectada: $transactionAccountName');
+          // Será manejado por el diálogo de advertencia en home.dart
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error al cargar cuentas: $e');
     }
   }
 
-  // Carga la lista de categorías guardadas en “ingresos” (ajusta la clave si usas otra)
+// (hacer lo mismo en add_expense.dart cambiando 'Income' por 'Expenses')
+
   Future<void> _loadCategoriesFromPrefs() async {
+  try {
     final prefs = await SharedPreferences.getInstance();
-    List<String>? categoriesData = prefs.getStringList('ingresos');
-    if (categoriesData != null) {
-      setState(() {
-        _categories = categoriesData
-            .map((item) => json.decode(item)['text'] as String)
-            .toList();
-      });
+
+    // Obtener categorías activas y eliminadas
+    final String type = 'Income'; // Usar 'Expenses' en add_expense.dart
+    List<String> activeCategories = await CategoryService.getCategories(type);
+    List<String> deletedCategories = await CategoryService.getDeletedCategories(type);
+
+    debugPrint('📊 Categorías activas: ${activeCategories.length}, eliminadas: ${deletedCategories.length}');
+
+    // Ordenar alfabéticamente
+    activeCategories.sort((a, b) => a.compareTo(b));
+    
+    // CORRECCIÓN: Usar el resultado filtrado, no la lista original
+    List<String> categoriasFiltradas = activeCategories
+        .where((categoria) => !deletedCategories.contains(categoria))
+        .toList();
+    
+    setState(() {
+      // Usar la lista FILTRADA
+      _categories = categoriasFiltradas;
+      
+      // Si estamos editando, verificar si la categoría seleccionada existe
+      if (widget.isEditing && widget.transaction != null) {
+        final transactionCategory = widget.transaction!.explain;
+        
+        // NUEVO: Si la categoría fue eliminada, deseleccionarla
+        if (deletedCategories.contains(transactionCategory)) {
+          _selectedCategory = null; // Forzar al usuario a seleccionar otra
+        } else if (categoriasFiltradas.contains(transactionCategory)) {
+          _selectedCategory = transactionCategory;
+        } else {
+          _selectedCategory = null;
+        }
+      }
+    });
+
+    _debugCategories();
+  } catch (e) {
+    debugPrint('❌ Error al cargar categorías: $e');
+  }
+}
+
+  // Método para depuración
+  void _debugCategories() {
+    debugPrint("\n=== DEBUGGING CATEGORIES ===");
+    for (var cat in _categories) {
+      debugPrint("Categoría cargada: $cat");
     }
+    debugPrint("===========================\n");
   }
 
   // Abre el DatePicker para seleccionar fecha
@@ -179,83 +248,87 @@ class _Add_ScreenState extends State<Add_Screen> {
 
   // Reemplazar el método _saveTransaction con esta versión mejorada
 
-Future<void> _saveTransaction() async {
-  // Validaciones básicas
-  if (_amountCtrl.text.isEmpty || _selectedAccount == null || _selectedCategory == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Por favor completa todos los campos')),
-    );
-    return;
-  }
-
-  try {
-    final amount = double.parse(_amountCtrl.text);
-    final int categoryIconCode = _getCategoryIconCode(_selectedCategory!);
-    
-    // Crear objeto de transacción
-    final Add_data transaction = Add_data(
-      'Income',
-      _amountCtrl.text,
-      _selectedDate,
-      _detailCtrl.text,
-      _selectedCategory!,
-      _selectedAccount!.title,
-      categoryIconCode,
-    );
-    
-    // Guardar transacción en Hive y actualizar saldos
-    if (widget.isEditing && widget.transaction != null && widget.transactionKey != null) {
-      // Modo edición - procesar cambios de manera atómica
-      bool success = await TransactionService.processTransaction(
-        type: 'Income',
-        amount: amount,
-        accountName: _selectedAccount!.title,
-        isNewTransaction: false,
-        oldTransaction: widget.transaction,
+  Future<void> _saveTransaction() async {
+    // Validaciones básicas
+    if (_amountCtrl.text.isEmpty ||
+        _selectedAccount == null ||
+        _selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor completa todos los campos')),
       );
-      
-      if (success) {
-        // Actualizar en Hive solo si la actualización de saldo tuvo éxito
-        box.put(widget.transactionKey, transaction);
-      } else {
-        throw Exception('Error al actualizar el saldo de la cuenta');
-      }
-    } else {
-      // Modo creación - procesar cambios de manera atómica
-      bool success = await TransactionService.processTransaction(
-        type: 'Income',
-        amount: amount,
-        accountName: _selectedAccount!.title,
-        isNewTransaction: true,
+      return;
+    }
+
+    try {
+      final amount = double.parse(_amountCtrl.text);
+      final int categoryIconCode = _getCategoryIconCode(_selectedCategory!);
+
+      // Crear objeto de transacción
+      final Add_data transaction = Add_data(
+        'Income',
+        _amountCtrl.text,
+        _selectedDate,
+        _detailCtrl.text,
+        _selectedCategory!,
+        _selectedAccount!.title,
+        categoryIconCode,
       );
-      
-      if (success) {
-        // Guardar en Hive solo si la actualización de saldo tuvo éxito
-        box.add(transaction);
+
+      // Guardar transacción en Hive y actualizar saldos
+      if (widget.isEditing &&
+          widget.transaction != null &&
+          widget.transactionKey != null) {
+        // Modo edición - procesar cambios de manera atómica
+        bool success = await TransactionService.processTransaction(
+          type: 'Income',
+          amount: amount,
+          accountName: _selectedAccount!.title,
+          isNewTransaction: false,
+          oldTransaction: widget.transaction,
+        );
+
+        if (success) {
+          // Actualizar en Hive solo si la actualización de saldo tuvo éxito
+          box.put(widget.transactionKey, transaction);
+        } else {
+          throw Exception('Error al actualizar el saldo de la cuenta');
+        }
       } else {
-        throw Exception('Error al actualizar el saldo de la cuenta');
+        // Modo creación - procesar cambios de manera atómica
+        bool success = await TransactionService.processTransaction(
+          type: 'Income',
+          amount: amount,
+          accountName: _selectedAccount!.title,
+          isNewTransaction: true,
+        );
+
+        if (success) {
+          // Guardar en Hive solo si la actualización de saldo tuvo éxito
+          box.add(transaction);
+        } else {
+          throw Exception('Error al actualizar el saldo de la cuenta');
+        }
       }
-    }
 
-    // Notificar a la pantalla principal
-    if (widget.onTransactionUpdated != null) {
-      widget.onTransactionUpdated!();
-    }
+      // Notificar a la pantalla principal
+      if (widget.onTransactionUpdated != null) {
+        widget.onTransactionUpdated!();
+      }
 
-    // Pequeño retraso para asegurar que los datos se han guardado
-    await Future.delayed(const Duration(milliseconds: 100));
-    
-    // Navegar de vuelta
-    if (mounted) {
-      Navigator.pop(context);
+      // Pequeño retraso para asegurar que los datos se han guardado
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Navegar de vuelta
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      print('Error al guardar: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
     }
-  } catch (e) {
-    print('Error al guardar: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-    );
   }
-}
 
 // Método auxiliar para actualizar el saldo disponible global
   Future<void> _updateGlobalAvailableBalance() async {
@@ -318,100 +391,103 @@ Future<void> _saveTransaction() async {
 
   // Método para revertir el efecto de la transacción anterior
   Future<void> _revertPreviousTransaction(Add_data transaction) async {
-  try {
-    final amount = double.parse(transaction.amount);
-    
-    // Usar el método existente en TransactionService en lugar del que falta
-    await TransactionService.processTransaction(
-      type: transaction.IN,
-      amount: amount,
-      accountName: transaction.name,
-      isNewTransaction: false,
-      oldTransaction: transaction
-    );
-  } catch (e) {
-    print('Error al revertir transacción previa: $e');
-    throw e;
+    try {
+      final amount = double.parse(transaction.amount);
+
+      // Usar el método existente en TransactionService en lugar del que falta
+      await TransactionService.processTransaction(
+          type: transaction.IN,
+          amount: amount,
+          accountName: transaction.name,
+          isNewTransaction: false,
+          oldTransaction: transaction);
+    } catch (e) {
+      print('Error al revertir transacción previa: $e');
+      throw e;
+    }
   }
-}
 
 // Método para mostrar el diálogo de confirmación de eliminación
-void _showDeleteConfirmation() {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        backgroundColor: const Color(0xFF2A2A3A),
-        title: const Text('Confirmar eliminación', style: TextStyle(color: Colors.white)),
-        content: const Text('¿Estás seguro que deseas eliminar este ingreso?', style: TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop(); // Cerrar el diálogo
-              
-              try {
-                // Mostrar indicador de carga
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (BuildContext context) {
-                    return const Center(child: CircularProgressIndicator());
-                  },
-                );
-                
-                // Revertir el efecto de la transacción en el saldo de la cuenta
-                if (widget.transaction != null) {
-                  await _revertPreviousTransaction(widget.transaction!);
+  void _showDeleteConfirmation() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF2A2A3A),
+          title: const Text('Confirmar eliminación',
+              style: TextStyle(color: Colors.white)),
+          content: const Text('¿Estás seguro que deseas eliminar este ingreso?',
+              style: TextStyle(color: Colors.white)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child:
+                  const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // Cerrar el diálogo
+
+                try {
+                  // Mostrar indicador de carga
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (BuildContext context) {
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                  );
+
+                  // Revertir el efecto de la transacción en el saldo de la cuenta
+                  if (widget.transaction != null) {
+                    await _revertPreviousTransaction(widget.transaction!);
+                  }
+
+                  // Eliminar la transacción del box de Hive
+                  if (widget.transactionKey != null) {
+                    box.delete(widget.transactionKey);
+                  }
+
+                  // Actualizar el saldo global disponible
+                  await _updateGlobalAvailableBalance();
+
+                  // Notificar a la pantalla principal
+                  if (widget.onTransactionUpdated != null) {
+                    widget.onTransactionUpdated!();
+                  }
+
+                  // Cerrar el indicador de carga
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+
+                  // Volver a la pantalla anterior
+                  if (mounted && Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                } catch (e) {
+                  // Cerrar el indicador de carga
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+
+                  // Mostrar error
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error al eliminar: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
-                
-                // Eliminar la transacción del box de Hive
-                if (widget.transactionKey != null) {
-                  box.delete(widget.transactionKey);
-                }
-                
-                // Actualizar el saldo global disponible
-                await _updateGlobalAvailableBalance();
-                
-                // Notificar a la pantalla principal
-                if (widget.onTransactionUpdated != null) {
-                  widget.onTransactionUpdated!();
-                }
-                
-                // Cerrar el indicador de carga
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                }
-                
-                // Volver a la pantalla anterior
-                if (mounted && Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                }
-              } catch (e) {
-                // Cerrar el indicador de carga
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                }
-                
-                // Mostrar error
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error al eliminar: ${e.toString()}'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      );
-    },
-  );
-}
+              },
+              child:
+                  const Text('Eliminar', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -420,7 +496,21 @@ void _showDeleteConfirmation() {
     const Color surfaceColor = Color(0xFF222939);
     const Color cardColor = Color(0xFF1A1F2B);
     const double cornerRadius = 20.0;
-    
+
+    // Asegurarse de que _selectedCategory exista en _categories
+    if (_selectedCategory != null && !_categories.contains(_selectedCategory)) {
+      debugPrint('⚠️ Categoría seleccionada no encontrada: $_selectedCategory');
+      debugPrint('⚠️ Añadiendo temporalmente a la lista para evitar error');
+
+      // Añadir la categoría temporalmente a la lista
+      setState(() {
+        _categories.add(_selectedCategory!);
+      });
+
+      // NO guardar permanentemente si es una categoría eliminada
+      // Solo la añadimos temporalmente para esta edición
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF1F2639),
       appBar: AppBar(
@@ -537,14 +627,17 @@ void _showDeleteConfirmation() {
                           _buildInputField(
                             child: TextField(
                               controller: _amountCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
                               inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r'^\d*\.?\d*$')),
                               ],
                               decoration: InputDecoration(
                                 hintText: '0.00',
@@ -556,7 +649,8 @@ void _showDeleteConfirmation() {
                                   Icons.attach_money_rounded,
                                   color: primaryColor,
                                 ),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                               ),
                             ),
                           ),
@@ -579,7 +673,8 @@ void _showDeleteConfirmation() {
                                           hint: Text(
                                             'Cuenta',
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.5),
+                                              color:
+                                                  Colors.white.withOpacity(0.5),
                                               fontSize: 14,
                                             ),
                                           ),
@@ -589,26 +684,36 @@ void _showDeleteConfirmation() {
                                             color: Colors.white54,
                                           ),
                                           isExpanded: true,
-                                          style: const TextStyle(color: Colors.white),
+                                          style: const TextStyle(
+                                              color: Colors.white),
                                           onChanged: (value) {
                                             setState(() {
                                               _selectedAccount = value;
                                             });
                                           },
                                           items: _accountItems.map((account) {
-                                            return DropdownMenuItem<AccountItem>(
+                                            return DropdownMenuItem<
+                                                AccountItem>(
                                               value: account,
                                               child: Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.all(6),
+                                                    padding:
+                                                        const EdgeInsets.all(6),
                                                     decoration: BoxDecoration(
-                                                      color: (account.iconColor ?? Colors.blue).withOpacity(0.2),
+                                                      color:
+                                                          (account.iconColor ??
+                                                                  Colors.blue)
+                                                              .withOpacity(0.2),
                                                       shape: BoxShape.circle,
                                                     ),
                                                     child: Icon(
-                                                      account.icon ?? Icons.account_balance_wallet,
-                                                      color: account.iconColor ?? Colors.blue,
+                                                      account.icon ??
+                                                          Icons
+                                                              .account_balance_wallet,
+                                                      color:
+                                                          account.iconColor ??
+                                                              Colors.blue,
                                                       size: 14,
                                                     ),
                                                   ),
@@ -616,9 +721,11 @@ void _showDeleteConfirmation() {
                                                   Flexible(
                                                     child: Text(
                                                       account.title,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: const TextStyle(
-                                                        fontWeight: FontWeight.w500,
+                                                        fontWeight:
+                                                            FontWeight.w500,
                                                         fontSize: 14,
                                                       ),
                                                     ),
@@ -633,9 +740,9 @@ void _showDeleteConfirmation() {
                                   ],
                                 ),
                               ),
-                              
+
                               const SizedBox(width: 12),
-                              
+
                               // Categoría (derecha)
                               Expanded(
                                 child: Column(
@@ -649,7 +756,8 @@ void _showDeleteConfirmation() {
                                           hint: Text(
                                             'Categoría',
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.5),
+                                              color:
+                                                  Colors.white.withOpacity(0.5),
                                               fontSize: 14,
                                             ),
                                           ),
@@ -659,7 +767,8 @@ void _showDeleteConfirmation() {
                                             color: Colors.white54,
                                           ),
                                           isExpanded: true,
-                                          style: const TextStyle(color: Colors.white),
+                                          style: const TextStyle(
+                                              color: Colors.white),
                                           onChanged: (value) {
                                             setState(() {
                                               _selectedCategory = value;
@@ -671,13 +780,16 @@ void _showDeleteConfirmation() {
                                               child: Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.all(6),
+                                                    padding:
+                                                        const EdgeInsets.all(6),
                                                     decoration: BoxDecoration(
-                                                      color: primaryColor.withOpacity(0.2),
+                                                      color: primaryColor
+                                                          .withOpacity(0.2),
                                                       shape: BoxShape.circle,
                                                     ),
                                                     child: Icon(
-                                                      _getCategoryIcon(category),
+                                                      _getCategoryIcon(
+                                                          category),
                                                       color: primaryColor,
                                                       size: 14,
                                                     ),
@@ -686,9 +798,11 @@ void _showDeleteConfirmation() {
                                                   Flexible(
                                                     child: Text(
                                                       category,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: const TextStyle(
-                                                        fontWeight: FontWeight.w500,
+                                                        fontWeight:
+                                                            FontWeight.w500,
                                                         fontSize: 14,
                                                       ),
                                                     ),
@@ -728,7 +842,8 @@ void _showDeleteConfirmation() {
                                         decoration: InputDecoration(
                                           hintText: 'Detalles...',
                                           hintStyle: TextStyle(
-                                            color: Colors.white.withOpacity(0.3),
+                                            color:
+                                                Colors.white.withOpacity(0.3),
                                           ),
                                           border: InputBorder.none,
                                           prefixIcon: const Icon(
@@ -736,16 +851,18 @@ void _showDeleteConfirmation() {
                                             color: primaryColor,
                                             size: 18,
                                           ),
-                                          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                  vertical: 14),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              
+
                               const SizedBox(width: 12),
-                              
+
                               // Fecha (derecha, más pequeña)
                               Expanded(
                                 flex: 2,
@@ -758,7 +875,8 @@ void _showDeleteConfirmation() {
                                       borderRadius: BorderRadius.circular(12),
                                       child: _buildInputField(
                                         child: Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 11),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 11),
                                           child: Row(
                                             children: [
                                               const Icon(
@@ -770,7 +888,8 @@ void _showDeleteConfirmation() {
                                               Expanded(
                                                 child: Text(
                                                   _formatDate(_selectedDate),
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: const TextStyle(
                                                     color: Colors.white,
                                                     fontSize: 14,
@@ -790,7 +909,7 @@ void _showDeleteConfirmation() {
                           ),
 
                           const SizedBox(height: 20),
-                          
+
                           // Botones de acción más compactos
                           Row(
                             children: [
@@ -802,12 +921,13 @@ void _showDeleteConfirmation() {
                                   icon: Icons.close_rounded,
                                   color: Colors.white54,
                                   isOutlined: true,
-                                  onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                                  onPressed: () => Navigator.of(context)
+                                      .popUntil((route) => route.isFirst),
                                 ),
                               ),
-                              
+
                               const SizedBox(width: 12),
-                              
+
                               // Botón guardar
                               Expanded(
                                 flex: 2,
@@ -881,9 +1001,8 @@ void _showDeleteConfirmation() {
           decoration: BoxDecoration(
             color: isOutlined ? Colors.transparent : color,
             borderRadius: BorderRadius.circular(12),
-            border: isOutlined
-                ? Border.all(color: Colors.white24, width: 1)
-                : null,
+            border:
+                isOutlined ? Border.all(color: Colors.white24, width: 1) : null,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -920,7 +1039,7 @@ void _showDeleteConfirmation() {
       'intereses': Icons.account_balance_rounded,
       'otros': Icons.attach_money_rounded,
     };
-    
+
     final String normalizedCategory = category.toLowerCase();
     return categoryIcons[normalizedCategory] ?? Icons.attach_money_rounded;
   }
@@ -997,10 +1116,10 @@ void _showDeleteConfirmation() {
       'entretenimiento': Icons.movie.codePoint,
       'servicios': Icons.build.codePoint,
     };
-    
+
     // Convertir a minúsculas para evitar problemas de coincidencia
     final normalizedCategory = categoryName.toLowerCase();
-    
+
     // Devolver el icono correspondiente o un icono predeterminado
     return categoryIcons[normalizedCategory] ?? Icons.attach_money.codePoint;
   }
@@ -1008,10 +1127,11 @@ void _showDeleteConfirmation() {
 
 // filepath: d:\programacion 5.0\finazaap\lib\data\account_utils.dart
 class AccountUtils {
-  static Future<void> updateAccountBalance(String accountName, double amount, bool add) async {
+  static Future<void> updateAccountBalance(
+      String accountName, double amount, bool add) async {
     // Código común para actualizar saldos
   }
-  
+
   static Future<void> revertTransaction(Add_data transaction) async {
     // Código común para revertir transacciones
   }

@@ -7,6 +7,8 @@ import 'dart:convert';
 import 'package:finazaap/data/account_utils.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:flutter/services.dart'; // Para FilteringTextInputFormatter
+import 'package:finazaap/data/category_service.dart';
+import 'package:finazaap/data/account_service.dart';
 
 // Modelo de cuenta adaptado para recibir datos desde selecctaccount.dart
 class AccountItem {
@@ -115,7 +117,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   // (Opcional) Para “Ingreso” / “Egreso”
   // Si solo usarás “Egreso” en esta vista, puedes dejarlo fijo.
   bool _isIncome = false; // true => Ingreso, false => Egreso
-  
+
   @override
   void initState() {
     super.initState();
@@ -128,41 +130,104 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _loadTransactionData();
     }
   }
- 
+
   void _debugPrintAllIconCodes() {
-  print("\n=== DEBUGGING ICON CODES ===");
-  for (var item in box.values.toList()) {
-    print("Transacción: ${item.explain} - iconCode: ${item.iconCode}");
+    print("\n=== DEBUGGING ICON CODES ===");
+    for (var item in box.values.toList()) {
+      print("Transacción: ${item.explain} - iconCode: ${item.iconCode}");
+    }
+    print("===========================\n");
   }
-  print("===========================\n");
-}
 
   // Carga la lista de cuentas guardadas en “accounts”
   Future<void> _loadAccountsFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? accountsData = prefs.getStringList('accounts');
-    if (accountsData != null) {
-      setState(() {
-        _accountItems = accountsData.map((item) {
-          final Map<String, dynamic> jsonData = json.decode(item);
-          return AccountItem.fromJson(jsonData);
-        }).toList();
-      });
+  try {
+    // Obtener solo cuentas activas
+    final activeAccountsData = await AccountService.getActiveAccounts();
+    final deletedAccountNames = await AccountService.getDeletedAccountNames();
+    
+    setState(() {
+      _accountItems = activeAccountsData.map((jsonData) => 
+        AccountItem.fromJson(jsonData)
+      ).toList();
+    });
+    
+    // Caso especial para edición con cuenta eliminada
+    if (widget.isEditing && widget.transaction != null) {
+      final transactionAccountName = widget.transaction!.name;
+      
+      // Si la cuenta existe, seleccionarla
+      try {
+        AccountItem? accountToSelect = _accountItems.firstWhere(
+          (account) => account.title.trim() == transactionAccountName.trim(),
+        );
+        
+        setState(() {
+          _selectedAccount = accountToSelect;
+        });
+      } catch (_) {
+        // Si no existe, es porque fue eliminada
+        debugPrint('⚠️ Cuenta eliminada detectada: $transactionAccountName');
+        // Será manejado por el diálogo de advertencia en home.dart
+      }
     }
+  } catch (e) {
+    debugPrint('❌ Error al cargar cuentas: $e');
+  }
+}
+
+  // Método para depuración
+  void _debugCategories() {
+    debugPrint("\n=== DEBUGGING CATEGORIES ===");
+    for (var cat in _categories) {
+      debugPrint("Categoría cargada: $cat");
+    }
+    debugPrint("===========================\n");
   }
 
-  // Carga la lista de categorías guardadas en “gastos” (ajusta la clave si usas otra)
   Future<void> _loadCategoriesFromPrefs() async {
+  try {
     final prefs = await SharedPreferences.getInstance();
-    List<String>? categoriesData = prefs.getStringList('gastos');
-    if (categoriesData != null) {
-      setState(() {
-        _categories = categoriesData
-            .map((item) => json.decode(item)['text'] as String)
-            .toList();
-      });
-    }
+
+    // Obtener categorías activas y eliminadas
+    final String type = 'Expenses'; // Usar 'Expenses' en add_expense.dart
+    List<String> activeCategories = await CategoryService.getCategories(type);
+    List<String> deletedCategories = await CategoryService.getDeletedCategories(type);
+
+    debugPrint('📊 Categorías activas: ${activeCategories.length}, eliminadas: ${deletedCategories.length}');
+
+    // Ordenar alfabéticamente
+    activeCategories.sort((a, b) => a.compareTo(b));
+    
+    // CORRECCIÓN: Usar el resultado filtrado, no la lista original
+    List<String> categoriasFiltradas = activeCategories
+        .where((categoria) => !deletedCategories.contains(categoria))
+        .toList();
+    
+    setState(() {
+      // Usar la lista FILTRADA
+      _categories = categoriasFiltradas;
+      
+      // Si estamos editando, verificar si la categoría seleccionada existe
+      if (widget.isEditing && widget.transaction != null) {
+        final transactionCategory = widget.transaction!.explain;
+        
+        // NUEVO: Si la categoría fue eliminada, deseleccionarla
+        if (deletedCategories.contains(transactionCategory)) {
+          _selectedCategory = null; // Forzar al usuario a seleccionar otra
+        } else if (categoriasFiltradas.contains(transactionCategory)) {
+          _selectedCategory = transactionCategory;
+        } else {
+          _selectedCategory = null;
+        }
+      }
+    });
+
+    _debugCategories();
+  } catch (e) {
+    debugPrint('❌ Error al cargar categorías: $e');
   }
+}
 
   // Abre el DatePicker para seleccionar fecha
   Future<void> _pickDate() async {
@@ -411,17 +476,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF2A2A3A),
-          title: const Text('Confirmar eliminación', style: TextStyle(color: Colors.white)),
-          content: const Text('¿Estás seguro que deseas eliminar esta transacción?', style: TextStyle(color: Colors.white)),
+          title: const Text('Confirmar eliminación',
+              style: TextStyle(color: Colors.white)),
+          content: const Text(
+              '¿Estás seguro que deseas eliminar esta transacción?',
+              style: TextStyle(color: Colors.white)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+              child:
+                  const Text('Cancelar', style: TextStyle(color: Colors.grey)),
             ),
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop(); // Cerrar el diálogo
-                
+
                 try {
                   // Mostrar indicador de carga
                   showDialog(
@@ -431,30 +500,30 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       return const Center(child: CircularProgressIndicator());
                     },
                   );
-                  
+
                   // Revertir el efecto de la transacción en el saldo de la cuenta
                   if (widget.transaction != null) {
                     await _revertPreviousTransaction(widget.transaction!);
                   }
-                  
+
                   // Eliminar la transacción del box de Hive
                   if (widget.transactionKey != null) {
                     box.delete(widget.transactionKey);
                   }
-                  
+
                   // Actualizar el saldo global disponible
                   await _updateGlobalAvailableBalance();
-                  
+
                   // Notificar a la pantalla principal
                   if (widget.onTransactionUpdated != null) {
                     widget.onTransactionUpdated!();
                   }
-                  
+
                   // Cerrar el indicador de carga
                   if (Navigator.canPop(context)) {
                     Navigator.pop(context);
                   }
-                  
+
                   // Volver a la pantalla anterior
                   if (mounted && Navigator.canPop(context)) {
                     Navigator.pop(context);
@@ -464,7 +533,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   if (Navigator.canPop(context)) {
                     Navigator.pop(context);
                   }
-                  
+
                   // Mostrar error
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -474,7 +543,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   );
                 }
               },
-              child: const Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+              child: const Text('Eliminar',
+                  style: TextStyle(color: Colors.redAccent)),
             ),
           ],
         );
@@ -485,11 +555,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     // Colores y constantes de diseño
-    const Color primaryColor = Colors.redAccent;  // Rojo para gastos
+    const Color primaryColor = Colors.redAccent; // Rojo para gastos
     const Color surfaceColor = Color(0xFF222939);
     const Color cardColor = Color(0xFF1A1F2B);
     const double cornerRadius = 20.0;
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFF1F2639),
       appBar: AppBar(
@@ -606,14 +676,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           _buildInputField(
                             child: TextField(
                               controller: _amountCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
                               inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r'^\d*\.?\d*$')),
                               ],
                               decoration: InputDecoration(
                                 hintText: '0.00',
@@ -625,7 +698,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   Icons.attach_money_rounded,
                                   color: primaryColor,
                                 ),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                               ),
                             ),
                           ),
@@ -648,7 +722,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                           hint: Text(
                                             'Cuenta',
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.5),
+                                              color:
+                                                  Colors.white.withOpacity(0.5),
                                               fontSize: 14,
                                             ),
                                           ),
@@ -658,7 +733,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                             color: Colors.white54,
                                           ),
                                           isExpanded: true,
-                                          style: const TextStyle(color: Colors.white),
+                                          style: const TextStyle(
+                                              color: Colors.white),
                                           onChanged: (value) {
                                             setState(() {
                                               _selectedAccount = value;
@@ -666,17 +742,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                           },
                                           items: _accountItems.map((account) {
                                             // Extraer ícono y color
-                                            final IconData iconData = account.icon ?? Icons.account_balance_wallet;
-                                            final Color iconColor = account.iconColor ?? Colors.blue;
-                                            
-                                            return DropdownMenuItem<AccountItem>(
+                                            final IconData iconData = account
+                                                    .icon ??
+                                                Icons.account_balance_wallet;
+                                            final Color iconColor =
+                                                account.iconColor ??
+                                                    Colors.blue;
+
+                                            return DropdownMenuItem<
+                                                AccountItem>(
                                               value: account,
                                               child: Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.all(6),
+                                                    padding:
+                                                        const EdgeInsets.all(6),
                                                     decoration: BoxDecoration(
-                                                      color: iconColor.withOpacity(0.2),
+                                                      color: iconColor
+                                                          .withOpacity(0.2),
                                                       shape: BoxShape.circle,
                                                     ),
                                                     child: Icon(
@@ -689,9 +772,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                                   Flexible(
                                                     child: Text(
                                                       account.title,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: const TextStyle(
-                                                        fontWeight: FontWeight.w500,
+                                                        fontWeight:
+                                                            FontWeight.w500,
                                                         fontSize: 14,
                                                       ),
                                                     ),
@@ -706,9 +791,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   ],
                                 ),
                               ),
-                              
+
                               const SizedBox(width: 12),
-                              
+
                               // Categoría (derecha)
                               Expanded(
                                 child: Column(
@@ -722,7 +807,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                           hint: Text(
                                             'Categoría',
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.5),
+                                              color:
+                                                  Colors.white.withOpacity(0.5),
                                               fontSize: 14,
                                             ),
                                           ),
@@ -732,26 +818,31 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                             color: Colors.white54,
                                           ),
                                           isExpanded: true,
-                                          style: const TextStyle(color: Colors.white),
+                                          style: const TextStyle(
+                                              color: Colors.white),
                                           onChanged: (value) {
                                             setState(() {
                                               _selectedCategory = value;
                                             });
                                           },
                                           items: _categories.map((category) {
-                                            final IconData categoryIcon = IconData(
-                                              _getCategoryIconCode(category),
-                                              fontFamily: 'MaterialIcons'
-                                            );
-                                            
+                                            final IconData categoryIcon =
+                                                IconData(
+                                                    _getCategoryIconCode(
+                                                        category),
+                                                    fontFamily:
+                                                        'MaterialIcons');
+
                                             return DropdownMenuItem<String>(
                                               value: category,
                                               child: Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.all(6),
+                                                    padding:
+                                                        const EdgeInsets.all(6),
                                                     decoration: BoxDecoration(
-                                                      color: primaryColor.withOpacity(0.2),
+                                                      color: primaryColor
+                                                          .withOpacity(0.2),
                                                       shape: BoxShape.circle,
                                                     ),
                                                     child: Icon(
@@ -764,9 +855,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                                   Flexible(
                                                     child: Text(
                                                       category,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: const TextStyle(
-                                                        fontWeight: FontWeight.w500,
+                                                        fontWeight:
+                                                            FontWeight.w500,
                                                         fontSize: 14,
                                                       ),
                                                     ),
@@ -806,7 +899,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                         decoration: InputDecoration(
                                           hintText: 'Detalles...',
                                           hintStyle: TextStyle(
-                                            color: Colors.white.withOpacity(0.3),
+                                            color:
+                                                Colors.white.withOpacity(0.3),
                                           ),
                                           border: InputBorder.none,
                                           prefixIcon: const Icon(
@@ -814,16 +908,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                             color: primaryColor,
                                             size: 18,
                                           ),
-                                          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                  vertical: 14),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              
+
                               const SizedBox(width: 12),
-                              
+
                               // Fecha (derecha, más pequeña)
                               Expanded(
                                 flex: 2,
@@ -836,7 +932,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                       borderRadius: BorderRadius.circular(12),
                                       child: _buildInputField(
                                         child: Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 11),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 11),
                                           child: Row(
                                             children: [
                                               const Icon(
@@ -848,7 +945,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                               Expanded(
                                                 child: Text(
                                                   _formatDate(_selectedDate),
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: const TextStyle(
                                                     color: Colors.white,
                                                     fontSize: 14,
@@ -868,7 +966,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           ),
 
                           const SizedBox(height: 20),
-                          
+
                           // Botones de acción más compactos
                           Row(
                             children: [
@@ -880,12 +978,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   icon: Icons.close_rounded,
                                   color: Colors.white54,
                                   isOutlined: true,
-                                  onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                                  onPressed: () => Navigator.of(context)
+                                      .popUntil((route) => route.isFirst),
                                 ),
                               ),
-                              
+
                               const SizedBox(width: 12),
-                              
+
                               // Botón guardar
                               Expanded(
                                 flex: 2,
@@ -900,32 +999,37 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                         context: context,
                                         barrierDismissible: false,
                                         builder: (BuildContext context) {
-                                          return const Center(child: CircularProgressIndicator());
+                                          return const Center(
+                                              child:
+                                                  CircularProgressIndicator());
                                         },
                                       );
-                                      
+
                                       // Guardar la transacción
                                       await _saveTransaction();
-                                      
+
                                       // Cerrar el indicador de carga y regresar a la página principal
                                       if (Navigator.canPop(context)) {
                                         Navigator.pop(context);
                                       }
-                                      
+
                                       // Ir a la pantalla principal
                                       if (mounted) {
-                                        Navigator.of(context).popUntil((route) => route.isFirst);
+                                        Navigator.of(context)
+                                            .popUntil((route) => route.isFirst);
                                       }
                                     } catch (e) {
                                       // Cerrar el indicador de carga en caso de error
                                       if (Navigator.canPop(context)) {
                                         Navigator.pop(context);
                                       }
-                                      
+
                                       // Mostrar mensaje de error
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
-                                          content: Text('Error: ${e.toString()}'),
+                                          content:
+                                              Text('Error: ${e.toString()}'),
                                           backgroundColor: Colors.red,
                                         ),
                                       );
@@ -1002,9 +1106,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           decoration: BoxDecoration(
             color: isOutlined ? Colors.transparent : color,
             borderRadius: BorderRadius.circular(12),
-            border: isOutlined
-                ? Border.all(color: Colors.white24, width: 1)
-                : null,
+            border:
+                isOutlined ? Border.all(color: Colors.white24, width: 1) : null,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),

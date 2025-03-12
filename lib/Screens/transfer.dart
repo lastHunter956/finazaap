@@ -251,17 +251,52 @@ Future<void> _saveTransfer() async {
         _accountItems.map((a) => "${a.title}: ${a.balance}").join(', '));
   }
 
-  Future<void> _loadAccountsFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? accountsData = prefs.getStringList('accounts');
-    if (accountsData != null) {
-      setState(() {
-        _accountItems = accountsData
-            .map((item) => AccountItem.fromJson(json.decode(item)))
-            .toList();
-      });
+  // Reemplazar el código con error (alrededor de la línea 286)
+Future<void> _loadAccountsFromPrefs() async {
+  final prefs = await SharedPreferences.getInstance();
+  List<String>? accountsData = prefs.getStringList('accounts');
+
+  if (accountsData != null) {
+    setState(() {
+      _accountItems = accountsData.map((item) {
+        final Map<String, dynamic> jsonData = json.decode(item);
+        return AccountItem.fromJson(jsonData);
+      }).toList();
+    });
+    
+    // Manejo especial para edición de transacciones con cuentas eliminadas
+    if (widget.isEditing && widget.transaction != null) {
+      // Para transferencias, el formato de explain es "Cuenta origen > Cuenta destino"
+      final parts = widget.transaction!.explain.split(' > ');
+      if (parts.length == 2) {
+        final sourceAccountName = parts[0].trim();
+        final destAccountName = parts[1].trim();
+        
+        try {
+          // Intentar encontrar la cuenta de origen
+          AccountItem? sourceAccount = _accountItems.firstWhere(
+            (account) => account.title.trim() == sourceAccountName,
+          );
+          
+          // Intentar encontrar la cuenta de destino
+          AccountItem? destAccount = _accountItems.firstWhere(
+            (account) => account.title.trim() == destAccountName,
+          );
+          
+          setState(() {
+            _selectedSourceAccount = sourceAccount;
+            _selectedDestinationAccount = destAccount;
+          });
+        } catch (e) {
+          // Si no se encuentra alguna cuenta, fue eliminada
+          debugPrint('⚠️ Cuenta eliminada detectada en transferencia: $e');
+          
+          // Será manejado por el diálogo de advertencia en Home
+        }
+      }
     }
   }
+}
 
   Future<void> _updateAccountBalance(String accountName, double amount, bool add) async {
     final prefs = await SharedPreferences.getInstance();

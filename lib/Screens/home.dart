@@ -5,7 +5,7 @@ import 'package:finazaap/data/model/add_date.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:finazaap/widgets/total_balance_widget.dart';
-import 'package:finazaap/widgets/transaction_list_widget.dart';
+import 'package:finazaap/widgets/show_transaction_options.dart';
 import 'package:finazaap/widgets/floating_action_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -20,6 +20,7 @@ import 'package:finazaap/data/utlity.dart' hide AccountItem;
 
 // Añadir esta importación al inicio del archivo
 import 'package:finazaap/data/transaction_service.dart';
+import 'package:finazaap/data/category_service.dart';
 
 // Definir una clase AccountItem local para home.dart
 class AccountItem {
@@ -338,7 +339,7 @@ class _HomeState extends State<Home> {
                         // Obtenemos la fecha y las transacciones de ese día
                         final dateKey = transactionsByDate.keys.elementAt(index);
                         final dailyTransactions = transactionsByDate[dateKey]!;
-                        final dailyIncome = _calculateDailyIncome(dailyTransactions);
+                        final dailyIncome = _calculateDailyBalance(dailyTransactions);
                         
                         // Construimos la sección de fecha con sus transacciones
                         return _buildDateSection(dateKey, dailyIncome, dailyTransactions);
@@ -419,11 +420,22 @@ class _HomeState extends State<Home> {
   }
 
   // Calcular el total de ingresos del día
-  double _calculateDailyIncome(List<Add_data> transactions) {
-    return transactions
-        .where((t) => t.IN == 'Income')
-        .fold(0.0, (sum, t) => sum + (double.tryParse(t.amount) ?? 0.0));
+  double _calculateDailyBalance(List<Add_data> transactions) {
+  double balance = 0.0;
+  
+  for (var transaction in transactions) {
+    if (transaction.IN == 'Income') {
+      // Sumar ingresos
+      balance += (double.tryParse(transaction.amount) ?? 0.0);
+    } else if (transaction.IN == 'Expenses') {
+      // Restar gastos
+      balance -= (double.tryParse(transaction.amount) ?? 0.0);
+    }
+    // Las transferencias no afectan el balance contable
   }
+  
+  return balance;
+}
 
   // Construir la sección de fecha con sus transacciones
   Widget _buildDateSection(String dateKey, double dailyIncome, List<Add_data> transactions) {
@@ -537,7 +549,7 @@ class _HomeState extends State<Home> {
 
     // Envolver en InkWell para detectar toques y mostrar efecto visual
     return InkWell(
-      onTap: () => _showTransactionOptions(history),
+      onTap: () => showTransactionOptions(history, context, _editTransaction, _confirmDeleteTransaction),
       splashColor: Colors.blueAccent.withOpacity(0.1),
       highlightColor: Colors.blueAccent.withOpacity(0.05),
       borderRadius: BorderRadius.circular(8),
@@ -629,450 +641,7 @@ class _HomeState extends State<Home> {
     );
   }
 
-  // Método para mostrar opciones de edición/eliminación
-  // Método mejorado para mostrar opciones de transacción
-void _showTransactionOptions(Add_data transaction) {
-  // Preparar datos de la transacción
-  final bool isTransfer = transaction.IN == 'Transfer';
-  final bool isIncome = transaction.IN == 'Income';
-  final String transactionTitle = transaction.detail.isNotEmpty 
-      ? transaction.detail 
-      : (isTransfer ? 'Transferencia' : transaction.explain);
-  final String formattedAmount = NumberFormat.currency(locale: 'es', symbol: '\$')
-      .format(double.parse(transaction.amount));
-  
-  // Definir colores y estilos
-  final Color primaryColor = isTransfer 
-      ? const Color(0xFF3D7AF0)  // Azul refinado
-      : (isIncome ? const Color(0xFF2E9E5B) : const Color(0xFFE53935)); // Verde y rojo premium
-  
-  final Gradient backgroundGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [
-      primaryColor.withOpacity(0.12),
-      primaryColor.withOpacity(0.04),
-    ],
-  );
-  
-  showGeneralDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: "Opciones de transacción",
-    barrierColor: Colors.black.withOpacity(0.7),
-    transitionDuration: const Duration(milliseconds: 250),
-    pageBuilder: (_, __, ___) => Container(),
-    transitionBuilder: (context, animation, secondaryAnimation, child) {
-      final curvedAnimation = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutQuint,
-      );
-      
-      return ScaleTransition(
-        scale: Tween<double>(begin: 0.8, end: 1.0).animate(curvedAnimation),
-        child: FadeTransition(
-          opacity: animation,
-          child: Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.88,
-                constraints: BoxConstraints(
-                  maxWidth: 400, // Limitar ancho máximo
-                  maxHeight: MediaQuery.of(context).size.height * 0.85,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF222939),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.25),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                      spreadRadius: -5,
-                    ),
-                    BoxShadow(
-                      color: primaryColor.withOpacity(0.15),
-                      blurRadius: 30,
-                      offset: const Offset(0, 5),
-                      spreadRadius: -2,
-                    ),
-                  ],
-                  border: Border.all(
-                    color: primaryColor.withOpacity(0.15),
-                    width: 1.5,
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // ===== CABECERA =====
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: backgroundGradient,
-                        ),
-                        child: Stack(
-                          children: [
-                            // Decoración de fondo
-                            Positioned(
-                              right: -20,
-                              top: -20,
-                              child: CircleAvatar(
-                                radius: 60,
-                                backgroundColor: primaryColor.withOpacity(0.05),
-                              ),
-                            ),
-                            
-                            // Contenido de la cabecera
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                              child: Column(
-                                children: [
-                                  // Icono principal
-                                  Container(
-                                    height: 65,
-                                    width: 65,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          primaryColor.withOpacity(0.2),
-                                          primaryColor.withOpacity(0.1),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(50),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: primaryColor.withOpacity(0.2),
-                                          blurRadius: 15,
-                                          spreadRadius: 0,
-                                        ),
-                                      ],
-                                      border: Border.all(
-                                        color: primaryColor.withOpacity(0.5),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      isTransfer ? Icons.swap_horiz_rounded : 
-                                      (isIncome ? Icons.north_rounded : Icons.south_rounded),
-                                      size: 30,
-                                      color: primaryColor,
-                                    ),
-                                  ),
-                                  
-                                  const SizedBox(height: 20),
-                                  
-                                  // Título de la transacción
-                                  Text(
-                                    transactionTitle,
-                                    style: const TextStyle(
-                                      fontSize: 19,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 0.2,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  
-                                  const SizedBox(height: 16),
-                                  
-                                  // Tipo de transacción
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, 
-                                      vertical: 6
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: primaryColor.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: primaryColor.withOpacity(0.3),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      isTransfer ? "Transferencia" : 
-                                      (isIncome ? "Ingreso" : "Gasto"),
-                                      style: TextStyle(
-                                        color: primaryColor,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 12,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ),
-                                  
-                                  const SizedBox(height: 18),
-                                  
-                                  // Monto destacado
-                                  Text(
-                                    formattedAmount,
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                      color: primaryColor,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                  
-                                  const SizedBox(height: 16),
-                                  
-                                  // Información de cuenta(s)
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(14),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.05),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.1),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        // Etiqueta
-                                        Text(
-                                          isTransfer ? "Ruta de transferencia" : "Cuenta",
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(0.6),
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        
-                                        const SizedBox(height: 6),
-                                        
-                                        // Valor
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              isTransfer ? Icons.compare_arrows_rounded : Icons.account_balance_wallet,
-                                              size: 16,
-                                              color: primaryColor.withOpacity(0.8),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                isTransfer ? transaction.explain : transaction.name,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  
-                                  const SizedBox(height: 10),
-                                  
-                                  // Fecha y hora
-                                  Container(
-                                    width: double.infinity,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.access_time_rounded,
-                                          size: 14,
-                                          color: Colors.white.withOpacity(0.5),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          DateFormat('dd/MM/yyyy - HH:mm').format(transaction.datetime),
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(0.5),
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      // ===== ACCIONES =====
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        child: Row(
-                          children: [
-                            // Botón Editar - Adaptable
-                            Expanded(
-                              child: Material(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(18),
-                                child: InkWell(
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    _editTransaction(transaction);
-                                  },
-                                  borderRadius: BorderRadius.circular(18),
-                                  splashColor: const Color(0xFFFFA726).withOpacity(0.2),
-                                  highlightColor: const Color(0xFFFFA726).withOpacity(0.1),
-                                  child: Ink(
-                                    height: 75, // Solo fijar altura, ancho adaptable
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          const Color(0xFFFFA726).withOpacity(0.2),
-                                          const Color(0xFFFFA726).withOpacity(0.08),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(
-                                        color: const Color(0xFFFFA726).withOpacity(0.3),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.edit_rounded,
-                                          size: 24,
-                                          color: const Color(0xFFFFA726),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        const Text(
-                                          'Editar',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFFFFA726),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                                    
-                            const SizedBox(width: 15), // Reducido el espacio entre botones
-                                    
-                            // Botón Eliminar - Adaptable
-                            Expanded(
-                              child: Material(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(18),
-                                child: InkWell(
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    _confirmDeleteTransaction(transaction);
-                                  },
-                                  borderRadius: BorderRadius.circular(18),
-                                  splashColor: const Color(0xFFE53935).withOpacity(0.2),
-                                  highlightColor: const Color(0xFFE53935).withOpacity(0.1),
-                                  child: Ink(
-                                    height: 75, // Solo fijar altura, ancho adaptable
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          const Color(0xFFE53935).withOpacity(0.2),
-                                          const Color(0xFFE53935).withOpacity(0.08),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(
-                                        color: const Color(0xFFE53935).withOpacity(0.3),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.delete_rounded,
-                                          size: 24,
-                                          color: const Color(0xFFE53935),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        const Text(
-                                          'Eliminar',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFFE53935),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      // ===== PIE DE DIÁLOGO =====
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.2),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => Navigator.pop(context),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.close_rounded,
-                                    size: 16,
-                                    color: Colors.white.withOpacity(0.7),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Cerrar',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.7),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
+
 
 // Widget de botón premium con efecto de presión
 Widget _buildPremiumButton({
@@ -1143,91 +712,282 @@ Widget _buildPremiumButton({
   );
 }
 
-  // Método _editTransaction
 void _editTransaction(Add_data transaction) async {
-  Widget editScreen;
-  
-  // Obtener la key directamente del objeto HiveObject
-  final dynamic transactionKey = box.keyAt(box.values.toList().indexOf(transaction));
-  
-  if (transaction.IN == 'Transfer') {
-    // Para transferencias
-    editScreen = TransferScreen(
-      isEditing: true,
-      transaction: transaction,
-      transactionKey: transactionKey,  // Pasar la key
-      onTransactionUpdated: () {
-        setState(() {});
-        _updateAvailableBalance();
-      },
-    );
-  } else if (transaction.IN == 'Income') {
-    // Para ingresos
-    editScreen = Add_Screen(
-      isEditing: true,
-      transaction: transaction,
-      transactionKey: transactionKey,  // Pasar la key
-      onTransactionUpdated: () {
-        setState(() {});
-        _updateAvailableBalance();
-      },
-    );
-  } else {
-    // Para gastos
-    editScreen = AddExpenseScreen(
-      isEditing: true,
-      transaction: transaction,
-      transactionKey: transactionKey,  // Pasar la key
-      onTransactionUpdated: () {
-        setState(() {});
-        _updateAvailableBalance();
-      },
-    );
-  }
-  
   try {
-    // Mostrar indicador de carga opcional
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(child: CircularProgressIndicator());
-      },
-    );
+    // Verificar si hay referencias eliminadas antes de abrir la pantalla de edición
+    final deletedRefs = await CategoryService.checkForDeletedReferences(transaction);
+    
+    // Si hay categorías o cuentas eliminadas, mostrar advertencia
+    if (deletedRefs['hasDeletedCategory'] == true || deletedRefs['hasDeletedAccount'] == true) {
+      bool shouldContinue = await _showDeletedReferenceWarning(
+        transaction, 
+        deletedRefs['hasDeletedCategory'] ?? false,
+        deletedRefs['hasDeletedAccount'] ?? false
+      );
+      
+      if (!shouldContinue) {
+        // Usuario eligió eliminar en lugar de editar
+        await _deleteTransaction(transaction);
+        return;
+      }
+    }
+    
+    // Continuar con la edición normalmente...
+    int? transactionKey = _findTransactionKey(transaction);
+    
+    if (transactionKey == null) {
+      throw Exception('No se pudo encontrar la transacción en la base de datos');
+    }
+    
+    // Añadir depuración adicional
+    debugPrint('🔍 Editando transacción: ${transaction.explain}');
+    if (transaction.IN == 'Income' || transaction.IN == 'Expenses') {
+      debugPrint('📊 Datos clave: Cuenta=${transaction.name}, Categoría=${transaction.explain}');
+    } else {
+      debugPrint('📊 Datos clave: Ruta=${transaction.explain}');
+    }
+    
+    // Verificar y corregir datos antes de editar
+    if (transaction.IN == 'Income') {
+      await _verifyDataBeforeEdit(transaction);
+    } else if (transaction.IN == 'Expenses') {
+      await _verifyDataBeforeEdit(transaction);
+    }
+    
+    // Crear la pantalla de edición adecuada según el tipo
+    Widget editScreen;
+    
+    if (transaction.IN == 'Transfer') {
+      editScreen = TransferScreen(
+        isEditing: true,
+        transaction: transaction,
+        transactionKey: transactionKey,
+        onTransactionUpdated: () {
+          setState(() {});
+          _updateAvailableBalance();
+          // Sincronizar saldos después de la edición
+          TransactionService.syncAccountBalances();
+        },
+      );
+    } else if (transaction.IN == 'Income') {
+      editScreen = Add_Screen(
+        isEditing: true,
+        transaction: transaction,
+        transactionKey: transactionKey,
+        onTransactionUpdated: () {
+          setState(() {});
+          _updateAvailableBalance();
+          TransactionService.syncAccountBalances();
+        },
+      );
+    } else { // Expenses
+      editScreen = AddExpenseScreen(
+        isEditing: true,
+        transaction: transaction,
+        transactionKey: transactionKey,
+        onTransactionUpdated: () {
+          setState(() {});
+          _updateAvailableBalance();
+          TransactionService.syncAccountBalances();
+        },
+      );
+    }
     
     // Navegar a la pantalla de edición
-    await Navigator.push(
-      context,
+    await Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => editScreen),
     );
     
-    // Cerrar el indicador de carga
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
-    
-    // Actualizar la UI después de regresar
-    if (mounted) {
-      setState(() {});
-      await _updateAvailableBalance();
-      
-      // Forzar actualización del widget ValueListenableBuilder
-      // No llamar a notifyListeners, simplemente actualizar el estado
-    }
   } catch (e) {
-    // Cerrar el indicador de carga si hay un error
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
-    
-    print('Error durante la edición: $e');
+    debugPrint('❌ Error al preparar edición de transacción: $e');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Error al editar: ${e.toString()}'),
+        content: Text('Error al editar: $e'),
         backgroundColor: Colors.red,
+        duration: Duration(seconds: 3),
       ),
     );
   }
+}
+
+// Método auxiliar para verificar y corregir datos antes de editar
+Future<void> _verifyDataBeforeEdit(Add_data transaction) async {
+  final prefs = await SharedPreferences.getInstance();
+  
+  if (transaction.IN == 'Income') {
+    // Verificar categorías de ingresos
+    List<String> savedCategories = prefs.getStringList('income_categories') ?? [];
+    
+    // Si la categoría no existe, añadirla a la lista permanente
+    if (!savedCategories.contains(transaction.explain)) {
+      debugPrint('⚠️ Reparando: Categoría de ingreso no encontrada: ${transaction.explain}');
+      
+      // Verificar que no esté duplicada en otra forma (mayúsculas/minúsculas)
+      bool isDuplicate = false;
+      String duplicateOf = "";
+      
+      for (final category in savedCategories) {
+        if (category.toLowerCase() == transaction.explain.toLowerCase()) {
+          isDuplicate = true;
+          duplicateOf = category;
+          break;
+        }
+      }
+      
+      if (isDuplicate) {
+        debugPrint('⚠️ Es un duplicado de: $duplicateOf - Actualizando transacción');
+        transaction.explain = duplicateOf; // Actualizar al nombre "canónico"
+      } else {
+        // Agregar como nueva categoría
+        savedCategories.add(transaction.explain);
+        await prefs.setStringList('income_categories', savedCategories);
+        debugPrint('✅ Categoría agregada: ${transaction.explain}');
+      }
+    }
+    
+    // Verificar también la cuenta
+    List<String>? accountsData = prefs.getStringList('accounts') ?? [];
+    List<String> accountNames = accountsData
+        .map((data) => (json.decode(data) as Map<String, dynamic>)['title'] as String)
+        .toList();
+    
+    if (!accountNames.contains(transaction.name)) {
+      debugPrint('⚠️ Advertencia: La cuenta ${transaction.name} ya no existe');
+    }
+  } 
+  else if (transaction.IN == 'Expenses') {
+    // Verificar categorías de gastos
+    List<String> savedCategories = prefs.getStringList('expense_categories') ?? [];
+    
+    // Si la categoría no existe, añadirla a la lista permanente
+    if (!savedCategories.contains(transaction.explain)) {
+      debugPrint('⚠️ Reparando: Categoría de gasto no encontrada: ${transaction.explain}');
+      
+      // Verificar que no esté duplicada en otra forma (mayúsculas/minúsculas)
+      bool isDuplicate = false;
+      String duplicateOf = "";
+      
+      for (final category in savedCategories) {
+        if (category.toLowerCase() == transaction.explain.toLowerCase()) {
+          isDuplicate = true;
+          duplicateOf = category;
+          break;
+        }
+      }
+      
+      if (isDuplicate) {
+        debugPrint('⚠️ Es un duplicado de: $duplicateOf - Actualizando transacción');
+        transaction.explain = duplicateOf; // Actualizar al nombre "canónico"
+      } else {
+        // Agregar como nueva categoría
+        savedCategories.add(transaction.explain);
+        await prefs.setStringList('expense_categories', savedCategories);
+        debugPrint('✅ Categoría de gasto agregada: ${transaction.explain}');
+      }
+    }
+    
+    // Verificar también la cuenta
+    List<String>? accountsData = prefs.getStringList('accounts') ?? [];
+    List<String> accountNames = accountsData
+        .map((data) => (json.decode(data) as Map<String, dynamic>)['title'] as String)
+        .toList();
+    
+    if (!accountNames.contains(transaction.name)) {
+      debugPrint('⚠️ Advertencia: La cuenta ${transaction.name} ya no existe');
+    }
+  }
+  else if (transaction.IN == 'Transfer') {
+    // Verificar cuentas de origen y destino en transferencias
+    final parts = transaction.explain.split(' > ');
+    if (parts.length == 2) {
+      final sourceAccount = parts[0].trim();
+      final destAccount = parts[1].trim();
+      
+      List<String>? accountsData = prefs.getStringList('accounts') ?? [];
+      List<String> accountNames = accountsData
+          .map((data) => (json.decode(data) as Map<String, dynamic>)['title'] as String)
+          .toList();
+      
+      if (!accountNames.contains(sourceAccount)) {
+        debugPrint('⚠️ Advertencia: La cuenta de origen ${sourceAccount} ya no existe');
+      }
+      
+      if (!accountNames.contains(destAccount)) {
+        debugPrint('⚠️ Advertencia: La cuenta de destino ${destAccount} ya no existe');
+      }
+    }
+  }
+}
+
+// Añadir este nuevo método para mostrar la advertencia
+Future<bool> _showDeletedReferenceWarning(
+  Add_data transaction,
+  bool hasDeletedCategory,
+  bool hasDeletedAccount
+) async {
+  String message = 'Lo sentimos, pero hemos detectado que eliminó ';
+  
+  if (hasDeletedCategory && hasDeletedAccount) {
+    message += 'una categoría y una cuenta asociadas a este registro.';
+  } else if (hasDeletedCategory) {
+    message += 'una categoría asociada a este registro.';
+  } else {
+    message += 'una cuenta asociada a este registro.';
+  }
+  
+  message += ' En caso que desee editar, no contará con la ';
+  
+  if (hasDeletedCategory && hasDeletedAccount) {
+    message += 'categoría ni cuenta eliminada.';
+  } else if (hasDeletedCategory) {
+    message += 'categoría eliminada.';
+  } else {
+    message += 'cuenta eliminada.';
+  }
+  
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      backgroundColor: const Color(0xFF2A2A3A),
+      title: const Text(
+        '⚠️ Referencia eliminada detectada',
+        style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold),
+      ),
+      content: Text(
+        message,
+        style: const TextStyle(color: Colors.white),
+      ),
+      actions: [
+        // Botón rojo de eliminar
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+            backgroundColor: Colors.red,
+          ),
+          onPressed: () {
+            Navigator.of(context).pop(false); // No continuar con la edición
+            _confirmDeleteTransaction(transaction); // Mostrar diálogo de eliminación
+          },
+          child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+        ),
+        
+        // Botón blanco de editar
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Colors.white),
+          ),
+          onPressed: () {
+            Navigator.of(context).pop(true); // Continuar con la edición
+          },
+          child: const Text('Editar de todas formas', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+  
+  // Retorna true si el usuario eligió editar, false si eligió eliminar
+  return result ?? false;
 }
 
   // Método para confirmar eliminación
@@ -1265,7 +1025,7 @@ void _editTransaction(Add_data transaction) async {
   }
 
   // Corregir la llamada a deleteTransaction
-void _deleteTransaction(Add_data transaction) async {
+Future<void> _deleteTransaction(Add_data transaction) async {
   try {
     // Usar el servicio centralizado para eliminar la transacción
     bool success = await TransactionService.deleteTransaction(transaction);
@@ -1287,6 +1047,9 @@ void _deleteTransaction(Add_data transaction) async {
         backgroundColor: Colors.redAccent,
       ),
     );
+
+    // Sincronizar saldos después de eliminar
+    await TransactionService.syncAccountBalances();
   } catch (e) {
     print('Error al eliminar transacción: $e');
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1427,6 +1190,26 @@ Future<void> _updateAccountBalance(String accountName, double amount, bool add) 
     
     // Actualizar el saldo global para reflejar el cambio
     await _updateAvailableBalance();
+  }
+}
+
+// Añadir este método utilitario
+int? _findTransactionKey(Add_data transaction) {
+  try {
+    for (int i = 0; i < box.length; i++) {
+      final current = box.getAt(i);
+      if (current != null && 
+          current.datetime == transaction.datetime &&
+          current.amount == transaction.amount &&
+          current.name == transaction.name &&
+          current.IN == transaction.IN) {
+        return box.keyAt(i);
+      }
+    }
+    return null;
+  } catch (e) {
+    debugPrint('❌ Error buscando transacción: $e');
+    return null;
   }
 }
 }
