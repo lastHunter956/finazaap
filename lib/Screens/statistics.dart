@@ -636,6 +636,439 @@ String _formatCurrencyCompact(double value) {
   }
 }
 
+// Método para obtener datos históricos (diario o mensual según el modo)
+List<ChartData> _getHistoricalData() {
+  if (isMonthly) {
+    // Modo mensual: datos por día para el mes seleccionado
+    return _getDailyDataForMonth();
+  } else {
+    // Modo anual: datos por mes para el año seleccionado
+    return _getMonthDataForYearHistorical();
+  }
+}
+
+// Datos por día para el mes seleccionado
+List<ChartData> _getDailyDataForMonth() {
+  // Mapa para agregar valores por día
+  Map<int, double> dailyData = {};
+  
+  // Filtrar transacciones del tipo correcto (ingresos o gastos)
+  final filteredByType = allData.where(
+    (item) => item.IN == (isIncomeSelected ? 'Income' : 'Expenses') && 
+              item.datetime.year == selectedYear && 
+              item.datetime.month == selectedMonth
+  ).toList();
+  
+  // Obtener el último día del mes seleccionado (28, 29, 30 o 31)
+  final lastDayOfMonth = DateTime(selectedYear, selectedMonth + 1, 0).day;
+  
+  // Inicializar todos los días del mes con valor 0
+  for (int day = 1; day <= lastDayOfMonth; day++) {
+    dailyData[day] = 0;
+  }
+  
+  // Sumar los montos para cada día
+  for (var item in filteredByType) {
+    final day = item.datetime.day;
+    final amount = double.tryParse(item.amount) ?? 0;
+    dailyData[day] = (dailyData[day] ?? 0) + amount;
+  }
+  
+  // Convertir a lista de ChartData
+  List<ChartData> result = [];
+  for (int day = 1; day <= lastDayOfMonth; day++) {
+    // Solo incluir días con datos para no sobrecargar el gráfico
+    if (dailyData[day]! > 0) {
+      result.add(ChartData(
+        day.toString(), 
+        dailyData[day]!,
+        isIncomeSelected ? const Color(0xFF27AE60) : const Color(0xFFE53935),
+        isIncomeSelected ? Icons.arrow_upward.codePoint : Icons.arrow_downward.codePoint
+      ));
+    }
+  }
+  
+  return result;
+}
+
+// Datos mensuales para un año (versión para gráfica histórica)
+List<ChartData> _getMonthDataForYearHistorical() {
+  // Mapa para agregar valores por mes
+  Map<int, double> monthlyData = {};
+  
+  // Inicializar todos los meses con valor 0
+  for (int month = 1; month <= 12; month++) {
+    monthlyData[month] = 0;
+  }
+  
+  // Filtrar transacciones del tipo correcto (ingresos o gastos)
+  final filteredByType = allData.where(
+    (item) => item.IN == (isIncomeSelected ? 'Income' : 'Expenses') && 
+              item.datetime.year == selectedYear
+  ).toList();
+  
+  // Sumar los montos para cada mes
+  for (var item in filteredByType) {
+    final month = item.datetime.month;
+    final amount = double.tryParse(item.amount) ?? 0;
+    monthlyData[month] = (monthlyData[month] ?? 0) + amount;
+  }
+  
+  // Convertir a lista de ChartData
+  List<ChartData> result = [];
+  for (int month = 1; month <= 12; month++) {
+    // Solo incluir meses con datos para no sobrecargar el gráfico
+    if (monthlyData[month]! > 0) {
+      result.add(ChartData(
+        _nombreMesCompleto(month), 
+        monthlyData[month]!,
+        isIncomeSelected ? const Color(0xFF27AE60) : const Color(0xFFE53935),
+        isIncomeSelected ? Icons.arrow_upward.codePoint : Icons.arrow_downward.codePoint
+      ));
+    }
+  }
+  
+  return result;
+}
+
+// Widget para mostrar la gráfica histórica
+Widget _buildHistoricalChart() {
+  final data = _getHistoricalData();
+  
+  if (data.isEmpty) {
+    return _buildEmptyDataIndicator('No hay datos históricos disponibles para este período');
+  }
+
+  // Título descriptivo según el modo
+  final String title = isMonthly
+      ? 'Evolución diaria de ${isIncomeSelected ? 'ingresos' : 'gastos'} en ${_nombreMesCompleto(selectedMonth)}'
+      : 'Evolución mensual de ${isIncomeSelected ? 'ingresos' : 'gastos'} en $selectedYear';
+
+  // Color principal según tipo (ingreso/gasto)
+  final Color primaryColor = isIncomeSelected 
+      ? const Color(0xFF27AE60) 
+      : const Color(0xFFE53935);
+      
+  // Encontrar el valor máximo para destacarlo
+  final maxEntry = data.reduce((a, b) => a.y > b.y ? a : b);
+  // Encontrar el valor mínimo para destacarlo
+  final minEntry = data.reduce((a, b) => a.y < b.y ? a : b);
+      
+  return Container(
+    height: 350, // Altura suficiente para la gráfica
+    padding: const EdgeInsets.only(top: 16, right: 10, left: 0, bottom: 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Título descriptivo
+        Padding(
+          padding: const EdgeInsets.only(left: 16, bottom: 12),
+          child: Row(
+            children: [
+              Icon(
+                isMonthly ? Icons.calendar_today : Icons.calendar_month,
+                color: primaryColor,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Gráfico lineal
+        Expanded(
+          child: SfCartesianChart(
+            backgroundColor: Colors.transparent,
+            plotAreaBorderWidth: 0,
+            margin: const EdgeInsets.all(0),
+            
+            // Ejes X e Y con mejor estilo
+            primaryXAxis: CategoryAxis(
+              labelStyle: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+              ),
+              axisLine: const AxisLine(width: 0),
+              majorGridLines: const MajorGridLines(width: 0),
+              majorTickLines: const MajorTickLines(size: 0),
+              labelPlacement: LabelPlacement.onTicks,
+              labelRotation: isMonthly ? 0 : -45, // Rotación según el modo
+            ),
+            primaryYAxis: NumericAxis(
+              labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
+              axisLine: const AxisLine(width: 0),
+              majorGridLines: const MajorGridLines(
+                width: 0.5,
+                color: Colors.white10,
+                dashArray: <double>[3, 3],
+              ),
+              majorTickLines: const MajorTickLines(size: 0),
+              numberFormat: NumberFormat.compact(),
+              labelFormat: '\${value}',
+            ),
+            
+            // Tooltip personalizado
+            tooltipBehavior: TooltipBehavior(
+              enable: true,
+              color: const Color(0xFF2A3143),
+              textStyle: const TextStyle(color: Colors.white),
+              borderColor: Colors.white24,
+              borderWidth: 1,
+              format: 'point.x: \${point.y}',
+              duration: 3000,
+            ),
+            
+            // Marcador para destacar el valor máximo
+            annotations: <CartesianChartAnnotation>[
+              CartesianChartAnnotation(
+                widget: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
+                  ),
+                  child: Text(
+                    'Máximo',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                coordinateUnit: CoordinateUnit.point,
+                region: isMonthly ? AnnotationRegion.chart : AnnotationRegion.plotArea,
+                x: maxEntry.x,
+                y: maxEntry.y,
+                // Corregido: usar ChartAlignment en lugar de AnnotationAlignment
+                verticalAlignment: isMonthly ? ChartAlignment.near : ChartAlignment.far,
+                horizontalAlignment: ChartAlignment.center,
+              ),
+              CartesianChartAnnotation(
+                widget: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blueGrey.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
+                  ),
+                  child: Text(
+                    'Mínimo',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                coordinateUnit: CoordinateUnit.point,
+                region: isMonthly ? AnnotationRegion.chart : AnnotationRegion.plotArea,
+                x: minEntry.x,
+                y: minEntry.y,
+                verticalAlignment: isMonthly ? ChartAlignment.far : ChartAlignment.near,
+                horizontalAlignment: ChartAlignment.center,
+              ),
+            ],
+            
+            // Series de la gráfica lineal
+            series: <CartesianSeries<ChartData, String>>[
+              // Línea principal
+              LineSeries<ChartData, String>(
+                dataSource: data,
+                xValueMapper: (ChartData item, _) => item.x,
+                yValueMapper: (ChartData item, _) => item.y,
+                name: isIncomeSelected ? 'Ingresos' : 'Gastos',
+                color: primaryColor,
+                width: 3,
+                opacity: 0.9,
+                markerSettings: MarkerSettings(
+                  isVisible: true,
+                  height: 8,
+                  width: 8,
+                  shape: DataMarkerType.circle,
+                  borderWidth: 2,
+                  borderColor: primaryColor,
+                  color: Colors.white,
+                ),
+                animationDuration: 1500,
+                animationDelay: 800,
+                enableTooltip: true,
+              ),
+              
+              // Área sombreada bajo la línea
+              AreaSeries<ChartData, String>(
+                dataSource: data,
+                xValueMapper: (ChartData item, _) => item.x,
+                yValueMapper: (ChartData item, _) => item.y,
+                name: isIncomeSelected ? 'Área de Ingresos' : 'Área de Gastos',
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    primaryColor.withOpacity(0.4),
+                    primaryColor.withOpacity(0.05),
+                  ],
+                  stops: const [0.2, 1.0],
+                ),
+                borderColor: primaryColor,
+                borderWidth: 2,
+                animationDuration: 1800,
+                animationDelay: 1000,
+                enableTooltip: false,
+                borderDrawMode: BorderDrawMode.top,
+              ),
+            ],
+            
+            // Zoom y desplazamiento
+            zoomPanBehavior: ZoomPanBehavior(
+              enablePanning: true,
+              zoomMode: ZoomMode.x,
+              enablePinching: true,
+              enableDoubleTapZooming: true,
+            ),
+          ),
+        ),
+        
+        // Estadísticas rápidas en la parte inferior
+        _buildHistoricalStats(data),
+      ],
+    ),
+  );
+}
+
+// Widget para mostrar estadísticas rápidas del histórico
+Widget _buildHistoricalStats(List<ChartData> data) {
+  if (data.isEmpty) return const SizedBox.shrink();
+  
+  // Calcular estadísticas
+  double total = 0;
+  double average = 0;
+  double max = 0;
+  String maxDate = '';
+  
+  for (var item in data) {
+    total += item.y;
+    if (item.y > max) {
+      max = item.y;
+      maxDate = item.x;
+    }
+  }
+  
+  average = total / data.length;
+  
+  // Color según tipo
+  final Color statColor = isIncomeSelected 
+      ? const Color(0xFF27AE60) 
+      : const Color(0xFFE53935);
+  
+  return Padding(
+    padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        // Estadística: Promedio
+        _buildStatCard(
+          icon: Icons.timeline,
+          label: 'Promedio',
+          value: _formatCurrencyCompact(average),
+          color: statColor,
+        ),
+        
+        // Estadística: Total
+        _buildStatCard(
+          icon: Icons.account_balance_wallet,
+          label: 'Total',
+          value: _formatCurrencyCompact(total),
+          color: statColor,
+        ),
+        
+        // Estadística: Máximo y cuándo
+        _buildStatCard(
+          icon: Icons.arrow_circle_up,
+          label: 'Mayor: $maxDate',
+          value: _formatCurrencyCompact(max),
+          color: statColor,
+        ),
+      ],
+    ),
+  );
+}
+
+// Widget para tarjetas de estadísticas
+Widget _buildStatCard({
+  required IconData icon,
+  required String label,
+  required String value,
+  required Color color,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(
+        color: color.withOpacity(0.3),
+        width: 1,
+      ),
+    ),
+    child: Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: color,
+              size: 14,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     final total = filteredData.fold<double>(
@@ -834,10 +1267,11 @@ String _formatCurrencyCompact(double value) {
               // Lista detallada
               _buildDetailCard(),
 
-              
-
-              // Ejemplo de uso: Mostrar datos de ingresos (agrupados) en una tarjeta
-              // _buildIncomeGroupingCard(), // Elimina este método redundante que ya no necesitamos
+              // Incluir esta sección antes de la lista detallada
+              _buildCard(
+                title: 'Histórico de ${isIncomeSelected ? 'Ingresos' : 'Gastos'}',
+                child: _buildHistoricalChart(),
+              ),
             ],
           ),
         ),
