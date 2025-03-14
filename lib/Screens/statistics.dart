@@ -1321,9 +1321,9 @@ class _StatisticsState extends State<Statistics> {
     double total = 0;
     double average = 0;
     double max = 0;
-    double min = double.infinity; // Añadimos el valor mínimo
+    double min = double.infinity;
     String maxDate = '';
-    String minDate = ''; // Añadimos fecha del mínimo
+    String minDate = '';
 
     for (var item in data) {
       total += item.y;
@@ -1331,7 +1331,6 @@ class _StatisticsState extends State<Statistics> {
         max = item.y;
         maxDate = item.x;
       }
-      // Calcular el mínimo (solo para valores mayores que cero)
       if (item.y > 0 && item.y < min) {
         min = item.y;
         minDate = item.x;
@@ -1339,46 +1338,72 @@ class _StatisticsState extends State<Statistics> {
     }
 
     average = total / data.length;
-    if (min == double.infinity) min = 0; // Si no hay datos, mínimo es 0
+    if (min == double.infinity) min = 0;
 
     // Color según tipo
     final Color statColor =
         isIncomeSelected ? const Color(0xFF27AE60) : const Color(0xFFE53935);
 
+    // Formato compacto para fechas largas
+    String formatDate(String date) {
+      if (date.length > 6) {
+        return date.substring(0, 6) + '...';
+      }
+      return date;
+    }
+
     return Padding(
-      padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          // Estadística: Promedio
-          _buildStatCard(
-            icon: Icons.timeline,
-            label: 'Promedio',
-            value: _formatCurrencyCompact(average),
-            color: statColor,
-          ),
+      padding: const EdgeInsets.only(top: 0, left: 0, right: 0),
+      // Añadir SingleChildScrollView para permitir scroll horizontal
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Row(
+            children: [
+              // Estadística: Promedio
+              _buildStatCard(
+                icon: Icons.timeline,
+                label: 'Promedio',
+                value: _formatCurrencyCompact(average),
+                color: statColor,
+              ),
+              const SizedBox(width: 12),
 
-          // Estadística: Mínimo y cuándo (reemplazando Total)
-          _buildStatCard(
-            icon: Icons.arrow_circle_down,
-            label: 'Mínimo: $minDate',
-            value: _formatCurrencyCompact(min),
-            color: statColor, // Color diferente para distinguirlo
-          ),
+              // Estadística: Mínimo y cuándo
+              _buildStatCard(
+                icon: Icons.arrow_circle_down,
+                label: 'Mín: ${formatDate(minDate)}',
+                value: _formatCurrencyCompact(min),
+                color: statColor,
+              ),
+              const SizedBox(width: 12),
 
-          // Estadística: Máximo y cuándo
-          _buildStatCard(
-            icon: Icons.arrow_circle_up,
-            label: 'Mayor: $maxDate',
-            value: _formatCurrencyCompact(max),
-            color: statColor,
+              // Estadística: Máximo y cuándo
+              _buildStatCard(
+                icon: Icons.arrow_circle_up,
+                label: 'Máx: ${formatDate(maxDate)}',
+                value: _formatCurrencyCompact(max),
+                color: statColor,
+              ),
+              const SizedBox(width: 12),
+              
+              // Nueva tarjeta para Total
+              _buildStatCard(
+                icon: Icons.account_balance_wallet,
+                label: 'Total',
+                value: _formatCurrencyCompact(total),
+                color: statColor,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-// Widget para tarjetas de estadísticas
+// Widget para tarjetas de estadísticas - versión mejorada
   Widget _buildStatCard({
     required IconData icon,
     required String label,
@@ -1386,7 +1411,7 @@ class _StatisticsState extends State<Statistics> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(10),
@@ -1396,9 +1421,12 @@ class _StatisticsState extends State<Statistics> {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // Primera fila: icono y etiqueta juntos para ahorrar espacio vertical
           Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
@@ -1416,6 +1444,7 @@ class _StatisticsState extends State<Statistics> {
             ],
           ),
           const SizedBox(height: 4),
+          // Valor con estilo destacado
           Text(
             value,
             style: TextStyle(
