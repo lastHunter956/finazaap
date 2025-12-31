@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/utils/alert_helper.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:finazaap/widgets/add_account_dialogs.dart';
@@ -10,6 +11,8 @@ import 'dart:ui';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:gradient_borders/gradient_borders.dart';
+import 'package:finazaap/data/responsibility_service.dart';
+import 'package:finazaap/utils/currency_helper.dart';
 
 // Clase para dibujar líneas punteadas (MOVIDA AL INICIO)
 class DashedLinePainter extends CustomPainter {
@@ -107,7 +110,12 @@ class _MyHomePageState extends State<MyHomePage> {
     _loadSortPreference();
   }
 
-  void _deleteAccount(AccountItem account) {
+  void _deleteAccount(AccountItem account) async {
+    // Sincronizar con Responsabilidades (Eliminar si es tarjeta de crédito)
+    if (account.subtitle == "Tarjeta de Crédito") {
+       await ResponsibilityService.deleteResponsibilityByName(account.title);
+    }
+
     setState(() {
       accountItems.remove(account);
     });
@@ -214,11 +222,16 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
 
-  void _saveAccount(AccountItem account) {
+  Future<void> _saveAccount(AccountItem account) async {
     setState(() {
       accountItems.add(account);
     });
-    saveAccounts();
+    await saveAccounts();
+    
+    // Auto-create responsibility if it's a credit card
+    if (account.subtitle == "Tarjeta de Crédito") {
+      await ResponsibilityService.createFromAccount(account);
+    }
   }
 
   void _editAccount(AccountItem oldAccount, AccountItem newAccount) async {
@@ -238,13 +251,7 @@ class _MyHomePageState extends State<MyHomePage> {
       await TransactionService.updateTransactionsAfterAccountEdit(oldAccount.title, newAccount);
       
       // Mostrar confirmación al usuario
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cuenta actualizada correctamente'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      AlertHelper.success(context, 'Cuenta actualizada correctamente');
       
       // CAMBIAR ESTO: Simplemente cerrar el diálogo sin hacer pushReplacement
       Navigator.pop(context);
@@ -252,13 +259,7 @@ class _MyHomePageState extends State<MyHomePage> {
       // Notificar que se actualizó el balance
       _updateTotalBalance();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al actualizar cuenta: $e'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      AlertHelper.error(context, 'Error al actualizar cuenta: $e');
     }
   }
 
@@ -290,12 +291,9 @@ class _MyHomePageState extends State<MyHomePage> {
           (item.includeInTotal ? (double.tryParse(item.balance) ?? 0.0) : 0.0),
     );
 
-    // Formateador de moneda
-    final currencyFormat = NumberFormat.currency(
-      locale: 'es_CO',
-      symbol: '',
-      decimalDigits: 2,
-    );
+    // Formateador de moneda (eliminado)
+
+    // Formateador de moneda eliminado
 
     return Scaffold(
       backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
@@ -399,7 +397,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               Text(
                                 _hideBalance
                                     ? '******** \$'
-                                    : '${currencyFormat.format(totalBalance)} \$',
+                                    : '${CurrencyHelper.format(totalBalance)}',
                                 style: const TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
@@ -525,7 +523,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Widget _buildAccountItem(AccountItem item) {
     bool isCreditCard = item.subtitle == "Tarjeta de Crédito";
-    final currencyFormat = NumberFormat.currency(locale: 'es_CO', symbol: '', decimalDigits: 2);
+    // Formato eliminado
     double balanceValue = double.tryParse(item.balance) ?? 0.0;
     
     // Definir la paleta de colores refinada
@@ -741,7 +739,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         ],
                       ),
                       child: Text(
-                        '${currencyFormat.format(balanceValue)} \$',
+                        '${CurrencyHelper.format(balanceValue)}',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -762,7 +760,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _showAccountOptions(BuildContext context, AccountItem account) {
     bool isCreditCard = account.subtitle == "Tarjeta de Crédito";
-    final currencyFormat = NumberFormat.currency(locale: 'es_CO', symbol: '', decimalDigits: 2);
+    // Formato eliminado
     double balanceValue = double.tryParse(account.balance) ?? 0.0;
     
     // Colores base de la aplicación para mantener coherencia
@@ -1021,7 +1019,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                           crossAxisAlignment: CrossAxisAlignment.end,
                                           children: [
                                             Text(
-                                              currencyFormat.format(balanceValue),
+                                              CurrencyHelper.format(balanceValue),
                                               style: TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 28,
@@ -1564,18 +1562,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               onPressed: () {
                                 Navigator.of(context).pop();
                                 _deleteAccount(account);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Cuenta eliminada correctamente'),
-                                    backgroundColor: Colors.redAccent,
-                                    behavior: SnackBarBehavior.floating,
-                                    margin: EdgeInsets.all(16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
+                                AlertHelper.success(context, 'Cuenta eliminada correctamente');
                               },
                               child: Text(
                                 'Eliminar',

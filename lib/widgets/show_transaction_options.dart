@@ -14,17 +14,17 @@ import 'dart:collection';
 import 'package:finazaap/Screens/home.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/model/add_date.dart';
+import 'package:finazaap/utils/currency_helper.dart'; // Import CurrencyHelper
 
 
 void showTransactionOptions(Add_data transaction, BuildContext _context, Function(Add_data) _editTransaction, Function(Add_data) _confirmDeleteTransaction) {
   // Preparar datos de la transacción
-  final bool isTransfer = transaction.IN == 'Transfer';
-  final bool isIncome = transaction.IN == 'Income';
-  final String transactionTitle = transaction.detail.isNotEmpty 
-      ? transaction.detail 
-      : (isTransfer ? 'Transferencia' : transaction.explain);
-  final String formattedAmount = NumberFormat.currency(locale: 'es', symbol: '\$')
-      .format(double.parse(transaction.amount));
+  final bool isTransfer = transaction.safeType == 'Transfer';
+  final bool isIncome = transaction.safeType == 'Income';
+  final String transactionTitle = transaction.safeDetail.isNotEmpty 
+      ? transaction.safeDetail 
+      : (isTransfer ? 'Transferencia' : transaction.safeCategory);
+  final String formattedAmount = CurrencyHelper.formatString(transaction.safeAmount);
   
 
   
@@ -46,7 +46,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
         child: FadeTransition(
           opacity: animation,
           child: FutureBuilder<int?>(
-            future: _getCategoryColor(transaction.IN, transaction.explain),
+            future: _getCategoryColor(transaction.safeType, transaction.safeCategory),
             builder: (context, snapshot) {
               // Definir color basado en el snapshot o defaults
               final Color defaultColor = isTransfer 
@@ -158,8 +158,8 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                               ),
                                             ),
                                             child: Icon(
-                                              transaction.iconCode != 0 
-                                                  ? AppIcons.getIcon(transaction.iconCode)
+                                              transaction.safeIconCode != 0 
+                                                  ? AppIcons.getIcon(transaction.safeIconCode)
                                                   : (isTransfer ? Icons.swap_horiz_rounded : 
                                                       (isIncome ? Icons.north_rounded : Icons.south_rounded)),
                                               size: 30,
@@ -264,7 +264,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                           const SizedBox(width: 8),
                                                           Expanded(
                                                             child: Text(
-                                                              isTransfer ? transaction.explain : transaction.name,
+                                                              isTransfer ? (transaction.explain ?? '') : transaction.safeAccount,
                                                               style: const TextStyle(
                                                                 color: Colors.white,
                                                                 fontSize: 14,
@@ -312,7 +312,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                             const SizedBox(width: 8),
                                                             Expanded(
                                                               child: Text(
-                                                                transaction.explain,
+                                                                transaction.explain ?? '',
                                                                 style: const TextStyle(
                                                                   color: Colors.white,
                                                                   fontSize: 14,
@@ -440,7 +440,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                 ),
                                                 const SizedBox(width: 6),
                                                 Text(
-                                                  DateFormat('dd/MM/yyyy - HH:mm').format(transaction.datetime),
+                                                  DateFormat('dd/MM/yyyy - HH:mm').format(transaction.safeDate),
                                                   style: TextStyle(
                                                     color: Colors.white.withOpacity(0.5),
                                                     fontSize: 13,

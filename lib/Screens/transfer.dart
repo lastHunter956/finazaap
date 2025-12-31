@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/utils/alert_helper.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart'; // Para formatear números
 import 'package:hive/hive.dart'; // Importar Hive
@@ -10,6 +11,7 @@ import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
 // Añadir en la parte superior del archivo
 import 'package:finazaap/widgets/bottomnavigationbar.dart';
+import 'package:finazaap/utils/currency_helper.dart';
 
 class AccountItem {
   String title;
@@ -67,7 +69,14 @@ class TransferScreen extends StatefulWidget {
     this.transaction,
     this.transactionKey,  // Añadir al constructor
     this.onTransactionUpdated,
+    this.initialAmount,
+    this.initialDestinationAccount,
+    this.initialDescription,
   }) : super(key: key);
+
+  final double? initialAmount;
+  final String? initialDestinationAccount;
+  final String? initialDescription;
   
   @override
   _TransferScreenState createState() => _TransferScreenState();
@@ -87,12 +96,6 @@ class _TransferScreenState extends State<TransferScreen> {
       false; // Para prevenir múltiples transferencias simultáneas
 
   // Formateador para los números
-  final currencyFormat = NumberFormat.currency(
-    locale: 'es_CO',
-    symbol: '',
-    decimalDigits: 2,
-  );
-
   @override
   void initState() {
     super.initState();
@@ -101,6 +104,14 @@ class _TransferScreenState extends State<TransferScreen> {
     // Cargar datos si estamos en modo edición
     if (widget.isEditing && widget.transaction != null) {
       _loadTransactionData();
+    } else {
+      // Si no es edición, verificar si hay datos iniciales
+      if (widget.initialAmount != null) {
+        _amountCtrl.text = widget.initialAmount.toString();
+      }
+      if (widget.initialDescription != null) {
+        _detailCtrl.text = widget.initialDescription!;
+      }
     }
   }
 
@@ -112,6 +123,17 @@ class _TransferScreenState extends State<TransferScreen> {
         _accountItems = accountsData
             .map((item) => AccountItem.fromJson(json.decode(item)))
             .toList();
+            
+        // Pre-seleccionar cuenta destino si se provee
+        if (!widget.isEditing && widget.initialDestinationAccount != null) {
+           try {
+             _selectedDestinationAccount = _accountItems.firstWhere(
+               (a) => a.title.trim() == widget.initialDestinationAccount!.trim()
+             );
+           } catch (e) {
+             print('⚠️ No se encontró la cuenta destino inicial: ${widget.initialDestinationAccount}');
+           }
+        }
       });
     }
   }
@@ -120,24 +142,18 @@ class _TransferScreenState extends State<TransferScreen> {
 
 Future<void> _saveTransfer() async {
   if (_amountCtrl.text.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Por favor ingresa un monto')),
-    );
+    AlertHelper.warning(context, 'Por favor ingresa un monto');
     return;
   }
 
   if (_selectedSourceAccount == null || _selectedDestinationAccount == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Por favor selecciona cuentas')),
-    );
+    AlertHelper.warning(context, 'Por favor selecciona cuentas');
     return;
   }
 
   // Verificar que no sean la misma cuenta
   if (_selectedSourceAccount!.title == _selectedDestinationAccount!.title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No puedes transferir a la misma cuenta')),
-    );
+    AlertHelper.warning(context, 'No puedes transferir a la misma cuenta');
     return;
   }
 
@@ -216,12 +232,7 @@ Future<void> _saveTransfer() async {
     });
     
     print('Error al guardar la transferencia: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error: ${e.toString()}'),
-        backgroundColor: Colors.red,
-      ),
-    );
+    AlertHelper.error(context, 'Error: ${e.toString()}');
   }
 }
 
@@ -268,7 +279,7 @@ Future<void> _loadAccountsFromPrefs() async {
     // Manejo especial para edición de transacciones con cuentas eliminadas
     if (widget.isEditing && widget.transaction != null) {
       // Para transferencias, el formato de explain es "Cuenta origen > Cuenta destino"
-      final parts = widget.transaction!.explain.split(' > ');
+      final parts = (widget.transaction!.explain ?? '').split(' > ');
       if (parts.length == 2) {
         final sourceAccountName = parts[0].trim();
         final destAccountName = parts[1].trim();
@@ -554,7 +565,7 @@ Widget build(BuildContext context) {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'Saldo disponible: ${currencyFormat.format(_selectedSourceAccount!.balance)} \$',
+                                  'Saldo disponible: ${CurrencyHelper.format(_selectedSourceAccount!.balance)}',
                                   style: TextStyle(
                                     color: Colors.white.withOpacity(0.7),
                                     fontSize: 13,
@@ -901,12 +912,12 @@ void _loadTransactionData() {
   final transaction = widget.transaction!;
   
   // Cargar valores básicos
-  _amountCtrl.text = transaction.amount;
-  _detailCtrl.text = transaction.detail;
-  _selectedDate = transaction.datetime;
+  _amountCtrl.text = transaction.safeAmount;
+  _detailCtrl.text = transaction.safeDetail;
+  _selectedDate = transaction.safeDate;
   
   // Para transferencias, la categoría contiene "Cuenta origen > Cuenta destino"
-  final accountsParts = transaction.explain.split(' > ');
+  final accountsParts = transaction.safeCategory.split(' > ');
   if (accountsParts.length == 2) {
     final sourceAccountName = accountsParts[0].trim();
     final destAccountName = accountsParts[1].trim();
@@ -942,8 +953,8 @@ void _loadTransactionData() {
 // Método para revertir el efecto de una transferencia anterior
 Future<void> _revertPreviousTransfer(Add_data transaction) async {
   try {
-    final amount = double.parse(transaction.amount);
-    final accountsParts = transaction.explain.split(' > ');
+    final amount = double.parse(transaction.safeAmount);
+    final accountsParts = (transaction.explain ?? '').split(' > ');
     
     if (accountsParts.length == 2) {
       final sourceAccountName = accountsParts[0].trim();
@@ -1040,12 +1051,7 @@ void _showDeleteConfirmation() {
                 }
                 
                 // Mostrar error
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error al eliminar: ${e.toString()}'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                AlertHelper.error(context, 'Error al eliminar: ${e.toString()}');
               }
             },
             child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
@@ -1059,14 +1065,14 @@ void _showDeleteConfirmation() {
 // Método para revertir una transferencia previa
 Future<void> _revertPreviousTransaction(Add_data transaction) async {
   try {
-    final amount = double.parse(transaction.amount);
+    final amount = double.parse(transaction.safeAmount);
 
     // Especial para transferencias: necesitamos revertir tanto origen como destino
     await TransactionService.processTransaction(
       type: 'Transfer',
       amount: amount,
-      accountName: transaction.name, // Cuenta origen
-      destinationAccount: transaction.detail, // Cuenta destino (en detail)
+      accountName: transaction.safeAccount, // Cuenta origen
+      destinationAccount: transaction.safeDetail, // Cuenta destino (en detail)
       isNewTransaction: false,
       oldTransaction: transaction
     );

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:finazaap/data/model/add_date.dart';
+import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/core/security/encryption_service.dart';
 import 'package:finazaap/presentation/screens/auth_splash_screen.dart';
+import 'package:finazaap/utils/currency_helper.dart';
 // Nuevas importaciones para localizacion
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -29,6 +31,11 @@ void main() async {
         Hive.registerAdapter(AdddataAdapter());
       }
       
+      // Registrar el adapter de Responsibility
+      if (!Hive.isAdapterRegistered(2)) {
+        Hive.registerAdapter(ResponsibilityAdapter());
+      }
+      
       // Abrir las cajas principales de datos
       await Hive.openBox<Add_data>('data');
       await Hive.openBox('transactions_v2');
@@ -39,6 +46,14 @@ void main() async {
     } catch (e) {
       print('❌ CRITICAL ERROR: Fallo al inicializar Hive: $e');
       throw Exception('Fallo crítico de base de datos: $e');
+    }
+    
+    // 1.5. Inicializar Currency Helper (Fallo recuperable)
+    try {
+      await CurrencyHelper.loadCurrency();
+      print('✅ CurrencyHelper inicializado');
+    } catch (e) {
+      print('⚠️ ADVERTENCIA: Error cargando divisa (usando default): $e');
     }
     
     // 2. Inicializar Seguridad (Fallo recuperable)

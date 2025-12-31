@@ -118,15 +118,25 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with SingleTickerPr
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.account_balance_wallet,
-                    size: 60,
-                    color: Color.fromRGBO(31, 38, 57, 1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Image.asset(
+                      'assets/images/app_icon.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        // Fallback temporal mientras se reinicia la app para cargar assets
+                        return const Icon(
+                          Icons.account_balance_wallet,
+                          size: 60,
+                          color: Color.fromRGBO(31, 38, 57, 1),
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 40),
                 const Text(
-                  'FinazaApp',
+                  'Moneo',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 32,

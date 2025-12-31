@@ -268,21 +268,21 @@ class CategoryService {
       }
       
       // 2. Verificar categoría eliminada (solo para ingresos/gastos)
-      if (transaction.IN == 'Income' || transaction.IN == 'Expenses') {
-        final categoriesKey = transaction.IN == 'Income' 
+      if (transaction.safeType == 'Income' || transaction.safeType == 'Expenses') {
+        final categoriesKey = transaction.safeType == 'Income' 
             ? incomeCategoriesKey 
             : expenseCategoriesKey;
             
         List<String> categories = prefs.getStringList(categoriesKey) ?? [];
         
         // Si la categoría no está en la lista activa pero la transacción la usa
-        if (!categories.contains(transaction.explain)) {
+        if (!categories.contains(transaction.safeCategory)) {
           result['hasDeletedCategory'] = true;
         }
       }
       // 3. Para transferencias, verificar ambas cuentas
-      else if (transaction.IN == 'Transfer') {
-        final parts = transaction.explain.split(' > ');
+      else if (transaction.safeType == 'Transfer') {
+        final parts = transaction.safeCategory.split(' > ');
         if (parts.length == 2) {
           final sourceAccount = parts[0].trim();
           final destAccount = parts[1].trim();

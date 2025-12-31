@@ -6,6 +6,7 @@ import 'package:finazaap/data/models/account_item.dart';
 import 'package:flutter/material.dart';
 import 'dart:collection';
 import 'package:intl/intl.dart';
+import 'package:finazaap/data/responsibility_service.dart';
 
 class TransactionService {
   // Singleton para acceso global
@@ -25,6 +26,8 @@ class TransactionService {
     String? destinationAccount,  // Cuenta destino (solo para transferencias)
     bool isNewTransaction = true, // Si es nueva o edición
     Add_data? oldTransaction,    // Transacción anterior (solo para ediciones)
+    int installments = 1,        // Nuevo parámetro para cuotas
+    bool isInterestFree = true,  // Nuevo parámetro para intereses
   }) async {
     try {
       // 1. Obtener el estado actual de las cuentas
@@ -32,7 +35,6 @@ class TransactionService {
       List<String>? accountsData = prefs.getStringList('accounts');
       
       if (accountsData == null) {
-        print('Error: No se encontraron cuentas');
         return false;
       }
       
@@ -52,7 +54,7 @@ class TransactionService {
       } else {
         // Para ingresos y gastos
         bool isIncome = (type == 'Income');
-        updated = await _updateAccountBalance(accountName, amount, isIncome, accounts);
+        updated = await _updateAccountBalance(accountName, amount, isIncome, accounts, installments, isInterestFree, false, null);
       }
       
       // 5. Si se actualizaron cuentas, guardar y actualizar el saldo global
@@ -69,7 +71,6 @@ class TransactionService {
       
       return false;
     } catch (e) {
-      print('Error al procesar transacción: $e');
       return false;
     }
   }
@@ -79,31 +80,35 @@ class TransactionService {
     String accountName, 
     double amount, 
     bool isIncome,
-    List<Map<String, dynamic>> accounts
+    List<Map<String, dynamic>> accounts,
+    [int installments = 1, bool isInterestFree = true, bool isReversal = false, DateTime? transactionDate]
   ) async {
     bool updated = false;
     
     for (int i = 0; i < accounts.length; i++) {
-      if (accounts[i]['title'] == accountName) {
+      final accountTitle = accounts[i]['title']?.toString() ?? '';
+      final accountSubtitle = accounts[i]['subtitle']?.toString() ?? '';
+      
+      if (accountTitle == accountName) {
         // Obtener el saldo actual (puede estar como String o double)
         double currentBalance = _getBalanceFromData(accounts[i]);
+        double newBalance = currentBalance;
         
         // Actualizar el saldo según la operación
         if (isIncome) {
-          currentBalance += amount;
+          newBalance = currentBalance + amount;
         } else {
-          currentBalance -= amount;
+          newBalance = currentBalance - amount;
         }
         
         // Guardar el nuevo saldo en el mismo formato que estaba
         if (accounts[i]['balance'] is String) {
-          accounts[i]['balance'] = currentBalance.toString();
+          accounts[i]['balance'] = newBalance.toString();
         } else {
-          accounts[i]['balance'] = currentBalance;
+          accounts[i]['balance'] = newBalance;
         }
         
         updated = true;
-        print('Cuenta ${accounts[i]['title']} actualizada: $currentBalance');
         break;
       }
     }
@@ -167,6 +172,21 @@ class TransactionService {
     }
     
     print('Transferencia procesada: $sourceAccountName -> $destAccountName, Monto: $amount');
+    
+    // AUTO-SYNC CREDIT CARD RESPONSIBILITY (Transfers)
+    
+    // 1. Check Source (Origen) -> Si es TC, es como un avance/gasto -> Aumenta Deuda (sin cuotas por ahora en transferencias, o default 1)
+    final sourceSubtitle = accounts[sourceIndex]['subtitle'].toString().toLowerCase();
+    if (sourceSubtitle.contains('tarjeta') && (sourceSubtitle.contains('credito') || sourceSubtitle.contains('crédito'))) {
+       await ResponsibilityService.processDebtIncrease(sourceAccountName, amount, 1);
+    }
+    
+    // 2. Check Destination (Destino) -> Si es TC, es un pago -> Disminuye Deuda
+    final destSubtitle = accounts[destIndex]['subtitle'].toString().toLowerCase();
+    if (destSubtitle.contains('tarjeta') && (destSubtitle.contains('credito') || destSubtitle.contains('crédito'))) {
+       await ResponsibilityService.processDebtPayment(destAccountName, amount);
+    }
+
     return true;
   }
   
@@ -176,33 +196,73 @@ class TransactionService {
     List<Map<String, dynamic>> accounts
   ) async {
     try {
-      double amount = double.parse(oldTransaction.amount);
+      double amount = double.parse(oldTransaction.safeAmount);
+      final originalDate = oldTransaction.date ?? DateTime.now();
+      final installments = int.tryParse(oldTransaction.installments ?? '1') ?? 1;
+      final isInterestFree = oldTransaction.isInterestFree ?? true;
+      
+      print('');
+      print('   ┌─────────────────────────────────────────────────────────────');
+      print('   │ 🔄 [_revertTransaction] INICIANDO REVERSIÓN');
+      print('   │ Tipo: ${oldTransaction.IN} | Cuenta: ${oldTransaction.safeAccount}');
+      print('   │ Monto: $amount | Fecha: $originalDate');
+      print('   │ Cuotas: $installments | Sin Interés: $isInterestFree');
+      print('   └─────────────────────────────────────────────────────────────');
       
       if (oldTransaction.IN == 'Transfer') {
         // Para transferencias
-        final parts = oldTransaction.explain.split(' > ');
+        final parts = oldTransaction.safeCategory.split(' > ');
+        print('   📤 [_revertTransaction] Es TRANSFER: ${oldTransaction.safeCategory}');
         if (parts.length == 2) {
           final sourceAccount = parts[0].trim();
           final destAccount = parts[1].trim();
           
-          // Revertir: añadir al origen y quitar del destino
-          await _updateAccountBalance(sourceAccount, amount, true, accounts);  
-          await _updateAccountBalance(destAccount, amount, false, accounts);
+          print('   📤 [_revertTransaction] Origen: "$sourceAccount" → Añadir $amount');
+          print('   📥 [_revertTransaction] Destino: "$destAccount" → Quitar $amount');
+          
+          // Revertir: añadir al origen (era una resta) y quitar del destino (era una suma)
+          await _updateAccountBalance(
+            sourceAccount, 
+            amount, 
+            true, // añadir al origen
+            accounts, 
+            1, 
+            true, 
+            true, // isReversal = true
+            originalDate
+          );
+          await _updateAccountBalance(
+            destAccount, 
+            amount, 
+            false, // quitar del destino 
+            accounts, 
+            1, 
+            true, 
+            true, // isReversal = true
+            originalDate
+          );
         }
       } else {
         // Para ingresos y gastos - invertir operación
-        bool wasIncome = oldTransaction.IN == 'Income';
+        bool wasIncome = oldTransaction.safeType == 'Income';
+        print('   📊 [_revertTransaction] Era ${wasIncome ? "INGRESO" : "GASTO"} → Ahora ${!wasIncome ? "sumar" : "restar"} $amount');
+        print('   📊 [_revertTransaction] isReversal=true para activar reversión en ResponsibilityService');
+        
         await _updateAccountBalance(
-          oldTransaction.name,
+          oldTransaction.safeAccount,
           amount,
           !wasIncome, // Invertir: si era ingreso, ahora restamos; si era gasto, ahora sumamos
-          accounts
+          accounts,
+          installments,
+          isInterestFree,
+          true, // isReversal = true
+          originalDate
         );
       }
       
-      print('Transacción revertida: ${oldTransaction.IN}, Monto: ${oldTransaction.amount}');
+      print('   ✅ [_revertTransaction] REVERSIÓN COMPLETADA');
     } catch (e) {
-      print('Error al revertir transacción: $e');
+      print('   ❌ [_revertTransaction] Error: $e');
       throw e;
     }
   }
@@ -252,26 +312,30 @@ class TransactionService {
       List<Map<String, dynamic>> accounts = accountsData.map((acc) => json.decode(acc) as Map<String, dynamic>).toList();
       
       // Revertir efectos según tipo de transacción
-      double amount = double.parse(transaction.amount);
+      double amount = double.parse(transaction.safeAmount);
       
       if (transaction.IN == 'Transfer') {
-        final parts = transaction.explain.split(' > ');
+        final parts = transaction.safeCategory.split(' > ');
         if (parts.length == 2) {
           final sourceAccount = parts[0].trim();
           final destAccount = parts[1].trim();
           
           // Revertir transferencia
-          await _updateAccountBalance(sourceAccount, amount, true, accounts);  // Devuelve dinero a origen
-          await _updateAccountBalance(destAccount, amount, false, accounts);  // Quita dinero del destino
+          await _updateAccountBalance(sourceAccount, amount, true, accounts, 1);  // Devuelve dinero a origen
+          await _updateAccountBalance(destAccount, amount, false, accounts, 1);  // Quita dinero del destino
         }
       } else {
         // Revertir ingreso/gasto
-        bool wasIncome = transaction.IN == 'Income';
+        bool wasIncome = transaction.safeType == 'Income';
         await _updateAccountBalance(
-          transaction.name,
+          transaction.safeAccount,
           amount,
           !wasIncome, // Si era ingreso, ahora restamos; si era gasto, ahora sumamos
-          accounts
+          accounts,
+          int.tryParse(transaction.installments ?? '1') ?? 1,
+          transaction.isInterestFree ?? true,
+          true, // isReversal = true
+          transaction.date
         );
       }
       
@@ -317,7 +381,7 @@ class TransactionService {
         bool needsUpdate = false;
 
         if (transaction.IN == 'Income' || transaction.IN == 'Expenses') {
-          if (transaction.name == oldAccountName) {
+          if (transaction.safeAccount == oldAccountName) {
             // Actualizar nombre de cuenta
             transaction.name = newAccount.title;
             
@@ -329,8 +393,8 @@ class TransactionService {
             needsUpdate = true;
             debugPrint('✅ Actualizada transacción ${transaction.IN}: ${transaction.explain}');
           }
-        } else if (transaction.IN == 'Transfer') {
-          List<String> accounts = transaction.explain.split(' > ');
+        } else if (transaction.safeType == 'Transfer') {
+          List<String> accounts = transaction.safeCategory.split(' > ');
           if (accounts.length == 2) {
             String source = accounts[0].trim();
             String destination = accounts[1].trim();
@@ -346,7 +410,7 @@ class TransactionService {
             
             if (needsUpdate) {
               transaction.explain = '$source > $destination';
-              debugPrint('✅ Actualizada transferencia: ${transaction.explain}');
+              debugPrint('✅ Actualizada transferencia: ${transaction.safeCategory}');
             }
           }
         }
@@ -362,6 +426,9 @@ class TransactionService {
       
       // Sincronizar saldos inmediatamente después de actualizar las transacciones
       await syncAccountBalances();
+      
+      // Sincronizar Responsabilidad (Tarjeta) si cambió el nombre o detalles
+      await ResponsibilityService.updateResponsibilityFromAccount(oldAccountName, newAccount);
       
     } catch (e) {
       debugPrint('❌ Error al actualizar transacciones: $e');
@@ -419,14 +486,14 @@ class TransactionService {
         if (transaction != null) {
           bool hasIssue = false;
           
-          if (transaction.IN == 'Income' || transaction.IN == 'Expenses') {
+          if (transaction.safeType == 'Income' || transaction.safeType == 'Expenses') {
             // Verificar si la cuenta existe
-            if (!validAccountNames.contains(transaction.name)) {
-              debugPrint('⚠️ Transacción #$i: Cuenta inválida "${transaction.name}"');
+            if (!validAccountNames.contains(transaction.safeAccount)) {
+              debugPrint('⚠️ Transacción #$i: Cuenta inválida "${transaction.safeAccount}"');
               hasIssue = true;
             }
-          } else if (transaction.IN == 'Transfer') {
-            List<String> parts = transaction.explain.split(' > ');
+          } else if (transaction.safeType == 'Transfer') {
+            List<String> parts = transaction.safeCategory.split(' > ');
             if (parts.length == 2) {
               String source = parts[0].trim();
               String destination = parts[1].trim();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:finazaap/data/responsibility_service.dart';
 
 class AccountService {
   static const String accountsKey = 'accounts';
@@ -33,7 +34,11 @@ class AccountService {
     if (!deletedAccounts.contains(accountName)) {
       deletedAccounts.add(accountName);
       await prefs.setStringList(deletedAccountsKey, deletedAccounts);
+      await prefs.setStringList(deletedAccountsKey, deletedAccounts);
       debugPrint('✅ Cuenta "$accountName" marcada como eliminada');
+      
+      // Sincronizar con Responsabilidades (Eliminar si existe)
+      await ResponsibilityService.deleteResponsibilityByName(accountName);
     }
   }
   

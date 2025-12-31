@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/utils/alert_helper.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'package:finazaap/data/models/account_item.dart';
@@ -591,16 +592,7 @@ Future<AccountItem?> showAddAccountDialog(BuildContext context) async {
                                       ));
                                     } else {
                                       // Feedback visual para campos vacíos
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: const Text('Por favor completa todos los campos'),
-                                          backgroundColor: Colors.redAccent.shade400,
-                                          behavior: SnackBarBehavior.floating,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                        ),
-                                      );
+                                      AlertHelper.warning(context, 'Por favor completa todos los campos');
                                     }
                                   },
                                   child: Row(

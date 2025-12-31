@@ -5,6 +5,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:gradient_borders/gradient_borders.dart';
+import 'package:finazaap/utils/currency_helper.dart';
+
 class TotalBalanceWidget extends StatefulWidget {
   // ========= Valores dinámicos =========
   final ValueNotifier<double> availableBalanceNotifier; // Notificador de saldo disponible
@@ -496,11 +498,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
   @override
   Widget build(BuildContext context) {
     // Formateador de moneda
-    final currencyFormat = NumberFormat.currency(
-      locale: 'es_CO',
-      symbol: '',
-      decimalDigits: 2,
-    );
+    // Formateador de moneda eliminado, usando CurrencyHelper
 
     // Porcentaje de ingresos vs. total (ingresos + egresos)
     final double total = widget.totalIncome + widget.totalExpenses;
@@ -535,7 +533,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${currencyFormat.format(availableBalance)} COP',
+                        '${CurrencyHelper.format(availableBalance)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -559,7 +557,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                             const SizedBox(height: 2),
                             Text(
                               '${widget.accountingBalance < 0 ? "- " : ""}'
-                              '${currencyFormat.format(widget.accountingBalance.abs())} COP',
+                              '${CurrencyHelper.format(widget.accountingBalance.abs())}',
                               style: TextStyle(
                                 color: widget.accountingBalance >= 0 ? 
                                     const Color.fromARGB(255, 255, 255, 255) : Colors.redAccent,
@@ -574,7 +572,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                         Text(
                           'Balance Contable: '
                           '${widget.accountingBalance < 0 ? "- " : ""}'
-                          '${currencyFormat.format(widget.accountingBalance.abs())} COP',
+                          '${CurrencyHelper.format(widget.accountingBalance.abs())}',
                           style: TextStyle(
                             color: Colors.grey.shade300,
                             fontSize: 14,
@@ -772,7 +770,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${currencyFormat.format(widget.totalExpenses)} COP',
+                            '${CurrencyHelper.format(widget.totalExpenses)}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -803,7 +801,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${currencyFormat.format(widget.totalIncome)} COP',
+                            '${CurrencyHelper.format(widget.totalIncome)}',
                             style: const TextStyle(
                               color: Color(0xFF50FA7B),
                               fontSize: 16,

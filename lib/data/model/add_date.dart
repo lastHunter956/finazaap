@@ -6,49 +6,66 @@ part 'add_date.g.dart';
 @HiveType(typeId: 1)
 class Add_data extends HiveObject {
   @HiveField(0)
-  String IN;  
+  String? IN;  
+  
   @HiveField(1)
-  String amount;
+  String? amount;
+  
   @HiveField(2)
-  DateTime datetime;
+  DateTime? datetime;
+  
   @HiveField(3)
-  String detail;
+  String? detail;
+  
   @HiveField(4)
-  String explain;
+  String? explain;
+  
   @HiveField(5)
-  String name;
+  String? name;
+  
   @HiveField(6)
-  int iconCode;
+  int? iconCode;
+  
   @HiveField(7, defaultValue: '1')
   String? installments;
+  
   @HiveField(8, defaultValue: false)
   bool? isInterestFree;
 
-  // Estos getters son para compatibilidad con el código generado
-  String get type => IN;
-  DateTime get date => datetime;
-  String get category => explain;
-  String get account => name;
+  // Getters seguros para evitar TypeErrors y LateInitializationErrors
+  String get safeType => IN ?? 'Expenses';
+  String get safeAmount => amount ?? '0';
+  DateTime get safeDate => datetime ?? DateTime.now();
+  String get safeDetail => detail ?? '';
+  String get safeCategory => explain ?? 'Sin categoría';
+  String get safeAccount => name ?? 'Sin cuenta';
+  int get safeIconCode => iconCode ?? 0;
+
+  // Estos getters son para compatibilidad con el código existente
+  String get type => safeType;
+  DateTime get date => safeDate;
+  String get category => safeCategory;
+  String get account => safeAccount;
 
   Add_data(
     this.IN,
     this.amount,
     this.datetime,
     this.detail,
-    this.explain,
+    this.explain, [
     this.name,
-    [this.iconCode = 0,
+    this.iconCode = 0,
     this.installments = '1',
     this.isInterestFree = false]
   );
 }
 
-// Estructura para gráficos - simplemente la clase, no los métodos
+// Estructura para gráficos
 class ChartData {
   final String x;
   final double y;
   final Color color;
-  final int iconCode; // Añadido para almacenar el código del icono
+  final int iconCode;
 
   ChartData(this.x, this.y, [this.color = Colors.teal, this.iconCode = 0]);
 }

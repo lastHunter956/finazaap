@@ -9,6 +9,7 @@ import 'dart:convert';
 import '../icon_lists.dart';
 import '../data/model/add_date.dart';
 import 'package:flutter/services.dart';
+import 'package:finazaap/utils/currency_helper.dart'; // Import added
 import 'package:finazaap/utils/app_icons.dart';
 
 class AccountItem {
@@ -133,8 +134,8 @@ class _StatisticsState extends State<Statistics> {
     yearToMonths.clear();
 
     for (var item in allData) {
-      final y = item.datetime.year;
-      final m = item.datetime.month;
+      final y = item.safeDate.year;
+      final m = item.safeDate.month;
       availableYears.add(y);
       yearToMonths.putIfAbsent(y, () => {});
       yearToMonths[y]!.add(m);
@@ -176,21 +177,21 @@ class _StatisticsState extends State<Statistics> {
     if (isMonthly) {
       // Modo Mensual: filtrar por año y mes
       baseData = allData.where((item) {
-        return item.datetime.year == selectedYear &&
-            item.datetime.month == selectedMonth;
+        return item.safeDate.year == selectedYear &&
+            item.safeDate.month == selectedMonth;
       }).toList();
     } else {
       // Modo Anual: filtrar por año
       baseData = allData.where((item) {
-        return item.datetime.year == selectedYear;
+        return item.safeDate.year == selectedYear;
       }).toList();
     }
 
     // Luego filtramos por Ingresos/Gastos
     if (isIncomeSelected) {
-      filteredData = baseData.where((item) => item.IN == 'Income').toList();
+      filteredData = baseData.where((item) => item.safeType == 'Income').toList();
     } else {
-      filteredData = baseData.where((item) => item.IN == 'Expenses').toList();
+      filteredData = baseData.where((item) => item.safeType == 'Expenses').toList();
     }
 
     setState(() {});
@@ -246,25 +247,25 @@ class _StatisticsState extends State<Statistics> {
     final Map<String, Map<String, dynamic>> map = {};
 
     for (var item in filteredData) {
-      double amount = double.tryParse(item.amount) ?? 0;
-      final category = item.explain.isEmpty ? 'Sin categoría' : item.explain;
+      double amount = double.tryParse(item.safeAmount) ?? 0;
+      final category = item.safeCategory.isEmpty ? 'Sin categoría' : item.safeCategory;
 
       if (!map.containsKey(category)) {
         // DEBUGGING: Imprimir el iconCode encontrado
-        print("Nueva categoría: $category con iconCode: ${item.iconCode}");
+        print("Nueva categoría: $category con iconCode: ${item.safeIconCode}");
 
         map[category] = {
           'amount': amount,
-          'iconCode': item.iconCode > 0
-              ? item.iconCode
+          'iconCode': item.safeIconCode > 0
+              ? item.safeIconCode
               : _getDefaultIconCodeForCategory(category)
         };
       } else {
         map[category]!['amount'] += amount;
         // Mantener un iconCode válido si ya existe uno
-        if (item.iconCode > 0 && map[category]!['iconCode'] == 0) {
-          print("Actualizando iconCode para $category a: ${item.iconCode}");
-          map[category]!['iconCode'] = item.iconCode;
+        if (item.safeIconCode > 0 && map[category]!['iconCode'] == 0) {
+          print("Actualizando iconCode para $category a: ${item.safeIconCode}");
+          map[category]!['iconCode'] = item.safeIconCode;
         }
       }
     }
@@ -290,8 +291,8 @@ class _StatisticsState extends State<Statistics> {
     final Map<String, Map<String, dynamic>> map = {};
 
     for (var item in filteredData) {
-      double amount = double.tryParse(item.amount) ?? 0;
-      final cuenta = item.name.isEmpty ? 'Sin cuenta' : item.name;
+      double amount = double.tryParse(item.safeAmount) ?? 0;
+      final cuenta = item.safeAccount.isEmpty ? 'Sin cuenta' : item.safeAccount;
 
       // Buscar iconCode basado en el nombre de la cuenta
       IconData accountIconData = _getAccountIcon(cuenta);
@@ -391,8 +392,8 @@ class _StatisticsState extends State<Statistics> {
     final Map<int, Map<String, dynamic>> map = {};
 
     for (var item in filteredData) {
-      final mes = item.datetime.month;
-      final amount = double.tryParse(item.amount) ?? 0;
+      final mes = item.safeDate.month;
+      final amount = double.tryParse(item.safeAmount) ?? 0;
 
       if (!map.containsKey(mes)) {
         map[mes] = {
@@ -440,21 +441,21 @@ class _StatisticsState extends State<Statistics> {
   /// o por meses (modo anual).
   List<ChartData> _getIncomeGrouped() {
     // Solo tomamos ingresos
-    final data = allData.where((t) => t.IN == 'Income').toList();
+    final data = allData.where((t) => t.safeType == 'Income').toList();
 
     if (isMonthly) {
       // Modo mensual: agrupar por semanas
       final currentData = data.where(
         (t) =>
-            t.datetime.year == selectedYear &&
-            t.datetime.month == selectedMonth,
+            t.safeDate.year == selectedYear &&
+            t.safeDate.month == selectedMonth,
       );
 
       // Agrupamos por semana del mes
       final Map<int, Map<String, dynamic>> weeklyMap = {};
       for (var item in currentData) {
-        final amount = double.tryParse(item.amount) ?? 0;
-        final weekNum = _getWeekOfMonth(item.datetime);
+        final amount = double.tryParse(item.safeAmount) ?? 0;
+        final weekNum = _getWeekOfMonth(item.safeDate);
 
         if (!weeklyMap.containsKey(weekNum)) {
           weeklyMap[weekNum] = {
@@ -482,12 +483,12 @@ class _StatisticsState extends State<Statistics> {
       return weeklyList;
     } else {
       // Modo anual: agrupar por meses
-      final currentData = data.where((t) => t.datetime.year == selectedYear);
+      final currentData = data.where((t) => t.safeDate.year == selectedYear);
 
       final Map<int, Map<String, dynamic>> monthlyMap = {};
       for (var item in currentData) {
-        final amount = double.tryParse(item.amount) ?? 0;
-        final month = item.datetime.month;
+        final amount = double.tryParse(item.safeAmount) ?? 0;
+        final month = item.safeDate.month;
 
         if (!monthlyMap.containsKey(month)) {
           monthlyMap[month] = {
@@ -520,21 +521,21 @@ class _StatisticsState extends State<Statistics> {
   /// o por meses (modo anual).
   List<ChartData> _getExpensesGrouped() {
     // Solo tomamos gastos
-    final data = allData.where((t) => t.IN == 'Expenses').toList();
+    final data = allData.where((t) => t.safeType == 'Expenses').toList();
 
     if (isMonthly) {
       // Modo mensual: agrupar por semanas
       final currentData = data.where(
         (t) =>
-            t.datetime.year == selectedYear &&
-            t.datetime.month == selectedMonth,
+            t.safeDate.year == selectedYear &&
+            t.safeDate.month == selectedMonth,
       );
 
       // Agrupamos por semana del mes
       final Map<int, Map<String, dynamic>> weeklyMap = {};
       for (var item in currentData) {
-        final amount = double.tryParse(item.amount) ?? 0;
-        final weekNum = _getWeekOfMonth(item.datetime);
+        final amount = double.tryParse(item.safeAmount) ?? 0;
+        final weekNum = _getWeekOfMonth(item.safeDate);
 
         if (!weeklyMap.containsKey(weekNum)) {
           weeklyMap[weekNum] = {
@@ -561,12 +562,12 @@ class _StatisticsState extends State<Statistics> {
       return weeklyList;
     } else {
       // Modo anual: agrupar por meses
-      final currentData = data.where((t) => t.datetime.year == selectedYear);
+      final currentData = data.where((t) => t.safeDate.year == selectedYear);
 
       final Map<int, Map<String, dynamic>> monthlyMap = {};
       for (var item in currentData) {
-        final amount = double.tryParse(item.amount) ?? 0;
-        final month = item.datetime.month;
+        final amount = double.tryParse(item.safeAmount) ?? 0;
+        final month = item.safeDate.month;
 
         if (!monthlyMap.containsKey(month)) {
           monthlyMap[month] = {
@@ -672,16 +673,9 @@ class _StatisticsState extends State<Statistics> {
   }
 
 // Añade este método a la clase _StatisticsState
+  // Método helper actualizado para usar CurrencyHelper
   String _formatCurrencyCompact(double value) {
-    if (value >= 1000000) {
-      final millones = value / 1000000;
-      return '\$${millones.toStringAsFixed(1)}M';
-    } else if (value >= 1000) {
-      final miles = value / 1000;
-      return '\$${miles.toStringAsFixed(1)}K';
-    } else {
-      return '\$${NumberFormat('#,##0').format(value)}';
-    }
+    return CurrencyHelper.formatCompact(value);
   }
 
 // Método para obtener datos históricos (diario o mensual según el modo)
@@ -703,9 +697,9 @@ class _StatisticsState extends State<Statistics> {
     // Filtrar transacciones del tipo correcto (ingresos o gastos)
     final filteredByType = allData
         .where((item) =>
-            item.IN == (isIncomeSelected ? 'Income' : 'Expenses') &&
-            item.datetime.year == selectedYear &&
-            item.datetime.month == selectedMonth)
+            item.safeType == (isIncomeSelected ? 'Income' : 'Expenses') &&
+            item.safeDate.year == selectedYear &&
+            item.safeDate.month == selectedMonth)
         .toList();
 
     // Obtener el último día del mes seleccionado (28, 29, 30 o 31)
@@ -718,8 +712,8 @@ class _StatisticsState extends State<Statistics> {
 
     // Sumar los montos para cada día
     for (var item in filteredByType) {
-      final day = item.datetime.day;
-      final amount = double.tryParse(item.amount) ?? 0;
+      final day = item.safeDate.day;
+      final amount = double.tryParse(item.safeAmount) ?? 0;
       dailyData[day] = (dailyData[day] ?? 0) + amount;
     }
 
@@ -756,14 +750,14 @@ class _StatisticsState extends State<Statistics> {
     // Filtrar transacciones del tipo correcto (ingresos o gastos)
     final filteredByType = allData
         .where((item) =>
-            item.IN == (isIncomeSelected ? 'Income' : 'Expenses') &&
-            item.datetime.year == selectedYear)
+            item.safeType == (isIncomeSelected ? 'Income' : 'Expenses') &&
+            item.safeDate.year == selectedYear)
         .toList();
 
     // Sumar los montos para cada mes
     for (var item in filteredByType) {
-      final month = item.datetime.month;
-      final amount = double.tryParse(item.amount) ?? 0;
+      final month = item.safeDate.month;
+      final amount = double.tryParse(item.safeAmount) ?? 0;
       monthlyData[month] = (monthlyData[month] ?? 0) + amount;
     }
 
@@ -1464,7 +1458,7 @@ class _StatisticsState extends State<Statistics> {
   Widget build(BuildContext context) {
     final total = filteredData.fold<double>(
       0,
-      (sum, item) => sum + (double.tryParse(item.amount) ?? 0),
+      (sum, item) => sum + (double.tryParse(item.safeAmount) ?? 0),
     );
 
     // Título “Ene. 2025” o “Año 2025” según el modo

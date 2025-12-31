@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/utils/alert_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -241,9 +242,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (_amountCtrl.text.isEmpty ||
         _selectedAccount == null ||
         _selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor completa todos los campos')),
-      );
+      AlertHelper.warning(context, 'Por favor completa todos los campos');
       return;
     }
 
@@ -277,6 +276,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           accountName: _selectedAccount!.title,
           isNewTransaction: false,
           oldTransaction: widget.transaction,
+          installments: int.tryParse(_installmentsCtrl.text) ?? 1, // Pasamos las cuotas al editar también
+          isInterestFree: _isInterestFree, // Pasamos preferencia de interés
         );
 
         if (success) {
@@ -293,6 +294,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           amount: amount,
           accountName: _selectedAccount!.title,
           isNewTransaction: true,
+          installments: int.tryParse(_installmentsCtrl.text) ?? 1, // Pasamos las cuotas al crear
+          isInterestFree: _isInterestFree, // Pasamos preferencia de interés
         );
 
         if (success) {
@@ -318,22 +321,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
     } catch (e) {
       print('Error al guardar: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
-      );
+      AlertHelper.error(context, 'Error: $e');
     }
   }
 
 // Reemplazar la llamada a updateAccountBalanceOnTransaction por la API correcta
   Future<void> _revertPreviousTransaction(Add_data transaction) async {
     try {
-      final amount = double.parse(transaction.amount);
+      final amount = double.parse(transaction.safeAmount);
 
       // Usar el método existente en TransactionService en lugar del que falta
       await TransactionService.processTransaction(
-          type: transaction.IN,
+          type: transaction.safeType,
           amount: amount,
-          accountName: transaction.name,
+          accountName: transaction.safeAccount,
           isNewTransaction: false,
           oldTransaction: transaction);
     } catch (e) {
@@ -376,10 +377,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final transaction = widget.transaction!;
 
     // Cargar los valores en los controladores y estado
-    _amountCtrl.text = transaction.amount;
-    _detailCtrl.text = transaction.detail;
-    _selectedDate = transaction.datetime;
-    _selectedCategory = transaction.explain; // Categoría
+    _amountCtrl.text = transaction.safeAmount;
+    _detailCtrl.text = transaction.safeDetail;
+    _selectedDate = transaction.safeDate;
+    _selectedCategory = transaction.safeCategory; // Categoría
     
     // Cargar datos de tarjeta de crédito si existen
     if (transaction.installments != null) {
@@ -394,14 +395,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       // Buscar la cuenta por nombre exacto
       try {
         final accountToSelect = _accountItems.firstWhere(
-          (account) => account.title.trim() == transaction.name.trim(),
+          (account) => account.title.trim() == transaction.safeAccount.trim(),
         );
         setState(() {
           _selectedAccount = accountToSelect;
         });
       } catch (e) {
         // Si no encuentra la cuenta exacta, mostrar un mensaje de error
-        print('Error: No se encontró la cuenta ${transaction.name}: $e');
+        print('Error: No se encontró la cuenta ${transaction.safeAccount}: $e');
         // Usar la primera cuenta como fallback si hay cuentas disponibles
         if (_accountItems.isNotEmpty) {
           setState(() {
@@ -526,12 +527,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   }
 
                   // Mostrar error
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error al eliminar: ${e.toString()}'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
+                  AlertHelper.error(context, 'Error al eliminar: ${e.toString()}');
                 }
               },
               child: const Text('Eliminar',

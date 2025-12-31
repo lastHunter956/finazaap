@@ -51,14 +51,14 @@ class AccountUtils {
   // Revertir el efecto de una transacción
   static Future<void> revertTransaction(Add_data transaction) async {
     // Determinar si es una transferencia o una transacción normal
-    if (transaction.IN == 'Transfer') {
+    if (transaction.safeType == 'Transfer') {
       // Para transferencias, necesitamos revertir ambos movimientos
       // Reemplazar esta línea:
-      final accountsParts = transaction.explain.split(' > ');
+      final accountsParts = transaction.safeCategory.split(' > ');
       if (accountsParts.length == 2) {
         final sourceAccountName = accountsParts[0];
         final destAccountName = accountsParts[1];
-        final amount = double.parse(transaction.amount);
+        final amount = double.parse(transaction.safeAmount);
         
         // Revertir transferencia: añadir al origen y restar del destino
         await updateAccountBalance(sourceAccountName, amount, true); // Devolver al origen
@@ -66,12 +66,12 @@ class AccountUtils {
       }
     } else {
       // Para transacciones normales, invertimos el efecto según el tipo
-      bool isIncome = transaction.IN == 'Income';
-      final amount = double.parse(transaction.amount);
+      bool isIncome = transaction.safeType == 'Income';
+      final amount = double.parse(transaction.safeAmount);
       
       // Si era ingreso, restamos; si era gasto, sumamos
       await updateAccountBalance(
-        transaction.name,
+        transaction.safeAccount,
         amount,
         !isIncome // Invertir: true→false, false→true
       );

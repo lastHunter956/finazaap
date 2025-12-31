@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/utils/alert_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -85,6 +86,7 @@ class _Add_ScreenState extends State<Add_Screen> {
   final TextEditingController _amountCtrl = TextEditingController(); // Monto
   final TextEditingController _detailCtrl =
       TextEditingController(); // Descripción
+  final TextEditingController _installmentsCtrl = TextEditingController(text: '1'); // Cuotas
 
   // ========= LISTAS DE DATOS =========
   List<AccountItem> _accountItems = []; // Para “Cuenta”
@@ -116,10 +118,10 @@ class _Add_ScreenState extends State<Add_Screen> {
     final transaction = widget.transaction!;
 
     // Cargar valores en controladores
-    _amountCtrl.text = transaction.amount;
-    _detailCtrl.text = transaction.detail;
-    _selectedDate = transaction.datetime;
-    _selectedCategory = transaction.explain;
+    _amountCtrl.text = transaction.safeAmount;
+    _detailCtrl.text = transaction.safeDetail;
+    _selectedDate = transaction.safeDate;
+    _selectedCategory = transaction.safeCategory;
 
     // Para asegurarse que la cuenta se cargue correctamente
     _loadAccountsFromPrefs().then((_) {
@@ -128,7 +130,7 @@ class _Add_ScreenState extends State<Add_Screen> {
 
       try {
         accountToSelect = _accountItems.firstWhere(
-          (account) => account.title.trim() == transaction.name.trim(),
+          (account) => account.title.trim() == transaction.safeAccount.trim(),
         );
       } catch (_) {
         // Si no encuentra la cuenta, usar la primera si existe
@@ -161,7 +163,7 @@ class _Add_ScreenState extends State<Add_Screen> {
 
       // Caso especial para edición con cuenta eliminada
       if (widget.isEditing && widget.transaction != null) {
-        final transactionAccountName = widget.transaction!.name;
+        final transactionAccountName = widget.transaction!.safeAccount;
 
         // Si la cuenta existe, seleccionarla
         try {
@@ -254,9 +256,7 @@ class _Add_ScreenState extends State<Add_Screen> {
     if (_amountCtrl.text.isEmpty ||
         _selectedAccount == null ||
         _selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor completa todos los campos')),
-      );
+      AlertHelper.warning(context, 'Por favor completa todos los campos');
       return;
     }
 
@@ -301,6 +301,7 @@ class _Add_ScreenState extends State<Add_Screen> {
           amount: amount,
           accountName: _selectedAccount!.title,
           isNewTransaction: true,
+          installments: int.tryParse(_installmentsCtrl.text) ?? 1, // Pass installments
         );
 
         if (success) {
@@ -325,9 +326,7 @@ class _Add_ScreenState extends State<Add_Screen> {
       }
     } catch (e) {
       print('Error al guardar: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      AlertHelper.error(context, 'Error: $e');
     }
   }
 
@@ -393,13 +392,13 @@ class _Add_ScreenState extends State<Add_Screen> {
   // Método para revertir el efecto de la transacción anterior
   Future<void> _revertPreviousTransaction(Add_data transaction) async {
     try {
-      final amount = double.parse(transaction.amount);
+      final amount = double.parse(transaction.safeAmount);
 
       // Usar el método existente en TransactionService en lugar del que falta
       await TransactionService.processTransaction(
-          type: transaction.IN,
+          type: transaction.safeType,
           amount: amount,
-          accountName: transaction.name,
+          accountName: transaction.safeAccount,
           isNewTransaction: false,
           oldTransaction: transaction);
     } catch (e) {
@@ -473,12 +472,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                   }
 
                   // Mostrar error
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error al eliminar: ${e.toString()}'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  AlertHelper.error(context, 'Error al eliminar: ${e.toString()}');
                 }
               },
               child:

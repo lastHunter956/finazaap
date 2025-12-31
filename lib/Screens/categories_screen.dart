@@ -1016,6 +1016,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
         ),
       ),
        floatingActionButton: FloatingActionButton(
+        heroTag: "categories_fab",
         onPressed: () {
           final type = _tabController.index == 0 ? 'Income' : 'Expenses';
           _showCategoryDialog(type: type);

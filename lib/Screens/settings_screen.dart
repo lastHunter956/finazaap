@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:finazaap/providers/pin_provider.dart';
 import 'package:finazaap/screens/pin_code_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/utils/alert_helper.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -14,6 +15,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final PinProvider _pinProvider = PinProvider();
   bool _isLoading = true;
   bool _pinEnabled = false;
+  String _selectedCurrency = 'COP';
+  
+  // Lista de divisas disponibles
+  static const List<Map<String, String>> _currencies = [
+    {'code': 'COP', 'name': 'Peso Colombiano', 'symbol': '\$'},
+    {'code': 'USD', 'name': 'Dólar Estadounidense', 'symbol': '\$'},
+    {'code': 'EUR', 'name': 'Euro', 'symbol': '€'},
+    {'code': 'MXN', 'name': 'Peso Mexicano', 'symbol': '\$'},
+    {'code': 'ARS', 'name': 'Peso Argentino', 'symbol': '\$'},
+    {'code': 'BRL', 'name': 'Real Brasileño', 'symbol': 'R\$'},
+    {'code': 'PEN', 'name': 'Sol Peruano', 'symbol': 'S/'},
+    {'code': 'CLP', 'name': 'Peso Chileno', 'symbol': '\$'},
+    {'code': 'GBP', 'name': 'Libra Esterlina', 'symbol': '£'},
+    {'code': 'JPY', 'name': 'Yen Japonés', 'symbol': '¥'},
+  ];
 
   @override
   void initState() {
@@ -22,12 +38,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    // Fix: Read directly from SharedPreferences to avoid race condition with Provider init
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _pinEnabled = prefs.getBool('pin_enabled') ?? false;
+      _selectedCurrency = prefs.getString('default_currency') ?? 'COP';
       _isLoading = false;
     });
+  }
+
+  Future<void> _saveCurrency(String currencyCode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('default_currency', currencyCode);
+    setState(() {
+      _selectedCurrency = currencyCode;
+    });
+    if (mounted) {
+      AlertHelper.success(
+        context, 
+        'Divisa cambiada a $currencyCode. Reinicia la app para que surta efecto'
+      );
+    }
   }
 
   Future<void> _togglePin(bool value) async {
@@ -43,9 +73,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               setState(() {
                 _pinEnabled = true;
               });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('PIN configurado correctamente')),
-              );
+              AlertHelper.success(context, 'PIN configurado correctamente');
             },
             onCancel: () => Navigator.pop(context),
           ),
@@ -66,9 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                  setState(() {
                   _pinEnabled = false;
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('PIN desactivado')),
-                );
+                AlertHelper.success(context, 'PIN desactivado');
               }
             },
             onCancel: () => Navigator.pop(context),
@@ -79,21 +105,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _changePin() async {
-    // Change PIN -> Verify old -> Setup new (handled by PinCodeScreen internal logic or manual flow)
-    // Let's use the PinCodeScreen mode 'change' logic if I implemented it, 
-    // or just Verify then Setup.
-    
-    // Using simple flow: Verify first, then Setup.
      await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => PinCodeScreen(
-          mode: PinMode.change, // My PinCodeScreen handles verification then setup transition
+          mode: PinMode.change,
           onSuccess: (ctx) {
-             Navigator.pop(ctx); // Close pin screen
-             ScaffoldMessenger.of(context).showSnackBar( // Use outer context for SnackBar
-                const SnackBar(content: Text('PIN actualizado correctamente')),
-             );
+             Navigator.pop(ctx);
+             AlertHelper.success(context, 'PIN actualizado correctamente');
           },
           onCancel: () => Navigator.pop(context),
         ),
@@ -106,7 +125,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
       appBar: AppBar(
-        title: const Text('Configuración', style: TextStyle(color: Colors.white)),
+        title: const Text('Ajustes', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -115,6 +134,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // ═══════════════════════════════════════════════════════════════
+                // SECCIÓN: GENERAL
+                // ═══════════════════════════════════════════════════════════════
+                const Text(
+                  'General',
+                  style: TextStyle(
+                    color: Color.fromARGB(255, 82, 226, 255),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color.fromRGBO(42, 49, 67, 1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    title: const Text('Divisa por defecto', style: TextStyle(color: Colors.white)),
+                    subtitle: Text(
+                      _currencies.firstWhere((c) => c['code'] == _selectedCurrency)['name'] ?? _selectedCurrency,
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color.fromARGB(255, 82, 226, 255).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<String>(
+                        value: _selectedCurrency,
+                        dropdownColor: const Color.fromRGBO(42, 49, 67, 1),
+                        underline: const SizedBox(),
+                        icon: const Icon(Icons.arrow_drop_down, color: Color.fromARGB(255, 82, 226, 255)),
+                        style: const TextStyle(color: Color.fromARGB(255, 82, 226, 255), fontWeight: FontWeight.bold),
+                        items: _currencies.map((currency) {
+                          return DropdownMenuItem<String>(
+                            value: currency['code'],
+                            child: Text('${currency['symbol']} ${currency['code']}'),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            _saveCurrency(value);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // ═══════════════════════════════════════════════════════════════
+                // SECCIÓN: SEGURIDAD
+                // ═══════════════════════════════════════════════════════════════
                 const Text(
                   'Seguridad',
                   style: TextStyle(

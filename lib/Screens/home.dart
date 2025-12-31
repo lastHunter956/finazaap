@@ -1,5 +1,6 @@
 // Reemplaza las importaciones conflictivas por estas líneas:
 import 'package:flutter/material.dart';
+import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:finazaap/data/model/add_date.dart';
@@ -11,6 +12,7 @@ import 'package:finazaap/widgets/floating_action_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:collection';
+import 'package:finazaap/utils/currency_helper.dart';
 
 // Importa todas las clases necesarias, ocultando AccountItem para evitar conflictos
 import 'package:finazaap/screens/selecctaccount.dart' hide AccountItem;
@@ -115,8 +117,8 @@ class _HomeState extends State<Home> {
     // Solo aplicar filtro por fecha si está activado
     if (_filterByDate) {
       return transactions.where((transaction) => 
-        transaction.datetime.month == _selectedMonth && 
-        transaction.datetime.year == _selectedYear
+        transaction.safeDate.month == _selectedMonth && 
+        transaction.safeDate.year == _selectedYear
       ).toList();
     }
     
@@ -156,10 +158,10 @@ class _HomeState extends State<Home> {
     for (var item in transactions) {
       if (item.IN == 'Income') {
         // Sumar ingresos
-        balance += (double.tryParse(item.amount) ?? 0.0);
+        balance += (double.tryParse(item.safeAmount) ?? 0.0);
       } else if (item.IN == 'Expenses') {
         // Restar gastos
-        balance -= (double.tryParse(item.amount) ?? 0.0);
+        balance -= (double.tryParse(item.safeAmount) ?? 0.0);
       }
       // Las transferencias se ignoran completamente
     }
@@ -175,9 +177,9 @@ class _HomeState extends State<Home> {
     for (var item in transactions) {
       // Solo sumar ingresos y gastos, ignorar transferencias
       if (item.IN == 'Income') {
-        sum += (double.tryParse(item.amount) ?? 0.0);
+        sum += (double.tryParse(item.safeAmount) ?? 0.0);
       } else if (item.IN == 'Expenses') {
-        sum += (double.tryParse(item.amount) ?? 0.0); // También suma para mostrar el total de ambos
+        sum += (double.tryParse(item.safeAmount) ?? 0.0); // También suma para mostrar el total de ambos
       }
     }
     
@@ -189,7 +191,7 @@ class _HomeState extends State<Home> {
     final transactions = getTransactionsFilteredByDateOnly() // Solo filtrar por fecha
       .where((item) => item.IN == 'Income');
     return transactions.fold(0.0, (sum, item) => 
-      sum + (double.tryParse(item.amount) ?? 0.0)
+      sum + (double.tryParse(item.safeAmount) ?? 0.0)
     );
   }
 
@@ -198,7 +200,7 @@ class _HomeState extends State<Home> {
     final transactions = getTransactionsFilteredByDateOnly() // Solo filtrar por fecha
       .where((item) => item.IN == 'Expenses');
     return transactions.fold(0.0, (sum, item) => 
-      sum + (double.tryParse(item.amount) ?? 0.0)
+      sum + (double.tryParse(item.safeAmount) ?? 0.0)
     );
   }
 
@@ -218,8 +220,8 @@ class _HomeState extends State<Home> {
     // Luego filtramos por fecha si _filterByDate está activado
     if (_filterByDate) {
       return transactions.where((transaction) => 
-        transaction.datetime.month == _selectedMonth && 
-        transaction.datetime.year == _selectedYear
+        transaction.safeDate.month == _selectedMonth && 
+        transaction.safeDate.year == _selectedYear
       ).toList();
     }
     
@@ -425,7 +427,7 @@ class _HomeState extends State<Home> {
     
     for (var transaction in transactions) {
       // Creamos una clave de fecha: "dd/mm/yyyy"
-      final dateKey = "${transaction.datetime.day.toString().padLeft(2, '0')}/${transaction.datetime.month.toString().padLeft(2, '0')}/${transaction.datetime.year}";
+      final dateKey = "${transaction.safeDate.day.toString().padLeft(2, '0')}/${transaction.safeDate.month.toString().padLeft(2, '0')}/${transaction.safeDate.year}";
       
       // Si la fecha no existe como clave, la inicializamos
       if (!grouped.containsKey(dateKey)) {
@@ -461,7 +463,7 @@ class _HomeState extends State<Home> {
     
     // Ordenar las transacciones dentro de cada día (más reciente primero)
     for (var key in grouped.keys) {
-      grouped[key]!.sort((a, b) => b.datetime.compareTo(a.datetime));
+      grouped[key]!.sort((a, b) => b.safeDate.compareTo(a.safeDate));
     }
     
     // Creamos un nuevo mapa con las claves ordenadas
@@ -478,12 +480,12 @@ class _HomeState extends State<Home> {
   double balance = 0.0;
   
   for (var transaction in transactions) {
-    if (transaction.IN == 'Income') {
+    if (transaction.safeType == 'Income') {
       // Sumar ingresos
-      balance += (double.tryParse(transaction.amount) ?? 0.0);
-    } else if (transaction.IN == 'Expenses') {
+      balance += (double.tryParse(transaction.safeAmount) ?? 0.0);
+    } else if (transaction.safeType == 'Expenses') {
       // Restar gastos
-      balance -= (double.tryParse(transaction.amount) ?? 0.0);
+      balance -= (double.tryParse(transaction.safeAmount) ?? 0.0);
     }
     // Las transferencias no afectan el balance contable
   }
@@ -499,8 +501,8 @@ class _HomeState extends State<Home> {
     double totalIncome = 0;
     double totalExpense = 0;
     for (var t in transactions) {
-      double amount = double.tryParse(t.amount) ?? 0;
-      if (t.IN == 'Income') {
+      double amount = double.tryParse(t.safeAmount) ?? 0;
+      if (t.safeType == 'Income') {
         totalIncome += amount;
       } else if (t.IN == 'Expenses') {
         totalExpense += amount;
@@ -551,7 +553,7 @@ class _HomeState extends State<Home> {
                   ),
                   // Total del día
                   Text(
-                    NumberFormat.currency(locale: 'es', symbol: '\$').format(dailyIncome),
+                    CurrencyHelper.format(dailyIncome),
                     style: TextStyle(
                       // Color dinámico según si es positivo (ingreso neto) o negativo (gasto neto)
                       color: dailyIncome >= 0 
@@ -678,7 +680,7 @@ class _HomeState extends State<Home> {
                                 ),
                               ),
                               Text(
-                                NumberFormat.currency(locale: 'es', symbol: '\$').format(totalIncome),
+                                CurrencyHelper.format(totalIncome),
                                 style: const TextStyle(
                                   color: Color.fromARGB(255, 167, 226, 169),
                                   fontSize: 16,
@@ -729,7 +731,7 @@ class _HomeState extends State<Home> {
                                 ),
                               ),
                               Text(
-                                NumberFormat.currency(locale: 'es', symbol: '\$').format(totalExpense),
+                                CurrencyHelper.format(totalExpense),
                                 style: const TextStyle(
                                   color: Color(0xFFEF9A9A),
                                   fontSize: 16,
@@ -759,13 +761,13 @@ class _HomeState extends State<Home> {
     // Construir el título según tipo de transacción
     String mainTitle;
     if (isTransfer) {
-      mainTitle = history.detail.isNotEmpty 
-          ? "Transferencia - ${history.detail}" 
+      mainTitle = history.safeDetail.isNotEmpty 
+          ? "Transferencia - ${history.safeDetail}" 
           : "Transferencia";
     } else {
-      mainTitle = history.detail.isNotEmpty 
-          ? "${history.explain} - ${history.detail}" 
-          : history.explain;
+      mainTitle = history.safeDetail.isNotEmpty 
+          ? "${history.safeCategory} - ${history.safeDetail}" 
+          : history.safeCategory;
     }
     
     // Determinar qué icono mostrar
@@ -773,7 +775,7 @@ class _HomeState extends State<Home> {
     if (isTransfer) {
       transactionIcon = Icons.sync_alt;
     } else {
-      transactionIcon = AppIcons.getIcon(history.iconCode);
+      transactionIcon = AppIcons.getIcon(history.safeIconCode);
     }
 
     // Envolver en InkWell para detectar toques y mostrar efecto visual
@@ -839,8 +841,8 @@ class _HomeState extends State<Home> {
                   // Cuenta o ruta de transferencia
                   Text(
                     isTransfer 
-                        ? history.explain  // Ruta de transferencia: "Cuenta origen > Cuenta destino"
-                        : history.name,     // Nombre de la cuenta
+                        ? (history.explain ?? '')  // Ruta de transferencia: "Cuenta origen > Cuenta destino"
+                        : history.safeAccount,     // Nombre de la cuenta
                     style: const TextStyle(
                       fontWeight: FontWeight.w400,
                       color: Colors.white60,
@@ -858,8 +860,7 @@ class _HomeState extends State<Home> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    NumberFormat.currency(locale: 'es', symbol: '\$')
-                        .format(double.parse(history.amount)),
+                    CurrencyHelper.formatString(history.safeAmount),
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
@@ -1079,13 +1080,7 @@ void _editTransaction(Add_data transaction) async {
     
   } catch (e) {
     debugPrint('❌ Error al preparar edición de transacción: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error al editar: $e'),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 3),
-      ),
-    );
+    AlertHelper.error(context, 'Error al editar: $e');
   }
 }
 
@@ -1106,7 +1101,7 @@ Future<void> _verifyDataBeforeEdit(Add_data transaction) async {
       String duplicateOf = "";
       
       for (final category in savedCategories) {
-        if (category.toLowerCase() == transaction.explain.toLowerCase()) {
+        if (category.toLowerCase() == (transaction.explain?.toLowerCase() ?? '')) {
           isDuplicate = true;
           duplicateOf = category;
           break;
@@ -1118,7 +1113,7 @@ Future<void> _verifyDataBeforeEdit(Add_data transaction) async {
         transaction.explain = duplicateOf; // Actualizar al nombre "canónico"
       } else {
         // Agregar como nueva categoría
-        savedCategories.add(transaction.explain);
+        savedCategories.add(transaction.explain ?? '');
         await prefs.setStringList('income_categories', savedCategories);
         debugPrint('✅ Categoría agregada: ${transaction.explain}');
       }
@@ -1147,7 +1142,7 @@ Future<void> _verifyDataBeforeEdit(Add_data transaction) async {
       String duplicateOf = "";
       
       for (final category in savedCategories) {
-        if (category.toLowerCase() == transaction.explain.toLowerCase()) {
+        if (category.toLowerCase() == (transaction.explain?.toLowerCase() ?? '')) {
           isDuplicate = true;
           duplicateOf = category;
           break;
@@ -1159,7 +1154,7 @@ Future<void> _verifyDataBeforeEdit(Add_data transaction) async {
         transaction.explain = duplicateOf; // Actualizar al nombre "canónico"
       } else {
         // Agregar como nueva categoría
-        savedCategories.add(transaction.explain);
+        savedCategories.add(transaction.explain ?? '');
         await prefs.setStringList('expense_categories', savedCategories);
         debugPrint('✅ Categoría de gasto agregada: ${transaction.explain}');
       }
@@ -1177,7 +1172,7 @@ Future<void> _verifyDataBeforeEdit(Add_data transaction) async {
   }
   else if (transaction.IN == 'Transfer') {
     // Verificar cuentas de origen y destino en transferencias
-    final parts = transaction.explain.split(' > ');
+    final parts = (transaction.explain ?? '').split(' > ');
     if (parts.length == 2) {
       final sourceAccount = parts[0].trim();
       final destAccount = parts[1].trim();
@@ -1320,33 +1315,23 @@ Future<void> _deleteTransaction(Add_data transaction) async {
     await _updateAvailableBalance();
     
     // Mostrar confirmación
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Transacción eliminada'),
-        backgroundColor: Colors.redAccent,
-      ),
-    );
+    AlertHelper.success(context, 'Transacción eliminada');
 
     // Sincronizar saldos después de eliminar
     await TransactionService.syncAccountBalances();
   } catch (e) {
     print('Error al eliminar transacción: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error al eliminar: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
+    AlertHelper.error(context, 'Error al eliminar: $e');
   }
 }
 
 // Añadir este nuevo método para revertir transferencias
 Future<void> _revertTransfer(Add_data transaction) async {
   try {
-    final amount = double.parse(transaction.amount);
+    final amount = double.parse(transaction.safeAmount);
     
     // Obtener nombres de cuentas de origen y destino
-    final parts = transaction.explain.split(' > ');
+    final parts = (transaction.explain ?? '').split(' > ');
     if (parts.length != 2) {
       throw Exception('Formato de transferencia inválido');
     }

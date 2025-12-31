@@ -4,6 +4,8 @@ import 'package:finazaap/data/model/add_date.dart';
 import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+import 'package:finazaap/utils/currency_helper.dart';
+
 class TransactionListWidget extends StatelessWidget {
   final Box<Add_data> box;
   final List<String> day;
@@ -46,16 +48,16 @@ class TransactionListWidget extends StatelessWidget {
   // Widget para cada transacción
   Widget _buildTransactionItem(Add_data history) {
     // Detectar si es transferencia
-    bool isTransfer = history.IN == 'Transfer';
+    bool isTransfer = history.safeType == 'Transfer';
     
     // Para categoría - descripción
     String categoryDescription;
     if (isTransfer) {
       // Para transferencias: mostrar "Transferencia - descripción"
-      categoryDescription = "Transferencia - ${history.detail.isNotEmpty ? history.detail : ''}";
+      categoryDescription = "Transferencia - ${history.safeDetail.isNotEmpty ? history.safeDetail : ''}";
     } else {
       // Para transacciones normales: mostrar "categoría - descripción"
-      categoryDescription = "${history.explain} - ${history.detail.isNotEmpty ? history.detail : ''}";
+      categoryDescription = "${history.safeCategory} - ${history.safeDetail.isNotEmpty ? history.safeDetail : ''}";
     }
     
     // Eliminar " - " al final si no hay descripción
@@ -78,7 +80,7 @@ class TransactionListWidget extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isTransfer
                     ? Colors.blueAccent
-                    : (history.IN == 'Income' ? Colors.green : Colors.redAccent),
+                    : (history.safeType == 'Income' ? Colors.green : Colors.redAccent),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: Colors.white.withOpacity(0.3), // Borde claro para contraste
@@ -94,7 +96,7 @@ class TransactionListWidget extends StatelessWidget {
               ),
               padding: const EdgeInsets.all(8),
               child: Icon(
-                AppIcons.getIcon(history.iconCode),
+                AppIcons.getIcon(history.safeIconCode),
                 size: 25,
                 color: Colors.white,
               ),
@@ -123,8 +125,8 @@ class TransactionListWidget extends StatelessWidget {
                   // Cuenta o ruta de transferencia
                   Text(
                     isTransfer 
-                        ? history.explain  // "Cuenta origen > Cuenta destino"
-                        : history.name,     // Nombre de la cuenta
+                        ? (history.explain ?? '')  // "Cuenta origen > Cuenta destino"
+                        : history.safeAccount,     // Nombre de la cuenta
                     style: const TextStyle(
                       fontWeight: FontWeight.w400,
                       color: Colors.white70,
@@ -136,7 +138,7 @@ class TransactionListWidget extends StatelessWidget {
                   
                   // Fecha 
                   Text(
-                    '${day[history.datetime.weekday - 1]}  ${history.datetime.day}/${history.datetime.month}/${history.datetime.year}',
+                    '${day[history.safeDate.weekday - 1]}  ${history.safeDate.day}/${history.safeDate.month}/${history.safeDate.year}',
                     style: const TextStyle(
                       fontWeight: FontWeight.w400,
                       color: Colors.white70,
@@ -157,14 +159,13 @@ class TransactionListWidget extends StatelessWidget {
               children: [
                 // Monto con color según tipo
                 Text(
-                  NumberFormat.currency(locale: 'es', symbol: '\$')
-                      .format(double.parse(history.amount)),
+                  CurrencyHelper.formatString(history.safeAmount),
                   style: TextStyle(
                     fontWeight: FontWeight.w500,
                     fontSize: 17,
                     color: isTransfer 
                         ? Colors.grey // TRANSFERENCIA = GRIS
-                        : (history.IN == 'Income'
+                        : (history.safeType == 'Income'
                             ? const Color.fromARGB(255, 167, 226, 169) // INGRESO = VERDE
                             : const Color.fromARGB(255, 230, 172, 168)), // GASTO = ROJO
                   ),

@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:finazaap/data/model/add_date.dart';
+import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/widgets/show_transaction_options.dart';
 import 'package:finazaap/data/category_service.dart';
@@ -13,6 +14,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:finazaap/utils/currency_helper.dart';
 
 class DailyTransactionsScreen extends StatefulWidget {
   final String dateString;
@@ -56,23 +58,23 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
        final year = int.parse(parts[2]);
        
        _transactions = box.values.where((t) => 
-         t.datetime.day == day && 
-         t.datetime.month == month && 
-         t.datetime.year == year
+         t.safeDate.day == day && 
+         t.safeDate.month == month && 
+         t.safeDate.year == year
        ).toList();
        
        // Ordenar de nuevo
-       _transactions.sort((a, b) => b.datetime.compareTo(a.datetime));
+       _transactions.sort((a, b) => b.safeDate.compareTo(a.safeDate));
        
        // Recalcular totales
        _dailyIncome = 0;
        _dailyExpense = 0;
        
        for (var transaction in _transactions) {
-         if (transaction.IN == 'Income') {
-           _dailyIncome += double.parse(transaction.amount);
-         } else if (transaction.IN == 'Expenses') {
-           _dailyExpense += double.parse(transaction.amount);
+         if (transaction.safeType == 'Income') {
+           _dailyIncome += double.parse(transaction.safeAmount);
+         } else if (transaction.safeType == 'Expenses') {
+           _dailyExpense += double.parse(transaction.safeAmount);
          }
        }
     });
@@ -156,20 +158,20 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
     // Construir título
     String mainTitle;
     if (isTransfer) {
-      mainTitle = history.detail.isNotEmpty 
-          ? "Transferencia - ${history.detail}" 
+      mainTitle = history.safeDetail.isNotEmpty 
+          ? "Transferencia - ${history.safeDetail}" 
           : "Transferencia";
     } else {
-      mainTitle = history.detail.isNotEmpty 
-          ? "${history.explain} - ${history.detail}" 
-          : history.explain;
+      mainTitle = history.safeDetail.isNotEmpty 
+          ? "${history.safeCategory} - ${history.safeDetail}" 
+          : history.safeCategory;
     }
     
     IconData transactionIcon;
     if (isTransfer) {
       transactionIcon = Icons.sync_alt;
     } else {
-      transactionIcon = AppIcons.getIcon(history.iconCode);
+      transactionIcon = AppIcons.getIcon(history.safeIconCode);
     }
 
     return InkWell(
@@ -240,8 +242,8 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
                   const SizedBox(height: 4),
                   Text(
                     isTransfer 
-                        ? history.explain 
-                        : history.name,
+                        ? (history.explain ?? '') 
+                        : history.safeAccount,
                     style: const TextStyle(
                       fontWeight: FontWeight.w400,
                       color: Colors.white60,
@@ -258,8 +260,7 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    NumberFormat.currency(locale: 'es', symbol: '\$')
-                        .format(double.parse(history.amount)),
+                    CurrencyHelper.formatString(history.safeAmount),
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
@@ -336,13 +337,7 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
     _refreshTransactions();
     TransactionService.syncAccountBalances();
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Transacción eliminada'),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    AlertHelper.success(context, 'Transacción eliminada');
   }
 
   Future<void> _updateAccountBalanceAfterDeletion(Add_data transaction) async {
@@ -352,11 +347,11 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
         .map((e) => json.decode(e) as Map<String, dynamic>)
         .toList();
 
-    double amount = double.parse(transaction.amount);
+    double amount = double.parse(transaction.safeAmount);
 
     if (transaction.IN == 'Income') {
        for (var acc in accounts) {
-         if (acc['name'] == transaction.name) {
+         if (acc['name'] == transaction.safeAccount) {
            double currentBalance = (acc['balance'] is String)
                ? double.parse(acc['balance'])
                : (acc['balance'] as num).toDouble();
@@ -366,7 +361,7 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
        }
     } else if (transaction.IN == 'Expenses') {
        for (var acc in accounts) {
-         if (acc['name'] == transaction.name) {
+         if (acc['name'] == transaction.safeAccount) {
            double currentBalance = (acc['balance'] is String)
                ? double.parse(acc['balance'])
                : (acc['balance'] as num).toDouble();
@@ -375,7 +370,7 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
          }
        }
     } else if (transaction.IN == 'Transfer') {
-       List<String> parts = transaction.explain.split(' > ');
+       List<String> parts = (transaction.explain ?? '').split(' > ');
        if (parts.length == 2) {
          String sourceName = parts[0];
          String destName = parts[1];
@@ -594,7 +589,7 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  NumberFormat.currency(locale: 'es', symbol: '\$').format(netBalance),
+                  CurrencyHelper.format(netBalance),
                   style: TextStyle(
                     color: netBalance >= 0
                         ? const Color.fromARGB(255, 167, 226, 169)
@@ -652,8 +647,8 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                       const SizedBox(height: 8),
                       Text(
                         dailyIncome >= 1000000
-                            ? NumberFormat.compact(locale: 'es').format(dailyIncome) + ' \$'
-                            : NumberFormat.currency(locale: 'es', symbol: '\$').format(dailyIncome),
+                            ? NumberFormat.compact(locale: 'es').format(dailyIncome) + ' ' + CurrencyHelper.currencySymbol
+                            : CurrencyHelper.format(dailyIncome),
                         style: const TextStyle(
                           color: Color.fromARGB(255, 167, 226, 169),
                           fontSize: 18,
@@ -709,8 +704,8 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                       const SizedBox(height: 8),
                       Text(
                         dailyExpense >= 1000000
-                            ? NumberFormat.compact(locale: 'es').format(dailyExpense) + ' \$'
-                            : NumberFormat.currency(locale: 'es', symbol: '\$').format(dailyExpense),
+                            ? NumberFormat.compact(locale: 'es').format(dailyExpense) + ' ' + CurrencyHelper.currencySymbol
+                            : CurrencyHelper.format(dailyExpense),
                         style: const TextStyle(
                           color: Color(0xFFEF9A9A),
                           fontSize: 18,
@@ -963,7 +958,7 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      NumberFormat.currency(locale: 'es', symbol: '\$').format(netBalance),
+                      CurrencyHelper.format(netBalance),
                       style: TextStyle(
                         color: netBalance >= 0
                             ? const Color.fromARGB(255, 167, 226, 169)
@@ -1020,7 +1015,7 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            NumberFormat.currency(locale: 'es', symbol: '\$').format(dailyIncome),
+                            CurrencyHelper.format(dailyIncome),
                             style: const TextStyle(
                               color: Color.fromARGB(255, 167, 226, 169),
                               fontSize: 18,
@@ -1073,7 +1068,7 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            NumberFormat.currency(locale: 'es', symbol: '\$').format(dailyExpense),
+                            CurrencyHelper.format(dailyExpense),
                             style: const TextStyle(
                               color: Color(0xFFEF9A9A),
                               fontSize: 18,
@@ -1120,7 +1115,7 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                 Row(
                   children: [
                     Text(
-                      NumberFormat.currency(locale: 'es', symbol: '\$').format(netBalance),
+                      CurrencyHelper.format(netBalance),
                       style: TextStyle(
                         color: netBalance >= 0
                             ? const Color.fromARGB(255, 167, 226, 169)

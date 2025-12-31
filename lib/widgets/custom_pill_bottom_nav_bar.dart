@@ -16,10 +16,10 @@ class CustomPillBottomNavBar extends StatelessWidget {
     // Lista de ítems de navegación
     final List<NavItem> items = [
       NavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Inicio'),
-      NavItem(icon: Icons.search, activeIcon: Icons.search_rounded, label: 'Buscar'), 
+      NavItem(icon: Icons.credit_card_outlined, activeIcon: Icons.credit_card_rounded, label: 'Pagos'), 
       NavItem(icon: Icons.grid_view_outlined, activeIcon: Icons.grid_view_rounded, label: 'Categorías'), // Explore/Categories
       NavItem(icon: Icons.insert_chart_outlined_rounded, activeIcon: Icons.insert_chart_rounded, label: 'Reportes'), // Stats
-      NavItem(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Perfil'), 
+      NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, label: 'Ajustes'), 
     ];
 
     return Container(
