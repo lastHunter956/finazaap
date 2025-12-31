@@ -9,6 +9,7 @@ import 'dart:convert';
 import '../icon_lists.dart';
 import '../data/model/add_date.dart';
 import 'package:flutter/services.dart';
+import 'package:finazaap/utils/app_icons.dart';
 
 class AccountItem {
   String title;
@@ -35,7 +36,7 @@ class AccountItem {
     // Extraer icono
     IconData? iconData;
     if (json['icon'] != null) {
-      iconData = IconData(json['icon'], fontFamily: 'MaterialIcons');
+      iconData = AppIcons.getIcon(json['icon']);
     }
 
     // Extraer color del icono
@@ -975,11 +976,12 @@ class _StatisticsState extends State<Statistics> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
-                        axisLine:
-                            const AxisLine(width: 0.7, color: Colors.white24),
-                        majorGridLines: const MajorGridLines(width: 0),
-                        majorTickLines: const MajorTickLines(
-                            size: 4, color: Colors.white24),
+                        axisLine: AxisLine(width: 0.7, color: Colors.white24),
+                        majorGridLines: MajorGridLines(width: 0),
+                        majorTickLines: MajorTickLines(
+                          size: 0,
+                          width: 0,
+                        ),
                         labelPlacement: LabelPlacement.onTicks,
                         labelRotation:
                             isMonthly ? 0 : -30, // Rotación según el modo
@@ -993,15 +995,15 @@ class _StatisticsState extends State<Statistics> {
                       primaryYAxis: NumericAxis(
                         labelStyle: const TextStyle(
                             color: Colors.white54, fontSize: 11),
-                        axisLine: const AxisLine(width: 0),
-                        majorGridLines: const MajorGridLines(
-                          width: 0.6,
+                        axisLine: AxisLine(width: 0),
+                        majorGridLines: MajorGridLines(
+                          dashArray: <double>[5, 5],
                           color: Colors.white10,
-                          dashArray: <double>[3, 3],
                         ),
-                        majorTickLines: const MajorTickLines(
-                            size: 4, color: Colors.white24),
-                        minorTicksPerInterval: 1,
+                        majorTickLines: MajorTickLines(
+                          size: 0,
+                          width: 0,
+                        ),minorTicksPerInterval: 1,
                         numberFormat: NumberFormat.compact(),
                         labelFormat: '\${value}',
                         decimalPlaces: 0,
@@ -1177,7 +1179,7 @@ class _StatisticsState extends State<Statistics> {
                           width: 1.5,
                           dashArray: const <double>[3, 3],
                           markerSettings:
-                              const MarkerSettings(isVisible: false),
+                              MarkerSettings(isVisible: false),
                           animationDuration: 500,
                           enableTooltip: false,
                           name: 'Promedio',
@@ -2003,8 +2005,8 @@ class _StatisticsState extends State<Statistics> {
                     xValueMapper: (ChartData item, _) => item.x,
                     yValueMapper: (ChartData item, _) => item.y,
                     pointColorMapper: (ChartData item, _) => item.color,
-                    dataLabelSettings: const DataLabelSettings(
-                      isVisible: false, // Sin etiquetas en el gráfico mismo
+                    dataLabelSettings: DataLabelSettings(
+                      isVisible: true, // Sin etiquetas en el gráfico mismo
                     ),
                     radius: '75%',
                     innerRadius: '79%',
@@ -2100,7 +2102,7 @@ class _StatisticsState extends State<Statistics> {
         final percentage = (item.y / totalAmount * 100).toStringAsFixed(1);
 
         IconData iconData =
-            IconData(item.iconCode, fontFamily: 'MaterialIcons');
+            AppIcons.getIcon(item.iconCode);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 18),
@@ -2291,22 +2293,21 @@ class _StatisticsState extends State<Statistics> {
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
-          axisLine: const AxisLine(width: 0),
-          majorGridLines: const MajorGridLines(width: 0),
-          majorTickLines: const MajorTickLines(size: 0),
+          axisLine: AxisLine(width: 0),
+          majorGridLines: MajorGridLines(width: 0),
+          majorTickLines: MajorTickLines(size: 0),
           labelRotation: -15, // Mejor legibilidad
           labelAlignment: LabelAlignment.center,
           labelIntersectAction: AxisLabelIntersectAction.multipleRows,
         ),
         primaryYAxis: NumericAxis(
           labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-          axisLine: const AxisLine(width: 0),
-          majorGridLines: const MajorGridLines(
-            width: 0.5,
+          axisLine: AxisLine(width: 0),
+          majorGridLines: MajorGridLines(
+            dashArray: <double>[5, 5],
             color: Colors.white10,
-            dashArray: <double>[4, 4],
           ),
-          majorTickLines: const MajorTickLines(size: 0),
+          majorTickLines: MajorTickLines(size: 0),
           numberFormat: NumberFormat.compact(),
           labelFormat: '\${value}',
         ),
@@ -2416,7 +2417,7 @@ class _StatisticsState extends State<Statistics> {
                       ),
                     ),
                     child: Icon(
-                      IconData(item.iconCode, fontFamily: 'MaterialIcons'),
+                      AppIcons.getIcon(item.iconCode),
                       color: item.color,
                       size: 18,
                     ),

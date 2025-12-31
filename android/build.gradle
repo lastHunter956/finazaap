@@ -16,3 +16,36 @@ subprojects {
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
+
+// Configuración global para subproyectos (Plugins + App)
+subprojects {
+    def configureAndroid = {
+        if (project.hasProperty("android")) {
+            project.android {
+                // 1. Fix Namespace para AGP 8.0+
+                if (namespace == null) {
+                    namespace project.group
+                }
+
+                // 2. Fix JVM Target Consistency (Java 17)
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+        
+        // 3. Fix Kotlin JVM Target
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
+
+    if (project.state.executed) {
+        configureAndroid()
+    } else {
+        project.afterEvaluate(configureAndroid)
+    }
+}

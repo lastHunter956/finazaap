@@ -19,6 +19,10 @@ class Add_data extends HiveObject {
   String name;
   @HiveField(6)
   int iconCode;
+  @HiveField(7, defaultValue: '1')
+  String? installments;
+  @HiveField(8, defaultValue: false)
+  bool? isInterestFree;
 
   // Estos getters son para compatibilidad con el código generado
   String get type => IN;
@@ -33,7 +37,9 @@ class Add_data extends HiveObject {
     this.detail,
     this.explain,
     this.name,
-    [this.iconCode = 0]
+    [this.iconCode = 0,
+    this.installments = '1',
+    this.isInterestFree = false]
   );
 }
 

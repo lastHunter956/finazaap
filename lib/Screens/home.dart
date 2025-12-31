@@ -1,5 +1,6 @@
 // Reemplaza las importaciones conflictivas por estas líneas:
 import 'package:flutter/material.dart';
+import 'package:finazaap/utils/app_icons.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,6 +22,8 @@ import 'package:finazaap/data/utlity.dart' hide AccountItem;
 // Añadir esta importación al inicio del archivo
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/data/category_service.dart';
+import 'package:finazaap/screens/settings_screen.dart';
+import 'package:finazaap/Screens/daily_transactions.dart';
 
 // Definir una clase AccountItem local para home.dart
 class AccountItem {
@@ -67,16 +70,29 @@ class _HomeState extends State<Home> {
   int _selectedYear = DateTime.now().year;
   bool _filterByDate = true; // <-- Cambiado a true por defecto
 
+  // Mapa para almacenar colores de categorías
+  Map<String, int> _categoryColors = {};
+
+  // Estado para fechas expandidas
+  Set<String> _expandedDates = {};
+
   @override
   void initState() {
     super.initState();
+    _loadCategoryMetadata(); // Cargar colores de categorías
     _updateAvailableBalance();
     
+    // Expandir la fecha actual por defecto
+    final now = DateTime.now();
+    final todayKey = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
+    _expandedDates.add(todayKey);
+
     // Registrar listener adicional para cuando cambian los datos
     box.listenable().addListener(() {
       if (mounted) {
         setState(() {});
         _updateAvailableBalance();
+        _loadCategoryMetadata(); // Recargar colores si cambian datos
       }
     });
   }
@@ -105,6 +121,31 @@ class _HomeState extends State<Home> {
     }
     
     return transactions;
+  }
+
+  // Cargar metadatos de categorías (colores e iconos)
+  Future<void> _loadCategoryMetadata() async {
+    try {
+      final incomeCats = await CategoryService.getCategoriesWithMetadata('Income');
+      final expenseCats = await CategoryService.getCategoriesWithMetadata('Expenses');
+      
+      final Map<String, int> colors = {};
+      
+      for (var cat in incomeCats) {
+        colors[cat['text']] = cat['color'];
+      }
+      for (var cat in expenseCats) {
+        colors[cat['text']] = cat['color'];
+      }
+      
+      if (mounted) {
+        setState(() {
+          _categoryColors = colors;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading category metadata: $e');
+    }
   }
 
   // Balance contable: suma de ingresos - gastos (excluyendo transferencias)
@@ -193,11 +234,18 @@ class _HomeState extends State<Home> {
       double totalBalance = 0.0;
       for (var accountJson in accountsData) {
         final Map<String, dynamic> data = json.decode(accountJson);
-        // Convertir el balance a double (puede estar como String)
-        final balance = data['balance'] is String
-            ? double.tryParse(data['balance']) ?? 0.0
-            : (data['balance'] is double ? data['balance'] : 0.0);
-        totalBalance += balance;
+        
+        // Verificar si la cuenta debe incluirse en el total
+        // Por defecto es true si no existe la clave
+        final bool includeInTotal = data['includeInTotal'] ?? true;
+        
+        if (includeInTotal) {
+          // Convertir el balance a double (puede estar como String)
+          final balance = data['balance'] is String
+              ? double.tryParse(data['balance']) ?? 0.0
+              : (data['balance'] is double ? data['balance'] : 0.0);
+          totalBalance += balance;
+        }
       }
 
       // Actualiza el notificador con el valor calculado
@@ -239,24 +287,30 @@ class _HomeState extends State<Home> {
               
               return CustomScrollView(
                 slivers: [
+
+
                   // Título superior "Transacciones" en un container azul a lo ancho de la pantalla
                   SliverToBoxAdapter(
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                       decoration: BoxDecoration(
                         color: const Color.fromRGBO(42, 49, 67, 1),
                       ),
-                      child: const Center(
-                        child: Text(
-                          'Transacciones',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Text(
+                            'Transacciones',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
+                          // Botón de configuración eliminado (movido a barra de navegación)
+                        ],
                       ),
                     ),
                   ),
@@ -439,80 +493,258 @@ class _HomeState extends State<Home> {
 
   // Construir la sección de fecha con sus transacciones
   Widget _buildDateSection(String dateKey, double dailyIncome, List<Add_data> transactions) {
+    bool isExpanded = _expandedDates.contains(dateKey);
+
+    // Calcular totales separados para el resumen
+    double totalIncome = 0;
+    double totalExpense = 0;
+    for (var t in transactions) {
+      double amount = double.tryParse(t.amount) ?? 0;
+      if (t.IN == 'Income') {
+        totalIncome += amount;
+      } else if (t.IN == 'Expenses') {
+        totalExpense += amount;
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Encabezado de fecha y total - AHORA SIN FONDO DE COLOR
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8, left: 4, right: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Fecha formateada
-                Text(
-                  dateKey,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                // Total de ingresos del día
-                Text(
-                  NumberFormat.currency(locale: 'es', symbol: '\$').format(dailyIncome),
-                  style: const TextStyle(
-                    color: Color.fromARGB(255, 167, 226, 169), // Verde para ingresos
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // NUEVO CONTENEDOR CON BORDES REDONDEADOS para las transacciones
-          Container(
-            decoration: BoxDecoration(
-              color: const Color.fromRGBO(42, 49, 67, 1), // Color aplicado al contenedor principal
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Column(
+          // Encabezado de fecha y total - CON GESTO TÁCTIL
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                if (isExpanded) {
+                  _expandedDates.remove(dateKey);
+                } else {
+                  _expandedDates.add(dateKey);
+                }
+              });
+            },
+            behavior: HitTestBehavior.opaque, // Para facilitar el toque
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8, left: 4, right: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Lista de transacciones del día
-                  ...transactions.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final transaction = entry.value;
-                    
-                    return Column(
-                      children: [
-                        _buildTransactionItem(transaction),
-                        // Mostrar divisor solo si no es la última transacción
-                        if (index < transactions.length - 1)
-                          const Divider(
-                            color: Colors.grey,
-                            height: 1, 
-                            thickness: 0.2,
-                            indent: 60, // Indentación para que el divisor empiece después del icono
-                            endIndent: 10,
-                          ),
-                      ],
-                    );
-                  }).toList(),
+                  Row(
+                    children: [
+                      // Fecha formateada
+                      Text(
+                        dateKey,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Icono de flecha
+                      Icon(
+                        isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                        color: Colors.white.withOpacity(0.5),
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                  // Total del día
+                  Text(
+                    NumberFormat.currency(locale: 'es', symbol: '\$').format(dailyIncome),
+                    style: TextStyle(
+                      // Color dinámico según si es positivo (ingreso neto) o negativo (gasto neto)
+                      color: dailyIncome >= 0 
+                          ? const Color.fromARGB(255, 167, 226, 169) // Verde
+                          : const Color(0xFFEF9A9A), // Rojo claro
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
+          
+          // MOSTRAR LISTA O RESUMEN SEGÚN ESTADO
+          if (isExpanded)
+            // === LISTA DE TRANSACCIONES (EXPANDIDO) ===
+            Container(
+              decoration: BoxDecoration(
+                color: const Color.fromRGBO(42, 49, 67, 1), // Color aplicado al contenedor principal
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Column(
+                  children: [
+                    // Lista de transacciones del día
+                    ...transactions.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final transaction = entry.value;
+                      
+                      return Column(
+                        children: [
+                          _buildTransactionItem(transaction),
+                          // Mostrar divisor solo si no es la última transacción
+                          if (index < transactions.length - 1)
+                            const Divider(
+                              color: Colors.grey,
+                              height: 1, 
+                              thickness: 0.2,
+                              indent: 60, // Indentación para que el divisor empiece después del icono
+                              endIndent: 10,
+                            ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+            )
+
+          else
+            // === TARJETA RESUMEN (CONTRAÍDO) ===
+            InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => DailyTransactionsScreen(
+                      dateString: dateKey,
+                      transactions: transactions,
+                      dailyIncome: totalIncome,
+                      dailyExpense: totalExpense,
+                    ),
+                  ),
+                ).then((_) {
+                  // Al volver, refrescar para mostrar cambios
+                  setState(() {});
+                  _updateAvailableBalance();
+                });
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color.fromRGBO(42, 49, 67, 1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.05),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Ingresos (Fila superior)
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.arrow_downward_rounded, // Ingreso (entrada)
+                            color: Colors.green,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Ingresos",
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                NumberFormat.currency(locale: 'es', symbol: '\$').format(totalIncome),
+                                style: const TextStyle(
+                                  color: Color.fromARGB(255, 167, 226, 169),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // Separador horizontal
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(
+                        color: Colors.white.withOpacity(0.05),
+                        height: 1,
+                      ),
+                    ),
+
+                    // Gastos (Fila inferior)
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.arrow_upward_rounded, // Gasto (salida)
+                            color: Colors.redAccent,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Gastos",
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                NumberFormat.currency(locale: 'es', symbol: '\$').format(totalExpense),
+                                style: const TextStyle(
+                                  color: Color(0xFFEF9A9A),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -541,10 +773,7 @@ class _HomeState extends State<Home> {
     if (isTransfer) {
       transactionIcon = Icons.sync_alt;
     } else {
-      transactionIcon = IconData(
-        history.iconCode > 0 ? history.iconCode : Icons.category.codePoint,
-        fontFamily: 'MaterialIcons',
-      );
+      transactionIcon = AppIcons.getIcon(history.iconCode);
     }
 
     // Envolver en InkWell para detectar toques y mostrar efecto visual
@@ -558,16 +787,22 @@ class _HomeState extends State<Home> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Icono con fondo redondeado y sombra sutil
+            // Icono con fondo coloreado, borde claro y sombra oscura
             Container(
               decoration: BoxDecoration(
-                color: const Color.fromARGB(200, 255, 255, 255),
-                borderRadius: BorderRadius.circular(50),
+                color: isTransfer
+                    ? Colors.blueAccent
+                    : (isIncome ? Colors.green : Colors.redAccent),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3), // Borde claro para contraste
+                  width: 1.5,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
+                    color: Colors.black.withOpacity(0.3), // Sombra oscura estándar
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
@@ -575,9 +810,7 @@ class _HomeState extends State<Home> {
               child: Icon(
                 transactionIcon,
                 size: 22,
-                color: isTransfer
-                    ? Colors.blueAccent
-                    : (isIncome ? Colors.green : Colors.redAccent),
+                color: Colors.white,
               ),
             ),
             
@@ -618,21 +851,67 @@ class _HomeState extends State<Home> {
               ),
             ),
             
-            // Monto con color según tipo
+            // Monto y detalles de tarjeta (Columna derecha)
             Container(
               margin: const EdgeInsets.only(left: 8),
-              child: Text(
-                NumberFormat.currency(locale: 'es', symbol: '\$')
-                    .format(double.parse(history.amount)),
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                  color: isTransfer 
-                      ? Colors.grey
-                      : (isIncome
-                          ? const Color.fromARGB(255, 167, 226, 169)
-                          : const Color.fromARGB(255, 230, 172, 168)),
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    NumberFormat.currency(locale: 'es', symbol: '\$')
+                        .format(double.parse(history.amount)),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: isTransfer 
+                          ? Colors.grey
+                          : (isIncome
+                              ? const Color.fromARGB(255, 167, 226, 169)
+                              : const Color.fromARGB(255, 230, 172, 168)),
+                    ),
+                  ),
+
+                  // Detalles de tarjeta de crédito (si existen)
+                  if (history.installments != null && history.installments != '1' && history.installments!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blueAccent.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.blueAccent.withOpacity(0.4), width: 0.5),
+                      ),
+                      child: Text(
+                        '${history.installments} cuotas',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.lightBlueAccent,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                  
+                  if (history.isInterestFree == true) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.greenAccent.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.greenAccent.withOpacity(0.4), width: 0.5),
+                      ),
+                      child: const Text(
+                        'Sin interés',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.greenAccent,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],

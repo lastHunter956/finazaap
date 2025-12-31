@@ -7,6 +7,7 @@ import 'package:hive/hive.dart'; // Importar Hive
 import 'package:finazaap/data/model/add_date.dart'; // Importar modelo Add_data
 import 'package:finazaap/data/account_utils.dart';
 import 'package:finazaap/data/transaction_service.dart';
+import 'package:finazaap/utils/app_icons.dart';
 // Añadir en la parte superior del archivo
 import 'package:finazaap/widgets/bottomnavigationbar.dart';
 
@@ -46,7 +47,7 @@ class AccountItem {
       title: json['title'],
       balance: balanceValue,
       icon: json['icon'] != null
-          ? IconData(json['icon'], fontFamily: 'MaterialIcons')
+          ? AppIcons.getIcon(json['icon'])
           : null,
       subtitle: json['subtitle'],
       iconColor: json['iconColor'] != null ? Color(json['iconColor']) : null,

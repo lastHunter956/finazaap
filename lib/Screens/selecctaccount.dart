@@ -46,7 +46,7 @@ class DashedLinePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class MyApp extends StatelessWidget {
+class AccountManagementApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -86,8 +86,9 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   final Function(double) onBalanceUpdated;
+  final bool showBackButton;
 
-  MyHomePage({required this.onBalanceUpdated});
+  MyHomePage({required this.onBalanceUpdated, this.showBackButton = true});
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
@@ -96,11 +97,14 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   List<AccountItem> accountItems = [];
   bool _hideBalance = false; // Variable para controlar la visibilidad del saldo
+  String _currentSortMode = 'custom'; // 'balanceAsc', 'balanceDesc', 'creation', 'title', 'custom'
+  bool _isReorderMode = false; // Para modo de reordenamiento personalizado
 
   @override
   void initState() {
     super.initState();
     loadAccounts();
+    _loadSortPreference();
   }
 
   void _deleteAccount(AccountItem account) {
@@ -135,6 +139,80 @@ class _MyHomePageState extends State<MyHomePage> {
     await prefs.setStringList('accounts', accountsData);
     _updateTotalBalance();
   }
+
+  // Cargar preferencia de ordenamiento
+  Future<void> _loadSortPreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentSortMode = prefs.getString('accountSortMode') ?? 'custom';
+    });
+    if (_currentSortMode != 'custom') {
+      _sortAccounts();
+    }
+  }
+
+  // Guardar preferencia de ordenamiento
+  Future<void> _saveSortPreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('accountSortMode', _currentSortMode);
+  }
+
+  // Ordenar cuentas según el modo actual
+  void _sortAccounts() {
+    setState(() {
+      switch (_currentSortMode) {
+        case 'balanceAsc':
+          accountItems.sort((a, b) {
+            double balanceA = double.tryParse(a.balance) ?? 0.0;
+            double balanceB = double.tryParse(b.balance) ?? 0.0;
+            return balanceA.compareTo(balanceB);
+          });
+          break;
+        case 'balanceDesc':
+          accountItems.sort((a, b) {
+            double balanceA = double.tryParse(a.balance) ?? 0.0;
+            double balanceB = double.tryParse(b.balance) ?? 0.0;
+            return balanceB.compareTo(balanceA);
+          });
+          break;
+        case 'creation':
+          // Asumiendo que el orden en la lista es el orden de creación
+          // No necesita sorting, solo revertir a orden original
+          break;
+        case 'title':
+          accountItems.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+          break;
+        case 'custom':
+          // Orden personalizado se mantiene como está
+          break;
+      }
+    });
+  }
+
+  // Cambiar modo de ordenamiento
+  void _changeSortMode(String newMode) async {
+    setState(() {
+      _currentSortMode = newMode;
+      if (newMode == 'custom') {
+        _isReorderMode = true;
+      } else {
+        _isReorderMode = false;
+      }
+    });
+    await _saveSortPreference();
+    if (newMode != 'custom') {
+      _sortAccounts();
+    }
+  }
+
+  // Guardar orden personalizado
+  Future<void> _saveCustomOrder() async {
+    setState(() {
+      _isReorderMode = false;
+    });
+    await saveAccounts();
+  }
+
 
   void _saveAccount(AccountItem account) {
     setState(() {
@@ -235,26 +313,60 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
               child: Row(
                 children: [
-                  // Botón de retroceso
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () {
-                      _updateTotalBalance();
-                      Navigator.pop(context);
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(),
-                  ),
-                  SizedBox(width: 16),
+                  // Botón de retroceso (solo si se muestra)
+                  if (widget.showBackButton)
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () {
+                        _updateTotalBalance();
+                        Navigator.pop(context);
+                      },
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(),
+                    ),
+                  if (widget.showBackButton) SizedBox(width: 16),
                   // Título
-                  Text(
-                    'Cuentas',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      _isReorderMode ? 'Reordenar Cuentas' : 'Cuentas',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
+                  // Botón Guardar (solo en modo reorder)
+                  if (_isReorderMode)
+                    TextButton.icon(
+                      onPressed: _saveCustomOrder,
+                      icon: Icon(Icons.check, color: const Color(0xFF2ECC71), size: 20),
+                      label: Text(
+                        'Guardar',
+                        style: TextStyle(
+                          color: const Color(0xFF2ECC71),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFF2ECC71).withOpacity(0.15),
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  // Botón de ordenar (solo cuando no está en modo reorder)
+                  if (!_isReorderMode)
+                    IconButton(
+                      icon: Icon(
+                        Icons.sort,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      onPressed: _showSortOptions,
+                      tooltip: 'Ordenar cuentas',
+                    ),
                 ],
               ),
             ),
@@ -333,9 +445,64 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
 
                     // Lista de cuentas
-                    ...accountItems
-                        .map((item) => _buildAccountItem(item))
-                        .toList(),
+                    if (_isReorderMode)
+                      // Modo de reordenamiento con drag & drop
+                      ...accountItems.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final item = entry.value;
+                        return Container(
+                          key: ValueKey(item.title + item.balance + index.toString()),
+                          child: LongPressDraggable<int>(
+                            data: index,
+                            feedback: Material(
+                              color: Colors.transparent,
+                              child: Opacity(
+                                opacity: 0.8,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 32),
+                                  child: _buildAccountItem(item),
+                                ),
+                              ),
+                            ),
+                            childWhenDragging: Opacity(
+                              opacity: 0.3,
+                              child: _buildAccountItem(item),
+                            ),
+                            onDragStarted: () {},
+                            onDragEnd: (details) {},
+                            child: DragTarget<int>(
+                              onAccept: (fromIndex) {
+                                if (fromIndex != index) {
+                                  setState(() {
+                                    final item = accountItems.removeAt(fromIndex);
+                                    accountItems.insert(index, item);
+                                  });
+                                }
+                              },
+                              builder: (context, candidateData, rejectedData) {
+                                return Row(
+                                  children: [
+                                    Expanded(child: _buildAccountItem(item)),
+                                    Padding(
+                                      padding: EdgeInsets.only(right: 16),
+                                      child: Icon(
+                                        Icons.drag_handle,
+                                        color: Colors.white.withOpacity(0.4),
+                                        size: 28,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      }).toList()
+                    else
+                      // Lista normal sin reordenamiento
+                      ...accountItems
+                          .map((item) => _buildAccountItem(item))
+                          .toList(),
                   ],
                 ),
               ),
@@ -357,6 +524,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Widget _buildAccountItem(AccountItem item) {
+    bool isCreditCard = item.subtitle == "Tarjeta de Crédito";
     final currencyFormat = NumberFormat.currency(locale: 'es_CO', symbol: '', decimalDigits: 2);
     double balanceValue = double.tryParse(item.balance) ?? 0.0;
     
@@ -540,7 +708,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Saldo disponible',
+                      isCreditCard ? 'Cupo total' : 'Saldo disponible',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.7), 
                         fontSize: 14,
@@ -593,6 +761,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _showAccountOptions(BuildContext context, AccountItem account) {
+    bool isCreditCard = account.subtitle == "Tarjeta de Crédito";
     final currencyFormat = NumberFormat.currency(locale: 'es_CO', symbol: '', decimalDigits: 2);
     double balanceValue = double.tryParse(account.balance) ?? 0.0;
     
@@ -794,14 +963,14 @@ class _MyHomePageState extends State<MyHomePage> {
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Icon(
-                                          Icons.account_balance_wallet,
+                                          isCreditCard ? Icons.credit_card : Icons.account_balance_wallet,
                                           size: 14,
                                           color: accentColor,
                                         ),
                                       ),
                                       SizedBox(width: 8),
                                       Text(
-                                        'SALDO DISPONIBLE',
+                                        isCreditCard ? 'CUPO TOTAL' : 'SALDO DISPONIBLE',
                                         style: TextStyle(
                                           color: Colors.white.withOpacity(0.6),
                                           fontSize: 11,
@@ -809,6 +978,39 @@ class _MyHomePageState extends State<MyHomePage> {
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
+                                      if (!account.includeInTotal) ...[
+                                        SizedBox(width: 8),
+                                        Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFE74C3C).withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: const Color(0xFFE74C3C).withOpacity(0.2),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.visibility_off,
+                                                color: const Color(0xFFE74C3C).withOpacity(0.9),
+                                                size: 10,
+                                              ),
+                                              SizedBox(width: 3),
+                                              Text(
+                                                'No incluida',
+                                                style: TextStyle(
+                                                  color: const Color(0xFFE74C3C).withOpacity(0.9),
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                   SizedBox(height: 12),
@@ -841,42 +1043,78 @@ class _MyHomePageState extends State<MyHomePage> {
                                           ],
                                         ),
                                       ),
-                                      if (!account.includeInTotal)
-                                        Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFE74C3C).withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(20),
-                                            border: Border.all(
-                                              color: const Color(0xFFE74C3C).withOpacity(0.2),
-                                              width: 1,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.visibility_off,
-                                                color: const Color(0xFFE74C3C).withOpacity(0.9),
-                                                size: 12,
-                                              ),
-                                              SizedBox(width: 4),
-                                              Text(
-                                                'No incluida',
-                                                style: TextStyle(
-                                                  color: const Color(0xFFE74C3C).withOpacity(0.9),
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
                                     ],
                                   ),
                                 ],
                               ),
                             ),
+                            
+                            if (isCreditCard) ...[
+                              SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  if (account.cutoffDay != null)
+                                  Expanded(
+                                    child: Container(
+                                      padding: EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.05),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Text('Día Corte', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                          SizedBox(height: 4),
+                                          Text('${account.cutoffDay}', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  if (account.cutoffDay != null) SizedBox(width: 8),
+                                  
+                                  if (account.paymentDay != null)
+                                  Expanded(
+                                    child: Container(
+                                      padding: EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.05),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Text('Día Pago', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                          SizedBox(height: 4),
+                                          Text('${account.paymentDay}', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  if (account.paymentDay != null) SizedBox(width: 8),
+
+                                  if (account.interestRate != null)
+                                  Expanded(
+                                    child: Container(
+                                      padding: EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.05),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Text('Tasa', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                          SizedBox(height: 4),
+                                          Text('${account.interestRate}%', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -960,6 +1198,139 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         );
       },
+    );
+  }
+
+  // Mostrar opciones de ordenamiento
+  void _showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF222939),
+              const Color(0xFF1A1F2B),
+            ],
+          ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        padding: EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Ordenar cuentas',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 20),
+            _buildSortOption(
+              icon: Icons.arrow_upward,
+              label: 'Saldo Ascendente',
+              value: 'balanceAsc',
+            ),
+            _buildSortOption(
+              icon: Icons.arrow_downward,
+              label: 'Saldo Descendente',
+              value: 'balanceDesc',
+            ),
+            _buildSortOption(
+              icon: Icons.access_time,
+              label: 'Fecha de Creación',
+              value: 'creation',
+            ),
+            _buildSortOption(
+              icon: Icons.sort_by_alpha,
+              label: 'Título (A-Z)',
+              value: 'title',
+            ),
+            _buildSortOption(
+              icon: Icons.tune,
+              label: 'Personalizado',
+              value: 'custom',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Opción de ordenamiento en el bottom sheet
+  Widget _buildSortOption({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    final bool isSelected = _currentSortMode == value;
+    
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        _changeSortMode(value);
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? const Color(0xFF3498DB).withOpacity(0.15)
+              : Colors.black.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF3498DB).withOpacity(0.5)
+                : Colors.white.withOpacity(0.05),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF3498DB).withOpacity(0.2)
+                    : Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? const Color(0xFF3498DB) : Colors.white70,
+                size: 20,
+              ),
+            ),
+            SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.white70,
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: const Color(0xFF3498DB),
+                size: 22,
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1227,8 +1598,4 @@ class _MyHomePageState extends State<MyHomePage> {
       },
     );
   }
-}
-
-void main() {
-  runApp(MyApp());
 }

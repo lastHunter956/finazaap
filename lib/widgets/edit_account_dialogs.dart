@@ -11,10 +11,35 @@ import 'package:finazaap/widgets/account_dialogs.dart';
 Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) async {
   IconData selectedIcon = item.icon;
   TextEditingController titleController = TextEditingController(text: item.title);
-  TextEditingController subtitleController = TextEditingController(text: item.subtitle);
+  // TextEditingController subtitleController = TextEditingController(text: item.subtitle); // Removed
   TextEditingController balanceController = TextEditingController(text: item.balance);
+  
+  // Initialize Credit Card controllers
+  TextEditingController cutoffController = TextEditingController(text: item.cutoffDay?.toString() ?? '');
+  TextEditingController paymentController = TextEditingController(text: item.paymentDay?.toString() ?? '');
+  TextEditingController interestController = TextEditingController(text: item.interestRate?.toString() ?? '');
+
   Color iconColor = item.iconColor;
   bool includeInTotal = item.includeInTotal;
+
+  // Lista predefinida de tipos de cuenta
+  final List<String> accountTypes = [
+    "Cuenta de Ahorros",
+    "Cuenta Corriente",
+    "Cuenta Nómina",
+    "Cuenta Digital/Online",
+    "Cuenta Joven/Infantil",
+    "Cuenta a Plazo Fijo",
+    "Cuenta AFC (Ahorro para la Vivienda)",
+    "Tarjeta de Débito",
+    "Tarjeta de Crédito"
+  ];
+
+  // Try to find the existing type in the list, otherwise default to first.
+  String selectedAccountType = accountTypes.contains(item.subtitle)
+      ? item.subtitle
+      : accountTypes[0];
+
 
   return showDialog<dynamic>(
     context: context,
@@ -22,6 +47,9 @@ Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) as
     builder: (context) {
       return StatefulBuilder(
         builder: (BuildContext context, StateSetter setState) {
+          
+          bool isCreditCard = selectedAccountType == "Tarjeta de Crédito";
+
           return BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Dialog(
@@ -50,7 +78,7 @@ Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) as
                   ],
                   border: Border.all(
                     color: Colors.white.withOpacity(0.08),
-                    width: 1,
+                     width: 1,
                   ),
                 ),
                 child: ClipRRect(
@@ -168,7 +196,7 @@ Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) as
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      buildInputLabel('Saldo actual'),
+                                      buildInputLabel(isCreditCard ? 'Cupo total' : 'Saldo actual'),
                                       Container(
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
@@ -216,7 +244,7 @@ Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) as
                                             prefixIcon: Padding(
                                               padding: const EdgeInsets.only(left: 14, right: 8),
                                               child: Icon(
-                                                Icons.monetization_on_outlined,
+                                                isCreditCard ? Icons.credit_card : Icons.monetization_on_outlined,
                                                 color: iconColor,
                                                 size: 22,
                                               ),
@@ -237,7 +265,7 @@ Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) as
                                 ),
                                 const SizedBox(width: 12),
                                 
-                                // Columna del Tipo de cuenta
+                                // Columna del Tipo de cuenta - AHORA DROPDOWN
                                 Expanded(
                                   flex: 2,
                                   child: Column(
@@ -245,8 +273,9 @@ Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) as
                                     children: [
                                       buildInputLabel('Tipo'),
                                       Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
                                         decoration: BoxDecoration(
-                                          gradient: LinearGradient(
+                                           gradient: LinearGradient(
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                             colors: [
@@ -268,30 +297,37 @@ Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) as
                                             width: 1,
                                           ),
                                         ),
-                                        child: TextField(
-                                          controller: subtitleController,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.normal,
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText: 'Ej: Corriente',
-                                            hintStyle: TextStyle(
-                                              color: Colors.white.withOpacity(0.3),
-                                              fontSize: 15,
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            value: selectedAccountType,
+                                            isExpanded: true,
+                                            icon: Icon(
+                                              Icons.keyboard_arrow_down_rounded,
+                                              color: iconColor.withOpacity(0.7),
                                             ),
-                                            border: InputBorder.none,
-                                            // Icono simplificado sin container
-                                            prefixIcon: Padding(
-                                              padding: const EdgeInsets.only(left: 14, right: 8),
-                                              child: Icon(
-                                                Icons.account_balance_outlined,
-                                                color: iconColor,
-                                                size: 22,
-                                              ),
+                                            dropdownColor: const Color(0xFF2A3143),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14, 
                                             ),
-                                            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+                                            items: accountTypes.map((String type) {
+                                              return DropdownMenuItem<String>(
+                                                value: type,
+                                                child: Text(
+                                                  type,
+                                                  maxLines: 2, // Permitir 2 líneas para textos largos
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(fontSize: 13), // Texto ligeramente más pequeño
+                                                ),
+                                              );
+                                            }).toList(),
+                                            onChanged: (String? newValue) {
+                                              if (newValue != null) {
+                                                setState(() {
+                                                  selectedAccountType = newValue;
+                                                });
+                                              }
+                                            },
                                           ),
                                         ),
                                       ),
@@ -300,6 +336,104 @@ Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) as
                                 ),
                               ],
                             ),
+                            
+                            // Logic SPECIFIC for Credit Card in Edit
+                              if (isCreditCard) ...[
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          buildInputLabel('Día de Corte'),
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF1A1F2B).withOpacity(0.9),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                                            ),
+                                            child: TextField(
+                                              controller: cutoffController,
+                                              keyboardType: TextInputType.number,
+                                              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(2)],
+                                              style: const TextStyle(color: Colors.white, fontSize: 15),
+                                              decoration: InputDecoration(
+                                                hintText: '1-31',
+                                                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                                border: InputBorder.none,
+                                                prefixIcon: Icon(Icons.calendar_today, color: iconColor.withOpacity(0.6), size: 18),
+                                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          buildInputLabel('Día de Pago'),
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF1A1F2B).withOpacity(0.9),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                                            ),
+                                            child: TextField(
+                                              controller: paymentController,
+                                              keyboardType: TextInputType.number,
+                                              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(2)],
+                                              style: const TextStyle(color: Colors.white, fontSize: 15),
+                                              decoration: InputDecoration(
+                                                hintText: '1-31',
+                                                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                                border: InputBorder.none,
+                                                prefixIcon: Icon(Icons.payment, color: iconColor.withOpacity(0.6), size: 18),
+                                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          buildInputLabel('% Mensual'),
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF1A1F2B).withOpacity(0.9),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                                            ),
+                                            child: TextField(
+                                              controller: interestController,
+                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                                              ],
+                                              style: const TextStyle(color: Colors.white, fontSize: 15),
+                                              decoration: InputDecoration(
+                                                hintText: '2.5',
+                                                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                                border: InputBorder.none,
+                                                prefixIcon: Icon(Icons.percent, color: iconColor.withOpacity(0.6), size: 18),
+                                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+
                             const SizedBox(height: 24),
 
                             // Selector de icono y color
@@ -393,8 +527,7 @@ Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) as
                             ),
                             const SizedBox(height: 16),
 
-                            // Opción de incluir en total con diseño refinado
-                            const SizedBox(height: 16),
+                            // Opción de incluir en total (Ahora también disponible para tarjetas de crédito)
                             Container(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
@@ -506,12 +639,18 @@ Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) as
                                 onPressed: () {
                                   if (titleController.text.isNotEmpty) {
                                     Navigator.of(context).pop(AccountItem(
+                                      id: item.id, // Keep existing ID
                                       icon: selectedIcon,
                                       title: titleController.text,
-                                      subtitle: subtitleController.text,
+                                      subtitle: selectedAccountType, // Usar el valor del Dropdown
                                       balance: balanceController.text.isEmpty ? "0" : balanceController.text,
                                       iconColor: iconColor,
                                       includeInTotal: includeInTotal,
+                                      // Campos opcionales para TC
+                                      creditLimit: isCreditCard ? balanceController.text : null,
+                                      cutoffDay: isCreditCard && cutoffController.text.isNotEmpty ? int.tryParse(cutoffController.text) : null,
+                                      paymentDay: isCreditCard && paymentController.text.isNotEmpty ? int.tryParse(paymentController.text) : null,
+                                      interestRate: isCreditCard && interestController.text.isNotEmpty ? double.tryParse(interestController.text) : null,
                                     ));
                                   } else {
                                     // Mostrar error

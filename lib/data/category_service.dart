@@ -300,4 +300,113 @@ class CategoryService {
       return result;
     }
   }
+
+
+  // ==========================================
+  // NUEVOS MÉTODOS PARA CATEGORÍAS PREMIUM
+  // ==========================================
+
+  // Obtener lista completa de categorías con metadatos (nombre, icono, color)
+  static Future<List<Map<String, dynamic>>> getCategoriesWithMetadata(String type) async {
+    final prefs = await SharedPreferences.getInstance();
+    // 'ingresos' para Income, 'gastos' para Expenses (según lógica existente en _syncCategoriesToUI)
+    final key = type == 'Income' ? 'ingresos' : 'gastos'; 
+    
+    List<String>? dataList = prefs.getStringList(key);
+    if (dataList == null) {
+      // Si no existe, intentar sincronizar primero
+      await _syncCategoriesToUI(prefs);
+      dataList = prefs.getStringList(key) ?? [];
+    }
+
+    // Decodificar JSONs
+    final List<Map<String, dynamic>> categories = dataList.map((item) {
+      return json.decode(item) as Map<String, dynamic>;
+    }).toList();
+
+    // Filtrar eliminadas
+    final deleted = await getDeletedCategories(type);
+    return categories.where((cat) => !deleted.contains(cat['text'])).toList();
+  }
+
+  // Guardar nueva categoría con icono y color
+  static Future<void> addCategoryWithMetadata(String type, String name, int iconCode, int colorValue) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonKey = type == 'Income' ? 'ingresos' : 'gastos';
+    final listKey = type == 'Income' ? incomeCategoriesKey : expenseCategoriesKey;
+
+    // 1. Guardar en la lista simple (para compatibilidad)
+    final currentList = prefs.getStringList(listKey) ?? [];
+    if (!currentList.contains(name)) {
+      currentList.add(name);
+      await prefs.setStringList(listKey, currentList);
+    }
+
+    // 2. Guardar en la lista rica (JSON)
+    final jsonListStrings = prefs.getStringList(jsonKey) ?? [];
+    final jsonList = jsonListStrings.map((s) => json.decode(s) as Map<String, dynamic>).toList();
+
+    // Verificar si ya existe para evitar duplicados
+    final existingIndex = jsonList.indexWhere((item) => item['text'] == name);
+    
+    final newCategoryData = {
+      'text': name,
+      'icon': iconCode,
+      'color': colorValue,
+    };
+
+    if (existingIndex >= 0) {
+      jsonList[existingIndex] = newCategoryData; // Actualizar si existe
+    } else {
+      jsonList.add(newCategoryData); // Agregar si es nuevo
+    }
+
+    await prefs.setStringList(jsonKey, jsonList.map((m) => json.encode(m)).toList());
+    debugPrint('✅ Categoría Premium guardada: $name');
+  }
+
+  // Editar categoría existente (nombre, icono, color)
+  static Future<void> editCategoryWithMetadata(
+    String type, 
+    String oldName, 
+    String newName, 
+    int iconCode, 
+    int colorValue
+  ) async {
+    // 1. Actualizar nombre en lista simple y transacciones (usando lógica existente)
+    // Solo si el nombre cambió, para no disparar updates innecesarios
+    if (oldName != newName) {
+      await editCategory(type, oldName, newName); 
+    }
+
+    // 2. Actualizar metadatos en lista rica
+    final prefs = await SharedPreferences.getInstance();
+    final jsonKey = type == 'Income' ? 'ingresos' : 'gastos';
+    
+    final jsonListStrings = prefs.getStringList(jsonKey) ?? [];
+    final jsonList = jsonListStrings.map((s) => json.decode(s) as Map<String, dynamic>).toList();
+
+    final index = jsonList.indexWhere((item) => item['text'] == (oldName == newName ? oldName : oldName));
+    
+    // Si cambiamos el nombre en el paso 1, en la lista simple ya se actualizó, 
+    // pero la lista rica podría estar desincronizada si editCategory no la toca directamente.
+    // Asumiremos que editCategory NO toca 'ingresos'/'gastos' keys directamente excepto por sync.
+    // Buscamos por oldName.
+    
+    final newItem = {
+      'text': newName,
+      'icon': iconCode,
+      'color': colorValue,
+    };
+
+    if (index >= 0) {
+      jsonList[index] = newItem;
+    } else {
+      // Si no se encontró por alguna razón, agregarlo
+      jsonList.add(newItem);
+    }
+
+    await prefs.setStringList(jsonKey, jsonList.map((m) => json.encode(m)).toList());
+    debugPrint('✅ Categoría Premium editada: $oldName -> $newName');
+  }
 }

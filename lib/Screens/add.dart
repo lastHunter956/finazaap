@@ -9,6 +9,7 @@ import 'package:flutter/services.dart'; // Para FilteringTextInputFormatter
 import 'dart:collection';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/account_service.dart';
+import 'package:finazaap/utils/app_icons.dart';
 
 // Modelo de cuenta adaptado para recibir datos desde selecctaccount.dart
 class AccountItem {
@@ -45,7 +46,7 @@ class AccountItem {
       balance: balanceValue,
       // Agregar campos opcionales si están presentes
       icon: json['icon'] != null
-          ? IconData(json['icon'], fontFamily: 'MaterialIcons')
+          ? AppIcons.getIcon(json['icon'])
           : null,
       subtitle: json['subtitle'],
       iconColor: json['iconColor'] != null ? Color(json['iconColor']) : null,
@@ -74,6 +75,12 @@ class Add_Screen extends StatefulWidget {
 class _Add_ScreenState extends State<Add_Screen> {
   final box = Hive.box<Add_data>('data');
 
+  // ========= CONSTANTES DE DISEÑO =========
+  final Color primaryColor = const Color(0xFF368983);
+  final Color surfaceColor = const Color(0xFF222939);
+  final Color cardColor = const Color(0xFF1A1F2B);
+  final double cornerRadius = 20.0;
+
   // ========= CONTROLADORES DE TEXTO =========
   final TextEditingController _amountCtrl = TextEditingController(); // Monto
   final TextEditingController _detailCtrl =
@@ -81,7 +88,7 @@ class _Add_ScreenState extends State<Add_Screen> {
 
   // ========= LISTAS DE DATOS =========
   List<AccountItem> _accountItems = []; // Para “Cuenta”
-  List<String> _categories = []; // Para “Categoría”
+  List<Map<String, dynamic>> _categories = []; // Para “Categoría” con metadatos
 
   // ========= SELECCIONES DEL USUARIO =========
   AccountItem? _selectedAccount;
@@ -179,48 +186,42 @@ class _Add_ScreenState extends State<Add_Screen> {
 // (hacer lo mismo en add_expense.dart cambiando 'Income' por 'Expenses')
 
   Future<void> _loadCategoriesFromPrefs() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      // Obtener categorías con metadatos (iconos y colores)
+      final String type = 'Income';
+      List<Map<String, dynamic>> activeCategories = await CategoryService.getCategoriesWithMetadata(type);
+      final deletedCategories = await CategoryService.getDeletedCategories(type);
 
-    // Obtener categorías activas y eliminadas
-    final String type = 'Income'; // Usar 'Expenses' en add_expense.dart
-    List<String> activeCategories = await CategoryService.getCategories(type);
-    List<String> deletedCategories = await CategoryService.getDeletedCategories(type);
+      debugPrint('📊 Categorías activas: ${activeCategories.length}');
 
-    debugPrint('📊 Categorías activas: ${activeCategories.length}, eliminadas: ${deletedCategories.length}');
-
-    // Ordenar alfabéticamente
-    activeCategories.sort((a, b) => a.compareTo(b));
-    
-    // CORRECCIÓN: Usar el resultado filtrado, no la lista original
-    List<String> categoriasFiltradas = activeCategories
-        .where((categoria) => !deletedCategories.contains(categoria))
-        .toList();
-    
-    setState(() {
-      // Usar la lista FILTRADA
-      _categories = categoriasFiltradas;
+      // Filtrar categorías eliminadas
+      List<Map<String, dynamic>> categoriasFiltradas = activeCategories
+          .where((cat) => !deletedCategories.contains(cat['text']))
+          .toList();
       
-      // Si estamos editando, verificar si la categoría seleccionada existe
-      if (widget.isEditing && widget.transaction != null) {
-        final transactionCategory = widget.transaction!.explain;
+      setState(() {
+        _categories = categoriasFiltradas;
         
-        // NUEVO: Si la categoría fue eliminada, deseleccionarla
-        if (deletedCategories.contains(transactionCategory)) {
-          _selectedCategory = null; // Forzar al usuario a seleccionar otra
-        } else if (categoriasFiltradas.contains(transactionCategory)) {
-          _selectedCategory = transactionCategory;
-        } else {
-          _selectedCategory = null;
+        // Si estamos editando, verificar si la categoría seleccionada existe
+        if (widget.isEditing && widget.transaction != null) {
+          final transactionCategory = widget.transaction!.explain;
+          
+          // Verificar si existe en la lista filtrada
+          final exists = categoriasFiltradas.any((cat) => cat['text'] == transactionCategory);
+          
+          if (deletedCategories.contains(transactionCategory)) {
+            _selectedCategory = null; 
+          } else if (exists) {
+            _selectedCategory = transactionCategory;
+          } else {
+            _selectedCategory = null;
+          }
         }
-      }
-    });
-
-    _debugCategories();
-  } catch (e) {
-    debugPrint('❌ Error al cargar categorías: $e');
+      });
+    } catch (e) {
+      debugPrint('❌ Error al cargar categorías: $e');
+    }
   }
-}
 
   // Método para depuración
   void _debugCategories() {
@@ -498,19 +499,8 @@ class _Add_ScreenState extends State<Add_Screen> {
     const double cornerRadius = 20.0;
 
     // Asegurarse de que _selectedCategory exista en _categories
-    if (_selectedCategory != null && !_categories.contains(_selectedCategory)) {
-      debugPrint('⚠️ Categoría seleccionada no encontrada: $_selectedCategory');
-      debugPrint('⚠️ Añadiendo temporalmente a la lista para evitar error');
-
-      // Añadir la categoría temporalmente a la lista
-      setState(() {
-        _categories.add(_selectedCategory!);
-      });
-
-      // NO guardar permanentemente si es una categoría eliminada
-      // Solo la añadimos temporalmente para esta edición
-    }
-
+    // NOTA: Esta lógica se movió a _loadCategoriesFromPrefs para evitar setState en build
+    
     return Scaffold(
       backgroundColor: const Color(0xFF1F2639),
       appBar: AppBar(
@@ -582,7 +572,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                               color: primaryColor.withOpacity(0.2),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.arrow_upward_rounded,
                               color: primaryColor,
                               size: 24,
@@ -645,7 +635,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                                   color: Colors.white.withOpacity(0.3),
                                 ),
                                 border: InputBorder.none,
-                                prefixIcon: const Icon(
+                                prefixIcon: Icon(
                                   Icons.attach_money_rounded,
                                   color: primaryColor,
                                 ),
@@ -775,34 +765,35 @@ class _Add_ScreenState extends State<Add_Screen> {
                                             });
                                           },
                                           items: _categories.map((category) {
+                                            // Extraer datos del mapa
+                                            final String categoryName = category['text'];
+                                            final int iconCode = category['icon'];
+                                            final int colorValue = category['color'];
+                                            final Color categoryColor = Color(colorValue);
+
                                             return DropdownMenuItem<String>(
-                                              value: category,
+                                              value: categoryName,
                                               child: Row(
                                                 children: [
                                                   Container(
-                                                    padding:
-                                                        const EdgeInsets.all(6),
+                                                    padding: const EdgeInsets.all(6),
                                                     decoration: BoxDecoration(
-                                                      color: primaryColor
-                                                          .withOpacity(0.2),
+                                                      color: categoryColor.withOpacity(0.2),
                                                       shape: BoxShape.circle,
                                                     ),
                                                     child: Icon(
-                                                      _getCategoryIcon(
-                                                          category),
-                                                      color: primaryColor,
+                                                      AppIcons.getIcon(iconCode),
+                                                      color: categoryColor,
                                                       size: 14,
                                                     ),
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Flexible(
                                                     child: Text(
-                                                      category,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
+                                                      categoryName,
+                                                      overflow: TextOverflow.ellipsis,
                                                       style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w500,
+                                                        fontWeight: FontWeight.w500,
                                                         fontSize: 14,
                                                       ),
                                                     ),
@@ -846,7 +837,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                                                 Colors.white.withOpacity(0.3),
                                           ),
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(
+                                          prefixIcon: Icon(
                                             Icons.description_outlined,
                                             color: primaryColor,
                                             size: 18,
@@ -879,7 +870,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                                               vertical: 11),
                                           child: Row(
                                             children: [
-                                              const Icon(
+                                              Icon(
                                                 Icons.calendar_today_rounded,
                                                 color: primaryColor,
                                                 size: 18,
@@ -1081,10 +1072,11 @@ class _Add_ScreenState extends State<Add_Screen> {
           _selectedCategory = value;
         });
       },
-      items: _categories.map((cat) {
+      items: _categories.map((catMap) {
+        final String name = catMap['text'];
         return DropdownMenuItem<String>(
-          value: cat,
-          child: Text(cat),
+          value: name,
+          child: Text(name),
         );
       }).toList(),
     );
@@ -1100,28 +1092,19 @@ class _Add_ScreenState extends State<Add_Screen> {
 
   // Método auxiliar para obtener el código de icono
   int _getCategoryIconCode(String categoryName) {
-    // Mapa de categorías de ingresos a iconos
-    final Map<String, int> categoryIcons = {
-      'salario': Icons.work.codePoint,
-      'inversiones': Icons.trending_up.codePoint,
-      'devoluciones': Icons.replay.codePoint,
-      'regalos': Icons.card_giftcard.codePoint,
-      'premios': Icons.emoji_events.codePoint,
-      'ventas': Icons.monetization_on.codePoint,
-      'intereses': Icons.account_balance.codePoint,
-      'otros': Icons.add_box.codePoint,
-      // Agregar también las categorías de gastos para tener todo en un solo lugar
-      'comida': Icons.restaurant.codePoint,
-      'transporte': Icons.directions_car.codePoint,
-      'entretenimiento': Icons.movie.codePoint,
-      'servicios': Icons.build.codePoint,
-    };
-
-    // Convertir a minúsculas para evitar problemas de coincidencia
-    final normalizedCategory = categoryName.toLowerCase();
-
-    // Devolver el icono correspondiente o un icono predeterminado
-    return categoryIcons[normalizedCategory] ?? Icons.attach_money.codePoint;
+    try {
+      final category = _categories.firstWhere(
+        (cat) => cat['text'] == categoryName,
+        orElse: () => {},
+      );
+      
+      if (category.isNotEmpty && category['icon'] != null) {
+        return category['icon'];
+      }
+    } catch (e) {
+      debugPrint('Error getting icon code: $e');
+    }
+    return Icons.attach_money.codePoint; // Default
   }
 }
 

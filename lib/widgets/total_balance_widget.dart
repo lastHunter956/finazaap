@@ -698,48 +698,54 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
               const SizedBox(height: 16),
 
               // FILA DE BOTONES: Gestionar cuentas y Fecha (selector de mes/año)
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: widget.onManageAccounts,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1F2639),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
+              Scrollbar(
+                thumbVisibility: false,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: widget.onManageAccounts,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1F2639),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          'Gestionar cuentas',
+                          style: TextStyle(fontSize: 14, color: Colors.white),
+                        ),
                       ),
-                    ),
-                    icon: const Icon(
-                      Icons.account_balance_wallet_outlined,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                    label: const Text(
-                      'Gestionar cuentas',
-                      style: TextStyle(fontSize: 14, color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: _showMonthYearSelector,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1F2639),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _showMonthYearSelector,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1F2639),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.calendar_month,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        label: Text(
+                          _selectedMonthYear,
+                          style: const TextStyle(fontSize: 14, color: Colors.white),
+                        ),
                       ),
-                    ),
-                    icon: const Icon(
-                      Icons.calendar_month,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                    label: Text(
-                      _selectedMonthYear,
-                      style: const TextStyle(fontSize: 14, color: Colors.white),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 16),
 
