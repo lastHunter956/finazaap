@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:finazaap/providers/pin_provider.dart';
 import 'package:finazaap/screens/pin_code_screen.dart';
+import 'package:finazaap/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 
@@ -13,8 +14,12 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final PinProvider _pinProvider = PinProvider();
+  final NotificationService _notificationService = NotificationService();
   bool _isLoading = true;
   bool _pinEnabled = false;
+  bool _biometricEnabled = false;
+  bool _biometricAvailable = false;
+  bool _notificationsEnabled = false;
   String _selectedCurrency = 'COP';
   
   // Lista de divisas disponibles
@@ -39,8 +44,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // Check biometric availability
+    await _pinProvider.checkBiometricAvailability();
+    
     setState(() {
       _pinEnabled = prefs.getBool('pin_enabled') ?? false;
+      _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+      _biometricAvailable = _pinProvider.isBiometricAvailable;
+      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
       _selectedCurrency = prefs.getString('default_currency') ?? 'COP';
       _isLoading = false;
     });
@@ -220,8 +232,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           trailing: const Icon(Icons.chevron_right, color: Colors.white),
                           onTap: _changePin,
                         ),
+                        // Biometric toggle (only if available)
+                        if (_biometricAvailable) ...[
+                          const Divider(height: 1, color: Colors.white12),
+                          SwitchListTile(
+                            title: const Text('Desbloqueo Biométrico', style: TextStyle(color: Colors.white)),
+                            subtitle: const Text(
+                              'Usar huella o Face ID para desbloquear',
+                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                            value: _biometricEnabled,
+                            activeColor: const Color.fromARGB(255, 82, 226, 255),
+                            onChanged: (value) async {
+                              await _pinProvider.setBiometricEnabled(value);
+                              setState(() {
+                                _biometricEnabled = value;
+                              });
+                              if (mounted) {
+                                AlertHelper.success(
+                                  context,
+                                  value
+                                    ? 'Desbloqueo biométrico activado'
+                                    : 'Desbloqueo biométrico desactivado'
+                                );
+                              }
+                            },
+                          ),
+                        ],
                       ],
                     ],
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // ═══════════════════════════════════════════════════════════════
+                // SECCIÓN: NOTIFICACIONES
+                // ═══════════════════════════════════════════════════════════════
+                const Text(
+                  'Notificaciones',
+                  style: TextStyle(
+                    color: Color.fromARGB(255, 82, 226, 255),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color.fromRGBO(42, 49, 67, 1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: SwitchListTile(
+                    title: const Text('Recordatorios de Pagos', style: TextStyle(color: Colors.white)),
+                    subtitle: const Text(
+                      'Notificar un día antes y el mismo día de vencimiento',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    value: _notificationsEnabled,
+                    activeColor: const Color.fromARGB(255, 82, 226, 255),
+                    onChanged: (value) async {
+                      setState(() {
+                        _notificationsEnabled = value;
+                      });
+                      await _notificationService.setEnabled(value);
+                      if (mounted) {
+                        AlertHelper.success(
+                          context, 
+                          value 
+                            ? 'Recordatorios activados' 
+                            : 'Recordatorios desactivados'
+                        );
+                      }
+                    },
                   ),
                 ),
               ],

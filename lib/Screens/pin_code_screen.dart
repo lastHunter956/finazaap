@@ -20,18 +20,23 @@ class PinCodeScreen extends StatefulWidget {
   State<PinCodeScreen> createState() => _PinCodeScreenState();
 }
 
-class _PinCodeScreenState extends State<PinCodeScreen> {
+class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProviderStateMixin {
   String _currentPin = '';
-  String _tempPin = ''; // Used for setup (confirm step)
+  String _tempPin = ''; 
   String _title = 'Ingrese su PIN';
   bool _isConfirming = false;
   String? _errorMessage;
   final PinProvider _pinProvider = PinProvider();
-
+  
   @override
   void initState() {
     super.initState();
     _updateTitle();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   void _updateTitle() {
@@ -48,9 +53,18 @@ class _PinCodeScreenState extends State<PinCodeScreen> {
 
   void _onDigitPress(String digit) {
     if (_currentPin.length < 4) {
+      HapticFeedback.selectionClick();
       setState(() {
         _currentPin += digit;
-        _errorMessage = null;
+      });
+      
+      // Clear error after frame to avoid setState during build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _errorMessage != null) {
+          setState(() {
+            _errorMessage = null;
+          });
+        }
       });
 
       if (_currentPin.length == 4) {
@@ -61,16 +75,23 @@ class _PinCodeScreenState extends State<PinCodeScreen> {
 
   void _onDeletePress() {
     if (_currentPin.isNotEmpty) {
+      HapticFeedback.lightImpact();
       setState(() {
         _currentPin = _currentPin.substring(0, _currentPin.length - 1);
-        _errorMessage = null;
+      });
+      // Clear error after frame to avoid setState during build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _errorMessage != null) {
+          setState(() {
+            _errorMessage = null;
+          });
+        }
       });
     }
   }
 
   Future<void> _handlePinSubmit() async {
     final enteredPin = _currentPin;
-    // Small delay for UX
     await Future.delayed(const Duration(milliseconds: 200));
 
     try {
@@ -88,6 +109,7 @@ class _PinCodeScreenState extends State<PinCodeScreen> {
             _callOnSuccess(context);
           } else {
              _showError('Los PINs no coinciden. Intente de nuevo.');
+             _shakeError();
              setState(() {
                _isConfirming = false;
                _tempPin = '';
@@ -97,11 +119,9 @@ class _PinCodeScreenState extends State<PinCodeScreen> {
           }
         }
       } else {
-        // Verify mode (or first step of change)
         final isValid = await _pinProvider.verifyPin(enteredPin);
         if (isValid) {
           if (widget.mode == PinMode.change) {
-             // Now setup the new pin
              Navigator.pushReplacement(
                context, 
                MaterialPageRoute(builder: (_) => PinCodeScreen(
@@ -150,128 +170,362 @@ class _PinCodeScreenState extends State<PinCodeScreen> {
   
   void _shakeError() {
     HapticFeedback.heavyImpact();
-    // Animation could go here
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: widget.onCancel != null ? IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: widget.onCancel,
-        ) : null,
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 20),
-                      const Icon(Icons.lock_outline, size: 60, color: Color.fromARGB(255, 82, 226, 255)),
-                      const SizedBox(height: 30),
-                      Text(
-                        _title,
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(4, (index) {
-                          return Container(
-                            margin: const EdgeInsets.all(8),
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: index < _currentPin.length ? const Color.fromARGB(255, 82, 226, 255) : Colors.white24,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF1A2036),
+              Color(0xFF0D1321),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final h = constraints.maxHeight;
+              final isSmall = h < 600;
+
+              return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildHeader(),
+                            
+                            SizedBox(height: isSmall ? 20 : 40),
+
+                            // 2. Lock & PIN Section
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildLockIcon(isSmall),
+                                SizedBox(height: isSmall ? 16 : 24),
+                                Text(
+                                  _title,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  widget.mode == PinMode.setup 
+                                    ? 'Crea un código de 4 dígitos'
+                                    : 'Ingresa tu código de acceso',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.white.withOpacity(0.4),
+                                  ),
+                                ),
+                                SizedBox(height: isSmall ? 24 : 32),
+                                _buildPinDots(isSmall),
+                              ],
                             ),
-                          );
-                        }),
-                      ),
-                       if (_errorMessage != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 20),
-                          child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)),
+
+                            SizedBox(height: isSmall ? 8 : 12),
+
+                            // 3. Error Section
+                            SizedBox(
+                              height: 48,
+                              child: Center(
+                                child: _errorMessage != null ? _buildErrorState() : null,
+                              ),
+                            ),
+
+                            // 4. Keypad
+                            SizedBox(
+                              height: h * 0.42, // Re-added fixed height to prevent crash
+                              child: Padding(
+                                padding: EdgeInsets.only(bottom: isSmall ? 10 : 20),
+                                child: _buildPremiumKeypad(isSmall),
+                              ),
+                            ),
+                          ],
                         ),
-                      const Spacer(),
-                      _buildKeypad(),
-                      const SizedBox(height: 20),
-                    ],
+                    ),
                   ),
+                );
+              },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLockIcon(bool isSmallScreen) {
+    final double size = isSmallScreen ? 70 : 90;
+    
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: size + 20,
+          height: size + 20,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF4A90F7).withOpacity(0.15),
+                blurRadius: 40,
+                spreadRadius: 20,
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF4A90F7).withOpacity(0.15),
+                const Color(0xFF4A90F7).withOpacity(0.05),
+              ],
+            ),
+            border: Border.all(
+              color: const Color(0xFF4A90F7).withOpacity(0.3),
+              width: 1.5,
+            ),
+          ),
+          child: Icon(
+            Icons.lock_rounded,
+            size: size * 0.45,
+            color: const Color(0xFF4A90F7),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPinDots(bool isSmallScreen) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(4, (index) {
+        bool isFilled = index < _currentPin.length;
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 10),
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isFilled ? const Color(0xFF4A90F7) : Colors.transparent,
+            border: Border.all(
+              color: isFilled 
+                ? const Color(0xFF4A90F7)
+                : Colors.white.withOpacity(0.2),
+              width: isFilled ? 0 : 2,
+            ),
+            boxShadow: isFilled ? [
+              const BoxShadow(
+                color: Color(0x804A90F7),
+                blurRadius: 10, 
+                spreadRadius: 2,
+              ),
+            ] : const [],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          if (widget.onCancel != null)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                onPressed: widget.onCancel,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildErrorState() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 40),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 18),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.redAccent,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPremiumKeypad(bool isSmallScreen) {
+    // Calculate button size based on available space
+    // We have 4 rows. 
+    // Max button size limited by width (3 columns) or height (4 rows)
+    
+    return Column(
+      children: [
+        Expanded(child: _buildKeyRow(['1', '2', '3'])),
+        Expanded(child: _buildKeyRow(['4', '5', '6'])),
+        Expanded(child: _buildKeyRow(['7', '8', '9'])),
+        Expanded(
+          child: Row(
+            children: [
+              // Fingerprint button
+              Expanded(
+                child: widget.mode == PinMode.verify && _pinProvider.isBiometricEnabled
+                  ? _buildBiometricKey()
+                  : Container(),
+              ),
+              Expanded(child: _buildPremiumKey('0')),
+              Expanded(child: _buildPremiumKey('del', icon: Icons.backspace_outlined)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBiometricKey() {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            final success = await _pinProvider.authenticateWithBiometrics();
+            if (success && mounted) {
+              _callOnSuccess(context);
+            }
+          },
+          borderRadius: BorderRadius.circular(50),
+          splashColor: const Color(0xFF50C878).withOpacity(0.15),
+          highlightColor: const Color(0xFF50C878).withOpacity(0.08),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF50C878).withOpacity(0.1),
+                border: Border.all(
+                  color: const Color(0xFF50C878).withOpacity(0.3),
+                  width: 1,
                 ),
               ),
-            );
-          }
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.fingerprint_rounded,
+                color: const Color(0xFF50C878),
+                size: 28,
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildKeypad() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Column(
-        children: [
-          _buildRow('1', '2', '3'),
-          _buildRow('4', '5', '6'),
-          _buildRow('7', '8', '9'),
-          _buildRow('', '0', 'del'),
-        ],
-      ),
+  Widget _buildKeyRow(List<String> keys) {
+    return Row(
+      children: keys.map((k) => Expanded(child: _buildPremiumKey(k))).toList(),
     );
   }
 
-  Widget _buildRow(String a, String b, String c) {
+  Widget _buildPremiumKey(String val, {IconData? icon}) {
+    bool isDel = val == 'del';
+    
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildKey(a),
-          _buildKey(b),
-          _buildKey(c),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildKey(String val) {
-    if (val.isEmpty) return const SizedBox(width: 80, height: 80);
-    if (val == 'del') {
-      return InkWell(
-        onTap: _onDeletePress,
-        borderRadius: BorderRadius.circular(40),
-        child: Container(
-          width: 80, 
-          height: 80,
-          alignment: Alignment.center,
-          child: const Icon(Icons.backspace_outlined, color: Colors.white),
-        ),
-      );
-    }
-    return InkWell(
-      onTap: () => _onDigitPress(val),
-      borderRadius: BorderRadius.circular(40),
-      child: Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.05),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          val,
-          style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.w500),
+      padding: const EdgeInsets.all(8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isDel ? _onDeletePress : () => _onDigitPress(val),
+          borderRadius: BorderRadius.circular(50),
+          splashColor: const Color(0xFF4A90F7).withOpacity(0.15),
+          highlightColor: Colors.white.withOpacity(0.05),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: isDel 
+                  ? null 
+                  : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withOpacity(0.08),
+                        Colors.white.withOpacity(0.02),
+                      ],
+                    ),
+                border: Border.all(
+                  color: isDel 
+                    ? Colors.transparent 
+                    : Colors.white.withOpacity(0.12),
+                  width: 1,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: icon != null
+                ? Icon(
+                    icon,
+                    color: Colors.white.withOpacity(0.65),
+                    size: 24,
+                  )
+                : Text(
+                    val,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w300,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+            ),
+          ),
         ),
       ),
     );

@@ -197,48 +197,24 @@ class _StatisticsState extends State<Statistics> {
     setState(() {});
   }
 
-  // Puedes usar los que quieras, aquí hay un ejemplo
+  // Modernized Premium Color Palette
   final List<Color> colorPalette = [
-    Color(0xFF4CAF50), // Verde
-    Color(0xFFFF9800), // Naranja
-    Color(0xFF2196F3), // Azul
-    Color(0xFFE91E63), // Rosa
-    Color(0xFF9C27B0), // Morado
-    Color(0xFFFFC107), // Ámbar
-    Color(0xFF00BCD4), // Cian
-    Color(0xFF8BC34A), // Verde claro
-    Color(0xFFFF5722), // Naranja oscuro
-    Color(0xFF795548), // Café
-    Color(0xFF673AB7), // Púrpura
-    Color(0xFF3F51B5), // Índigo
-    Color(0xFF009688), // Verde azulado
-    Color(0xFFCDDC39), // Lima
-    Color(0xFFFFEB3B), // Amarillo
-    Color(0xFFFF4081), // Rosa fuerte
-    Color(0xFF607D8B), // Azul grisáceo
-    Color(0xFF8E24AA), // Púrpura oscuro
-    Color(0xFF5E35B1), // Índigo oscuro
-    Color(0xFF3949AB), // Azul oscuro
-    Color(0xFF1E88E5), // Azul claro
-    Color(0xFF039BE5), // Azul celeste
-    Color(0xFF00ACC1), // Cian oscuro
-    Color(0xFF00897B), // Verde azulado oscuro
-    Color(0xFF43A047), // Verde oscuro
-    Color(0xFF7CB342), // Lima oscuro
-    Color(0xFFC0CA33), // Lima claro
-    Color(0xFFFDD835), // Amarillo oscuro
-    Color(0xFFFFB300), // Ámbar oscuro
-    Color(0xFFFB8C00), // Naranja claro
-    Color(0xFFF4511E), // Naranja fuerte
-    Color(0xFF6D4C41), // Marrón
-    Color(0xFF757575), // Gris
-    Color(0xFF546E7A), // Azul grisáceo oscuro
-    Color(0xFFEF5350), // Rojo claro
-    Color(0xFFAB47BC), // Púrpura claro
-    Color(0xFF26A69A), // Verde azulado claro
-    Color(0xFF42A5F5), // Azul claro
-    Color(0xFF7E57C2), // Púrpura medio
-    Color(0xFF66BB6A), // Verde medio
+    const Color(0xFF6366F1), // Indigo
+    const Color(0xFF10B981), // Emerald
+    const Color(0xFFF59E0B), // Amber
+    const Color(0xFFEF4444), // Rose
+    const Color(0xFF8B5CF6), // Violet
+    const Color(0xFFEC4899), // Pink
+    const Color(0xFF06B6D4), // Cyan
+    const Color(0xFFF97316), // Orange
+    const Color(0xFF84cc16), // Lime
+    const Color(0xFF14b8a6), // Teal
+    const Color(0xFF3b82f6), // Blue
+    const Color(0xFFa855f7), // Purple
+    const Color(0xFFea580c), // Orange-Red
+    const Color(0xFF16a34a), // Green
+    const Color(0xFF2563eb), // Royal Blue
+    const Color(0xFFdb2777), // Deep Pink
   ];
 
   // ===================== LÓGICA PARA CONSTRUIR GRÁFICOS =====================
@@ -1920,73 +1896,85 @@ class _StatisticsState extends State<Statistics> {
     return Column(
       children: [
         SizedBox(
-          height: 250, // Aumentado para mejor visualización
+          height: 280, // Slightly increased for better focus
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Fondo circular elegante para el centro
+              // 1. Subtle Background Pulse Ring
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0.95, end: 1.05),
+                duration: const Duration(seconds: 2),
+                curve: Curves.easeInOut,
+                builder: (context, value, child) {
+                  return Container(
+                    width: 140 * value,
+                    height: 140 * value,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: accentColor.withOpacity(0.03),
+                    ),
+                  );
+                },
+              ),
+
+              // 2. Main Glow Center
               Container(
-                width: 110,
-                height: 110,
+                width: 120,
+                height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      accentColor.withOpacity(0.15),
-                      accentColor.withOpacity(0.05),
-                      Colors.transparent,
+                      accentColor.withOpacity(0.12),
+                      accentColor.withOpacity(0.0),
                     ],
-                    stops: const [0.0, 0.7, 1.0],
-                    radius: 0.8,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 15,
-                      spreadRadius: -5,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Borde sutil
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 2,
                   ),
                 ),
               ),
 
-              // Gráfico de dona principal con animación
+              // 3. SfCircularChart
               SfCircularChart(
                 backgroundColor: Colors.transparent,
+                margin: EdgeInsets.zero,
                 annotations: [
                   CircularChartAnnotation(
                     widget: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
+                          'TOTAL',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.4),
+                            fontSize: 10,
+                            letterSpacing: 2.0,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
                           formattedTotal,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'Roboto', // Premium feel
                           ),
                         ),
-                        Text(
-                          'TOTAL',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 12,
-                            letterSpacing: 1.2,
-                            fontWeight: FontWeight.w500,
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: accentColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isIncomeSelected ? 'Ingresos' : 'Gastos',
+                            style: TextStyle(
+                              color: accentColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ],
@@ -1999,25 +1987,22 @@ class _StatisticsState extends State<Statistics> {
                     xValueMapper: (ChartData item, _) => item.x,
                     yValueMapper: (ChartData item, _) => item.y,
                     pointColorMapper: (ChartData item, _) => item.color,
-                    dataLabelSettings: DataLabelSettings(
-                      isVisible: true, // Sin etiquetas en el gráfico mismo
-                    ),
-                    radius: '75%',
-                    innerRadius: '79%',
+                    radius: '90%', // Reduced for more space
+                    innerRadius: '82%', // Thinner segments
+                    // gapRatio removed
+                    cornerStyle: CornerStyle.bothCurve,
+                    strokeWidth: 2,
+                    strokeColor: Colors.transparent,
+                    animationDuration: 1500,
                     enableTooltip: true,
-                    animationDuration: 1200, // Animación más suave
-                    animationDelay: 600, // Retraso para un efecto más elegante
-                    explode:
-                        true, // Permite que los segmentos se separen ligeramente al tocarlos
-                    explodeOffset: '5%', // Distancia de separación
-                    explodeAll: false,
+                    selectionBehavior: SelectionBehavior(
+                      enable: true,
+                      toggleSelection: true,
+                      unselectedOpacity: 0.3,
+                    ),
+                    explode: true,
+                    explodeOffset: '8%',
                     explodeGesture: ActivationMode.singleTap,
-                    strokeWidth: 1.2,
-                    strokeColor: Colors.black12,
-                    //sombreado
-
-                    cornerStyle:
-                        CornerStyle.bothCurve, // Esquinas con estilo redondeado
                   )
                 ],
               ),
@@ -2098,162 +2083,136 @@ class _StatisticsState extends State<Statistics> {
         IconData iconData =
             AppIcons.getIcon(item.iconCode);
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 18),
-          child: Row(
-            children: [
-              // ICONO con diseño premium
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      item.color,
-                      item.color.withAlpha(200),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: item.color.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 1.5,
-                  ),
-                ),
-                child: Icon(
-                  iconData,
-                  color: Colors.white,
-                  size: 24,
-                ),
+        return GestureDetector(
+          onTap: () => _showCategoryPreview(item, totalAmount),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.03),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.05),
+                width: 1,
               ),
-
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Nombre de categoría y valor en la misma fila
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Nombre de categoría
-                        Expanded(
-                          child: Text(
-                            item.x,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15.5,
-                              letterSpacing: 0.3,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-
-                        // Valor numérico
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '\$${NumberFormat('#,##0').format(item.y)}',
-                            style: TextStyle(
-                              color: item.color.withOpacity(0.95),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
+            ),
+            child: Row(
+              children: [
+                // 1. Icon Container with Glow
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: item.color.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: item.color.withOpacity(0.3),
+                      width: 2,
                     ),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      iconData,
+                      color: item.color,
+                      size: 20,
+                    ),
+                  ),
+                ),
 
-                    const SizedBox(height: 8),
+                const SizedBox(width: 16),
 
-                    // Barra de progreso y porcentaje
-                    Row(
-                      children: [
-                        // Barra de progreso
-                        Expanded(
-                          flex: 85,
-                          child: Container(
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(3),
+                // 2. Info & Progress
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.x,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
-                            child: Stack(
-                              children: [
-                                // Barra de progreso con animación
-                                TweenAnimationBuilder<double>(
-                                  tween: Tween(
-                                      begin: 0.0, end: item.y / totalAmount),
-                                  duration: const Duration(milliseconds: 800),
-                                  curve: Curves.easeOutQuart,
-                                  builder: (context, value, child) {
-                                    return FractionallySizedBox(
-                                      widthFactor: value,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight,
-                                            colors: [
-                                              item.color,
-                                              item.color.withOpacity(0.7),
-                                            ],
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(3),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color:
-                                                  item.color.withOpacity(0.3),
-                                              blurRadius: 3,
-                                              offset: const Offset(0, 1),
-                                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '\$${NumberFormat('#,##0').format(item.y)}',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Elegant Progress Bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          height: 5,
+                          width: double.infinity,
+                          color: Colors.white.withOpacity(0.05),
+                          child: Stack(
+                            children: [
+                              TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0.0, end: item.y / totalAmount),
+                                duration: const Duration(milliseconds: 1000),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, value, child) {
+                                  return FractionallySizedBox(
+                                    widthFactor: value,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            item.color,
+                                            item.color.withOpacity(0.6),
                                           ],
                                         ),
                                       ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ),
-
-                        // Porcentaje con mejor diseño
-                        Container(
-                          width: 50,
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Text(
-                            '$percentage%',
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+
+                // 3. Percentage Badge
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: item.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '$percentage%',
+                    style: TextStyle(
+                      color: item.color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
@@ -2505,6 +2464,185 @@ class _StatisticsState extends State<Statistics> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showCategoryPreview(ChartData chartItem, double totalAmount) {
+    // Filtrar transacciones para esta categoría específica en el periodo seleccionado
+    final categoryTransactions = filteredData.where((t) {
+      if (chartItem.x == 'Sin categoría') return t.safeCategory.isEmpty;
+      return t.safeCategory == chartItem.x;
+    }).toList()
+      ..sort((a, b) => b.safeDate.compareTo(a.safeDate));
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: Color(0xFF1E2433),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Barra superior sutil
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Cabecera Premium
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: chartItem.color.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: chartItem.color.withOpacity(0.3), width: 2),
+                      ),
+                      child: Icon(
+                        AppIcons.getIcon(chartItem.iconCode),
+                        color: chartItem.color,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            chartItem.x,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '${(chartItem.y / totalAmount * 100).toStringAsFixed(1)}% del total',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '\$${NumberFormat('#,##0').format(chartItem.y)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          isIncomeSelected ? 'Ingresos' : 'Gastos',
+                          style: TextStyle(
+                            color: isIncomeSelected ? Colors.greenAccent : Colors.redAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+              const Divider(color: Colors.white10, height: 1),
+
+              // Lista de Transacciones
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(24),
+                  itemCount: categoryTransactions.length,
+                  itemBuilder: (context, index) {
+                    final t = categoryTransactions[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.03),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: chartItem.color.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              AppIcons.getIcon(t.safeIconCode > 0 ? t.safeIconCode : chartItem.iconCode),
+                              color: chartItem.color,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  t.safeDetail.isEmpty ? 'Sin descripción' : t.safeDetail,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                Text(
+                                  DateFormat('dd MMM, yyyy').format(t.safeDate),
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.4),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '\$${NumberFormat('#,##0').format(double.tryParse(t.safeAmount) ?? 0)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

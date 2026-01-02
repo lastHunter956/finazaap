@@ -427,39 +427,43 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                 ],
               ),
               const SizedBox(height: 10),
-              Stack(
-                children: [
-                  Container(
-                    height: 10,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 800),
-                    curve: Curves.easeOutCubic,
-                    height: 10,
-                    width: MediaQuery.of(context).size.width * (progress > 1 ? 1 : progress) * 0.82, // Ajuste empírico
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          percentage == 100 ? const Color(0xFF50FA7B) : const Color(0xFF4A80F0),
-                          percentage == 100 ? const Color(0xFF8BFEB9) : const Color(0xFF7CA8FF),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (percentage == 100 ? const Color(0xFF50FA7B) : const Color(0xFF4A80F0)).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Stack(
+                    children: [
+                      Container(
+                        height: 10,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(5),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 800),
+                        curve: Curves.easeOutCubic,
+                        height: 10,
+                        width: constraints.maxWidth * (progress > 1 ? 1 : progress),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              percentage == 100 ? const Color(0xFF50FA7B) : const Color(0xFF4A80F0),
+                              percentage == 100 ? const Color(0xFF8BFEB9) : const Color(0xFF7CA8FF),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (percentage == 100 ? const Color(0xFF50FA7B) : const Color(0xFF4A80F0)).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),

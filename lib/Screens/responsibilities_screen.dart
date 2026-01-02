@@ -35,7 +35,13 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
   Future<void> _initializeData() async {
     try {
       await ResponsibilityService.init();
-      await ResponsibilityService.addSampleData();
+      // Purge sample data once if they exist
+      final box = ResponsibilityService.getBox();
+      final sampleNames = {'Netflix', 'Luz', 'Internet', 'Manejo Visa', 'Gym', 'Spotify'};
+      final toDelete = box.values.where((r) => sampleNames.contains(r.safeName)).toList();
+      for (var r in toDelete) {
+        await r.delete();
+      }
       setState(() {});
     } catch (e) {
       debugPrint('Error initializing responsibilities: $e');

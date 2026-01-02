@@ -3,6 +3,7 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/core/security/encryption_service.dart';
+import 'package:finazaap/services/notification_service.dart';
 import 'package:finazaap/presentation/screens/auth_splash_screen.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 // Nuevas importaciones para localizacion
@@ -65,6 +66,20 @@ void main() async {
       
     } catch (e) {
       print('⚠️ ADVERTENCIA: Error en servicios de seguridad (continuando app): $e');
+    }
+    
+    // 3. Inicializar Notificaciones (Fallo recuperable)
+    try {
+      final notificationService = NotificationService();
+      await notificationService.init();
+      
+      // Si están habilitadas, programar notificaciones
+      if (await notificationService.isEnabled()) {
+        await notificationService.scheduleAllNotifications();
+      }
+      print('✅ NotificationService inicializado');
+    } catch (e) {
+      print('⚠️ ADVERTENCIA: Error en servicio de notificaciones: $e');
     }
     
     // Ejecutar la aplicación

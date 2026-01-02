@@ -57,6 +57,20 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with SingleTickerPr
          _statusMessage = 'Verificando seguridad...';
        });
        
+       // Try biometric first if enabled
+       if (_pinProvider.isBiometricEnabled) {
+         setState(() {
+           _statusMessage = 'Autenticando...';
+         });
+         
+         final biometricSuccess = await _pinProvider.authenticateWithBiometrics();
+         if (biometricSuccess) {
+           _navigateToHome();
+           return;
+         }
+         // If biometric failed or was cancelled, fall back to PIN
+       }
+       
        if (mounted) {
          Navigator.of(context).pushReplacement(
            MaterialPageRoute(
