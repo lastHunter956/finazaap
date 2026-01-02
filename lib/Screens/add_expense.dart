@@ -11,6 +11,7 @@ import 'package:flutter/services.dart'; // Para FilteringTextInputFormatter
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/account_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
+import 'package:finazaap/data/responsibility_service.dart';
 
 // Modelo de cuenta adaptado para recibir datos desde selecctaccount.dart
 class AccountItem {
@@ -305,6 +306,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         } else {
           throw Exception('Error al actualizar el saldo de la cuenta');
         }
+      }
+
+      // Notificar a ResponsibilityService si es una compra con tarjeta (SOLO PARA MODO CREACIÓN O EDICIÓN QUE AFECTE)
+      // La lógica interna de processDebtIncrease se encarga de verificar si es tarjeta
+      if (_selectedAccount != null) {
+         await ResponsibilityService.processDebtIncrease(
+            _selectedAccount!.title,
+            amount,
+            int.tryParse(_installmentsCtrl.text) ?? 1,
+            _isInterestFree,
+            _selectedDate
+         );
       }
 
       // Notificar a la pantalla principal

@@ -10,6 +10,11 @@ import 'package:finazaap/widgets/responsibility_list_item.dart';
 import 'package:finazaap/widgets/add_responsibility_dialog.dart';
 import 'package:finazaap/widgets/responsibility_actions_menu.dart';
 import 'package:intl/intl.dart';
+import 'package:finazaap/data/account_service.dart';
+import 'package:finazaap/data/transaction_service.dart';
+import 'package:finazaap/utils/app_icons.dart';
+import 'package:finazaap/Screens/transfer.dart';
+import 'package:finazaap/widgets/show_responsibility_options.dart';
 import 'dart:ui';
 
 class ResponsibilitiesScreen extends StatefulWidget {
@@ -48,6 +53,10 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
     }
   }
 
+  Future<void> _loadResponsibilities() async {
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -81,13 +90,15 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
               // Dashboard Card
               SliverToBoxAdapter(
                 child: ResponsibilityDashboardCard(
-                  month: _selectedMonth,
-                  year: _selectedYear,
-                  onDateSelected: (month, year) {
+                  responsibilities: [], 
+                  selectedMonth: _selectedMonth,
+                  selectedYear: _selectedYear,
+                  onDateSelected: (day, month, year) {
                     setState(() {
                       _selectedMonth = month;
                       _selectedYear = year;
                     });
+                    _loadResponsibilities();
                   },
                 ),
               ),
@@ -100,6 +111,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                     UrgentPaymentsSection(
                       month: _selectedMonth,
                       year: _selectedYear,
+                      day: null,
                       onTogglePaid: (id) async {
                         // Pass current view context to pay for the correct month
                         await ResponsibilityService.togglePaidStatus(id, month: _selectedMonth, year: _selectedYear);
@@ -328,10 +340,19 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
             responsibility: responsibility,
             month: _selectedMonth,
             year: _selectedYear,
-            onTap: () => _showAddResponsibilityDialog(responsibility: responsibility),
+            day: null, // Pasamos null ya que no filtramos por día específico
+            onTap: () => _handleResponsibilityTap(responsibility),
             onEdit: () => _showAddResponsibilityDialog(responsibility: responsibility),
             onDelete: () => _confirmDeleteResponsibility(responsibility),
             onTogglePaid: () => _handlePayResponsibility(responsibility),
+            onPayMonth: () async {
+              await ResponsibilityService.payFullMonth(
+                  responsibility.safeId, 
+                  _selectedMonth, 
+                  _selectedYear
+              );
+              setState(() {});
+            },
           );
         },
         childCount: responsibilities.length,
@@ -346,7 +367,36 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
     ).then((_) => setState(() {}));
   }
 
-  void _confirmDeleteResponsibility(Responsibility responsibility) {
+  void _confirmDeleteResponsibility(Responsibility responsibility) async {
+    // PROTECCIÓN: No permitir borrar tarjeta si la cuenta existe
+    if (responsibility.safeCategory == 'tarjeta') {
+      final activeAccounts = await AccountService.getActiveAccounts();
+      final accountExists = activeAccounts.any((a) => a['title'] == responsibility.safeName);
+      
+      if (accountExists && mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF222939),
+            title: const Text('Acción Bloqueada', style: TextStyle(color: Colors.white)),
+            content: const Text(
+              'No puedes eliminar esta obligación porque está vinculada a una Cuenta activa.\n\nPara eliminarla, debes borrar la cuenta de tarjeta desde "Gestión de Cuentas".',
+              style: TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Entendido', style: TextStyle(color: Colors.blueAccent)),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -372,15 +422,286 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
     );
   }
 
+  void _handleResponsibilityTap(Responsibility responsibility) {
+    showResponsibilityOptions(
+      context: context,
+      responsibility: responsibility,
+      selectedMonth: _selectedMonth,
+      selectedYear: _selectedYear,
+      onEdit: (r) => _showAddResponsibilityDialog(responsibility: r),
+      onDelete: _confirmDeleteResponsibility,
+      onPay: _handlePayResponsibility,
+      onPayMonth: (resp) async {
+        await ResponsibilityService.payFullMonth(
+            resp.safeId, 
+            _selectedMonth, 
+            _selectedYear
+        );
+        setState(() {});
+      },
+    );
+  }
+
   void _handlePayResponsibility(Responsibility responsibility) async {
-    // Si es tarjeta de crédito, tal vez queramos una lógica especial más adelante,
-    // pero por ahora usamos el toggle estándar.
+    // Si es tarjeta de crédito o préstamo, REDIRIGIR A TRANSFERENCIA
+    if (responsibility.safeCategory == 'tarjeta' || responsibility.safeCategory == 'préstamo') {
+       // Calcular monto sugerido (Cuota o Mínimo)
+       final quota = responsibility.dynamicMonthlyPayment;
+       final balance = responsibility.dynamicCardBalance;
+       
+       // Priorizar Quota > 0, sino Balance, sino 0
+       final initialAmount = quota > 0 ? quota : (balance > 0 ? balance : 0.0);
+       
+       final result = await Navigator.push(
+         context,
+         MaterialPageRoute(
+           builder: (context) => TransferScreen(
+             initialAmount: initialAmount,
+             initialDestinationAccount: responsibility.safeName,
+             // Usar 'isPayResponsibility' flag si existiera para mejorar lógica, 
+             // pero con descripción basta por ahora.
+             initialDescription: 'Pago Cuota ${responsibility.safeName}',
+           ),
+         ),
+       );
+       
+       // Recargar responsabilidades al volver (por si se completó el pago)
+       _loadResponsibilities();
+       return;
+    }
+
+    // Comportamiento estándar para otras categorías
+    // Usamos el día actual ya que no seleccionamos día específico en UI
+    final now = DateTime.now();
     await ResponsibilityService.togglePaidStatus(
       responsibility.safeId, 
       month: _selectedMonth, 
-      year: _selectedYear
+      year: _selectedYear,
+      // Para pagos diarios, asumimos que pagas el día de hoy.
+      specificDate: DateTime(now.year, now.month, now.day), 
     );
     setState(() {});
+  }
+
+  void _showCreditCardPaymentDialog(Responsibility responsibility) async {
+    // Calcular la cuota sugerida automáticamente (Priorizando minimumPayment si existe)
+    final suggestedAmount = responsibility.dynamicMonthlyPayment;
+    final balance = responsibility.dynamicCardBalance;
+    
+    // FIX: Pre-llenar con la cuota sugerida. Si es 0, intentar con el balance, si no 0.
+    double initialValue = suggestedAmount > 0 ? suggestedAmount : (balance > 0 ? balance : 0);
+    
+    final TextEditingController amountController = TextEditingController(text: initialValue > 0 ? initialValue.toStringAsFixed(0) : '');
+    String? selectedAccount;
+    
+    // Obtener cuentas activas para el origen de fondos
+    final accounts = await AccountService.getActiveAccounts();
+    if (accounts.isNotEmpty) {
+      selectedAccount = accounts.first['title']; // Seleccionar la primera por defecto
+    }
+
+    if (!mounted) return;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "Pagar Tarjeta",
+      barrierColor: Colors.black.withOpacity(0.7),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) => Container(),
+      transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+          child: FadeTransition(
+            opacity: animation,
+            child: AlertDialog(
+              backgroundColor: const Color(0xFF222939),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: Row(
+                children: [
+                   Icon(AppIcons.getIcon(responsibility.safeIconCode), color: Colors.blueAccent),
+                   const SizedBox(width: 12),
+                   Expanded(
+                     child: Text(
+                       'Pagar ${responsibility.safeName}', 
+                       style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
+                     ),
+                   ),
+                ],
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: StatefulBuilder(
+                  builder: (context, setStateSB) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Info Cards
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Deuda Total', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                    const SizedBox(height: 4),
+                                    Text(CurrencyHelper.format(balance), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Cuota Sugerida', style: TextStyle(color: Colors.blueAccent, fontSize: 11)),
+                                    const SizedBox(height: 4),
+                                    Text(CurrencyHelper.format(suggestedAmount), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        
+                        // Amount Input
+                        Text('Monto a Pagar', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: amountController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.attach_money, color: Colors.white70),
+                            filled: true,
+                            fillColor: Colors.black12,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 20),
+                        
+                        // Source Account Dropdown
+                        Text('Cuenta de Origen', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.black12,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedAccount,
+                              dropdownColor: const Color(0xFF2C3549),
+                              isExpanded: true,
+                              hint: const Text('Seleccionar cuenta', style: TextStyle(color: Colors.white54)),
+                              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
+                              items: accounts.map<DropdownMenuItem<String>>((account) {
+                                return DropdownMenuItem<String>(
+                                  value: account['title'],
+                                  child: Row(
+                                    children: [
+                                       Icon(AppIcons.getIcon(account['icon']), size: 18, color: Color(account['iconColor'] ?? 0xFFFFFFFF)),
+                                       const SizedBox(width: 8),
+                                       Text(account['title'], style: const TextStyle(color: Colors.white)),
+                                       const Spacer(),
+                                       Text(
+                                         CurrencyHelper.formatCompact(double.tryParse(account['balance'].toString()) ?? 0),
+                                         style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                                       ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                setStateSB(() {
+                                  selectedAccount = newValue;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                ),
+              ),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  onPressed: () async {
+                    if (amountController.text.isEmpty || selectedAccount == null) return;
+                    
+                    final payAmount = double.tryParse(amountController.text) ?? 0.0;
+                    if (payAmount <= 0) return;
+                    
+                    Navigator.pop(dialogContext);
+                    
+                    try {
+                      // 1. Process Transaction (Transfer: Origin -> Credit Card)
+                      // This updates balances for both accounts and the credit card debt
+                      final success = await TransactionService.processTransaction(
+                        type: 'Transfer',
+                        amount: payAmount,
+                        accountName: selectedAccount!,
+                        destinationAccount: responsibility.safeName,
+                        isNewTransaction: true,
+                      );
+                      
+                      if (success) {
+                        // 2. Mark Responsibility as Paid for this Month
+                        await ResponsibilityService.payCreditCardQuota(
+                          responsibility: responsibility,
+                          amount: payAmount,
+                          sourceAccount: selectedAccount!, 
+                          date: DateTime.now(),
+                          month: _selectedMonth,
+                          year: _selectedYear,
+                        );
+                        
+                        setState(() {}); // Refresh UI
+                        AlertHelper.success(context, 'Pago registrado correctamente');
+                      } else {
+                        AlertHelper.error(context, 'Error al procesar la transacción');
+                      }
+                    } catch (e) {
+                      AlertHelper.error(context, 'Ocurrió un error: $e');
+                    }
+                  },
+                  child: const Text('Confirmar Pago', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showIncomeDistributorDialog() {

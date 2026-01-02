@@ -53,6 +53,10 @@ dependencies:
   # Biometric Auth
   local_auth: ^2.3.0
   home_widget: ^0.8.1
+  
+  # Data Export/Import
+  share_plus: ^10.0.0
+  file_picker: ^8.0.0
 
 dev_dependencies:
   flutter_test:

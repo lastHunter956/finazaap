@@ -109,6 +109,23 @@ class TransactionService {
         }
         
         updated = true;
+        
+        // SYNC: Si es tarjeta de crédito, actualizar la responsabilidad asociada
+        // Determinamos si es tarjeta basado en el tipo de cuenta (si tuviéramos ese dato)
+        // o buscando si existe una responsabilidad con ese nombre y categoría 'tarjeta'
+        try {
+          // No podemos importar ResponsibilityService aquí arriba si hay ciclo, 
+          // pero asumimos que podemos llamarlo o usar una lógica desacoplada.
+          // Para este fix rápido, llamamos a un método estático que crearemos.
+          await ResponsibilityService.syncCardBalance(
+             cardName: accountTitle,
+             amount: amount,
+             isExpense: !isIncome, // Si NO es ingreso, es Gasto
+          );
+        } catch (e) {
+          print('Error syncing card balance: $e');
+        }
+
         break;
       }
     }

@@ -37,6 +37,7 @@ class ResponsibilityAdapter extends TypeAdapter<Responsibility> {
       paidAmountThisMonth: fields[17] as double?,
       lastPaymentMonth: fields[18] as int?,
       lastPaymentYear: fields[19] as int?,
+      paymentDates: (fields[20] as List?)?.cast<DateTime>(),
     );
   }
 
@@ -83,7 +84,9 @@ class ResponsibilityAdapter extends TypeAdapter<Responsibility> {
       ..writeByte(18)
       ..write(obj.lastPaymentMonth)
       ..writeByte(19)
-      ..write(obj.lastPaymentYear);
+      ..write(obj.lastPaymentYear)
+      ..writeByte(20)
+      ..write(obj.paymentDates);
   }
 
   @override

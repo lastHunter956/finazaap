@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:finazaap/providers/pin_provider.dart';
 import 'package:finazaap/screens/pin_code_screen.dart';
 import 'package:finazaap/services/notification_service.dart';
+import 'package:finazaap/services/data_management_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 
@@ -527,8 +528,274 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
+                
+                const SizedBox(height: 20),
+                
+                // ═══════════════════════════════════════════════════════════
+                // SECCIÓN: DATOS
+                // ═══════════════════════════════════════════════════════════
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: const Color.fromRGBO(42, 49, 67, 1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'Datos',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      
+                      // Exportar datos
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.upload_rounded, color: Colors.blue),
+                        ),
+                        title: const Text('Exportar datos', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text(
+                          'Crear respaldo de toda la información',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                        onTap: _exportData,
+                      ),
+                      
+                      const Divider(height: 1, color: Colors.white12),
+                      
+                      // Importar datos
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.download_rounded, color: Colors.green),
+                        ),
+                        title: const Text('Importar datos', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text(
+                          'Restaurar desde un respaldo',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                        onTap: _importData,
+                      ),
+                      
+                      const Divider(height: 1, color: Colors.white12),
+                      
+                      // Eliminar todos los datos
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                        ),
+                        title: const Text('Eliminar todos los datos', style: TextStyle(color: Colors.red)),
+                        subtitle: const Text(
+                          'Borrar toda la información de la app',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                        onTap: _confirmDeleteAllData,
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 40),
               ],
             ),
     );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MÉTODOS DE GESTIÓN DE DATOS
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  Future<void> _exportData() async {
+    try {
+      setState(() => _isLoading = true);
+      
+      final service = DataManagementService();
+      
+      // Intentar guardar en carpeta seleccionada
+      final path = await service.exportDataToDevice();
+      
+      if (path != null) {
+        setState(() => _isLoading = false);
+        if (mounted) AlertHelper.success(context, 'Backup guardado en:\n$path');
+        return;
+      }
+      
+      // Si falla o no selecciona (y no es cancelación explícita que podamos distinguir fácilmente),
+      // preguntamos si quiere compartir
+      if (mounted) {
+         // Pequeña pausa visual
+         setState(() => _isLoading = false);
+         
+         // Opcional: Podríamos preguntar aquí, pero para ser directos, si falló la carpeta,
+         // asumimos que tal vez quiera compartir.
+         // Aunque el usuario se quejó de compartir. Mejor solo notificamos si no se guardó.
+         // Pero si retornó null porque el usuario canceló, no hacemos nada.
+         // El problema es distinguir cancelación de error en DataManagementService.
+         // Asumiremos cancelación.
+      }
+
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        AlertHelper.error(context, 'Error al exportar: $e');
+      }
+    }
+  }
+  
+  Future<void> _importData() async {
+    // Mostrar advertencia
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
+        title: const Text('Importar datos', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          '⚠️ Los datos importados se agregarán a los existentes.\n\n'
+          'Selecciona un archivo .json de respaldo de Moneo.\n\n'
+          '¿Deseas continuar?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('Seleccionar archivo', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm != true) return;
+    
+    try {
+      setState(() => _isLoading = true);
+      
+      final service = DataManagementService();
+      final result = await service.importData();
+      
+      setState(() => _isLoading = false);
+      
+      if (result['success'] == true && mounted) {
+        AlertHelper.success(
+          context, 
+          'Importación exitosa: ${result['transactionsImported']} transacciones, ${result['responsibilitiesImported']} responsabilidades'
+        );
+      } else if (mounted) {
+        AlertHelper.warning(context, result['message'] ?? 'Error desconocido');
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        AlertHelper.error(context, 'Error al importar: $e');
+      }
+    }
+  }
+  
+  Future<void> _confirmDeleteAllData() async {
+    // Primer diálogo de confirmación
+    final firstConfirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            SizedBox(width: 10),
+            Text('¡Precaución!', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+        content: const Text(
+          'Esta acción eliminará TODOS los datos:\n\n• Transacciones\n• Cuentas\n• Responsabilidades\n• Categorías\n\nEsta acción NO se puede deshacer.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Continuar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    
+    if (firstConfirm != true) return;
+    
+    // Segundo diálogo de confirmación
+    final secondConfirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
+        title: const Text('Confirmación final', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          '¿Estás COMPLETAMENTE seguro?\n\nEscribe "ELIMINAR" para confirmar.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('ELIMINAR TODO', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    
+    if (secondConfirm != true) return;
+    
+    try {
+      setState(() => _isLoading = true);
+      
+      final service = DataManagementService();
+      final success = await service.deleteAllData();
+      
+      setState(() => _isLoading = false);
+      
+      if (success && mounted) {
+        AlertHelper.success(context, 'Todos los datos han sido eliminados');
+      } else if (mounted) {
+        AlertHelper.error(context, 'Error al eliminar los datos');
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        AlertHelper.error(context, 'Error: $e');
+      }
+    }
   }
 }

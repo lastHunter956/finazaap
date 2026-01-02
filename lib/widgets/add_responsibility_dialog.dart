@@ -300,8 +300,12 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                     _buildInputLabel('Frecuencia'),
                                     _buildDropdown(
                                       value: _selectedFrequency,
-                                      items: ['mensual', 'bimestral', 'trimestral', 'anual'],
-                                      onChanged: (v) => setState(() => _selectedFrequency = v!),
+                                      items: ['mensual', 'bimestral', 'trimestral', 'anual'], // Frecuencias permitidas
+                                      onChanged: (v) {
+                                        setState(() {
+                                          _selectedFrequency = v!;
+                                        });
+                                      },
                                     ),
                                   ],
                                 ),
@@ -415,7 +419,8 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                             ),
                             const SizedBox(height: 18),
                           ],
-
+                          
+                          // Replacement for the Row containing Amount and Due Day
                           Row(
                             children: [
                               Expanded(
@@ -445,26 +450,12 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                               ),
                               const SizedBox(width: 16),
                               Expanded(
-                                flex: 1,
+                                flex: 2, // Más espacio para el texto descriptivo
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _buildInputLabel('Día Pago'),
-                                    _buildInputField(
-                                      child: TextFormField(
-                                        controller: _dueDayCtrl,
-                                        keyboardType: TextInputType.number,
-                                        style: const TextStyle(color: Colors.white),
-                                        decoration: InputDecoration(
-                                          hintText: '1-31',
-                                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                                          border: InputBorder.none,
-                                          prefixIcon: Icon(Icons.calendar_month, color: iconColor.withOpacity(0.7), size: 20),
-                                          contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                                        ),
-                                        validator: (v) => v!.isEmpty ? '?' : null,
-                                      ),
-                                    ),
+                                    _buildInputLabel(_getDueDayLabel()),
+                                    _buildDueDayInput(),
                                   ],
                                 ),
                               ),
@@ -599,6 +590,75 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
             onChanged: onChanged,
           ),
         ),
+      ),
+    );
+  }
+
+  String _getDueDayLabel() {
+    if (_selectedFrequency == 'diario') return 'Vence';
+    if (_selectedFrequency == 'semanal') return 'Día de la Semana';
+    if (_selectedFrequency == 'quincenal') return 'Primer Pago';
+    return 'Día Pago (1-31)';
+  }
+
+  Widget _buildDueDayInput() {
+    if (_selectedFrequency == 'diario') {
+      return _buildInputField(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+          alignment: Alignment.centerLeft,
+          child: Text('Todos los días', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+        ),
+      );
+    }
+
+    if (_selectedFrequency == 'semanal') {
+      final days = {
+        '1': 'Lunes', '2': 'Martes', '3': 'Miércoles', 
+        '4': 'Jueves', '5': 'Viernes', '6': 'Sábado', '7': 'Domingo'
+      };
+      
+      return _buildInputField(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: days.containsKey(_dueDayCtrl.text) ? _dueDayCtrl.text : '1',
+              isExpanded: true,
+              icon: Icon(Icons.keyboard_arrow_down, color: iconColor.withOpacity(0.7)),
+              dropdownColor: const Color(0xFF2A3143),
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              items: days.entries.map((e) {
+                return DropdownMenuItem(value: e.key, child: Text(e.value.toUpperCase()));
+              }).toList(),
+              onChanged: (v) => setState(() => _dueDayCtrl.text = v!),
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // Default fallback
+    return _buildInputField(
+      child: TextFormField(
+        controller: _dueDayCtrl,
+        keyboardType: TextInputType.number,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          hintText: _selectedFrequency == 'quincenal' ? '1-15' : '1-31',
+          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+          border: InputBorder.none,
+          prefixIcon: Icon(Icons.calendar_month, color: iconColor.withOpacity(0.7), size: 20),
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+        validator: (v) {
+          if (v!.isEmpty) return '?';
+          final val = int.tryParse(v);
+          if (val == null) return '?';
+          if (_selectedFrequency == 'quincenal' && val > 15) return 'Max 15';
+          if (val < 1 || val > 31) return 'Inválido';
+          return null;
+        },
       ),
     );
   }

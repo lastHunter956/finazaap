@@ -39,7 +39,7 @@ class NotificationService {
 
     // Configuración para iOS
     const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: false, // Lo solicitamos manualmente
+      requestAlertPermission: false,
       requestBadgePermission: false,
       requestSoundPermission: false,
     );
@@ -55,9 +55,7 @@ class NotificationService {
   }
 
   /// Solicitar permiso de notificaciones
-  /// Retorna true si el permiso fue concedido
   Future<bool> requestPermission() async {
-    // Para Android 13+ (API 33+)
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     
@@ -67,7 +65,6 @@ class NotificationService {
       return granted ?? false;
     }
 
-    // Para iOS
     final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
     
@@ -81,7 +78,7 @@ class NotificationService {
       return granted ?? false;
     }
 
-    return true; // Para otras plataformas
+    return true;
   }
 
   /// Verificar estado del permiso de notificaciones
@@ -94,7 +91,6 @@ class NotificationService {
       return areEnabled ?? false;
     }
 
-    // Para iOS y otras plataformas, asumimos que está habilitado si el servicio está inicializado
     return true;
   }
 
@@ -120,13 +116,11 @@ class NotificationService {
   // GETTERS Y SETTERS DE CONFIGURACIÓN
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Obtener días de anticipación configurados
   Future<int> getDaysBefore() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_prefsKeyDaysBefore) ?? _defaultDaysBefore;
   }
 
-  /// Establecer días de anticipación
   Future<void> setDaysBefore(int days) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_prefsKeyDaysBefore, days.clamp(0, 7));
@@ -135,13 +129,11 @@ class NotificationService {
     }
   }
 
-  /// Obtener si notificar el mismo día
   Future<bool> getSameDay() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_prefsKeySameDay) ?? _defaultSameDay;
   }
 
-  /// Establecer si notificar el mismo día
   Future<void> setSameDay(bool sameDay) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefsKeySameDay, sameDay);
@@ -150,19 +142,16 @@ class NotificationService {
     }
   }
 
-  /// Obtener hora configurada
   Future<int> getHour() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_prefsKeyHour) ?? _defaultHour;
   }
 
-  /// Obtener minuto configurado
   Future<int> getMinute() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_prefsKeyMinute) ?? _defaultMinute;
   }
 
-  /// Establecer hora y minuto de notificación
   Future<void> setTime(int hour, int minute) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_prefsKeyHour, hour.clamp(0, 23));
@@ -182,35 +171,45 @@ class NotificationService {
       await ResponsibilityService.init();
       final responsibilities = ResponsibilityService.getAllResponsibilities();
       
-      // Cancelar las existentes primero
       await cancelAllNotifications();
       
-      // Cargar configuración
       final daysBefore = await getDaysBefore();
       final sameDay = await getSameDay();
       final hour = await getHour();
       final minute = await getMinute();
       
+      print('📅 Configuración: daysBefore=$daysBefore, sameDay=$sameDay, hora=$hour:$minute');
+      print('📋 Responsabilidades encontradas: ${responsibilities.length}');
+      
       int scheduledCount = 0;
+      int immediateCount = 0;
+      
       for (var r in responsibilities) {
-        scheduledCount += await _scheduleForResponsibility(
-          r, 
-          daysBefore: daysBefore,
-          sameDay: sameDay,
-          hour: hour,
-          minute: minute,
-        );
+        final now = DateTime.now();
+        // Solo notificar responsabilidades NO pagadas
+        if (!r.isPaidInMonth(now.month, now.year)) {
+          final result = await _scheduleForResponsibility(
+            r, 
+            daysBefore: daysBefore,
+            sameDay: sameDay,
+            hour: hour,
+            minute: minute,
+          );
+          scheduledCount += result['scheduled'] ?? 0;
+          immediateCount += result['immediate'] ?? 0;
+        } else {
+          print('  ⏭️ ${r.safeName}: ya pagada este mes, omitiendo');
+        }
       }
       
-      print('✅ Programadas $scheduledCount notificaciones');
+      print('✅ Programadas $scheduledCount notificaciones, enviadas $immediateCount inmediatas');
     } catch (e) {
       print('❌ Error programando notificaciones: $e');
     }
   }
 
   /// Programar notificaciones para una responsabilidad específica
-  /// Retorna el número de notificaciones programadas
-  Future<int> _scheduleForResponsibility(
+  Future<Map<String, int>> _scheduleForResponsibility(
     Responsibility r, {
     required int daysBefore,
     required bool sameDay,
@@ -218,47 +217,114 @@ class NotificationService {
     required int minute,
   }) async {
     final now = DateTime.now();
-    final dueDay = r.safeDueDay;
-    int count = 0;
+    int scheduled = 0;
+    int immediate = 0;
+
+    // Calcular próxima fecha de vencimiento usando la lógica centralizada del modelo
+    final daysUntil = r.getDaysUntilDue();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDate = today.add(Duration(days: daysUntil));
     
-    // Calcular la próxima fecha de vencimiento
-    DateTime dueDate = DateTime(now.year, now.month, dueDay);
-    if (dueDate.isBefore(now)) {
-      // Si ya pasó este mes, programar para el próximo
-      dueDate = DateTime(now.year, now.month + 1, dueDay);
-    }
+    print('  📌 ${r.safeName}: vence en $daysUntil días (${dueDate.toString().substring(0, 10)})');
+
+    final bool isDueToday = (daysUntil == 0);
     
-    // Notificación días antes (si daysBefore > 0)
+    // ═══════════════════════════════════════════════════════════════════════
+    // Notificación días antes
+    // ═══════════════════════════════════════════════════════════════════════
     if (daysBefore > 0) {
-      final dayBefore = dueDate.subtract(Duration(days: daysBefore));
-      if (dayBefore.isAfter(now)) {
+      final reminderDate = dueDate.subtract(Duration(days: daysBefore));
+      final scheduledDateTime = DateTime(reminderDate.year, reminderDate.month, reminderDate.day, hour, minute);
+      
+      final bool isReminderToday = (reminderDate.year == today.year && 
+                                    reminderDate.month == today.month && 
+                                    reminderDate.day == today.day);
+      
+      if (scheduledDateTime.isAfter(now)) {
+        // Futuro: programar
         await _scheduleNotification(
           id: r.safeId.hashCode,
           title: '⏰ Recordatorio de Pago',
           body: daysBefore == 1 
               ? '${r.safeName} vence mañana. No olvides pagarlo.'
               : '${r.safeName} vence en $daysBefore días. No olvides pagarlo.',
-          scheduledDate: DateTime(dayBefore.year, dayBefore.month, dayBefore.day, hour, minute),
+          scheduledDate: scheduledDateTime,
         );
-        count++;
+        print('    ✓ Recordatorio ($daysBefore días antes): programado para ${scheduledDateTime.toString().substring(0, 16)}');
+        scheduled++;
+      } else if (isReminderToday) {
+        // Es hoy pero la hora ya pasó: enviar inmediatamente SOLO si no se ha enviado hoy
+        if (!await _hasNotifiedToday('${r.safeId}_before')) {
+          await _showImmediateNotification(
+            id: r.safeId.hashCode,
+            title: '⏰ Recordatorio de Pago',
+            body: daysBefore == 1 
+                ? '${r.safeName} vence mañana. No olvides pagarlo.'
+                : '${r.safeName} vence en $daysBefore días. No olvides pagarlo.',
+          );
+          await _markAsNotifiedToday('${r.safeId}_before');
+          print('    ⚡ Recordatorio ($daysBefore días antes): enviado inmediatamente (hora ya pasó)');
+          immediate++;
+        } else {
+           print('    ✓ Recordatorio ($daysBefore días antes): ya enviado hoy, omitiendo');
+        }
+      } else {
+        print('    ✗ Recordatorio ($daysBefore días antes): fecha ya pasada completamente');
       }
     }
     
+    // ═══════════════════════════════════════════════════════════════════════
     // Notificación el mismo día
-    if (sameDay && dueDate.isAfter(now)) {
-      await _scheduleNotification(
-        id: r.safeId.hashCode + 1000000, // Offset para evitar colisiones
-        title: '🔔 ¡Pago Vence Hoy!',
-        body: '${r.safeName} vence hoy. Recuerda realizar el pago.',
-        scheduledDate: DateTime(dueDate.year, dueDate.month, dueDate.day, hour, minute),
-      );
-      count++;
+    // ═══════════════════════════════════════════════════════════════════════
+    if (sameDay) {
+      final scheduledDateTime = DateTime(dueDate.year, dueDate.month, dueDate.day, hour, minute);
+      
+      if (scheduledDateTime.isAfter(now)) {
+        // Futuro: programar
+        await _scheduleNotification(
+          id: r.safeId.hashCode + 1, // ID diferente
+          title: '📅 ¡Pago Recurrente Hoy!',
+          body: 'El pago de ${r.safeName} vence hoy. ¡Evita recargos!',
+          scheduledDate: scheduledDateTime,
+        );
+        print('    ✓ Recordatorio (Mismo día): programado para ${scheduledDateTime.toString().substring(0, 16)}');
+        scheduled++;
+      } else if (isDueToday) {
+        // Es hoy pero la hora ya pasó: enviar inmediatamente SOLO si no se ha enviado hoy
+        if (!await _hasNotifiedToday('${r.safeId}_today')) {
+          await _showImmediateNotification(
+            id: r.safeId.hashCode + 1,
+            title: '📅 ¡Pago Recurrente Hoy!',
+            body: 'El pago de ${r.safeName} vence hoy. ¡Evita recargos!',
+          );
+          await _markAsNotifiedToday('${r.safeId}_today');
+          print('    ⚡ Recordatorio (Mismo día): enviado inmediatamente (hora ya pasó)');
+          immediate++;
+        } else {
+          print('    ✓ Recordatorio (Mismo día): ya enviado hoy, omitiendo');
+        }
+      } else {
+        print('    ✗ Recordatorio (mismo día): fecha ya pasada completamente');
+      }
     }
     
-    return count;
+    return {'scheduled': scheduled, 'immediate': immediate};
+  }
+  
+  // Helpers para control de notificaciones duplicadas
+  Future<bool> _hasNotifiedToday(String uniqueId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return prefs.getBool('notif_sent_${uniqueId}_$today') ?? false;
+  }
+  
+  Future<void> _markAsNotifiedToday(String uniqueId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    await prefs.setBool('notif_sent_${uniqueId}_$today', true);
   }
 
-  /// Programar una notificación específica
+  /// Programar una notificación para el futuro
   Future<void> _scheduleNotification({
     required int id,
     required String title,
@@ -285,7 +351,6 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    // Use inexact alarms to avoid SCHEDULE_EXACT_ALARM permission issues on Android 12+
     await _plugin.zonedSchedule(
       id,
       title,
@@ -295,15 +360,13 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
-
-  /// Cancelar todas las notificaciones programadas
-  Future<void> cancelAllNotifications() async {
-    await _plugin.cancelAll();
-    print('🗑️ Todas las notificaciones canceladas');
-  }
-
-  /// Mostrar una notificación de prueba inmediata
-  Future<void> showTestNotification() async {
+  
+  /// Mostrar una notificación inmediatamente
+  Future<void> _showImmediateNotification({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
     const androidDetails = AndroidNotificationDetails(
       'responsibility_reminders',
       'Recordatorios de Pagos',
@@ -324,11 +387,26 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    await _plugin.show(
-      0,
-      '🔔 Notificación de Prueba',
-      'Las notificaciones están funcionando correctamente.',
-      details,
+    await _plugin.show(id, title, body, details);
+  }
+
+  /// Cancelar todas las notificaciones programadas
+  Future<void> cancelAllNotifications() async {
+    await _plugin.cancelAll();
+    print('🗑️ Todas las notificaciones canceladas');
+  }
+
+  /// Mostrar una notificación de prueba
+  Future<void> showTestNotification() async {
+    await _showImmediateNotification(
+      id: 0,
+      title: '🔔 Notificación de Prueba',
+      body: 'Las notificaciones están funcionando correctamente.',
     );
+  }
+  
+  /// Debug: listar todas las notificaciones programadas
+  Future<List<PendingNotificationRequest>> getPendingNotifications() async {
+    return await _plugin.pendingNotificationRequests();
   }
 }

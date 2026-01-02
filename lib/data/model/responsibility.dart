@@ -67,6 +67,9 @@ class Responsibility extends HiveObject {
   @HiveField(19)
   int? lastPaymentYear; // Año del último ciclo de pago
 
+  @HiveField(20)
+  List<DateTime>? paymentDates; // Historial de fechas pagadas (para diario/semanal)
+
   Responsibility({
     this.id,
     this.name,
@@ -88,6 +91,7 @@ class Responsibility extends HiveObject {
     this.paidAmountThisMonth,
     this.lastPaymentMonth,
     this.lastPaymentYear,
+    this.paymentDates,
   });
 
   // Getters seguros para evitar LateInitializationError y TypeErrors
@@ -97,7 +101,25 @@ class Responsibility extends HiveObject {
   int get safeDueDay => dueDay ?? 1;
   String get safeCategory => category ?? 'servicio';
   String get safeFrequency => frequency ?? 'mensual';
-  bool get safeIsPaid => isPaid ?? false;
+  bool get safeIsPaid {
+    if (safeFrequency == 'diario') {
+       if (lastPaymentDate == null) return false;
+       final now = DateTime.now();
+       return lastPaymentDate!.year == now.year && 
+              lastPaymentDate!.month == now.month && 
+              lastPaymentDate!.day == now.day;
+    }
+    if (safeFrequency == 'semanal') {
+       if (lastPaymentDate == null) return false;
+       final now = DateTime.now();
+       final diff = now.difference(lastPaymentDate!).inDays;
+       if (diff > 7) return false;
+       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+       final startOfWeekDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+       return !lastPaymentDate!.isBefore(startOfWeekDate);
+    }
+    return isPaid ?? false;
+  }
   int get safeIconCode => iconCode ?? 0xe3a6;
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -121,11 +143,25 @@ class Responsibility extends HiveObject {
       return safeAmount; // Para no-tarjetas, usar el valor almacenado
     }
     final now = DateTime.now();
+    return getDynamicQuota(now.month, now.year);
+  }
+
+  /// Calcula la cuota dinámica para un mes y año específicos
+  double getDynamicQuota(int month, int year) {
+    if (safeCategory != 'tarjeta' && safeCategory != 'préstamo') {
+      return safeAmount;
+    }
+    // FIX: Priorizar minimumPayment (Cuota Fija Manual) si existe
+    if (minimumPayment != null && minimumPayment! > 0) {
+      return minimumPayment!;
+    }
+    
     return CreditCardCalculator.calculateMonthlyPayment(
       safeName, 
-      now.month, 
-      now.year, 
-      cutoffDay: cutoffDay
+      month, 
+      year, 
+      cutoffDay: cutoffDay,
+      interestRate: interestRate,
     );
   }
   
@@ -155,6 +191,68 @@ class Responsibility extends HiveObject {
   // Calcular cuántos días faltan para vencimiento
   int getDaysUntilDue() {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    // 1. DIARIO
+    if (safeFrequency == 'diario') {
+       bool paidToday = lastPaymentDate != null && 
+           lastPaymentDate!.day == now.day &&
+           lastPaymentDate!.month == now.month &&
+           lastPaymentDate!.year == now.year;
+       return paidToday ? 1 : 0;
+    }
+    
+    // 2. SEMANAL
+    if (safeFrequency == 'semanal') {
+       // dueDay se asume 1 (Lun) a 7 (Dom)
+       int targetWeekday = safeDueDay; 
+       int daysToAdd = (targetWeekday - now.weekday + 7) % 7;
+       
+       if (daysToAdd == 0) {
+          // Es hoy. Si ya pagó, es la próxima semana.
+          bool paidToday = lastPaymentDate != null && 
+             lastPaymentDate!.day == now.day &&
+             lastPaymentDate!.month == now.month &&
+             lastPaymentDate!.year == now.year;
+          if (paidToday) daysToAdd = 7;
+       }
+       return daysToAdd;
+    }
+    
+    // 3. QUINCENAL
+    if (safeFrequency == 'quincenal') {
+       int d1 = safeDueDay;
+       int d2 = d1 + 15;
+       
+       // Generar candidatos para este mes y el próximo
+       List<DateTime> candidates = [];
+       for (int m = 0; m <= 1; m++) { // Este mes y el siguiente
+         try { candidates.add(DateTime(now.year, now.month + m, d1)); } catch (_) {}
+         try { candidates.add(DateTime(now.year, now.month + m, d2)); } catch (_) {}
+       }
+       candidates.sort();
+       
+       // Buscar el primero que sea Hoy o después
+       for (var d in candidates) {
+         // Normalizar a medianoche
+         final dDate = DateTime(d.year, d.month, d.day);
+         if (dDate.isBefore(today)) continue;
+         
+         if (dDate.isAtSameMomentAs(today)) {
+             // Es hoy. Si ya pagó, buscar el siguiente.
+            bool paidToday = lastPaymentDate != null && 
+               lastPaymentDate!.day == now.day &&
+               lastPaymentDate!.month == now.month &&
+               lastPaymentDate!.year == now.year;
+            if (paidToday) continue; 
+            return 0;
+         }
+         return dDate.difference(today).inDays;
+       }
+       return 15; // Fallback
+    }
+
+    // 4. MENSUAL / OTROS (Lógica original)
     final currentMonth = now.month;
     final currentYear = now.year;
     
@@ -170,13 +268,27 @@ class Responsibility extends HiveObject {
     }
     
     // Si ya pasó este mes, calcular para el próximo
-    final today = DateTime(now.year, now.month, now.day);
     if (dueDate.isBefore(today)) {
       try {
         dueDate = DateTime(currentYear, currentMonth + 1, dDay);
       } catch (e) {
         dueDate = DateTime(currentYear, currentMonth + 2, 0);
       }
+    }
+    
+    // Si ya está pagado en este ciclo mensual, mostrar vencimiento del próximo mes
+    if (isPaidInMonth(now.month, now.year)) {
+       // Calcular fecha del próximo mes (o subsiguiente si dueDate era este mes)
+       // Simplificación: si next due date is future from today, use it.
+       // But if isPaidInMonth is TRUE, we shouldn't show "Due in 5 days" for THIS month.
+       // We should show days until NEXT month.
+       if (dueDate.month == now.month) {
+          try {
+            dueDate = DateTime(currentYear, currentMonth + 1, dDay);
+          } catch (e) {
+            dueDate = DateTime(currentYear, currentMonth + 2, 0);
+          }
+       }
     }
     
     return dueDate.difference(today).inDays;
@@ -186,6 +298,12 @@ class Responsibility extends HiveObject {
   double getMonthlyAmount() {
     final amt = safeAmount;
     switch (safeFrequency) {
+      case 'diario':
+        return amt * 30;
+      case 'semanal':
+        return amt * 4;
+      case 'quincenal':
+        return amt * 2;
       case 'mensual':
         return amt;
       case 'bimestral':
@@ -273,31 +391,16 @@ class Responsibility extends HiveObject {
   // Obtener monto para una fecha específica (Calendario)
   // Para tarjetas de crédito: CALCULA DINÁMICAMENTE desde transacciones
   double getAmountForDate(int month, int year) {
-    // Para responsabilidades que NO son tarjetas, usar lógica legacy
-    if (safeCategory != 'tarjeta') return getMonthlyAmount();
+    // Para responsabilidades que NO son tarjetas, usar lógica legado
+    if (safeCategory != 'tarjeta' && safeCategory != 'préstamo') return getMonthlyAmount();
     
-    // ═══════════════════════════════════════════════════════════════════
-    // TARJETAS DE CRÉDITO: CÁLCULO DINÁMICO DESDE TRANSACCIONES
-    // El CreditCardCalculator es la ÚNICA fuente de verdad
-    // ═══════════════════════════════════════════════════════════════════
-    
-    // 1. Calcular la cuota mensual para el mes/año solicitado
-    double monthlyPayment = CreditCardCalculator.calculateMonthlyPayment(
-      safeName, 
-      month, 
-      year, 
-      cutoffDay: cutoffDay
-    );
-    
-    // 2. Si hay cuota mensual calculada, devolverla
-    if (monthlyPayment > 0) {
-      return monthlyPayment;
+    // CASO CORRECTIVO: Si tiene un pago mínimo definido, esa es la "cuota" prioritaria
+    if (minimumPayment != null && minimumPayment! > 0) {
+      return minimumPayment!;
     }
-    
-    // 3. Si no hay cuotas activas para ese mes, devolver la deuda total
-    // (Esto maneja el caso de deudas de cuota única o ya finalizadas)
-    double totalDebt = CreditCardCalculator.calculateTotalDebt(safeName);
-    return totalDebt;
+
+    // Para Tarjetas y Préstamos, usar la misma lógica que la visualización de cuota
+    return getDynamicQuota(month, year);
   }
 
   // Determinar urgencia (para color coding)
@@ -312,6 +415,14 @@ class Responsibility extends HiveObject {
 
   // Verificar si está pagado en un mes específico
   bool isPaidInMonth(int month, int year) {
+    // CASO SPECIAL: Frecuencias cortas
+    if (safeFrequency == 'diario' || safeFrequency == 'semanal' || safeFrequency == 'quincenal') {
+      final now = DateTime.now();
+      if (month == now.month && year == now.year) {
+        return safeIsPaid;
+      }
+    }
+
     // CASO 1: Tiene fecha de último pago que coincide con el mes/año consultado
     if (lastPaymentDate != null && lastPaymentDate!.month == month && lastPaymentDate!.year == year) {
       return true;
@@ -334,6 +445,39 @@ class Responsibility extends HiveObject {
       }
     }
 
+    return false;
+  }
+
+  // Verificar si está pagado en una fecha específica (incluyendo Día)
+  bool isPaidOnDate(DateTime date) {
+    
+    // 1. Verificar en historial de fechas (lo más preciso)
+    if (paymentDates != null) {
+      // Normalizar fecha input
+      final target = DateTime(date.year, date.month, date.day);
+      
+      // Buscar coincidencia exacta
+      for (var p in paymentDates!) {
+        if (p.year == target.year && p.month == target.month && p.day == target.day) {
+          return true;
+        }
+      }
+    }
+    
+    // 2. Fallback a lógica legacy si no hay historial
+    // (Para compatibilidad con datos viejos o frecuencias mensuales)
+    if (safeFrequency == 'mensual' || safeFrequency == 'bimestral' || safeFrequency == 'trimestral' || safeFrequency == 'anual') {
+      return isPaidInMonth(date.month, date.year);
+    }
+    
+    // 3. Fallback Legacy para diario/semanal (solo mira última fecha)
+    if (safeFrequency == 'diario') {
+       if (lastPaymentDate == null) return false;
+       return lastPaymentDate!.year == date.year && 
+              lastPaymentDate!.month == date.month && 
+              lastPaymentDate!.day == date.day;
+    }
+    
     return false;
   }
   

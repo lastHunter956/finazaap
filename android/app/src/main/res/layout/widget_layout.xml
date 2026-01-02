@@ -8,37 +8,39 @@
     android:padding="16dp">
 
     <!-- Header Row -->
-    <LinearLayout
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
         android:layout_marginBottom="12dp">
 
         <TextView
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
             android:text="Moneo"
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
         <ImageView
             android:id="@+id/widget_add_btn"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
             android:background="@drawable/btn_add_premium"
             android:src="@drawable/ic_add"
-            android:padding="10dp"
+            android:padding="8dp"
             android:scaleType="fitCenter" />
-    </LinearLayout>
+    </RelativeLayout>
 
-    <!-- Stats Row -->
+    <!-- Stats Row: Income & Expense -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:baselineAligned="false">
 
         <!-- Income Column -->
         <LinearLayout
@@ -52,8 +54,7 @@
                 android:layout_height="wrap_content"
                 android:text="INGRESOS"
                 android:textColor="#80FFFFFF"
-                android:textSize="11sp"
-                android:textStyle="bold" />
+                android:textSize="10sp" />
 
             <TextView
                 android:id="@+id/widget_income"
@@ -61,9 +62,8 @@
                 android:layout_height="wrap_content"
                 android:text="$ 0"
                 android:textColor="#4ADE80"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:layout_marginTop="4dp" />
+                android:textSize="18sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- Expenses Column -->
@@ -79,8 +79,7 @@
                 android:layout_height="wrap_content"
                 android:text="GASTOS"
                 android:textColor="#80FFFFFF"
-                android:textSize="11sp"
-                android:textStyle="bold" />
+                android:textSize="10sp" />
 
             <TextView
                 android:id="@+id/widget_expense"
@@ -88,10 +87,36 @@
                 android:layout_height="wrap_content"
                 android:text="$ 0"
                 android:textColor="#F87171"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:layout_marginTop="4dp" />
+                android:textSize="18sp"
+                android:textStyle="bold" />
         </LinearLayout>
+    </LinearLayout>
+
+    <!-- Balance Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/widget_row_bg"
+        android:padding="10dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Balance: "
+            android:textColor="#B0FFFFFF"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/widget_balance"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="$ 0"
+            android:textColor="#4ADE80"
+            android:textSize="18sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
 </LinearLayout>

@@ -9,6 +9,7 @@ import 'package:finazaap/utils/currency_helper.dart';
 class UrgentPaymentsSection extends StatelessWidget {
   final int month;
   final int year;
+  final int? day; // Nuevo parámetro
   final Function(String) onTogglePaid;
   final Function(Responsibility, int, int) onTap;
   final Function(Responsibility) onEdit;
@@ -22,15 +23,27 @@ class UrgentPaymentsSection extends StatelessWidget {
     required this.onDelete,
     required this.month,
     required this.year,
+    this.day,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     // Defensive filtering: Ensure we use the exact same logic that determines "Paid" 
     // to filter the list. If the UI sees it as paid (Green button), it should be hidden.
-    final urgentPayments = ResponsibilityService.getUrgentPayments(month: month, year: year)
-        .where((r) => !r.isPaidInMonth(month, year))
-        .toList();
+    // referenceDate logic reduced since day is always null or ignored
+    DateTime? referenceDate; 
+    // if (day != null) ... removed
+    
+    final urgentPayments = ResponsibilityService.getUrgentPayments(
+        month: month, 
+        year: year,
+        referenceDate: referenceDate
+    ).where((r) {
+       // Filter out if paid TODAY (not just "in month", because we now care about day-specific paid status)
+       // [REMOVIDO] Filtro diario/semanal
+       // if (day != null && ...) { ... }
+       return !r.isPaidInMonth(month, year);
+    }).toList();
 
     if (urgentPayments.isEmpty) {
       return const SizedBox.shrink();
@@ -73,14 +86,18 @@ class UrgentPaymentsSection extends StatelessWidget {
     IconData urgencyIcon;
     String urgencyText;
 
-    if (daysLeft <= 0) {
+    if (daysLeft < 0) {
       urgencyColor = const Color(0xFFEF4444);
       urgencyIcon = Icons.error_outline_rounded;
-      urgencyText = 'Venció hoy';
-    } else if (daysLeft <= 1) {
+      urgencyText = 'Vencido';
+    } else if (daysLeft == 0) {
       urgencyColor = const Color(0xFFEF4444);
       urgencyIcon = Icons.priority_high_rounded;
       urgencyText = 'Vence hoy';
+    } else if (daysLeft == 1) {
+      urgencyColor = const Color(0xFFF59E0B);
+      urgencyIcon = Icons.notification_important_rounded;
+      urgencyText = 'Vence mañana';
     } else if (daysLeft <= 3) {
       urgencyColor = const Color(0xFFF59E0B);
       urgencyIcon = Icons.notification_important_rounded;

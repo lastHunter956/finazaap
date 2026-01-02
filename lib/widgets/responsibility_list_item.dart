@@ -9,26 +9,34 @@ class ResponsibilityListItem extends StatelessWidget {
   final Responsibility responsibility;
   final int month;
   final int year;
+  final int? day; // Día seleccionado
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onTogglePaid;
+  final VoidCallback? onPayMonth; // Nuevo callback opcional
 
   const ResponsibilityListItem({
     Key? key,
     required this.responsibility,
     required this.month,
     required this.year,
+    this.day,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
     required this.onTogglePaid,
+    this.onPayMonth,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final urgency = responsibility.getUrgencyLevel();
-    final isPaidInSelectedMonth = responsibility.isPaidInMonth(month, year);
+    // Si tenemos día específico seleccionado, verificamos si está pagado ESE día
+    final isPaidInSelectedMonth = (day != null) 
+        ? responsibility.isPaidOnDate(DateTime(year, month, day!)) 
+        : responsibility.isPaidInMonth(month, year);
+        
     final categoryColor = _getCategoryColor(responsibility.safeCategory);
     Color statusColor;
 
@@ -95,21 +103,8 @@ class ResponsibilityListItem extends StatelessWidget {
               },
               onPay: (resp) {
                 if (responsibility.safeCategory == 'tarjeta') {
-                  // Redirigir a Pantalla de Transferencia (Pago de Tarjeta)
-                  // Usar valores dinámicos calculados desde transacciones
-                  final amountToPay = responsibility.dynamicMonthlyPayment > 0 
-                      ? responsibility.dynamicMonthlyPayment 
-                      : responsibility.dynamicCardBalance;
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => TransferScreen(
-                         initialAmount: amountToPay,
-                         initialDestinationAccount: responsibility.safeName,
-                         initialDescription: 'Pago Cuota ${responsibility.safeName}',
-                      ),
-                    ),
-                  );
+                   // Lógica de tarjeta (ya manejada por onTogglePaid en el padre)
+                   onTogglePaid();
                 } else {
                   onTogglePaid();
                 }
@@ -184,26 +179,40 @@ class ResponsibilityListItem extends StatelessWidget {
                               color: categoryColor,
                             ),
                             _buildMiniBadge(
-                              text: 'DÍA ${responsibility.dueDay}',
+                              text: _getFrequencyLabel(responsibility),
                               color: statusColor,
                               icon: Icons.calendar_today_rounded,
                             ),
                           ],
                         ),
-                        if (responsibility.safeCategory == 'tarjeta' || (responsibility.installments != null && responsibility.installments! > 1))
+                        // Información extra para tarjetas/préstamos con lógica dinámica
+                        if (responsibility.safeCategory == 'tarjeta' || responsibility.safeCategory == 'préstamo')
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (responsibility.safeCategory == 'tarjeta')
-                                  _buildSubInfo(
-                                    'Saldo: ${CurrencyHelper.format(responsibility.dynamicCardBalance)}',
-                                  ),
-                                if (responsibility.safeCategory == 'tarjeta' && responsibility.installments != null)
-                                  const Text(' • ', style: TextStyle(color: Colors.white24)),
+                                _buildSubInfo(
+                                  'Deuda Total: ${CurrencyHelper.format(responsibility.dynamicCardBalance)}',
+                                ),
+                                const SizedBox(height: 2),
+                                _buildSubInfo(
+                                  'Cuota Mes: ${CurrencyHelper.format(responsibility.safeCategory == 'tarjeta' || responsibility.safeCategory == 'préstamo' ? responsibility.getDynamicQuota(month, year) : responsibility.safeAmount)}',
+                                ),
                                 if (responsibility.installments != null && responsibility.installments! > 1)
-                                  _buildSubInfo('Cuotas: ${responsibility.installments}'),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: _buildSubInfo('Plazo: ${responsibility.installments} cuotas'),
+                                  ),
                               ],
+                            ),
+                          ),
+                        // Mostrar Total Mensual para frecuencias cortas (diario/semanal)
+                        if (['diario', 'semanal', 'quincenal'].contains(responsibility.safeFrequency))
+                           Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: _buildSubInfo(
+                              'Mensual: ${CurrencyHelper.format(responsibility.getMonthlyAmount())}',
                             ),
                           ),
                       ],
@@ -221,7 +230,11 @@ class ResponsibilityListItem extends StatelessWidget {
                           fit: BoxFit.scaleDown,
                           child: Text(
                             CurrencyHelper.format(
-                              responsibility.getAmountForDate(month, year),
+                              // Para visualización principal, usamos el monto BASE (unitario) para frecuencias cortas
+                              // Para tarjetas y mensuales, usamos el getAmountForDate
+                              (['diario', 'semanal', 'quincenal'].contains(responsibility.safeFrequency))
+                                  ? responsibility.safeAmount
+                                  : responsibility.getAmountForDate(month, year),
                               showSymbol: false,
                             ),
                             style: const TextStyle(
@@ -233,7 +246,9 @@ class ResponsibilityListItem extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        CurrencyHelper.currencyCode,
+                        ['diario', 'semanal', 'quincenal'].contains(responsibility.safeFrequency)
+                          ? '${CurrencyHelper.currencyCode} / ${_getShortFrequency(responsibility.safeFrequency)}'
+                          : CurrencyHelper.currencyCode,
                         style: const TextStyle(
                           color: Colors.white38,
                           fontSize: 10,
@@ -396,6 +411,35 @@ class ResponsibilityListItem extends StatelessWidget {
         return const Color(0xFFF59E0B); // Orange
       default:
         return Colors.grey;
+    }
+  }
+
+  String _getFrequencyLabel(Responsibility r) {
+    final freq = r.safeFrequency;
+    if (freq == 'diario') return 'DIARIO';
+    if (freq == 'semanal') {
+      const days = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+      int idx = r.safeDueDay; // 1=Lunes..7=Domingo (pero a veces 0?)
+      if (idx < 1 || idx > 7) idx = 1; 
+      // Si idx=1 (Lunes), en array days[1] = 'LUN'. Correcto.
+      // Si idx=7 (Domingo), days[7] = 'DOM'. Correcto.
+      return 'CADA ${days[idx]}';
+    }
+    if (freq == 'quincenal') return 'QUINCENAL (${r.safeDueDay})';
+    if (freq == 'mensual') return 'DÍA ${r.safeDueDay}';
+    return freq.toUpperCase();
+  }
+
+  String _getShortFrequency(String freq) {
+    switch (freq) {
+      case 'diario': return 'día';
+      case 'semanal': return 'sem';
+      case 'quincenal': return 'qcn';
+      case 'mensual': return 'mes';
+      case 'bimestral': return '2m';
+      case 'trimestral': return '3m';
+      case 'anual': return 'año';
+      default: return 'mes';
     }
   }
 }

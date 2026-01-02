@@ -1,9 +1,11 @@
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/icon_lists.dart';
 import 'package:finazaap/data/credit_card_calculator.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/data/responsibility_service.dart';
 
 void showResponsibilityOptions({
   required BuildContext context,
@@ -11,6 +13,7 @@ void showResponsibilityOptions({
   required Function(Responsibility) onEdit,
   required Function(Responsibility) onDelete,
   required Function(Responsibility) onPay,
+  Function(Responsibility)? onPayMonth, // Nuevo callback
   required int selectedMonth,
   required int selectedYear,
 }) {
@@ -214,6 +217,20 @@ void showResponsibilityOptions({
                                           onPay(responsibility);
                                         },
                                       ),
+                                    
+                                    // Pagar Resto del Mes (DIARIO/SEMANAL)
+                                    if (!isCard && !isPaid && ['diario', 'semanal'].contains(responsibility.safeFrequency)) ...[
+                                       const SizedBox(width: 12),
+                                       _buildActionButton(
+                                          label: 'Pagar Mes',
+                                          icon: Icons.done_all_rounded,
+                                          color: Colors.tealAccent,
+                                          onTap: () {
+                                             Navigator.pop(context);
+                                             ResponsibilityService.payFullMonth(responsibility.safeId, selectedMonth, selectedYear);
+                                          }
+                                       ),
+                                    ],
 
                                     // Botón Eliminar - Para no-tarjetas O tarjetas huérfanas
                                     if (!isCard || isOrphaned) ...[

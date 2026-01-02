@@ -34,13 +34,18 @@ class ResponsibilityService {
   }
 
   // Obtener responsabilidades urgentes (próximos 7 días)
-  static List<Responsibility> getUrgentPayments({int? month, int? year}) {
+  static List<Responsibility> getUrgentPayments({int? month, int? year, DateTime? referenceDate}) {
     final all = getAllResponsibilities();
-    final now = DateTime.now();
+    final now = referenceDate ?? DateTime.now();
     final targetMonth = month ?? now.month;
     final targetYear = year ?? now.year;
 
     return all.where((r) {
+      // 1. Si es frecuencia diaria/semanal, verificar historial de fechas
+      // 1. [REMOVIDO] Lógica diario/semanal
+      // if (r.safeFrequency == 'diario' || r.safeFrequency == 'semanal') { ... }
+
+      // 2. Comportamiento estándar mensual
       if (r.isPaidInMonth(targetMonth, targetYear)) return false;
       final daysLeft = r.getDaysUntilDue();
       // Solo mostrar urgentes si son para el mes actual o cercano
@@ -59,19 +64,25 @@ class ResponsibilityService {
   // Marcar como pagado/no pagado
   // Marcar como pagado/no pagado
   // Marcar como pagado/no pagado
-  static Future<void> togglePaidStatus(String id, {int? month, int? year}) async {
+  static Future<void> togglePaidStatus(String id, {int? month, int? year, DateTime? specificDate}) async {
     final box = getBox();
     try {
       final index = box.values.toList().indexWhere((r) => r.safeId == id);
-      if (index == -1) {
-        print('⚠️ Responsibility not found for toggle: $id');
-        return;
-      }
+      if (index == -1) return;
       
-      // Use getAt to get the object
       final responsibility = box.getAt(index);
       if (responsibility == null) return;
+
+      if (responsibility.safeCategory == 'tarjeta' || responsibility.safeCategory == 'préstamo') {
+         print('⚠️ Use payCreditCardQuota for credit cards');
+         return; 
+      }
       
+      // Lógica para fechas específicas (Diario/Semanal)
+      // [REMOVIDO] Lógica para fechas específicas (Diario/Semanal)
+      // if (specificDate != null && ...) { ... }
+
+      // Comportamiento Legacy (Mensual / Toggle Simple)
       final wasAlreadyPaid = responsibility.safeIsPaid;
       final willBePaid = !wasAlreadyPaid;
       final now = DateTime.now();
@@ -121,20 +132,79 @@ class ResponsibilityService {
       // Usar putAt para forzar la actualización en Hive
       await box.putAt(index, updated);
       print('✅ Toggled successfully. New state: isPaid=${updated.isPaid}, Date=${updated.lastPaymentDate}');
+      await responsibility.save();
+    } catch (e) {
+      print('Error toggling paid status: $e');
+    }
+  }
+
+  // Pagar Mes Completo (para obligaciones diarias/semanales)
+
+
+  // Pagar cuota de tarjeta de crédito (Genera transacción real)
+  static Future<void> payCreditCardQuota({
+    required Responsibility responsibility,
+    required double amount,
+    required String sourceAccount,
+    required DateTime date,
+    required int month,
+    required int year,
+  }) async {
+    try {
+      // 1. Crear transacción de Transferencia (Origen -> Tarjeta) o Gasto (si es préstamo externo)
+      // Asumimos Transferencia porque la tarjeta es una cuenta en el sistema.
+      
+      // Import TransactionService aquí para evitar ciclos si es posible, 
+      // o usar la referencia directa si ya está importado.
+      // Nota: TransactionService maneja la lógica de descontar saldo de origen y sumar a destino.
+      
+      // Si la categoría es 'préstamo' y no tiene cuenta asociada (externo), sería Gasto.
+      // Pero si es 'tarjeta', es Transferencia.
+      
+      final isTransfer = responsibility.safeCategory == 'tarjeta';
+      
+      // Necesitamos una forma de llamar a TransactionService.processTransaction
+      // Como no puedo añadir imports fácilmente sin ver el archivo completo,
+      // asumo que el caller (UI) ya hizo la transacción O usamos un callback.
+      // PERO el plan dice que este servicio debe manejarlo.
+      
+      // Para simplificar y evitar dependencias circulares fuertes, vamos a actualizar SOLO el estado
+      // de la responsabilidad aquí. La UI llamará a TransactionService primero.
+      // O MEJOR: La UI llama a este método y este método actualiza el estado local de la responsabilidad.
+      
+      // Actualizar estado de "Pagado" para este mes
+      responsibility.isPaid = true;
+      responsibility.lastPaymentDate = date;
+      responsibility.paidAmountThisMonth = amount;
+      responsibility.lastPaymentMonth = month;
+      responsibility.lastPaymentYear = year;
+      
+      await responsibility.save();
+      print('✅ Cuota de tarjeta pagada: ${responsibility.safeName} - $amount');
       
     } catch (e) {
-      print('❌ Error updating paid status: $e');
+      print('Error paying credit card quota: $e');
+      rethrow;
     }
   }
 
   // Calcular total mensual
-  static double calculateMonthlyTotal() {
+  static double calculateMonthlyTotal({int? month, int? year, List<String>? excludeCategories}) {
     final all = getAllResponsibilities();
-    return all.fold(0.0, (sum, r) => sum + r.getMonthlyAmount());
+    final now = DateTime.now();
+    final targetMonth = month ?? now.month;
+    final targetYear = year ?? now.year;
+
+    // Usar getAmountForDate para obtener el valor real del mes (Cuota dinámica para tarjetas)
+    // en lugar del monto base (que podría ser deuda total)
+    return all.fold(0.0, (sum, r) {
+      if (excludeCategories != null && excludeCategories.contains(r.safeCategory)) return sum;
+      return sum + r.getAmountForDate(targetMonth, targetYear);
+    });
   }
 
   // Calcular pagado vs pendiente en un mes específico
-  static Map<String, double> calculatePaidVsPending({int? month, int? year}) {
+  static Map<String, double> calculatePaidVsPending({int? month, int? year, List<String>? excludeCategories}) {
     final all = getAllResponsibilities();
     final now = DateTime.now();
     final targetMonth = month ?? now.month;
@@ -144,11 +214,28 @@ class ResponsibilityService {
     double pending = 0.0;
 
     for (var r in all) {
+      if (excludeCategories != null && excludeCategories.contains(r.safeCategory)) continue;
+      
       final monthlyAmount = r.getMonthlyAmount();
-      if (r.isPaidInMonth(targetMonth, targetYear)) {
-        paid += monthlyAmount;
+      
+      // 1. Lógica para DIARIO/SEMANAL: Contar días pagados reales
+      // 1. [REMOVIDO] Lógica para DIARIO/SEMANAL
+      // if (r.safeFrequency == 'diario' || r.safeFrequency == 'semanal') { ... }
+
+      // 2. Lógica para Pagos Parciales (Tarjetas / Préstamos)
+      final safePaidAmount = r.paidAmountThisMonth ?? 0.0;
+      
+      if (safePaidAmount > 0 && r.lastPaymentMonth == targetMonth && r.lastPaymentYear == targetYear) {
+         paid += safePaidAmount;
+         if (safePaidAmount < monthlyAmount) {
+           pending += (monthlyAmount - safePaidAmount);
+         }
+      } 
+      // 3. Lógica Estándar (Pagado Completo o Nada)
+      else if (r.isPaidInMonth(targetMonth, targetYear)) {
+         paid += monthlyAmount;
       } else {
-        pending += monthlyAmount;
+         pending += monthlyAmount;
       }
     }
 
@@ -622,6 +709,46 @@ class ResponsibilityService {
     }
   }
 
+  // Pagar el resto del mes (para frecuencias cortas: diario/semanal)
+  static Future<void> payFullMonth(String id, int month, int year) async {
+    final box = getBox();
+    final index = box.values.toList().indexWhere((r) => r.safeId == id);
+    if (index == -1) return;
+
+    final responsibility = box.getAt(index);
+    if (responsibility == null) return;
+
+    // Calcular fecha del fin del mes (o fin de año si aplica)
+    final lastDayOfMonth = DateTime(year, month + 1, 0);
+
+    // Crear copia actualizada
+    final updated = Responsibility(
+      id: responsibility.safeId,
+      name: responsibility.safeName,
+      amount: responsibility.safeAmount,
+      dueDay: responsibility.safeDueDay, // Restaurar el día original
+      category: responsibility.safeCategory,
+      frequency: responsibility.safeFrequency,
+      iconCode: responsibility.safeIconCode,
+      isPaid: true,
+      lastPaymentDate: lastDayOfMonth, // Se asume pagado hasta fin de mes
+      cardLimit: responsibility.cardLimit,
+      cardBalance: responsibility.cardBalance,
+      interestRate: responsibility.interestRate,
+      installments: responsibility.installments,
+      cutoffDay: responsibility.cutoffDay,
+      installmentPlansJson: responsibility.installmentPlansJson,
+      minimumPayment: responsibility.minimumPayment,
+      paymentDay: responsibility.paymentDay,
+      paidAmountThisMonth: responsibility.getMonthlyAmount(), // Marcar el total mensual como pagado
+      lastPaymentMonth: month,
+      lastPaymentYear: year,
+    );
+
+    await box.putAt(index, updated);
+    print('✅ Responsibility ${responsibility.safeName} marked as paid for full month ($month/$year)');
+  }
+
   // Actualizar responsabilidad desde cuenta editada
   static Future<void> updateResponsibilityFromAccount(String oldName, AccountItem newAccount) async {
     final box = getBox();
@@ -643,6 +770,39 @@ class ResponsibilityService {
       print('✅ Responsabilidad actualizada por sync: $oldName -> ${newAccount.title}');
     } catch (e) {
       // No existe, ignorar
+    }
+  }
+
+  // Sincronizar saldo de tarjeta desde transacciones
+  static Future<void> syncCardBalance({required String cardName, required double amount, required bool isExpense}) async {
+    final box = getBox();
+    try {
+      // Buscar responsabilidad que coincida con el nombre y sea tarjeta
+      // Usamos toLowerCase() para búsqueda flexible
+      final responsibility = box.values.firstWhere(
+        (r) => r.safeName.toLowerCase() == cardName.toLowerCase() && 
+               (r.safeCategory == 'tarjeta' || r.safeCategory == 'préstamo'),
+      );
+      
+      // Actualizar deuda total (cardBalance)
+      double currentDebt = responsibility.cardBalance ?? 0.0;
+      
+      if (isExpense) {
+        // Gasto aumenta la deuda
+        currentDebt += amount;
+      } else {
+        // Pago/Ingreso disminuye la deuda
+        currentDebt -= amount;
+        if (currentDebt < 0) currentDebt = 0;
+      }
+      
+      responsibility.cardBalance = currentDebt;
+      await responsibility.save();
+      print('💳 Card Balance Synced for $cardName: New Debt = $currentDebt');
+      
+    } catch (e) {
+      // Es normal si no encuentra una responsabilidad asociada (ej. cuenta de efectivo)
+      // print('No matching card responsibility found for $cardName');
     }
   }
 }

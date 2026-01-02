@@ -8,14 +8,16 @@ import 'package:flutter/services.dart';
 import 'package:gradient_borders/gradient_borders.dart';
 
 class ResponsibilityDashboardCard extends StatefulWidget {
-  final int month;
-  final int year;
-  final Function(int month, int year) onDateSelected;
+  final List<dynamic> responsibilities;
+  final int selectedMonth;
+  final int selectedYear;
+  final Function(int day, int month, int year) onDateSelected;
 
   const ResponsibilityDashboardCard({
     Key? key,
-    required this.month,
-    required this.year,
+    required this.responsibilities,
+    required this.selectedMonth,
+    required this.selectedYear,
     required this.onDateSelected,
   }) : super(key: key);
 
@@ -46,264 +48,179 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
     return DateFormat.yMMMM('es').format(date);
   }
 
-  void _showMonthYearSelector() {
-    int localMonth = widget.month;
-    int localYear = widget.year;
+  void _showDateSelector(BuildContext context) {
+    int localMonth = widget.selectedMonth;
+    int localYear = widget.selectedYear;
+    // localDay removed
     
-    const double cornerRadius = 24.0;
-    final Color accentColor = const Color(0xFF4A80F0);
-    final Color surfaceColor = const Color(0xFF222939);
-    final Color cardColor = const Color(0xFF1A1F2B);
-    
+    // Obtener días en el mes seleccionado
+    int getDaysInMonth(int m, int y) {
+      return DateTime(y, m + 1, 0).day;
+    }
+
     final List<String> monthNames = [
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
-    
+
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: "Selector de período",
-      barrierColor: Colors.black.withOpacity(0.75),
-      transitionDuration: const Duration(milliseconds: 280),
+      barrierLabel: "Seleccionar Fecha",
+      barrierColor: Colors.black.withOpacity(0.7),
+      transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) => Container(),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            final curveAnimation = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutQuint,
-              reverseCurve: Curves.easeInQuint,
-            );
-            
-            final scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(curveAnimation);
-            final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-              CurvedAnimation(parent: animation, curve: const Interval(0.1, 1.0))
-            );
-            final blurAnimation = Tween<double>(begin: 20, end: 0).animate(curveAnimation);
-            
-            return ScaleTransition(
-              scale: scaleAnimation,
-              child: FadeTransition(
-                opacity: fadeAnimation,
-                child: Center(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: blurAnimation.value,
-                      sigmaY: blurAnimation.value,
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Container(
-                        width: MediaQuery.of(context).size.width * 0.87,
-                        constraints: const BoxConstraints(
-                          maxWidth: 400,
-                        ),
-                        decoration: BoxDecoration(
-                          color: surfaceColor,
-                          borderRadius: BorderRadius.circular(cornerRadius),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.35),
-                              blurRadius: 25,
-                              offset: const Offset(0, 12),
-                              spreadRadius: -5,
-                            ),
-                          ],
-                          border: GradientBoxBorder(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withOpacity(0.15),
-                                accentColor.withOpacity(0.2),
-                                Colors.white.withOpacity(0.02),
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.3, 0.7, 1.0],
-                            ),
-                            width: 1.5,
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+          child: FadeTransition(
+            opacity: animation,
+            child: AlertDialog(
+              backgroundColor: const Color(0xFF222939),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              contentPadding: EdgeInsets.zero,
+              content: SizedBox(
+                width: 340,
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Header
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_month_rounded, color: Colors.blueAccent),
+                              const SizedBox(width: 12),
+                              const Text('Filtrar Fecha', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                              const Spacer(),
+                              // Botón "Hoy"
+                              TextButton(
+                                onPressed: () {
+                                    final now = DateTime.now();
+                                    setState(() {
+                                      localMonth = now.month;
+                                      localYear = now.year;
+                                    });
+                                },
+                                child: const Text('Hoy', style: TextStyle(color: Colors.blueAccent)),
+                              )
+                            ],
                           ),
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(cornerRadius),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                        
+                        // Selector Año
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(12)),
+                          child: Row(
                             children: [
-                              // Cabecera
-                              Container(
-                                padding: const EdgeInsets.fromLTRB(24, 28, 24, 18),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      accentColor.withOpacity(0.22),
-                                      accentColor.withOpacity(0.10),
-                                      accentColor.withOpacity(0.05),
-                                    ],
+                              _buildDirButton(Icons.chevron_left_rounded, () {
+                                setState(() => localYear--);
+                              }),
+                              Expanded(
+                                child: Center(
+                                  child: Text(
+                                    localYear.toString(),
+                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                                   ),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Seleccionar período',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Ver obligaciones de otro mes',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.6),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: cardColor.withOpacity(0.6),
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(color: Colors.white.withOpacity(0.07)),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.calendar_today_rounded, size: 16, color: accentColor),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            "${monthNames[localMonth-1]} $localYear",
-                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               ),
-                              
-                              // Selector de Año
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                              _buildDirButton(Icons.chevron_right_rounded, () {
+                                setState(() => localYear++);
+                              }),
+                            ],
+                          ),
+                        ),
+                        
+                        // Selector Meses Grid
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                          child: GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4, // 4 columnas es más compacto
+                              childAspectRatio: 1.8,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                            ),
+                            itemCount: 12,
+                            itemBuilder: (context, index) {
+                              final m = index + 1;
+                              final isSel = localMonth == m;
+                              return GestureDetector(
+                                onTap: () {
+                                  setState(() => localMonth = m);
+                                },
                                 child: Container(
-                                  height: 54,
                                   decoration: BoxDecoration(
-                                    color: cardColor,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                    color: isSel ? Colors.blueAccent : Colors.white.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: isSel ? Colors.blueAccent : Colors.white.withOpacity(0.1)),
                                   ),
-                                  child: Row(
-                                    children: [
-                                      _buildDirButton(Icons.chevron_left_rounded, () {
-                                        setState(() => localYear--);
-                                        HapticFeedback.lightImpact();
-                                      }),
-                                      Expanded(
-                                        child: Center(
-                                          child: Text(
-                                            localYear.toString(),
-                                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
+                                  child: Center(
+                                    child: Text(
+                                      monthNames[index].substring(0, 3),
+                                      style: TextStyle(
+                                        color: isSel ? Colors.white : Colors.white70,
+                                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                        fontSize: 12,
                                       ),
-                                      _buildDirButton(Icons.chevron_right_rounded, () {
-                                        setState(() => localYear++);
-                                        HapticFeedback.lightImpact();
-                                      }),
-                                    ],
+                                    ),
                                   ),
                                 ),
+                              );
+                            },
+                          ),
+                        ),
+                        
+                        // Selector Día Eliminado
+                        SizedBox(height: 0),
+
+
+                        const SizedBox(height: 24),
+                        
+                        // Botones
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: Text('Cancelar', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+                                ),
                               ),
-                              
-                              // Grid de Meses
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                child: GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    childAspectRatio: 2.2,
-                                    crossAxisSpacing: 8,
-                                    mainAxisSpacing: 8,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 2,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blueAccent,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
                                   ),
-                                  itemCount: 12,
-                                  itemBuilder: (context, index) {
-                                    final m = index + 1;
-                                    final isSel = localMonth == m;
-                                    return GestureDetector(
-                                      onTap: () {
-                                        setState(() => localMonth = m);
-                                        HapticFeedback.selectionClick();
-                                      },
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: isSel ? accentColor : cardColor,
-                                          borderRadius: BorderRadius.circular(10),
-                                          border: Border.all(color: isSel ? accentColor : Colors.white.withOpacity(0.08)),
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            monthNames[index].substring(0, 3),
-                                            style: TextStyle(
-                                              color: isSel ? Colors.white : Colors.white70,
-                                              fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    );
+                                  onPressed: () {
+                                    widget.onDateSelected(1, localMonth, localYear); // Fixed 1
+                                    Navigator.pop(context);
                                   },
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              
-                              // Botones
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: Text('Cancelar', style: TextStyle(color: Colors.white.withOpacity(0.6))),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 2,
-                                      child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: accentColor,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                        ),
-                                        onPressed: () {
-                                          widget.onDateSelected(localMonth, localYear);
-                                          Navigator.pop(context);
-                                          HapticFeedback.mediumImpact();
-                                        },
-                                        child: const Text('Aplicar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                      ),
-                                    ),
-                                  ],
+                                  child: const Text('Aplicar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ),
-                  ),
+                      ],
+                    );
+                  }
                 ),
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );
@@ -324,11 +241,17 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
 
   @override
   Widget build(BuildContext context) {
-    final monthlyTotal = ResponsibilityService.calculateMonthlyTotal();
-    final paidVsPending = ResponsibilityService.calculatePaidVsPending(month: widget.month, year: widget.year);
+    final totalAmount = ResponsibilityService.calculateMonthlyTotal(
+      month: widget.selectedMonth,
+      year: widget.selectedYear,
+    );
+    final paidVsPending = ResponsibilityService.calculatePaidVsPending(
+      month: widget.selectedMonth, 
+      year: widget.selectedYear,
+    );
     final paid = paidVsPending['paid'] ?? 0.0;
     final pending = paidVsPending['pending'] ?? 0.0;
-    final progress = monthlyTotal > 0 ? (paid / monthlyTotal) : 0.0;
+    final progress = totalAmount > 0 ? (paid / totalAmount) : 0.0;
     final percentage = (progress * 100).round();
 
     return Container(
@@ -361,7 +284,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
               ),
               const SizedBox(height: 6),
               Text(
-                CurrencyHelper.format(monthlyTotal),
+                CurrencyHelper.format(totalAmount),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
@@ -370,8 +293,9 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
               ),
               const SizedBox(height: 12),
               // Botón Selector de Fecha movido debajo
-              GestureDetector(
-                onTap: _showMonthYearSelector,
+              InkWell(
+                onTap: () => _showDateSelector(context),
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
@@ -385,7 +309,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                       const Icon(Icons.calendar_month, size: 14, color: Colors.white),
                       const SizedBox(width: 8),
                       Text(
-                        _formatDate(widget.month, widget.year),
+                        _formatDate(widget.selectedMonth, widget.selectedYear),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
