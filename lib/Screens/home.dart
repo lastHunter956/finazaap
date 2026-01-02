@@ -26,6 +26,8 @@ import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/screens/settings_screen.dart';
 import 'package:finazaap/Screens/daily_transactions.dart';
+import 'package:home_widget/home_widget.dart';
+import 'package:finazaap/services/widget_service.dart';
 
 // Definir una clase AccountItem local para home.dart
 class AccountItem {
@@ -97,6 +99,20 @@ class _HomeState extends State<Home> {
         _loadCategoryMetadata(); // Recargar colores si cambian datos
       }
     });
+
+    // Check for Widget Launch
+    HomeWidget.initiallyLaunchedFromHomeWidget().then(_handleWidgetLaunch);
+    
+    // Listen for Widget Launch while app is running
+    HomeWidget.widgetClicked.listen(_handleWidgetLaunch);
+  }
+
+  void _handleWidgetLaunch(Uri? uri) {
+    if (uri?.scheme == 'finazaap' && uri?.host == 'add_operation') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => AddExpenseScreen()),
+      );
+    }
   }
 
   @override
@@ -252,6 +268,9 @@ class _HomeState extends State<Home> {
 
       // Actualiza el notificador con el valor calculado
       availableBalanceNotifier.value = totalBalance;
+      
+      // Actualizar el Widget de Android con ingresos y gastos del mes
+      await WidgetService.refreshWidgetFromData();
     }
   }
 

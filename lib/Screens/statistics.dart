@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -101,7 +101,29 @@ class _StatisticsState extends State<Statistics> {
   void initState() {
     super.initState();
     _loadData();
-    _loadAccounts(); // Añadir esta línea para cargar las cuentas
+    _loadAccounts();
+    
+    // Escuchar cambios en la caja de datos para actualizar automáticamente
+    Hive.box<Add_data>('data').listenable().addListener(_onDataChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recargar datos cada vez que la pantalla vuelve a ser visible
+    _loadData();
+  }
+
+  void _onDataChanged() {
+    if (mounted) {
+      _loadData();
+    }
+  }
+
+  @override
+  void dispose() {
+    Hive.box<Add_data>('data').listenable().removeListener(_onDataChanged);
+    super.dispose();
   }
 
   /// Carga los datos de Hive (o tu fuente de datos) y construye
