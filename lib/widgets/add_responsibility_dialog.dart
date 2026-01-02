@@ -85,7 +85,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isCredit = _selectedCategory == 'préstamo';
+    final isCredit = false; // El préstamo ahora es una obligación simple como servicio
 
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),

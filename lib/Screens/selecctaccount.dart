@@ -370,140 +370,82 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
 
             // El resto del contenido en un SingleChildScrollView
+            // El resto del contenido
             Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Sección de saldo total con espacio reducido y botón de ojo
-                    Padding(
-                      padding: const EdgeInsets.only(
-                          left: 16.0, right: 16.0, top: 16.0, bottom: 8.0),
-                      child: Column(
+              child: _isReorderMode
+                  ? ReorderableListView(
+                      padding: const EdgeInsets.only(bottom: 80),
+                      proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                        return AnimatedBuilder(
+                          animation: animation,
+                          builder: (BuildContext context, Widget? child) {
+                            final double animValue = Curves.easeInOut.transform(animation.value);
+                            final double scale = lerpDouble(1, 1.05, animValue)!;
+                            final double elevation = lerpDouble(0, 8, animValue)!;
+                            return Transform.scale(
+                              scale: scale,
+                              child: Material(
+                                elevation: elevation,
+                                color: Colors.transparent,
+                                shadowColor: Colors.black.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(18),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: child,
+                        );
+                      },
+                      header: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Saldo total',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white70,
-                            ),
-                          ),
-                          SizedBox(height: 5),
-                          Row(
-                            children: [
-                              // Texto formateado con el formato de moneda
-                              Text(
-                                _hideBalance
-                                    ? '******** \$'
-                                    : '${CurrencyHelper.format(totalBalance)}',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(width: 16),
-                              // Botón de ojo para mostrar/ocultar
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _hideBalance = !_hideBalance;
-                                  });
-                                },
-                                child: Container(
-                                  padding: EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    _hideBalance
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                    color: Colors.white70,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          _buildTotalBalanceSection(totalBalance),
+                          Divider(
+                            color: Colors.transparent,
+                            thickness: 1,
+                            height: 32,
+                            indent: 16,
+                            endIndent: 16,
                           ),
                         ],
                       ),
-                    ),
-
-                    // Divisor entre el saldo y las cuentas
-                    Divider(
-                      color: Colors.transparent,
-                      thickness: 1,
-                      height: 32,
-                      indent: 16,
-                      endIndent: 16,
-                    ),
-
-                    // Lista de cuentas
-                    if (_isReorderMode)
-                      // Modo de reordenamiento con drag & drop
-                      ...accountItems.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final item = entry.value;
-                        return Container(
-                          key: ValueKey(item.title + item.balance + index.toString()),
-                          child: LongPressDraggable<int>(
-                            data: index,
-                            feedback: Material(
-                              color: Colors.transparent,
-                              child: Opacity(
-                                opacity: 0.8,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 32),
-                                  child: _buildAccountItem(item),
-                                ),
-                              ),
-                            ),
-                            childWhenDragging: Opacity(
-                              opacity: 0.3,
-                              child: _buildAccountItem(item),
-                            ),
-                            onDragStarted: () {},
-                            onDragEnd: (details) {},
-                            child: DragTarget<int>(
-                              onAccept: (fromIndex) {
-                                if (fromIndex != index) {
-                                  setState(() {
-                                    final item = accountItems.removeAt(fromIndex);
-                                    accountItems.insert(index, item);
-                                  });
-                                }
-                              },
-                              builder: (context, candidateData, rejectedData) {
-                                return Row(
-                                  children: [
-                                    Expanded(child: _buildAccountItem(item)),
-                                    Padding(
-                                      padding: EdgeInsets.only(right: 16),
-                                      child: Icon(
-                                        Icons.drag_handle,
-                                        color: Colors.white.withOpacity(0.4),
-                                        size: 28,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
+                      onReorder: (int oldIndex, int newIndex) {
+                        setState(() {
+                          if (oldIndex < newIndex) {
+                            newIndex -= 1;
+                          }
+                          final AccountItem item = accountItems.removeAt(oldIndex);
+                          accountItems.insert(newIndex, item);
+                        });
+                      },
+                      children: [
+                        for (int i = 0; i < accountItems.length; i++)
+                          Container(
+                            key: ValueKey('${accountItems[i].title}_${accountItems[i].balance}_$i'), // Unique Key
+                            child: _buildAccountItem(accountItems[i], isReorderMode: true),
                           ),
-                        );
-                      }).toList()
-                    else
-                      // Lista normal sin reordenamiento
-                      ...accountItems
-                          .map((item) => _buildAccountItem(item))
-                          .toList(),
-                  ],
-                ),
-              ),
+                      ],
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.only(bottom: 80),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTotalBalanceSection(totalBalance),
+                          Divider(
+                            color: Colors.transparent,
+                            thickness: 1,
+                            height: 32,
+                            indent: 16,
+                            endIndent: 16,
+                          ),
+                          // Lista de cuentas (Modo Vista)
+                          ...accountItems
+                              .map((item) => _buildAccountItem(item, isReorderMode: false))
+                              .toList(),
+                        ],
+                      ),
+                    ),
             ),
           ],
         ),
@@ -521,7 +463,66 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Widget _buildAccountItem(AccountItem item) {
+  Widget _buildTotalBalanceSection(double totalBalance) {
+    return Padding(
+      padding: const EdgeInsets.only(
+          left: 16.0, right: 16.0, top: 16.0, bottom: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Saldo total',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white70,
+            ),
+          ),
+          SizedBox(height: 5),
+          Row(
+            children: [
+              // Texto formateado con el formato de moneda
+              Text(
+                _hideBalance
+                    ? '******** \$'
+                    : '${CurrencyHelper.format(totalBalance)}',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(width: 16),
+              // Botón de ojo para mostrar/ocultar
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _hideBalance = !_hideBalance;
+                  });
+                },
+                child: Container(
+                  padding: EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _hideBalance
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountItem(AccountItem item, {bool isReorderMode = false}) {
     bool isCreditCard = item.subtitle == "Tarjeta de Crédito";
     // Formato eliminado
     double balanceValue = double.tryParse(item.balance) ?? 0.0;
@@ -580,7 +581,7 @@ class _MyHomePageState extends State<MyHomePage> {
           borderRadius: BorderRadius.circular(18),
           splashColor: itemColor.withOpacity(0.1),
           highlightColor: itemColor.withOpacity(0.05),
-          onTap: () {
+          onTap: isReorderMode ? null : () {
             _showAccountOptions(context, item);
           },
           child: Padding(
@@ -637,7 +638,13 @@ class _MyHomePageState extends State<MyHomePage> {
                                   ),
                                 ),
                               ),
-                              if (!item.includeInTotal)
+                              if (isReorderMode)
+                                Icon(
+                                  Icons.drag_indicator_rounded,
+                                  color: Colors.white.withOpacity(0.5),
+                                  size: 24,
+                                )
+                              else if (!item.includeInTotal)
                                 Container(
                                   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
@@ -1204,62 +1211,67 @@ class _MyHomePageState extends State<MyHomePage> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF222939),
-              const Color(0xFF1A1F2B),
-            ],
+      isScrollControlled: true, // Permite que el bottom sheet se ajuste mejor al contenido teclado/pantalla
+      builder: (context) => SingleChildScrollView(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF222939),
+                const Color(0xFF1A1F2B),
+              ],
+            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.1),
+              width: 1,
+            ),
           ),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
+          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).viewInsets.bottom),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ordenar cuentas',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 20),
+                _buildSortOption(
+                  icon: Icons.arrow_upward,
+                  label: 'Saldo Ascendente',
+                  value: 'balanceAsc',
+                ),
+                _buildSortOption(
+                  icon: Icons.arrow_downward,
+                  label: 'Saldo Descendente',
+                  value: 'balanceDesc',
+                ),
+                _buildSortOption(
+                  icon: Icons.access_time,
+                  label: 'Fecha de Creación',
+                  value: 'creation',
+                ),
+                _buildSortOption(
+                  icon: Icons.sort_by_alpha,
+                  label: 'Título (A-Z)',
+                  value: 'title',
+                ),
+                _buildSortOption(
+                  icon: Icons.tune,
+                  label: 'Personalizado',
+                  value: 'custom',
+                ),
+              ],
+            ),
           ),
-        ),
-        padding: EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ordenar cuentas',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 20),
-            _buildSortOption(
-              icon: Icons.arrow_upward,
-              label: 'Saldo Ascendente',
-              value: 'balanceAsc',
-            ),
-            _buildSortOption(
-              icon: Icons.arrow_downward,
-              label: 'Saldo Descendente',
-              value: 'balanceDesc',
-            ),
-            _buildSortOption(
-              icon: Icons.access_time,
-              label: 'Fecha de Creación',
-              value: 'creation',
-            ),
-            _buildSortOption(
-              icon: Icons.sort_by_alpha,
-              label: 'Título (A-Z)',
-              value: 'title',
-            ),
-            _buildSortOption(
-              icon: Icons.tune,
-              label: 'Personalizado',
-              value: 'custom',
-            ),
-          ],
         ),
       ),
     );

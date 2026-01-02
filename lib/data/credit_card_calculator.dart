@@ -22,16 +22,31 @@ class CreditCardCalculator {
       int txCount = 0;
       
       for (var tx in box.values) {
+        final amount = double.tryParse(tx.safeAmount) ?? 0.0;
+        
+        // 1. Caso estándar: Ingreso/Gasto directo en la cuenta
         if (tx.safeAccount == cardName) {
-          final amount = double.tryParse(tx.safeAmount) ?? 0.0;
-          txCount++;
-          
           if (tx.safeType == 'Expenses') {
-            // Gasto = aumenta deuda
             totalDebt += amount;
           } else if (tx.safeType == 'Income') {
-            // Ingreso/Pago = disminuye deuda
             totalDebt -= amount;
+          }
+        } 
+        // 2. Caso Transferencia: Verificar si la tarjeta es origen o destino
+        else if (tx.safeType == 'Transfer') {
+          final explain = tx.safeCategory; // "Origen > Destino"
+          final parts = explain.split(' > ');
+          if (parts.length == 2) {
+            final source = parts[0].trim();
+            final dest = parts[1].trim();
+            
+            if (source == cardName) {
+              // Transferencia DESDE la tarjeta = Gasto/Avance = Aumenta deuda
+              totalDebt += amount;
+            } else if (dest == cardName) {
+              // Transferencia HACIA la tarjeta = Pago = Disminuye deuda
+              totalDebt -= amount;
+            }
           }
         }
       }
@@ -138,10 +153,21 @@ class CreditCardCalculator {
       double totalPaid = 0.0;
       
       for (var tx in box.values) {
+        final txDate = tx.datetime;
+        if (txDate == null || txDate.month != month || txDate.year != year) continue;
+        
+        final amount = double.tryParse(tx.safeAmount) ?? 0.0;
+
+        // 1. Ingreso directo
         if (tx.safeAccount == cardName && tx.safeType == 'Income') {
-          final txDate = tx.datetime;
-          if (txDate != null && txDate.month == month && txDate.year == year) {
-            totalPaid += double.tryParse(tx.safeAmount) ?? 0.0;
+          totalPaid += amount;
+        }
+        // 2. Transferencia a la tarjeta
+        else if (tx.safeType == 'Transfer') {
+          final explain = tx.safeCategory;
+          final parts = explain.split(' > ');
+          if (parts.length == 2 && parts[1].trim() == cardName) {
+            totalPaid += amount;
           }
         }
       }

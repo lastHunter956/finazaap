@@ -148,7 +148,7 @@ class Responsibility extends HiveObject {
 
   /// Calcula la cuota dinámica para un mes y año específicos
   double getDynamicQuota(int month, int year) {
-    if (safeCategory != 'tarjeta' && safeCategory != 'préstamo') {
+    if (safeCategory != 'tarjeta') {
       return safeAmount;
     }
     // FIX: Priorizar minimumPayment (Cuota Fija Manual) si existe
@@ -405,7 +405,14 @@ class Responsibility extends HiveObject {
 
   // Determinar urgencia (para color coding)
   String getUrgencyLevel() {
-    if (safeIsPaid) return 'paid';
+    // Usar chequeo dinámico para el estado "Pagado"
+    if (safeCategory == 'tarjeta') {
+      if (CreditCardCalculator.isMonthPaid(safeName, DateTime.now().month, DateTime.now().year, cutoffDay: cutoffDay)) {
+        return 'paid';
+      }
+    } else if (safeIsPaid) {
+      return 'paid';
+    }
     
     final daysLeft = getDaysUntilDue();
     if (daysLeft <= 2) return 'urgent'; // Rojo
@@ -428,21 +435,14 @@ class Responsibility extends HiveObject {
       return true;
     }
     
-    // CASO 2: TARJETAS DE CRÉDITO - Lógica especial
+    // CASO 2: TARJETAS DE CRÉDITO - Lógica 100% DINÁMICA desde transacciones
     if (safeCategory == 'tarjeta') {
-      // Si no hay deuda, está al día
-      if (cardBalance != null && cardBalance! <= 0) return true;
-      
-      // Si no hay cuota que pagar este mes, está al día
-      final expectedQuota = getAmountForDate(month, year);
-      if (expectedQuota <= 0) return true;
-      
-      // Verificar pagos parciales del ciclo actual
-      if (lastPaymentMonth == month && lastPaymentYear == year) {
-        final paid = paidAmountThisMonth ?? 0.0;
-        // Se considera pagado si se cubrió al menos 95% de la cuota (margen para redondeos)
-        if (paid >= expectedQuota * 0.95) return true;
-      }
+      return CreditCardCalculator.isMonthPaid(
+        safeName, 
+        month, 
+        year, 
+        cutoffDay: cutoffDay
+      );
     }
 
     return false;

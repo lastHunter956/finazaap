@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'package:hive/hive.dart';
+import 'package:finazaap/data/credit_card_calculator.dart';
 
 class ResponsibilityService {
   static const String _boxName = 'responsibilities';
@@ -73,8 +74,8 @@ class ResponsibilityService {
       final responsibility = box.getAt(index);
       if (responsibility == null) return;
 
-      if (responsibility.safeCategory == 'tarjeta' || responsibility.safeCategory == 'préstamo') {
-         print('⚠️ Use payCreditCardQuota for credit cards');
+      if (responsibility.safeCategory == 'tarjeta') {
+         print('ℹ️ El pago de tarjetas se sincroniza automáticamente a través de TransactionService');
          return; 
       }
       
@@ -142,51 +143,7 @@ class ResponsibilityService {
 
 
   // Pagar cuota de tarjeta de crédito (Genera transacción real)
-  static Future<void> payCreditCardQuota({
-    required Responsibility responsibility,
-    required double amount,
-    required String sourceAccount,
-    required DateTime date,
-    required int month,
-    required int year,
-  }) async {
-    try {
-      // 1. Crear transacción de Transferencia (Origen -> Tarjeta) o Gasto (si es préstamo externo)
-      // Asumimos Transferencia porque la tarjeta es una cuenta en el sistema.
-      
-      // Import TransactionService aquí para evitar ciclos si es posible, 
-      // o usar la referencia directa si ya está importado.
-      // Nota: TransactionService maneja la lógica de descontar saldo de origen y sumar a destino.
-      
-      // Si la categoría es 'préstamo' y no tiene cuenta asociada (externo), sería Gasto.
-      // Pero si es 'tarjeta', es Transferencia.
-      
-      final isTransfer = responsibility.safeCategory == 'tarjeta';
-      
-      // Necesitamos una forma de llamar a TransactionService.processTransaction
-      // Como no puedo añadir imports fácilmente sin ver el archivo completo,
-      // asumo que el caller (UI) ya hizo la transacción O usamos un callback.
-      // PERO el plan dice que este servicio debe manejarlo.
-      
-      // Para simplificar y evitar dependencias circulares fuertes, vamos a actualizar SOLO el estado
-      // de la responsabilidad aquí. La UI llamará a TransactionService primero.
-      // O MEJOR: La UI llama a este método y este método actualiza el estado local de la responsabilidad.
-      
-      // Actualizar estado de "Pagado" para este mes
-      responsibility.isPaid = true;
-      responsibility.lastPaymentDate = date;
-      responsibility.paidAmountThisMonth = amount;
-      responsibility.lastPaymentMonth = month;
-      responsibility.lastPaymentYear = year;
-      
-      await responsibility.save();
-      print('✅ Cuota de tarjeta pagada: ${responsibility.safeName} - $amount');
-      
-    } catch (e) {
-      print('Error paying credit card quota: $e');
-      rethrow;
-    }
-  }
+
 
   // Calcular total mensual
   static double calculateMonthlyTotal({int? month, int? year, List<String>? excludeCategories}) {
@@ -216,26 +173,29 @@ class ResponsibilityService {
     for (var r in all) {
       if (excludeCategories != null && excludeCategories.contains(r.safeCategory)) continue;
       
-      final monthlyAmount = r.getMonthlyAmount();
+      // USAR getAmountForDate para mayor precisión (especialmente en tarjetas/préstamos)
+      final monthlyAmount = r.getAmountForDate(targetMonth, targetYear);
       
-      // 1. Lógica para DIARIO/SEMANAL: Contar días pagados reales
-      // 1. [REMOVIDO] Lógica para DIARIO/SEMANAL
-      // if (r.safeFrequency == 'diario' || r.safeFrequency == 'semanal') { ... }
-
-      // 2. Lógica para Pagos Parciales (Tarjetas / Préstamos)
-      final safePaidAmount = r.paidAmountThisMonth ?? 0.0;
+      // 1. Lógica para DIARIO/SEMANAL (Si existiera)
       
-      if (safePaidAmount > 0 && r.lastPaymentMonth == targetMonth && r.lastPaymentYear == targetYear) {
-         paid += safePaidAmount;
-         if (safePaidAmount < monthlyAmount) {
-           pending += (monthlyAmount - safePaidAmount);
-         }
+      // 2. Lógica para Pagos Parciales (Tarjetas / Préstamos) - 100% Dinámica
+      if (r.safeCategory == 'tarjeta') {
+        final dynamicPaid = CreditCardCalculator.calculatePaidInMonth(r.safeName, targetMonth, targetYear);
+        
+        if (dynamicPaid > 0) {
+          paid += dynamicPaid;
+          if (dynamicPaid < monthlyAmount) {
+            pending += (monthlyAmount - dynamicPaid);
+          }
+        } else {
+          pending += monthlyAmount;
+        }
       } 
       // 3. Lógica Estándar (Pagado Completo o Nada)
       else if (r.isPaidInMonth(targetMonth, targetYear)) {
-         paid += monthlyAmount;
+          paid += monthlyAmount;
       } else {
-         pending += monthlyAmount;
+          pending += monthlyAmount;
       }
     }
 
@@ -550,7 +510,7 @@ class ResponsibilityService {
   // - Pago de cuota: Cubre la cuota del mes (marca como pagado)
   // - Pago total: Limpia toda la deuda
   // - Abono a capital: Pago extra que reduce cuotas futuras
-  static Future<void> processDebtPayment(String accountName, double amount, {DateTime? paymentDate}) async {
+  static Future<void> processDebtPayment(String accountName, double amount, {DateTime? paymentDate, int? targetMonth, int? targetYear}) async {
     final box = getBox();
     try {
       final index = box.values.toList().indexWhere((r) => r.safeName == accountName && r.safeCategory == 'tarjeta');
@@ -563,14 +523,14 @@ class ResponsibilityService {
       if (responsibility == null) return;
       
       final now = paymentDate ?? DateTime.now();
-      final currentMonth = now.month;
-      final currentYear = now.year;
+      final currentMonth = targetMonth ?? now.month;
+      final currentYear = targetYear ?? now.year;
       
       // 1. Calcular deuda y cuota esperada
       double currentDebt = responsibility.cardBalance ?? responsibility.safeAmount;
       double expectedQuota = responsibility.getAmountForDate(currentMonth, currentYear);
       
-      // 2. Verificar si es un nuevo ciclo de pago
+      // 2. Verificar si es un nuevo ciclo de pago (en el mes/año objetivo)
       double previousPaidInCycle = 0.0;
       if (responsibility.lastPaymentMonth == currentMonth && responsibility.lastPaymentYear == currentYear) {
         previousPaidInCycle = responsibility.paidAmountThisMonth ?? 0.0;

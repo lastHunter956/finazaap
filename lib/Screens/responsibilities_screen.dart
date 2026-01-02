@@ -289,6 +289,8 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
     );
   }
 
+  bool _showAllObligations = false;
+  
   Widget _buildResponsibilitySliver(String category) {
     List<Responsibility> responsibilities;
     
@@ -332,15 +334,27 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
       );
     }
 
+    // Lógica de "Ver más"
+    final int displayLimit = 5;
+    final bool hasMore = responsibilities.length > displayLimit;
+    final displayItems = (_showAllObligations || !hasMore) 
+        ? responsibilities 
+        : responsibilities.take(displayLimit).toList();
+
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
-          final responsibility = responsibilities[index];
+          // Si estamos al final y hay más items por mostrar, renderizar el botón "Ver más"
+          if (!_showAllObligations && hasMore && index == displayItems.length) {
+            return _buildSeeMoreButton(responsibilities.length - displayLimit);
+          }
+          
+          final responsibility = displayItems[index];
           return ResponsibilityListItem(
             responsibility: responsibility,
             month: _selectedMonth,
             year: _selectedYear,
-            day: null, // Pasamos null ya que no filtramos por día específico
+            day: null,
             onTap: () => _handleResponsibilityTap(responsibility),
             onEdit: () => _showAddResponsibilityDialog(responsibility: responsibility),
             onDelete: () => _confirmDeleteResponsibility(responsibility),
@@ -355,7 +369,39 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
             },
           );
         },
-        childCount: responsibilities.length,
+        childCount: (!_showAllObligations && hasMore) ? displayItems.length + 1 : displayItems.length,
+      ),
+    );
+  }
+
+  Widget _buildSeeMoreButton(int remaining) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 20),
+      child: Center(
+        child: TextButton.icon(
+          onPressed: () {
+            setState(() {
+              _showAllObligations = true;
+            });
+          },
+          icon: const Icon(Icons.add_circle_outline_rounded, size: 18, color: Colors.blueAccent),
+          label: Text(
+            'Ver más ($remaining)',
+            style: const TextStyle(
+              color: Colors.blueAccent,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            backgroundColor: Colors.blueAccent.withOpacity(0.08),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.blueAccent.withOpacity(0.2)),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -443,8 +489,8 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
   }
 
   void _handlePayResponsibility(Responsibility responsibility) async {
-    // Si es tarjeta de crédito o préstamo, REDIRIGIR A TRANSFERENCIA
-    if (responsibility.safeCategory == 'tarjeta' || responsibility.safeCategory == 'préstamo') {
+    // Si es tarjeta de crédito, REDIRIGIR A TRANSFERENCIA
+    if (responsibility.safeCategory == 'tarjeta') {
        // Calcular monto sugerido (Cuota o Mínimo)
        final quota = responsibility.dynamicMonthlyPayment;
        final balance = responsibility.dynamicCardBalance;
@@ -672,20 +718,15 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                         accountName: selectedAccount!,
                         destinationAccount: responsibility.safeName,
                         isNewTransaction: true,
+                        targetMonth: _selectedMonth,
+                        targetYear: _selectedYear,
+                        recordInHive: true,
+                        detail: 'Pago de cuota: ${responsibility.safeName}',
                       );
                       
                       if (success) {
-                        // 2. Mark Responsibility as Paid for this Month
-                        await ResponsibilityService.payCreditCardQuota(
-                          responsibility: responsibility,
-                          amount: payAmount,
-                          sourceAccount: selectedAccount!, 
-                          date: DateTime.now(),
-                          month: _selectedMonth,
-                          year: _selectedYear,
-                        );
-                        
-                        setState(() {}); // Refresh UI
+                        _loadResponsibilities(); // Recargar datos frescos
+                        setState(() {}); // Actualizar UI
                         AlertHelper.success(context, 'Pago registrado correctamente');
                       } else {
                         AlertHelper.error(context, 'Error al procesar la transacción');

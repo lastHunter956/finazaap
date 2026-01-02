@@ -28,6 +28,10 @@ class TransactionService {
     Add_data? oldTransaction,    // Transacción anterior (solo para ediciones)
     int installments = 1,        // Nuevo parámetro para cuotas
     bool isInterestFree = true,  // Nuevo parámetro para intereses
+    int? targetMonth,            // Mes objetivo para el estado de la responsabilidad
+    int? targetYear,             // Año objetivo para el estado de la responsabilidad
+    bool recordInHive = false,   // Si debe registrar la transacción en el historial de Hive
+    String? detail,              // Detalle opcional para el registro Hive
   }) async {
     try {
       // 1. Obtener el estado actual de las cuentas
@@ -50,7 +54,7 @@ class TransactionService {
       bool updated = false;
       if (type == 'Transfer' && destinationAccount != null) {
         // Para transferencias, actualizar origen y destino
-        updated = await _processTransfer(accountName, destinationAccount, amount, accounts);
+        updated = await _processTransfer(accountName, destinationAccount, amount, accounts, targetMonth: targetMonth, targetYear: targetYear);
       } else {
         // Para ingresos y gastos
         bool isIncome = (type == 'Income');
@@ -65,6 +69,30 @@ class TransactionService {
         
         // Actualizar saldo global
         await _updateGlobalBalance(accounts);
+        
+        // 6. Si se solicita, registrar en el historial de transacciones (Hive)
+        if (recordInHive) {
+          try {
+            final box = Hive.box<Add_data>('data');
+            final transaction = Add_data(
+              type,
+              amount.toString(),
+              DateTime.now(),
+              detail ?? (type == 'Transfer' ? 'Transferencia' : 'Operación'),
+              type == 'Transfer' 
+                  ? '$accountName > $destinationAccount' 
+                  : 'Responsabilidad',
+              type == 'Transfer' ? '' : accountName,
+              type == 'Transfer' ? Icons.sync_alt.codePoint : Icons.receipt_long_rounded.codePoint,
+              installments.toString(),
+              isInterestFree,
+            );
+            await box.add(transaction);
+            print('📝 Transacción registrada en Hive: $type - $amount');
+          } catch (e) {
+            print('⚠️ Error al registrar transacción en Hive: $e');
+          }
+        }
         
         return true;
       }
@@ -138,7 +166,8 @@ class TransactionService {
     String sourceAccountName,
     String destAccountName,
     double amount,
-    List<Map<String, dynamic>> accounts
+    List<Map<String, dynamic>> accounts,
+    {int? targetMonth, int? targetYear}
   ) async {
     int sourceIndex = -1;
     int destIndex = -1;
@@ -201,7 +230,7 @@ class TransactionService {
     // 2. Check Destination (Destino) -> Si es TC, es un pago -> Disminuye Deuda
     final destSubtitle = accounts[destIndex]['subtitle'].toString().toLowerCase();
     if (destSubtitle.contains('tarjeta') && (destSubtitle.contains('credito') || destSubtitle.contains('crédito'))) {
-       await ResponsibilityService.processDebtPayment(destAccountName, amount);
+       await ResponsibilityService.processDebtPayment(destAccountName, amount, targetMonth: targetMonth, targetYear: targetYear);
     }
 
     return true;

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:finazaap/widgets/show_responsibility_options.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/data/credit_card_calculator.dart';
 
 class ResponsibilityListItem extends StatelessWidget {
   final Responsibility responsibility;
@@ -48,6 +49,16 @@ class ResponsibilityListItem extends StatelessWidget {
       statusColor = const Color(0xFFF59E0B);
     } else {
       statusColor = Colors.white.withOpacity(0.4);
+    }
+    
+    // Cálculos dinámicos para el resumen de tarjetas
+    double paidInMonth = 0;
+    double quota = responsibility.getAmountForDate(month, year);
+    double pending = 0;
+    
+    if (responsibility.safeCategory == 'tarjeta') {
+      paidInMonth = CreditCardCalculator.calculatePaidInMonth(responsibility.safeName, month, year);
+      pending = (quota - paidInMonth) > 0 ? (quota - paidInMonth) : 0.0;
     }
 
     return Dismissible(
@@ -102,10 +113,11 @@ class ResponsibilityListItem extends StatelessWidget {
                 onDelete();
               },
               onPay: (resp) {
+                // Solo las tarjetas siguen el flujo de transferencia
                 if (responsibility.safeCategory == 'tarjeta') {
-                   // Lógica de tarjeta (ya manejada por onTogglePaid en el padre)
                    onTogglePaid();
                 } else {
+                  // Servicios, préstamos, membresías, etc. usan toggle directo
                   onTogglePaid();
                 }
               },
@@ -120,7 +132,7 @@ class ResponsibilityListItem extends StatelessWidget {
                 color: const Color.fromRGBO(42, 49, 67, 1).withOpacity(0.9),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isPaid ? statusColor.withOpacity(0.3) : statusColor.withOpacity(0.2),
+                  color: isPaidInSelectedMonth ? statusColor.withOpacity(0.3) : statusColor.withOpacity(0.2),
                   width: 1.5,
                 ),
                 gradient: LinearGradient(
@@ -197,8 +209,17 @@ class ResponsibilityListItem extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 _buildSubInfo(
-                                  'Cuota Mes: ${CurrencyHelper.format(responsibility.safeCategory == 'tarjeta' || responsibility.safeCategory == 'préstamo' ? responsibility.getDynamicQuota(month, year) : responsibility.safeAmount)}',
+                                  'Cuota Mes: ${CurrencyHelper.format(quota)}',
                                 ),
+                                if (responsibility.safeCategory == 'tarjeta') ...[
+                                  _buildSubInfo(
+                                    'Pagado: ${CurrencyHelper.format(paidInMonth)}',
+                                  ),
+                                  _buildSubInfo(
+                                    'Pendiente: ${CurrencyHelper.format(pending)}',
+                                    color: pending > 0 ? Colors.orangeAccent : Colors.greenAccent,
+                                  ),
+                                ],
                                 if (responsibility.installments != null && responsibility.installments! > 1)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 2),
@@ -297,11 +318,11 @@ class ResponsibilityListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildSubInfo(String text) {
+  Widget _buildSubInfo(String text, {Color? color}) {
     return Text(
       text,
       style: TextStyle(
-        color: Colors.white.withOpacity(0.4),
+        color: color ?? Colors.white.withOpacity(0.4),
         fontSize: 11,
         fontWeight: FontWeight.w500,
       ),
