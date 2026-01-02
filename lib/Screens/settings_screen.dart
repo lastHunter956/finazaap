@@ -22,6 +22,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = false;
   String _selectedCurrency = 'COP';
   
+  // Configuración de notificaciones
+  int _daysBefore = 1;
+  bool _sameDay = true;
+  TimeOfDay _notificationTime = const TimeOfDay(hour: 9, minute: 0);
+  
   // Lista de divisas disponibles
   static const List<Map<String, String>> _currencies = [
     {'code': 'COP', 'name': 'Peso Colombiano', 'symbol': '\$'},
@@ -48,12 +53,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Check biometric availability
     await _pinProvider.checkBiometricAvailability();
     
+    // Cargar configuración de notificaciones
+    final hour = await _notificationService.getHour();
+    final minute = await _notificationService.getMinute();
+    
     setState(() {
       _pinEnabled = prefs.getBool('pin_enabled') ?? false;
       _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
       _biometricAvailable = _pinProvider.isBiometricAvailable;
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
       _selectedCurrency = prefs.getString('default_currency') ?? 'COP';
+      _daysBefore = prefs.getInt('notification_days_before') ?? 1;
+      _sameDay = prefs.getBool('notification_same_day') ?? true;
+      _notificationTime = TimeOfDay(hour: hour, minute: minute);
       _isLoading = false;
     });
   }
@@ -130,6 +142,100 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  /// Activar/desactivar notificaciones con solicitud de permiso
+  Future<void> _toggleNotifications(bool value) async {
+    if (value) {
+      // Solicitar permiso primero
+      final granted = await _notificationService.requestPermission();
+      
+      if (!granted) {
+        if (mounted) {
+          AlertHelper.warning(
+            context,
+            'Debes conceder el permiso de notificaciones para activar los recordatorios'
+          );
+        }
+        return; // No activar si no se concedió el permiso
+      }
+    }
+    
+    setState(() {
+      _notificationsEnabled = value;
+    });
+    await _notificationService.setEnabled(value);
+    
+    if (mounted) {
+      AlertHelper.success(
+        context, 
+        value 
+          ? 'Recordatorios activados' 
+          : 'Recordatorios desactivados'
+      );
+    }
+  }
+
+  /// Seleccionar hora de notificación
+  Future<void> _selectNotificationTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _notificationTime,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color.fromARGB(255, 82, 226, 255),
+              onPrimary: Colors.black,
+              surface: Color.fromRGBO(42, 49, 67, 1),
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    
+    if (picked != null && picked != _notificationTime) {
+      setState(() {
+        _notificationTime = picked;
+      });
+      await _notificationService.setTime(picked.hour, picked.minute);
+      if (mounted) {
+        AlertHelper.success(context, 'Hora de notificación actualizada');
+      }
+    }
+  }
+
+  /// Cambiar días de anticipación
+  Future<void> _setDaysBefore(int days) async {
+    setState(() {
+      _daysBefore = days;
+    });
+    await _notificationService.setDaysBefore(days);
+  }
+
+  /// Cambiar notificación del mismo día
+  Future<void> _setSameDay(bool value) async {
+    setState(() {
+      _sameDay = value;
+    });
+    await _notificationService.setSameDay(value);
+  }
+
+  /// Enviar notificación de prueba
+  Future<void> _sendTestNotification() async {
+    await _notificationService.showTestNotification();
+    if (mounted) {
+      AlertHelper.success(context, 'Notificación de prueba enviada');
+    }
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
   }
 
   @override
@@ -283,28 +389,142 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: const Color.fromRGBO(42, 49, 67, 1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: SwitchListTile(
-                    title: const Text('Recordatorios de Pagos', style: TextStyle(color: Colors.white)),
-                    subtitle: const Text(
-                      'Notificar un día antes y el mismo día de vencimiento',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                    value: _notificationsEnabled,
-                    activeColor: const Color.fromARGB(255, 82, 226, 255),
-                    onChanged: (value) async {
-                      setState(() {
-                        _notificationsEnabled = value;
-                      });
-                      await _notificationService.setEnabled(value);
-                      if (mounted) {
-                        AlertHelper.success(
-                          context, 
-                          value 
-                            ? 'Recordatorios activados' 
-                            : 'Recordatorios desactivados'
-                        );
-                      }
-                    },
+                  child: Column(
+                    children: [
+                      // Toggle principal
+                      SwitchListTile(
+                        title: const Text('Recordatorios de Pagos', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text(
+                          'Recibir recordatorios de obligaciones',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        value: _notificationsEnabled,
+                        activeColor: const Color.fromARGB(255, 82, 226, 255),
+                        onChanged: _toggleNotifications,
+                      ),
+                      
+                      // Opciones de configuración (solo si está habilitado)
+                      if (_notificationsEnabled) ...[
+                        const Divider(height: 1, color: Colors.white12),
+                        
+                        // Días de anticipación
+                        ListTile(
+                          title: const Text('Días de anticipación', style: TextStyle(color: Colors.white)),
+                          subtitle: Text(
+                            _daysBefore == 0 
+                                ? 'Sin recordatorio previo'
+                                : _daysBefore == 1
+                                    ? '1 día antes'
+                                    : '$_daysBefore días antes',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color.fromARGB(255, 82, 226, 255).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: DropdownButton<int>(
+                              value: _daysBefore,
+                              dropdownColor: const Color.fromRGBO(42, 49, 67, 1),
+                              underline: const SizedBox(),
+                              icon: const Icon(Icons.arrow_drop_down, color: Color.fromARGB(255, 82, 226, 255)),
+                              style: const TextStyle(color: Color.fromARGB(255, 82, 226, 255), fontWeight: FontWeight.bold),
+                              items: List.generate(8, (i) => i).map((days) {
+                                return DropdownMenuItem<int>(
+                                  value: days,
+                                  child: Text(
+                                    days == 0 
+                                        ? 'Ninguno' 
+                                        : days == 1 
+                                            ? '1 día'
+                                            : '$days días',
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  _setDaysBefore(value);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        
+                        const Divider(height: 1, color: Colors.white12),
+                        
+                        // Notificar el mismo día
+                        SwitchListTile(
+                          title: const Text('Notificar el mismo día', style: TextStyle(color: Colors.white)),
+                          subtitle: const Text(
+                            'Recordatorio el día de vencimiento',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                          value: _sameDay,
+                          activeColor: const Color.fromARGB(255, 82, 226, 255),
+                          onChanged: _setSameDay,
+                        ),
+                        
+                        const Divider(height: 1, color: Colors.white12),
+                        
+                        // Hora de notificación
+                        ListTile(
+                          title: const Text('Hora de notificación', style: TextStyle(color: Colors.white)),
+                          subtitle: const Text(
+                            'Hora a la que recibirás recordatorios',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                          trailing: GestureDetector(
+                            onTap: _selectNotificationTime,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(255, 82, 226, 255).withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.access_time,
+                                    color: Color.fromARGB(255, 82, 226, 255),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _formatTime(_notificationTime),
+                                    style: const TextStyle(
+                                      color: Color.fromARGB(255, 82, 226, 255),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        
+                        const Divider(height: 1, color: Colors.white12),
+                        
+                        // Botón de prueba
+                        ListTile(
+                          leading: const Icon(
+                            Icons.notifications_active,
+                            color: Color.fromARGB(255, 82, 226, 255),
+                          ),
+                          title: const Text(
+                            'Probar notificación',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          subtitle: const Text(
+                            'Enviar una notificación de prueba',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                          trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                          onTap: _sendTestNotification,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
