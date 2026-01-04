@@ -34,12 +34,12 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
     // Animaciones más rápidas para entrada del menú
     _scaleAnimation = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic), // Curva más rápida
+      curve: const Interval(0.0, 0.7, curve: Curves.easeOutBack), // Curva más suave
     );
     
     _fadeAnimation = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.1, 0.8, curve: Curves.easeOutCubic), // Más rápido
+      curve: const Interval(0.1, 0.8, curve: Curves.easeOutBack), // Curva más suave
     );
     
     // Iniciar la animación automáticamente
@@ -426,23 +426,27 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
     // Crear contenedor con efectos de estado
     return StatefulBuilder(
       builder: (context, setState) {
-        return GestureDetector(
-          onTapDown: (_) {
-            setState(() {
-              _hoveredIndex = index;
-            });
-          },
-          onTapUp: (_) {
-            setState(() {
-              _hoveredIndex = null;
-            });
-          },
-          onTapCancel: () {
-            setState(() {
-              _hoveredIndex = null;
-            });
-          },
-          child: AnimatedContainer(
+        return Semantics(
+  label: label,
+  button: true,
+  hint: 'Navegar a $label',
+  child: GestureDetector(
+    onTapDown: (_) {
+      setState(() {
+        _hoveredIndex = index;
+      });
+    },
+    onTapUp: (_) {
+      setState(() {
+        _hoveredIndex = null;
+      });
+    },
+    onTapCancel: () {
+      setState(() {
+        _hoveredIndex = null;
+      });
+    },
+    child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
