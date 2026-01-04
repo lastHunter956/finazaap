@@ -12,6 +12,7 @@ import 'package:finazaap/utils/app_icons.dart';
 // Añadir en la parte superior del archivo
 import 'package:finazaap/widgets/bottomnavigationbar.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/core/utils/app_logger.dart';
 
 class AccountItem {
   String title;
@@ -131,7 +132,8 @@ class _TransferScreenState extends State<TransferScreen> {
                (a) => a.title.trim() == widget.initialDestinationAccount!.trim()
              );
            } catch (e) {
-             print('⚠️ No se encontró la cuenta destino inicial: ${widget.initialDestinationAccount}');
+           } catch (e) {
+             AppLogger.warning('No se encontró la cuenta destino inicial: ${widget.initialDestinationAccount}', error: e);
            }
         }
       });
@@ -231,7 +233,8 @@ Future<void> _saveTransfer() async {
       _isProcessing = false;
     });
     
-    print('Error al guardar la transferencia: $e');
+    
+    AppLogger.error('Error al guardar la transferencia', error: e);
     AlertHelper.error(context, 'Error: ${e.toString()}');
   }
 }
@@ -259,7 +262,7 @@ Future<void> _saveTransfer() async {
     await prefs.setStringList('accounts', accountsData);
     
     // Imprimir para debug
-    print('Cuentas actualizadas exitosamente. Nuevos saldos: ' +
+    AppLogger.info('Cuentas actualizadas exitosamente. Nuevos saldos: ' +
         _accountItems.map((a) => "${a.title}: ${a.balance}").join(', '));
   }
 
@@ -301,7 +304,7 @@ Future<void> _loadAccountsFromPrefs() async {
           });
         } catch (e) {
           // Si no se encuentra alguna cuenta, fue eliminada
-          debugPrint('⚠️ Cuenta eliminada detectada en transferencia: $e');
+          AppLogger.warning('Cuenta eliminada detectada en transferencia', error: e);
           
           // Será manejado por el diálogo de advertencia en Home
         }
@@ -943,7 +946,7 @@ void _loadTransactionData() {
                 ? _accountItems[1] 
                 : _accountItems.first;
           });
-          print('Error al cargar cuentas: $e');
+          AppLogger.error('Error al cargar cuentas', error: e);
         }
       }
     });
@@ -985,7 +988,7 @@ Future<void> _revertPreviousTransfer(Add_data transaction) async {
       // No guardar aquí, se guardará después de la nueva transferencia
     }
   } catch (e) {
-    print('Error al revertir transferencia: $e');
+    AppLogger.error('Error al revertir transferencia', error: e);
     throw Exception('No se pudo revertir la transferencia anterior');
   }
 }
@@ -1077,7 +1080,7 @@ Future<void> _revertPreviousTransaction(Add_data transaction) async {
       oldTransaction: transaction
     );
   } catch (e) {
-    print('Error al revertir transferencia previa: $e');
+    AppLogger.error('Error al revertir transferencia previa', error: e);
     throw e;
   }
 }

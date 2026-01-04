@@ -11,6 +11,13 @@ class ResponsibilityService {
   static const String _boxName = 'responsibilities';
   static Box<Responsibility>? _box;
 
+  // Lista centralizada de categorías
+  static const List<String> availableCategories = [
+    'servicio', 'membresía', 'tarjeta', 'préstamo',
+    'vivienda', 'seguros', 'educación', 'transporte',
+    'ahorro', 'legal', 'salud', 'impuestos', 'mascotas', 'otros'
+  ];
+
   // Inicializar el box
   static Future<void> init() async {
     if (!Hive.isBoxOpen(_boxName)) {

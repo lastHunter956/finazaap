@@ -15,11 +15,13 @@ import 'dart:collection';
 import 'package:finazaap/utils/currency_helper.dart';
 
 // Importa todas las clases necesarias, ocultando AccountItem para evitar conflictos
-import 'package:finazaap/screens/selecctaccount.dart' hide AccountItem;
-import 'package:finazaap/Screens/transfer.dart' hide AccountItem;
-import 'package:finazaap/Screens/add.dart' hide AccountItem;
-import 'package:finazaap/Screens/add_expense.dart' hide AccountItem;
-import 'package:finazaap/data/utlity.dart' hide AccountItem;
+// Importa todas las clases necesarias
+import 'package:finazaap/screens/selecctaccount.dart';
+import 'package:finazaap/Screens/transfer.dart';
+import 'package:finazaap/Screens/add.dart';
+import 'package:finazaap/Screens/add_expense.dart';
+import 'package:finazaap/data/utlity.dart';
+import 'package:finazaap/data/models/account_item.dart'; // Modelo centralizado
 
 // Añadir esta importación al inicio del archivo
 import 'package:finazaap/data/transaction_service.dart';
@@ -28,21 +30,7 @@ import 'package:finazaap/screens/settings_screen.dart';
 import 'package:finazaap/Screens/daily_transactions.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:finazaap/services/widget_service.dart';
-
-// Definir una clase AccountItem local para home.dart
-class AccountItem {
-  String title;
-  double balance;
-  IconData? icon;
-  Color? iconColor;
-  
-  AccountItem({
-    required this.title,
-    required this.balance,
-    this.icon,
-    this.iconColor,
-  });
-}
+import 'dart:async'; // Necesario para StreamSubscription
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -80,31 +68,36 @@ class _HomeState extends State<Home> {
   // Estado para fechas expandidas
   Set<String> _expandedDates = {};
 
+  // Listeners para limpiar recursos
+  late final VoidCallback _boxListener;
+  StreamSubscription? _widgetSubscription;
+
   @override
   void initState() {
     super.initState();
     _loadCategoryMetadata(); // Cargar colores de categorías
-    _updateAvailableBalance();
+    _updateAvailableBalance(); // Llamada inicial
     
     // Expandir la fecha actual por defecto
     final now = DateTime.now();
     final todayKey = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
     _expandedDates.add(todayKey);
 
-    // Registrar listener adicional para cuando cambian los datos
-    box.listenable().addListener(() {
+    // Definir y registrar listener
+    _boxListener = () {
       if (mounted) {
         setState(() {});
         _updateAvailableBalance();
         _loadCategoryMetadata(); // Recargar colores si cambian datos
       }
-    });
+    };
+    box.listenable().addListener(_boxListener);
 
     // Check for Widget Launch
     HomeWidget.initiallyLaunchedFromHomeWidget().then(_handleWidgetLaunch);
     
     // Listen for Widget Launch while app is running
-    HomeWidget.widgetClicked.listen(_handleWidgetLaunch);
+    _widgetSubscription = HomeWidget.widgetClicked.listen(_handleWidgetLaunch);
   }
 
   void _handleWidgetLaunch(Uri? uri) {
@@ -117,7 +110,10 @@ class _HomeState extends State<Home> {
 
   @override
   void dispose() {
-    // Limpiar listeners si es necesario
+    // Limpiar listeners para evitar memory leaks
+    if (_widgetSubscription != null) _widgetSubscription!.cancel();
+    box.listenable().removeListener(_boxListener);
+    availableBalanceNotifier.dispose();
     super.dispose();
   }
 
@@ -289,11 +285,11 @@ class _HomeState extends State<Home> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // Agregar la implementación y cerrar la función correctamente
-        return true; // Permitir la navegación hacia atrás por defecto
-      }, // Añadir esta coma
+    return PopScope(
+      canPop: true, // Permitir salir por defecto, ajustar si se requiere confirmación
+      onPopInvokedWithResult: (didPop, result) {
+        // Lógica adicional si es necesario
+      },
       child: Scaffold( // Mover el child aquí con la indentación correcta
         // Fondo original
         backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
@@ -301,7 +297,7 @@ class _HomeState extends State<Home> {
           child: ValueListenableBuilder(
             valueListenable: box.listenable(),
             builder: (context, value, child) {
-              _updateAvailableBalance();
+              // _updateAvailableBalance(); // REMOVIDO: Causa rebuilds innecesarios, ya se maneja en el listener
               
               // Agrupar las transacciones por fecha primero
               final transactionsByDate = _getTransactionsGroupedByDate();

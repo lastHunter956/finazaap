@@ -12,48 +12,9 @@ import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/account_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
 
-// Modelo de cuenta adaptado para recibir datos desde selecctaccount.dart
-class AccountItem {
-  String title;
-  double balance;
-  IconData? icon; // Opcional
-  String? subtitle; // Opcional
-  Color? iconColor; // Opcional
-
-  AccountItem({
-    required this.title,
-    required this.balance,
-    this.icon,
-    this.subtitle,
-    this.iconColor,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'title': title,
-        'balance': balance is String ? balance : balance.toString(),
-      };
-
-  factory AccountItem.fromJson(Map<String, dynamic> json) {
-    // Manejar el caso donde balance puede ser String o double
-    double balanceValue;
-    if (json['balance'] is String) {
-      balanceValue = double.tryParse(json['balance']) ?? 0.0;
-    } else {
-      balanceValue = (json['balance'] is double) ? json['balance'] : 0.0;
-    }
-
-    return AccountItem(
-      title: json['title'],
-      balance: balanceValue,
-      // Agregar campos opcionales si están presentes
-      icon: json['icon'] != null
-          ? AppIcons.getIcon(json['icon'])
-          : null,
-      subtitle: json['subtitle'],
-      iconColor: json['iconColor'] != null ? Color(json['iconColor']) : null,
-    );
-  }
-}
+// Modelo importado de package:finazaap/data/models/account_item.dart
+// Clase duplicada eliminada
+import 'package:finazaap/data/models/account_item.dart';
 
 class Add_Screen extends StatefulWidget {
   final bool isEditing;
@@ -253,10 +214,26 @@ class _Add_ScreenState extends State<Add_Screen> {
 
   Future<void> _saveTransaction() async {
     // Validaciones básicas
-    if (_amountCtrl.text.isEmpty ||
-        _selectedAccount == null ||
-        _selectedCategory == null) {
-      AlertHelper.warning(context, 'Por favor completa todos los campos');
+    // Validaciones
+    final amountText = _amountCtrl.text;
+    if (amountText.isEmpty) {
+      AlertHelper.warning(context, 'Por favor ingresa un monto');
+      return;
+    }
+    
+    // Validación de número
+    final amountParsed = double.tryParse(amountText);
+    if (amountParsed == null) {
+      AlertHelper.warning(context, 'El monto debe ser un número válido');
+      return;
+    }
+    if (amountParsed <= 0) {
+       AlertHelper.warning(context, 'El monto debe ser mayor a 0');
+       return;
+    }
+
+    if (_selectedAccount == null || _selectedCategory == null) {
+      AlertHelper.warning(context, 'Por favor selecciona cuenta y categoría');
       return;
     }
 
@@ -367,11 +344,13 @@ class _Add_ScreenState extends State<Add_Screen> {
     if (accountIndex == -1) return;
 
     setState(() {
+      double currentBalance = double.tryParse(_accountItems[accountIndex].balance) ?? 0.0;
       if (isIncome) {
-        _accountItems[accountIndex].balance += amount;
+        currentBalance += amount;
       } else {
-        _accountItems[accountIndex].balance -= amount;
+        currentBalance -= amount;
       }
+      _accountItems[accountIndex].balance = currentBalance.toString();
     });
 
     final prefs = await SharedPreferences.getInstance();
@@ -380,9 +359,9 @@ class _Add_ScreenState extends State<Add_Screen> {
         .map((item) => json.encode({
               'title': item.title,
               'subtitle': item.subtitle ?? '',
-              'balance': item.balance.toString(),
-              'icon': item.icon?.codePoint ?? Icons.account_balance.codePoint,
-              'iconColor': item.iconColor?.value ?? Colors.blue.value,
+              'balance': item.balance,
+              'icon': item.icon.codePoint,
+              'iconColor': item.iconColor.value,
             }))
         .toList();
 

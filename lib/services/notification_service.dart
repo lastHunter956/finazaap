@@ -4,6 +4,7 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/data/model/responsibility.dart';
+import 'package:finazaap/core/utils/app_logger.dart';
 
 /// Servicio singleton para manejar notificaciones locales de responsabilidades
 class NotificationService {
@@ -51,7 +52,7 @@ class NotificationService {
 
     await _plugin.initialize(initSettings);
     _isInitialized = true;
-    print('✅ NotificationService inicializado');
+    AppLogger.success('NotificationService inicializado');
   }
 
   /// Solicitar permiso de notificaciones
@@ -61,7 +62,7 @@ class NotificationService {
     
     if (androidPlugin != null) {
       final bool? granted = await androidPlugin.requestNotificationsPermission();
-      print('🔔 Permiso de notificaciones Android: $granted');
+      AppLogger.info('Permiso de notificaciones Android: $granted');
       return granted ?? false;
     }
 
@@ -74,7 +75,7 @@ class NotificationService {
         badge: true,
         sound: true,
       );
-      print('🔔 Permiso de notificaciones iOS: $granted');
+      AppLogger.info('Permiso de notificaciones iOS: $granted');
       return granted ?? false;
     }
 
@@ -178,8 +179,8 @@ class NotificationService {
       final hour = await getHour();
       final minute = await getMinute();
       
-      print('📅 Configuración: daysBefore=$daysBefore, sameDay=$sameDay, hora=$hour:$minute');
-      print('📋 Responsabilidades encontradas: ${responsibilities.length}');
+      AppLogger.info('Configuración: daysBefore=$daysBefore, sameDay=$sameDay, hora=$hour:$minute');
+      AppLogger.info('Responsabilidades encontradas: ${responsibilities.length}');
       
       int scheduledCount = 0;
       int immediateCount = 0;
@@ -198,13 +199,13 @@ class NotificationService {
           scheduledCount += result['scheduled'] ?? 0;
           immediateCount += result['immediate'] ?? 0;
         } else {
-          print('  ⏭️ ${r.safeName}: ya pagada este mes, omitiendo');
+          AppLogger.debug('⏭️ ${r.safeName}: ya pagada este mes, omitiendo');
         }
       }
       
-      print('✅ Programadas $scheduledCount notificaciones, enviadas $immediateCount inmediatas');
+      AppLogger.success('Programadas $scheduledCount notificaciones, enviadas $immediateCount inmediatas');
     } catch (e) {
-      print('❌ Error programando notificaciones: $e');
+      AppLogger.error('Error programando notificaciones', error: e);
     }
   }
 
@@ -225,7 +226,7 @@ class NotificationService {
     final today = DateTime(now.year, now.month, now.day);
     final dueDate = today.add(Duration(days: daysUntil));
     
-    print('  📌 ${r.safeName}: vence en $daysUntil días (${dueDate.toString().substring(0, 10)})');
+    AppLogger.debug('📌 ${r.safeName}: vence en $daysUntil días (${dueDate.toString().substring(0, 10)})');
 
     final bool isDueToday = (daysUntil == 0);
     
@@ -250,7 +251,7 @@ class NotificationService {
               : '${r.safeName} vence en $daysBefore días. No olvides pagarlo.',
           scheduledDate: scheduledDateTime,
         );
-        print('    ✓ Recordatorio ($daysBefore días antes): programado para ${scheduledDateTime.toString().substring(0, 16)}');
+        AppLogger.info('   ✓ Recordatorio ($daysBefore días antes): programado para ${scheduledDateTime.toString().substring(0, 16)}');
         scheduled++;
       } else if (isReminderToday) {
         // Es hoy pero la hora ya pasó: enviar inmediatamente SOLO si no se ha enviado hoy
@@ -263,13 +264,13 @@ class NotificationService {
                 : '${r.safeName} vence en $daysBefore días. No olvides pagarlo.',
           );
           await _markAsNotifiedToday('${r.safeId}_before');
-          print('    ⚡ Recordatorio ($daysBefore días antes): enviado inmediatamente (hora ya pasó)');
+          AppLogger.warning('   ⚡ Recordatorio ($daysBefore días antes): enviado inmediatamente (hora ya pasó)');
           immediate++;
         } else {
-           print('    ✓ Recordatorio ($daysBefore días antes): ya enviado hoy, omitiendo');
+           AppLogger.debug('   ✓ Recordatorio ($daysBefore días antes): ya enviado hoy, omitiendo');
         }
       } else {
-        print('    ✗ Recordatorio ($daysBefore días antes): fecha ya pasada completamente');
+        AppLogger.debug('   ✗ Recordatorio ($daysBefore días antes): fecha ya pasada completamente');
       }
     }
     
@@ -287,7 +288,7 @@ class NotificationService {
           body: 'El pago de ${r.safeName} vence hoy. ¡Evita recargos!',
           scheduledDate: scheduledDateTime,
         );
-        print('    ✓ Recordatorio (Mismo día): programado para ${scheduledDateTime.toString().substring(0, 16)}');
+        AppLogger.info('   ✓ Recordatorio (Mismo día): programado para ${scheduledDateTime.toString().substring(0, 16)}');
         scheduled++;
       } else if (isDueToday) {
         // Es hoy pero la hora ya pasó: enviar inmediatamente SOLO si no se ha enviado hoy
@@ -298,13 +299,13 @@ class NotificationService {
             body: 'El pago de ${r.safeName} vence hoy. ¡Evita recargos!',
           );
           await _markAsNotifiedToday('${r.safeId}_today');
-          print('    ⚡ Recordatorio (Mismo día): enviado inmediatamente (hora ya pasó)');
+          AppLogger.warning('   ⚡ Recordatorio (Mismo día): enviado inmediatamente (hora ya pasó)');
           immediate++;
         } else {
-          print('    ✓ Recordatorio (Mismo día): ya enviado hoy, omitiendo');
+          AppLogger.debug('   ✓ Recordatorio (Mismo día): ya enviado hoy, omitiendo');
         }
       } else {
-        print('    ✗ Recordatorio (mismo día): fecha ya pasada completamente');
+        AppLogger.debug('✗ Recordatorio (mismo día): fecha ya pasada completamente');
       }
     }
     
@@ -393,7 +394,7 @@ class NotificationService {
   /// Cancelar todas las notificaciones programadas
   Future<void> cancelAllNotifications() async {
     await _plugin.cancelAll();
-    print('🗑️ Todas las notificaciones canceladas');
+    AppLogger.info('Todas las notificaciones canceladas');
   }
 
   /// Mostrar una notificación de prueba

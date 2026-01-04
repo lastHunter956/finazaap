@@ -160,18 +160,29 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                              Container(
                                width: 56,
                                height: 56,
-                               decoration: BoxDecoration(
-                                 color: accentColor,
-                                 shape: BoxShape.circle,
-                                 boxShadow: [
-                                   BoxShadow(
-                                     color: accentColor.withOpacity(0.4),
-                                     blurRadius: 12,
-                                     offset: const Offset(0, 4),
-                                     spreadRadius: -2,
-                                   ),
-                                 ],
-                               ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      accentColor.withOpacity(0.22),
+                                      accentColor.withOpacity(0.13),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.4),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 6),
+                                      spreadRadius: -2,
+                                    ),
+                                  ],
+                                  border: Border.all(
+                                    color: accentColor.withOpacity(0.35),
+                                    width: 1.5,
+                                  ),
+                                ),
                                child: Icon(icon, color: Colors.white, size: 28),
                              ),
                              const SizedBox(width: 16),
@@ -488,7 +499,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                   builder: (context, setDialogState) {
                     return Container(
                       width: double.infinity,
-                      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 650),
+                      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 560),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
@@ -546,16 +557,27 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                   width: 58,
                                   height: 58,
                                   decoration: BoxDecoration(
-                                    color: _selectedColor,
-                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        _selectedColor.withOpacity(0.22),
+                                        _selectedColor.withOpacity(0.13),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: _selectedColor.withOpacity(0.5),
-                                        blurRadius: 15,
-                                        offset: const Offset(0, 5),
-                                        spreadRadius: -3,
+                                        color: Colors.black.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 6),
+                                        spreadRadius: -2,
                                       ),
                                     ],
+                                    border: Border.all(
+                                      color: _selectedColor.withOpacity(0.35),
+                                      width: 1.5,
+                                    ),
                                   ),
                                   child: Icon(
                                     _selectedIcon,
@@ -594,7 +616,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
 
                           Expanded(
                             child: SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -613,133 +635,30 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 16),
                                   
-                                  // Personalización
-                                  buildInputLabel('Personalización'),
+
+                                  
+                                  // Color Selection
                                   Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      // Selector de icono
-                                      Expanded(
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(12),
-                                          splashColor: _selectedColor.withOpacity(0.1),
-                                          highlightColor: _selectedColor.withOpacity(0.05),
-                                          onTap: () async {
-                                            // Abrir el diálogo compartido de iconos
-                                            IconData? pickedIcon = await showIconPickerDialog(context, _selectedColor);
-                                            if (pickedIcon != null) {
-                                              setDialogState(() {
-                                                _selectedIcon = pickedIcon;
-                                              });
-                                            }
-                                          },
-                                          child: buildInputField(
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                                              child: Row(
-                                                children: [
-                                                  Container(
-                                                    padding: const EdgeInsets.all(8),
-                                                    decoration: BoxDecoration(
-                                                      color: _selectedColor.withOpacity(0.2),
-                                                      borderRadius: BorderRadius.circular(8),
-                                                    ),
-                                                    child: Icon(
-                                                      _selectedIcon,
-                                                      color: _selectedColor,
-                                                      size: 20,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 10),
-                                                  Expanded(
-                                                    child: Text(
-                                                      'Icono',
-                                                      style: TextStyle(
-                                                        color: Colors.white.withOpacity(0.7),
-                                                        fontSize: 14,
-                                                      ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  Icon(
-                                                    Icons.arrow_forward_ios,
-                                                    color: Colors.white.withOpacity(0.4),
-                                                    size: 14,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      // Selector de color
-                                      Expanded(
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(12),
-                                          splashColor: _selectedColor.withOpacity(0.1),
-                                          highlightColor: _selectedColor.withOpacity(0.05),
-                                          onTap: () async {
-                                            // Abrir el diálogo compartido de colores
-                                            Color? pickedColor = await showColorPickerDialog(context, _selectedColor);
-                                            if (pickedColor != null) {
-                                              setDialogState(() {
-                                                _selectedColor = pickedColor;
-                                              });
-                                            }
-                                          },
-                                          child: buildInputField(
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                                              child: Row(
-                                                children: [
-                                                  Container(
-                                                    width: 24,
-                                                    height: 24,
-                                                    decoration: BoxDecoration(
-                                                      color: _selectedColor,
-                                                      shape: BoxShape.circle,
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          color: _selectedColor.withOpacity(0.3),
-                                                          blurRadius: 8,
-                                                          spreadRadius: -2,
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 10),
-                                                  Expanded(
-                                                    child: Text(
-                                                      'Color',
-                                                      style: TextStyle(
-                                                        color: Colors.white.withOpacity(0.7),
-                                                        fontSize: 14,
-                                                      ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  Icon(
-                                                    Icons.arrow_forward_ios,
-                                                    color: Colors.white.withOpacity(0.4),
-                                                    size: 14,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
+                                      buildInputLabel('Color'),
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8, right: 4),
+                                        child: Text(
+                                          'Desplázate para ver más >>',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.4),
+                                            fontSize: 11,
+                                            fontStyle: FontStyle.italic,
                                           ),
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 20),
-
-                                  // Área de selección (Visible siempre para facilitar uso rápido en este diálogo)
-                                  Text('Selecciona un color', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500)),
-                                  const SizedBox(height: 10),
                                   SizedBox(
-                                    height: 50,
+                                    height: 55, // Height increased
                                     child: ListView.builder(
                                       scrollDirection: Axis.horizontal,
                                       itemCount: _availableColors.length,
@@ -750,12 +669,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                           onTap: () => setDialogState(() => _selectedColor = color),
                                           child: AnimatedContainer(
                                             duration: const Duration(milliseconds: 200),
-                                            margin: const EdgeInsets.only(right: 12),
-                                            width: isSelected ? 48 : 40,
+                                            margin: const EdgeInsets.only(right: 14), // Increased margin
+                                            width: isSelected ? 48 : 40, // Restored sizes
                                             height: isSelected ? 48 : 40,
                                             decoration: BoxDecoration(
                                               color: color,
-                                              shape: BoxShape.circle, // CIRCLES for colors
+                                              shape: BoxShape.circle,
                                               border: isSelected ? Border.all(color: Colors.white, width: 2.5) : null,
                                               boxShadow: isSelected 
                                                 ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 10, spreadRadius: 1)] 
@@ -768,11 +687,28 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                     ),
                                   ),
                                   
-                                  const SizedBox(height: 20),
-                                  Text('Selecciona un icono', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500)),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 24), // Increased spacing
+                                  
+                                  // Icon Selection
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      buildInputLabel('Icono'),
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8, right: 4),
+                                        child: Text(
+                                          'Desplázate para ver más >>',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.4),
+                                            fontSize: 11,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                   Container(
-                                    height: 60, // Una fila horizontal en lugar de grid para ahorrar espacio vertical si es necesario
+                                    height: 60, // Restored height
                                     child: ListView.builder(
                                       scrollDirection: Axis.horizontal,
                                       itemCount: _availableIcons.length,
@@ -783,11 +719,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                           onTap: () => setDialogState(() => _selectedIcon = icon),
                                           child: AnimatedContainer(
                                             duration: const Duration(milliseconds: 200),
-                                            margin: const EdgeInsets.only(right: 12),
-                                            width: 50,
+                                            margin: const EdgeInsets.only(right: 14), // Increased margin
+                                            width: 52, // Slightly larger
                                             decoration: BoxDecoration(
                                               color: isSelected ? _selectedColor.withOpacity(0.2) : Colors.white.withOpacity(0.05),
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius: BorderRadius.circular(14), // Slightly rounder
                                               border: Border.all(
                                                 color: isSelected ? _selectedColor : Colors.transparent,
                                                 width: 1.5,
@@ -796,14 +732,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                             child: Icon(
                                               icon,
                                               color: isSelected ? _selectedColor : Colors.white.withOpacity(0.5),
-                                              size: 24,
+                                              size: 26, // Larger icon
                                             ),
                                           ),
                                         );
                                       },
                                     ),
                                   ),
-                                  const SizedBox(height: 20),
+                                  //const SizedBox(height: 20),
+
+
                                 ],
                               ),
                             ),
@@ -811,7 +749,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
 
                           // Actions
                           Padding(
-                            padding: const EdgeInsets.all(24),
+                            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                             child: Row(
                               children: [
                                 Expanded(
@@ -1101,15 +1039,27 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: color, // Fondo sólido como en la imagen
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            color.withOpacity(0.22),
+                            color.withOpacity(0.13),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: color.withOpacity(0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
+                            color: Colors.black.withOpacity(0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                            spreadRadius: -2,
                           ),
                         ],
+                        border: Border.all(
+                          color: color.withOpacity(0.35),
+                          width: 1.5,
+                        ),
                       ),
                       child: Icon(icon, color: Colors.white, size: 22),
                     ),

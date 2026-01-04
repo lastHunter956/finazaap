@@ -6,6 +6,7 @@ import 'package:finazaap/core/security/encryption_service.dart';
 import 'package:finazaap/services/notification_service.dart';
 import 'package:finazaap/presentation/screens/auth_splash_screen.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/core/utils/app_logger.dart';
 // Nuevas importaciones para localizacion
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -17,7 +18,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
-    print('🚀 Iniciando FinazaApp...');
+    AppLogger.start('Iniciando FinazaApp');
 
     // Inicializar formateo de fechas para español
     await initializeDateFormatting('es_ES', null);
@@ -43,18 +44,18 @@ void main() async {
       await Hive.openBox('accounts');
       await Hive.openBox('accounts_v2');
       
-      print('✅ Hive inicializado correctamente');
+      AppLogger.success('Hive inicializado correctamente');
     } catch (e) {
-      print('❌ CRITICAL ERROR: Fallo al inicializar Hive: $e');
+      AppLogger.error('CRITICAL: Fallo al inicializar Hive', error: e);
       throw Exception('Fallo crítico de base de datos: $e');
     }
     
     // 1.5. Inicializar Currency Helper (Fallo recuperable)
     try {
       await CurrencyHelper.loadCurrency();
-      print('✅ CurrencyHelper inicializado');
+      AppLogger.success('CurrencyHelper inicializado');
     } catch (e) {
-      print('⚠️ ADVERTENCIA: Error cargando divisa (usando default): $e');
+      AppLogger.warning('Error cargando divisa (usando default): $e');
     }
     
     // 2. Inicializar Seguridad (Fallo recuperable)
@@ -62,10 +63,10 @@ void main() async {
       // Inicializar servicio de encriptación
       final encryptionService = EncryptionService();
       await encryptionService.initialize();
-      print('✅ EncryptionService inicializado');
+      AppLogger.success('EncryptionService inicializado');
       
     } catch (e) {
-      print('⚠️ ADVERTENCIA: Error en servicios de seguridad (continuando app): $e');
+      AppLogger.warning('Error en servicios de seguridad (continuando app): $e');
     }
     
     // 3. Inicializar Notificaciones (Fallo recuperable)
@@ -77,17 +78,16 @@ void main() async {
       if (await notificationService.isEnabled()) {
         await notificationService.scheduleAllNotifications();
       }
-      print('✅ NotificationService inicializado');
+      AppLogger.success('NotificationService inicializado');
     } catch (e) {
-      print('⚠️ ADVERTENCIA: Error en servicio de notificaciones: $e');
+      AppLogger.warning('Error en servicio de notificaciones: $e');
     }
     
     // Ejecutar la aplicación
     runApp(const FinazaApp());
     
   } catch (e, stackTrace) {
-    print('❌ ERROR FATAL al iniciar la aplicación: $e');
-    print('Stack trace: $stackTrace');
+    AppLogger.error('ERROR FATAL al iniciar la aplicación', error: e, stackTrace: stackTrace);
     
     // Ejecutar app con pantalla de error
     runApp(MaterialApp(

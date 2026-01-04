@@ -13,6 +13,8 @@ import 'package:finazaap/data/transaction_service.dart';
 import 'package:gradient_borders/gradient_borders.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/themes/theme.dart';
+import 'package:finazaap/core/utils/app_logger.dart';
 
 // Clase para dibujar líneas punteadas (MOVIDA AL INICIO)
 class DashedLinePainter extends CustomPainter {
@@ -56,12 +58,12 @@ class AccountManagementApp extends StatelessWidget {
       title: 'Finazaap',
       theme: ThemeData(
         brightness: Brightness.dark,
-        primaryColor: const Color.fromRGBO(31, 38, 57, 1),
-        scaffoldBackgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-        dialogBackgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+        primaryColor: AppColors.primaryBackground,
+        scaffoldBackgroundColor: AppColors.primaryBackground,
+        dialogBackgroundColor: AppColors.primaryBackground,
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.grey[850],
+          fillColor: AppColors.cardBackground,
           labelStyle: const TextStyle(color: Colors.white70),
           enabledBorder: OutlineInputBorder(
             borderSide: const BorderSide(color: Colors.white70),
@@ -80,7 +82,7 @@ class AccountManagementApp extends StatelessWidget {
       home: MyHomePage(
         onBalanceUpdated: (balance) {
           // Aquí puedes manejar el saldo total actualizado (por ejemplo, mostrarlo en otra parte de la app)
-          print("Saldo total actualizado: $balance");
+          if (balance > 0) AppLogger.info("Saldo total actualizado: $balance");
         },
       ),
     );
@@ -296,7 +298,7 @@ class _MyHomePageState extends State<MyHomePage> {
     // Formateador de moneda eliminado
 
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+      backgroundColor: AppColors.primaryBackground,
       // Eliminamos el AppBar predeterminado
       appBar: null,
       body: SafeArea(
@@ -305,9 +307,9 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             // Contenedor personalizado para el título y flecha de retroceso
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+              padding: EdgeInsets.symmetric(horizontal: AppSizes.paddingLarge, vertical: 20.0),
               decoration: BoxDecoration(
-                color: const Color.fromRGBO(42, 49, 67, 1),
+                color: AppColors.cardBackground,
               ),
               child: Row(
                 children: [
@@ -457,8 +459,8 @@ class _MyHomePageState extends State<MyHomePage> {
             _saveAccount(newItem);
           }
         },
-        backgroundColor: Color.fromARGB(255, 82, 226, 255),
-        child: const Icon(Icons.add, color: Color.fromRGBO(31, 38, 57, 1)),
+        backgroundColor: AppColors.accent,
+        child: const Icon(Icons.add, color: AppColors.primaryBackground),
       ),
     );
   }
@@ -466,16 +468,16 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildTotalBalanceSection(double totalBalance) {
     return Padding(
       padding: const EdgeInsets.only(
-          left: 16.0, right: 16.0, top: 16.0, bottom: 8.0),
+          left: AppSizes.paddingLarge, right: AppSizes.paddingLarge, top: AppSizes.paddingLarge, bottom: AppSizes.paddingSmall),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Saldo total',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: AppSizes.fontXLarge,
               fontWeight: FontWeight.bold,
-              color: Colors.white70,
+              color: AppColors.textSecondary,
             ),
           ),
           SizedBox(height: 5),
@@ -487,12 +489,12 @@ class _MyHomePageState extends State<MyHomePage> {
                     ? '******** \$'
                     : '${CurrencyHelper.format(totalBalance)}',
                 style: const TextStyle(
-                  fontSize: 24,
+                  fontSize: AppSizes.fontTitle,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              SizedBox(width: 16),
+              SizedBox(width: AppSizes.paddingLarge),
               // Botón de ojo para mostrar/ocultar
               GestureDetector(
                 onTap: () {
@@ -511,7 +513,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         ? Icons.visibility_off
                         : Icons.visibility,
                     color: Colors.white70,
-                    size: 20,
+                    size: AppSizes.iconMedium,
                   ),
                 ),
               ),
@@ -529,11 +531,11 @@ class _MyHomePageState extends State<MyHomePage> {
     
     // Definir la paleta de colores refinada
     final Color itemColor = item.iconColor;
-    final Color surfaceColor = const Color(0xFF222939);
+    final Color surfaceColor = AppColors.secondaryCardBackground;
     final Color shadowColor = Color.alphaBlend(itemColor.withOpacity(0.1), Colors.black.withOpacity(0.3));
     
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      margin: const EdgeInsets.symmetric(horizontal: AppSizes.paddingLarge, vertical: 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -543,7 +545,7 @@ class _MyHomePageState extends State<MyHomePage> {
             Color.lerp(surfaceColor, itemColor.withOpacity(0.15), 0.3) ?? surfaceColor,
           ],
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSizes.borderRadiusXLarge),
         boxShadow: [
           // Sombra principal
           BoxShadow(
@@ -599,19 +601,23 @@ class _MyHomePageState extends State<MyHomePage> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            itemColor,
-                            Color.lerp(itemColor, Colors.black, 0.3) ?? itemColor,
+                            itemColor.withOpacity(0.22),
+                            itemColor.withOpacity(0.13),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: itemColor.withOpacity(0.45),
+                            color: Colors.black.withOpacity(0.4),
                             blurRadius: 12,
-                            offset: const Offset(0, 3),
-                            spreadRadius: -3,
+                            offset: const Offset(0, 6),
+                            spreadRadius: -2,
                           ),
                         ],
+                        border: Border.all(
+                          color: itemColor.withOpacity(0.35),
+                          width: 1.5,
+                        ),
                       ),
                       child: Icon(
                         item.icon,
@@ -631,8 +637,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                 child: Text(
                                   item.title,
                                   style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
+                                    color: AppColors.textPrimary,
+                                    fontSize: AppSizes.font2XLarge,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.2,
                                   ),
@@ -771,8 +777,8 @@ class _MyHomePageState extends State<MyHomePage> {
     double balanceValue = double.tryParse(account.balance) ?? 0.0;
     
     // Colores base de la aplicación para mantener coherencia
-    final Color primaryDark = const Color(0xFF1F2339); // Fondo principal
-    final Color cardColor = const Color(0xFF222939);   // Color de tarjetas
+    final Color primaryDark = AppColors.primaryBackground; // Fondo principal
+    final Color cardColor = AppColors.secondaryCardBackground;   // Color de tarjetas
     final Color accentColor = account.iconColor;       // Color de acento personalizado
     
     showGeneralDialog(
@@ -872,19 +878,23 @@ class _MyHomePageState extends State<MyHomePage> {
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                       colors: [
-                                        accentColor,
-                                        Color.lerp(accentColor, Colors.black, 0.25) ?? accentColor,
+                                        accentColor.withOpacity(0.22),
+                                        accentColor.withOpacity(0.13),
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: accentColor.withOpacity(0.45),
+                                        color: Colors.black.withOpacity(0.4),
                                         blurRadius: 12,
-                                        offset: const Offset(0, 3),
-                                        spreadRadius: -3,
+                                        offset: const Offset(0, 6),
+                                        spreadRadius: -2,
                                       ),
                                     ],
+                                    border: Border.all(
+                                      color: accentColor.withOpacity(0.35),
+                                      width: 1.5,
+                                    ),
                                   ),
                                   child: Icon(
                                     account.icon,
@@ -1219,8 +1229,8 @@ class _MyHomePageState extends State<MyHomePage> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF222939),
-                const Color(0xFF1A1F2B),
+                AppColors.secondaryCardBackground,
+                AppColors.darkBackground,
               ],
             ),
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1457,8 +1467,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFF222232),
-                        Color(0xFF1B1B29),
+                        AppColors.secondaryCardBackground,
+                        AppColors.darkBackground, // Usando darkBackground en lugar de 1B1B29 que es casi igual
                       ],
                     ),
                     borderRadius: BorderRadius.circular(24),
@@ -1481,12 +1491,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       Container(
                         padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
+                          color: AppColors.error.withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.delete_forever,
-                          color: Colors.red,
+                          color: AppColors.error,
                           size: 32,
                         ),
                       ),
@@ -1513,22 +1523,22 @@ class _MyHomePageState extends State<MyHomePage> {
                       Container(
                         padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.amber.withOpacity(0.1),
+                          color: AppColors.warning.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.amber.withOpacity(0.3),
+                            color: AppColors.warning.withOpacity(0.3),
                             width: 1,
                           ),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+                            Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Las transacciones asociadas a esta cuenta ya no serán visibles.',
                                 style: TextStyle(
-                                  color: Colors.amber,
+                                  color: AppColors.warning,
                                   fontSize: 13,
                                 ),
                               ),
@@ -1564,7 +1574,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           Expanded(
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
+                                backgroundColor: AppColors.error,
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),

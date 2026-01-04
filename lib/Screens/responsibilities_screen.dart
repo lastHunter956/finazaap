@@ -16,6 +16,7 @@ import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'package:finazaap/widgets/show_responsibility_options.dart';
 import 'dart:ui';
+import 'package:finazaap/themes/app_colors.dart';
 
 class ResponsibilitiesScreen extends StatefulWidget {
   const ResponsibilitiesScreen({Key? key}) : super(key: key);
@@ -25,8 +26,9 @@ class ResponsibilitiesScreen extends StatefulWidget {
 }
 
 class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
-  String _selectedCategory = 'Todos';
-  final List<String> _categories = ['Todos', 'servicio', 'membresía', 'tarjeta', 'préstamo'];
+  List<String> _selectedCategories = ['Todos'];
+  // Categorias comunes para mostrar en la barra rápida
+  final List<String> _quickCategories = ['Todos', 'servicio', 'tarjeta', 'préstamo', 'educación'];
   
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
@@ -175,13 +177,55 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                             scrollDirection: Axis.horizontal,
                             physics: const BouncingScrollPhysics(),
                             padding: const EdgeInsets.symmetric(horizontal: 4),
-                            itemCount: _categories.length,
+                            // +1 para el botón de "Más"
+                            itemCount: _quickCategories.length + 1,
                             itemBuilder: (context, index) {
-                              final category = _categories[index];
-                              final isSelected = _selectedCategory == category;
+                              // Botón "Más Filtros" al final
+                              if (index == _quickCategories.length) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: _showFilterDialog,
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.05),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: Colors.white.withOpacity(0.1),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.filter_list_rounded, size: 16, color: Colors.white.withOpacity(0.7)),
+                                            const SizedBox(width: 6),
+                                            const Text(
+                                              'Más',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12.5,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              final category = _quickCategories[index];
+                              final isSelected = _selectedCategories.contains(category);
+                              
+                              // Conteo: Si es 'Todos', cuenta total. Si es específico, cuenta filtrada.
                               final count = category == 'Todos' 
                                   ? box.length 
-                                  : box.values.where((r) => r != null && r.safeCategory == category).length;
+                                  : box.values.where((r) => r.safeCategory == category).length;
                               
                               const accentColor = Color(0xFF3B82F6);
                               
@@ -192,7 +236,19 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                   child: InkWell(
                                     onTap: () {
                                       setState(() {
-                                        _selectedCategory = category;
+                                        if (category == 'Todos') {
+                                          _selectedCategories = ['Todos'];
+                                        } else {
+                                          if (_selectedCategories.contains('Todos')) {
+                                            _selectedCategories.clear();
+                                          }
+                                          if (_selectedCategories.contains(category)) {
+                                            _selectedCategories.remove(category);
+                                            if (_selectedCategories.isEmpty) _selectedCategories.add('Todos');
+                                          } else {
+                                            _selectedCategories.add(category);
+                                          }
+                                        }
                                       });
                                     },
                                     borderRadius: BorderRadius.circular(8),
@@ -256,18 +312,32 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
               // Responsibility List
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                sliver: _buildResponsibilitySliver(_selectedCategory),
+                sliver: _buildResponsibilitySliver(_selectedCategories),
               ),
             ],
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: "responsibilities_fab",
-        onPressed: _showActionsMenu,
-        backgroundColor: const Color(0xFF3B82F6),
-        elevation: 6,
-        child: const Icon(Icons.add_rounded, size: 32, color: Colors.white),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withOpacity(0.4),
+              blurRadius: 12,
+              spreadRadius: -2,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          shape: BoxShape.circle,
+        ),
+        child: FloatingActionButton(
+          heroTag: "responsibilities_fab",
+          onPressed: _showActionsMenu,
+          backgroundColor: AppColors.accent,
+          elevation: 0,
+          highlightElevation: 0,
+          child: const Icon(Icons.add_rounded, size: 32, color: AppColors.primaryBackground),
+        ),
       ),
     );
   }
@@ -289,15 +359,137 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
     );
   }
 
+  void _showFilterDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateSB) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              decoration: const BoxDecoration(
+                color: Color(0xFF222939),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Filtrar Categorías',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                             setState(() {
+                               _selectedCategories = ['Todos'];
+                             });
+                             Navigator.pop(context);
+                          },
+                          child: const Text('Limpiar', style: TextStyle(color: Colors.redAccent)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Grid
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: ResponsibilityService.availableCategories.map((category) {
+                          final isSelected = _selectedCategories.contains(category);
+                          return FilterChip(
+                            label: Text(_capitalize(category)),
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : Colors.white70,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            selected: isSelected,
+                            selectedColor: Colors.blueAccent.withOpacity(0.3),
+                            backgroundColor: Colors.white.withOpacity(0.05),
+                            checkmarkColor: Colors.blueAccent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color: isSelected ? Colors.blueAccent : Colors.white.withOpacity(0.1),
+                              ),
+                            ),
+                            onSelected: (bool selected) {
+                              setStateSB(() { // Update dialog UI
+                                if (_selectedCategories.contains('Todos')) {
+                                  _selectedCategories.clear();
+                                }
+                                
+                                if (selected) {
+                                  _selectedCategories.add(category);
+                                } else {
+                                  _selectedCategories.remove(category);
+                                }
+                                
+                                if (_selectedCategories.isEmpty) {
+                                  _selectedCategories.add('Todos');
+                                }
+                              });
+                              // Update parent UI immediately for responsiveness
+                              setState(() {}); 
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+
+                  // Button
+                  Padding(
+                     padding: const EdgeInsets.all(20),
+                     child: SizedBox(
+                       width: double.infinity,
+                       child: ElevatedButton(
+                         style: ElevatedButton.styleFrom(
+                           backgroundColor: Colors.blueAccent,
+                           padding: const EdgeInsets.symmetric(vertical: 16),
+                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                         ),
+                         onPressed: () => Navigator.pop(context),
+                         child: const Text('Hecho', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                       ),
+                     ),
+                  ),
+                ],
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
   bool _showAllObligations = false;
   
-  Widget _buildResponsibilitySliver(String category) {
+  Widget _buildResponsibilitySliver(List<String> categories) {
     List<Responsibility> responsibilities;
     
-    if (category == 'Todos') {
+    if (categories.contains('Todos')) {
       responsibilities = ResponsibilityService.getAllResponsibilities();
     } else {
-      responsibilities = ResponsibilityService.getByCategory(category);
+      final all = ResponsibilityService.getAllResponsibilities();
+      responsibilities = all.where((r) => categories.contains(r.safeCategory)).toList();
     }
 
     if (responsibilities.isEmpty) {

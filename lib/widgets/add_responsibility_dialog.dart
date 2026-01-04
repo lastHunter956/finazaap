@@ -221,11 +221,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                     _buildInputLabel('Categoría'),
                                     _buildDropdown(
                                       value: _selectedCategory,
-                                      items: [
-                                        'servicio', 'membresía', 'cuota_manejo', 'préstamo', 
-                                        'vivienda', 'seguros', 'educación', 'transporte', 
-                                        'ahorro', 'legal', 'salud', 'impuestos', 'mascotas', 'otros'
-                                      ],
+                                      items: ResponsibilityService.availableCategories,
                                       onChanged: (v) {
                                         setState(() {
                                           _selectedCategory = v!;

@@ -3,6 +3,7 @@ import 'package:finazaap/data/model/add_date.dart';
 import 'package:hive/hive.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:intl/intl.dart';
+import 'package:finazaap/core/utils/app_logger.dart';
 
 class WidgetService {
   static const String appGroupId = 'group.finazaap';
@@ -65,9 +66,9 @@ class WidgetService {
       await HomeWidget.updateWidget(
         name: androidWidgetName,
       );
-      print('✅ Widget updated - Income: $formattedIncome, Expense: $formattedExpense, Balance: $formattedBalance');
+      AppLogger.info('Widget updated - Income: $formattedIncome, Expense: $formattedExpense, Balance: $formattedBalance');
     } catch (e) {
-      print('❌ Error updating widget: $e');
+      AppLogger.error('Error updating widget', error: e);
     }
   }
 
@@ -131,7 +132,7 @@ class WidgetService {
         lastTransactions: lastTransactions,
       );
     } catch (e) {
-      print('❌ Error refreshing widget data: $e');
+      AppLogger.error('Error refreshing widget data', error: e);
     }
   }
 }

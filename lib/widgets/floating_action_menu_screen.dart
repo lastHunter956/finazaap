@@ -60,11 +60,12 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
     
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: WillPopScope(
-        onWillPop: () async {
-          // Animar la salida al presionar el botón de regreso
-          await _animatedDismiss();
-          return true;
+      body: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
+             // Animar la salida al presionar el botón de regreso
+            await _animatedDismiss();
         },
         child: Stack(
           fit: StackFit.expand,
@@ -74,7 +75,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
               animation: _fadeAnimation,
               builder: (context, child) {
                 return Opacity(
-                  opacity: _fadeAnimation.value,
+                  opacity: _fadeAnimation.value.clamp(0.0, 1.0),
                   child: GestureDetector(
                     onTap: _animatedDismiss,
                     child: BackdropFilter(
@@ -104,7 +105,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                     child: Transform.scale(
                       scale: _scaleAnimation.value,
                       child: Opacity(
-                        opacity: _scaleAnimation.value,
+                        opacity: _scaleAnimation.value.clamp(0.0, 1.0),
                         child: child,
                       ),
                     ),
@@ -402,7 +403,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
         return Transform.translate(
           offset: Offset(0, 15 * (1 - animation.value)), // Menos desplazamiento
           child: Opacity(
-            opacity: animation.value,
+            opacity: animation.value.clamp(0.0, 1.0),
             child: child,
           ),
         );
@@ -561,7 +562,8 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                       ),
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
