@@ -7,6 +7,7 @@ import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/core/utils/app_logger.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:finazaap/data/responsibility_service.dart';
 
 class ChatMessage {
   final String role; // 'user' | 'model' | 'system'
@@ -520,6 +521,22 @@ class AiChatService extends ChangeNotifier {
     await updateLearnedPatterns();
     final financialState = await getFinancialState();
 
+    // Detectar categorías de SharedPreferences
+    String categoriesContext = '';
+    final lowerMsg = userMessage.toLowerCase();
+    if (lowerMsg.contains('categoria') || lowerMsg.contains('categorias') || lowerMsg.contains('rubro') || lowerMsg.contains('rubros') || lowerMsg.contains('egreso') || lowerMsg.contains('ingreso')) {
+      categoriesContext = await _getCategoriesContext();
+    }
+
+    // Detectar obligaciones y deudas
+    String obligationsContext = '';
+    if (lowerMsg.contains('obligacion') || lowerMsg.contains('obligaciones') || lowerMsg.contains('deuda') || lowerMsg.contains('deudas') || lowerMsg.contains('pago') || lowerMsg.contains('pagar') || lowerMsg.contains('responsabilidad') || lowerMsg.contains('responsabilidades')) {
+      obligationsContext = await _getObligationsContext();
+    }
+
+    // Detectar y ejecutar consultas a la base de datos de transacciones (herramienta de IA / Hook)
+    final queryAnalysis = await _detectAndExecuteQuery(userMessage);
+
     // 3. Detectar si el usuario está preguntando por una compra específica
     Map<String, dynamic>? purchaseAnalysis;
     final RegExp priceRegex = RegExp(r'(?:comprar|compra)\s+([a-zA-Záéíóúñ\s]+)\s+(?:por|de|cuesta|a)?\s*\$?\s*([0-9]+(?:\.[0-9]+)?)', caseSensitive: false);
@@ -545,7 +562,7 @@ class AiChatService extends ChangeNotifier {
       if (_gemmaInitialized && _gemmaChat != null) {
         // --- RESPUESTA REAL USANDO GEMMA ON-DEVICE ---
         try {
-          // Construir el prompt enriquecido con contexto financiero
+          // Construir el prompt enriquecido con contexto financiero y datos de las herramientas
           String enrichedPrompt = userMessage;
           
           if (purchaseAnalysis != null) {
@@ -553,6 +570,19 @@ class AiChatService extends ChangeNotifier {
                 'Artículo: "${purchaseAnalysis['itemName']}", Costo: ${CurrencyHelper.format(purchaseAnalysis['cost'])} ${CurrencyHelper.currencyCode}\n'
                 'Diagnóstico: ${purchaseAnalysis['status']} — ${purchaseAnalysis['description']}\n'
                 '[Usa este análisis como base para tu respuesta]';
+          }
+
+          if (categoriesContext.isNotEmpty) {
+            enrichedPrompt += '\n\n[CONTEXTO DE HERRAMIENTA INTERNA - Categorías]\n$categoriesContext';
+          }
+
+          if (obligationsContext.isNotEmpty) {
+            enrichedPrompt += '\n\n[CONTEXTO DE HERRAMIENTA INTERNA - Obligaciones]\n$obligationsContext';
+          }
+
+          if (queryAnalysis != null) {
+            final queryCtx = _formatQueryResultContext(queryAnalysis);
+            enrichedPrompt += '\n\n$queryCtx';
           }
           
           // Enviar mensaje al modelo usando la API moderna
@@ -574,7 +604,7 @@ class AiChatService extends ChangeNotifier {
         } catch (e) {
           AppLogger.error('Error en inferencia Gemma (replegando a simulador)', error: e);
           responseText = '*(Nota: Ocurrió un error con Gemma IA. El simulador financiero respondió por seguridad.)*\n\n';
-          responseText += _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis);
+          responseText += await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis);
         }
       } else {
         // No está inicializado — dar respuesta de error con instrucciones claras
@@ -583,7 +613,7 @@ class AiChatService extends ChangeNotifier {
               'Asegúrate de que el servidor de modelos esté corriendo (`make web`) y '
               'que el archivo `models/gemma.litertlm` esté accesible en el puerto 8081.\n\n'
               '_Usando el simulador financiero mientras tanto..._\n\n'
-              '${_generateSimulatorResponse(userMessage, financialState, purchaseAnalysis)}';
+              '${await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis)}';
         } else {
           responseText = '⚠️ **Gemma IA no configurado para este dispositivo.**\n\n'
               'El modelo (2.5 GB) debe descargarse una sola vez. Para configurarlo:\n\n'
@@ -591,13 +621,13 @@ class AiChatService extends ChangeNotifier {
               '2. Ingresa la URL de descarga de tu modelo `.litertlm`\n'
               '3. Espera a que se complete la descarga (~5-20 min según tu red)\n\n'
               '_Mientras tanto, el simulador financiero está activo y funcional._\n\n'
-              '${_generateSimulatorResponse(userMessage, financialState, purchaseAnalysis)}';
+              '${await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis)}';
         }
       }
     } else {
       // --- RESPUESTA SIMULADA BASADA EN REGLAS FINANCIERAS ---
       await Future.delayed(const Duration(milliseconds: 800));
-      responseText = _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis);
+      responseText = await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis);
     }
 
     // 5. Detectar aprendizaje implícito en el mensaje del usuario
@@ -616,12 +646,15 @@ class AiChatService extends ChangeNotifier {
     await _saveHistory();
   }
 
-  /// Genera una respuesta usando el motor de reglas financieras local (simulador)
-  String _generateSimulatorResponse(
+  /// Genera una respuesta usando el motor de reglas financieras local (simulador) con acceso a base de datos
+  Future<String> _generateSimulatorResponse(
     String userMessage,
     Map<String, dynamic> financialState,
     Map<String, dynamic>? purchaseAnalysis,
-  ) {
+    Map<String, dynamic>? queryAnalysis,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+
     if (purchaseAnalysis != null) {
       String statusEmoji = purchaseAnalysis['status'] == 'Aprobado' 
           ? '✅ **[APROBADO]**' 
@@ -639,14 +672,67 @@ class AiChatService extends ChangeNotifier {
           '¿Deseas que busquemos formas de reducir tus gastos habituales para ahorrar más rápido para este artículo?';
     }
 
+    if (queryAnalysis != null) {
+      final int count = queryAnalysis['count'] ?? 0;
+      final double totalSum = queryAnalysis['totalSum'] ?? 0.0;
+      final double average = queryAnalysis['average'] ?? 0.0;
+      final String period = queryAnalysis['searchedPeriod'] ?? 'este mes';
+      final String? cat = queryAnalysis['searchedCategory'];
+      final String? type = queryAnalysis['searchedType'];
+
+      String response = '### 📊 Reporte de Transacciones ($period)\n\n';
+      if (count == 0) {
+        response += 'No encontré ninguna transacción registrada';
+        if (cat != null) response += ' en la categoría **"$cat"**';
+        if (type != null) response += ' del tipo **"${type == 'Income' ? 'Ingreso' : 'Egreso'}"**';
+        response += ' durante este período.';
+        return response;
+      }
+
+      response += 'He consultado tu historial y encontré **$count transacciones**:\n\n'
+          '*   **Monto total:** ${CurrencyHelper.format(totalSum)} ${CurrencyHelper.currencyCode}\n'
+          '*   **Promedio por transacción:** ${CurrencyHelper.format(average)} ${CurrencyHelper.currencyCode}\n'
+          '*   **Monto máximo:** ${CurrencyHelper.format(queryAnalysis['maxAmount'])} ${CurrencyHelper.currencyCode}\n\n'
+          '**Detalles de los registros encontrados:**\n';
+
+      final List<dynamic> txs = queryAnalysis['transactions'];
+      for (var tx in txs.take(5)) {
+        final txType = tx['type'] == 'Income' ? '🟢 Ingreso' : '🔴 Gasto';
+        response += '*   ${_formatDate(tx['date'])}: $txType de **${CurrencyHelper.format(tx['amount'])}** en *${tx['category']}* - "${tx['detail']}"\n';
+      }
+      if (txs.length > 5) {
+        response += '*   *... y ${txs.length - 5} transacciones adicionales en el historial.*\n';
+      }
+      return response;
+    }
+
     // Procesamiento inteligente de intenciones
     final lowerMsg = userMessage.toLowerCase().trim();
     
-    if (lowerMsg == 'hola' || lowerMsg == 'buenas' || lowerMsg == 'buenos dias' || lowerMsg == 'que tal' || lowerMsg == 'hola!') {
+    if (lowerMsg.contains('categoria') || lowerMsg.contains('categorias') || lowerMsg.contains('rubro') || lowerMsg.contains('rubros')) {
+      final expenseCats = prefs.getStringList('expense_categories') ?? [];
+      final incomeCats = prefs.getStringList('income_categories') ?? [];
+      return '### 🗂️ Categorías de Ingresos y Egresos\n\n'
+          'Aquí tienes la lista de categorías configuradas en tu aplicación:\n\n'
+          '**🔴 Categorías de Egresos:**\n'
+          '${expenseCats.map((c) => '*   $c').join('\n')}\n\n'
+          '**🟢 Categorías de Ingresos:**\n'
+          '${incomeCats.map((c) => '*   $c').join('\n')}\n\n'
+          '¿Te gustaría saber cuánto has gastado en alguna de estas categorías este mes?';
+    }
+    else if (lowerMsg.contains('obligacion') || lowerMsg.contains('obligaciones') || lowerMsg.contains('deuda') || lowerMsg.contains('deudas') || lowerMsg.contains('responsabilidad') || lowerMsg.contains('responsabilidades') || lowerMsg.contains('pago') || lowerMsg.contains('pagar')) {
+      final obligationsCtx = await _getObligationsContext();
+      return '### 📅 Tus Obligaciones y Deudas\n\n'
+          'Aquí está el estado actual de tus obligaciones programadas:\n\n'
+          '$obligationsCtx\n\n'
+          '¿Quieres que calculemos cómo impactarán estos pagos en tu saldo de fin de mes?';
+    }
+    else if (lowerMsg == 'hola' || lowerMsg == 'buenas' || lowerMsg == 'buenos dias' || lowerMsg == 'que tal' || lowerMsg == 'hola!') {
       return '¡Hola! 👋 Qué gusto saludarte. Como tu asesor financiero de IA, he estado analizando tus datos en tiempo real.\n\n'
           'Actualmente tienes **${CurrencyHelper.format(financialState['availableBalance'])} ${CurrencyHelper.currencyCode}** disponibles en total.\n\n'
           '¿En qué te gustaría que nos enfoquemos hoy?\n'
           '*   📊 *¿Cómo van mis gastos e ingresos de este mes?*\n'
+          '*   📅 *¿Qué obligaciones o deudas tengo pendientes hoy?*\n'
           '*   🛍️ *¿Es buena idea realizar una compra?* (ej: *¿debería comprar un celular de 400 dólares?*)\n'
           '*   💡 *Dame sugerencias para ahorrar o salir de deudas.*';
     } 
@@ -718,5 +804,248 @@ class AiChatService extends ChangeNotifier {
       final balance = double.tryParse(acc['balance']?.toString() ?? '0') ?? 0.0;
       return '*   **$title** (*$subtitle*): ${CurrencyHelper.format(balance)} ${CurrencyHelper.currencyCode}';
     }).join('\n');
+  }
+
+  // --- HERRAMIENTAS Y HOOKS ADICIONALES ---
+
+  Future<String> _getCategoriesContext() async {
+    final prefs = await SharedPreferences.getInstance();
+    final expenseCategories = prefs.getStringList('expense_categories') ?? [];
+    final incomeCategories = prefs.getStringList('income_categories') ?? [];
+    
+    return 'CATEGORÍAS DISPONIBLES EN LA APP:\n'
+        '- Categorías de Egreso/Gasto: ${expenseCategories.join(", ")}\n'
+        '- Categorías de Ingreso: ${incomeCategories.join(", ")}';
+  }
+
+  Future<String> _getObligationsContext() async {
+    try {
+      await ResponsibilityService.init();
+      final all = ResponsibilityService.getAllResponsibilities();
+      if (all.isEmpty) {
+        return 'OBLIGACIONES PENDIENTES:\n- El usuario no tiene obligaciones creadas aún.';
+      }
+
+      final now = DateTime.now();
+      String contextStr = 'OBLIGACIONES / DEUDAS REGISTRADAS:\n';
+      for (var r in all) {
+        final expected = r.getAmountForDate(now.month, now.year);
+        final paid = r.getPaidAmountInCycle(now.month, now.year);
+        final remaining = (expected - paid).clamp(0.0, double.infinity);
+        final status = r.isPaidInMonth(now.month, now.year) ? 'PAGADO' : 'PENDIENTE';
+
+        contextStr += '- **${r.safeName}** | Categoría: ${r.safeCategory} | Frecuencia: ${r.safeFrequency} | '
+            'Cuota: ${CurrencyHelper.format(expected)} | Pagado: ${CurrencyHelper.format(paid)} | '
+            'Resta: ${CurrencyHelper.format(remaining)} | Estado este mes: $status | Día vencimiento: ${r.safeDueDay}\n';
+      }
+      return contextStr;
+    } catch (e) {
+      AppLogger.error('Error cargando obligaciones para contexto', error: e);
+      return 'OBLIGACIONES:\n- Error al cargar las obligaciones desde la base de datos.';
+    }
+  }
+
+  Future<Map<String, dynamic>?> _detectAndExecuteQuery(String userMessage) async {
+    final lowerMsg = userMessage.toLowerCase();
+    
+    // 1. Detectar si el usuario está preguntando por transacciones
+    bool asksAboutTransactions = false;
+    final transactionKeywords = [
+      'gasto', 'gastos', 'gaste', 'gasté',
+      'ingreso', 'ingresos', 'ingresé', 'ingrese',
+      'transaccion', 'transacciones', 'movimiento', 'movimientos',
+      'promedio', 'cuánto', 'cuanto', 'suma', 'total', 'historial'
+    ];
+    for (var keyword in transactionKeywords) {
+      if (lowerMsg.contains(keyword)) {
+        asksAboutTransactions = true;
+        break;
+      }
+    }
+
+    if (!asksAboutTransactions) return null;
+
+    // 2. Parsear Tipo
+    String? type;
+    if (lowerMsg.contains('ingreso') || lowerMsg.contains('ingresé') || lowerMsg.contains('ingrese')) {
+      type = 'Income';
+    } else if (lowerMsg.contains('gasto') || lowerMsg.contains('gasté') || lowerMsg.contains('gaste')) {
+      type = 'Expenses';
+    }
+
+    // 3. Parsear Rango de Fechas
+    DateTime? startDate;
+    DateTime? endDate;
+    final now = DateTime.now();
+
+    if (lowerMsg.contains('mes pasado')) {
+      startDate = DateTime(now.year, now.month - 1, 1);
+      endDate = DateTime(now.year, now.month, 0, 23, 59, 59);
+    } else if (lowerMsg.contains('esta semana')) {
+      startDate = now.subtract(Duration(days: now.weekday - 1));
+      startDate = DateTime(startDate.year, startDate.month, startDate.day);
+      endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    } else if (lowerMsg.contains('hoy')) {
+      startDate = DateTime(now.year, now.month, now.day);
+      endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    } else if (lowerMsg.contains('año pasado')) {
+      startDate = DateTime(now.year - 1, 1, 1);
+      endDate = DateTime(now.year - 1, 12, 31, 23, 59, 59);
+    } else if (lowerMsg.contains('este año')) {
+      startDate = DateTime(now.year, 1, 1);
+      endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    } else if (lowerMsg.contains('todo') || lowerMsg.contains('siempre') || lowerMsg.contains('historial') || lowerMsg.contains('completo')) {
+      // Sin límites de fecha
+    } else {
+      // Por defecto: este mes
+      startDate = DateTime(now.year, now.month, 1);
+      endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    }
+
+    // 4. Parsear Categoría
+    String? matchedCategory;
+    final prefs = await SharedPreferences.getInstance();
+    final expenseCats = prefs.getStringList('expense_categories') ?? [];
+    final incomeCats = prefs.getStringList('income_categories') ?? [];
+    final allCats = [...expenseCats, ...incomeCats];
+
+    for (var cat in allCats) {
+      if (lowerMsg.contains(_normalizeString(cat))) {
+        matchedCategory = cat;
+        break;
+      }
+    }
+
+    // 5. Parsear Palabra Clave en Detalles (entre comillas)
+    String? keyword;
+    final quoteRegex = RegExp(r'["\u201c\u201d]([^"\u201c\u201d]+)["\u201c\u201d]');
+    final quoteMatch = quoteRegex.firstMatch(userMessage);
+    if (quoteMatch != null) {
+      keyword = quoteMatch.group(1);
+    }
+
+    // Ejecutar consulta
+    final queryResult = await queryTransactionsTool(
+      type: type,
+      category: matchedCategory,
+      keyword: keyword,
+      startDate: startDate,
+      endDate: endDate,
+    );
+
+    queryResult['searchedType'] = type;
+    queryResult['searchedCategory'] = matchedCategory;
+    queryResult['searchedKeyword'] = keyword;
+    queryResult['searchedPeriod'] = startDate == null 
+        ? 'Todo el historial' 
+        : '${_formatDate(startDate)} a ${_formatDate(endDate!)}';
+
+    return queryResult;
+  }
+
+  Future<Map<String, dynamic>> queryTransactionsTool({
+    String? type,
+    String? category,
+    String? keyword,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final box = Hive.box<Add_data>('data');
+    double totalSum = 0.0;
+    int count = 0;
+    double maxAmount = 0.0;
+    double minAmount = double.infinity;
+    List<Map<String, dynamic>> matchedList = [];
+
+    final cleanKeyword = keyword != null ? _normalizeString(keyword) : null;
+    final cleanCategory = category != null ? _normalizeString(category) : null;
+
+    for (var tx in box.values) {
+      // 1. Filtrar por tipo
+      if (type != null && tx.safeType != type) continue;
+
+      // 2. Filtrar por rango de fechas
+      if (startDate != null && tx.safeDate.isBefore(startDate)) continue;
+      if (endDate != null && tx.safeDate.isAfter(endDate)) continue;
+
+      // 3. Filtrar por categoría
+      if (cleanCategory != null && _normalizeString(tx.safeCategory) != cleanCategory) continue;
+
+      // 4. Filtrar por palabra clave en detalles
+      if (cleanKeyword != null && !_normalizeString(tx.safeDetail).contains(cleanKeyword)) continue;
+
+      double amt = double.tryParse(tx.safeAmount) ?? 0.0;
+      totalSum += amt;
+      count++;
+      if (amt > maxAmount) maxAmount = amt;
+      if (amt < minAmount) minAmount = amt;
+
+      matchedList.add({
+        'type': tx.safeType,
+        'amount': amt,
+        'date': tx.safeDate,
+        'detail': tx.safeDetail,
+        'category': tx.safeCategory,
+        'account': tx.safeAccount,
+      });
+    }
+
+    double average = count > 0 ? totalSum / count : 0.0;
+    if (minAmount == double.infinity) minAmount = 0.0;
+
+    return {
+      'totalSum': totalSum,
+      'count': count,
+      'average': average,
+      'maxAmount': maxAmount,
+      'minAmount': minAmount,
+      'transactions': matchedList,
+    };
+  }
+
+  String _formatQueryResultContext(Map<String, dynamic> result) {
+    String contextStr = '[RESULTADO DE CONSULTA A BASE DE DATOS DE TRANSACCIONES]\n'
+        '- Período consultado: ${result['searchedPeriod']}\n'
+        '- Tipo filtrado: ${result['searchedType'] ?? "Todos"}\n'
+        '- Categoría filtrada: ${result['searchedCategory'] ?? "Todas"}\n'
+        '- Palabra clave filtrada: ${result['searchedKeyword'] ?? "Ninguna"}\n'
+        '- Total de transacciones encontradas: ${result['count']}\n'
+        '- Suma total acumulada: ${CurrencyHelper.format(result['totalSum'])} ${CurrencyHelper.currencyCode}\n'
+        '- Promedio por transacción: ${CurrencyHelper.format(result['average'])} ${CurrencyHelper.currencyCode}\n'
+        '- Transacción de monto máximo: ${CurrencyHelper.format(result['maxAmount'])} ${CurrencyHelper.currencyCode}\n'
+        '- Transacción de monto mínimo: ${CurrencyHelper.format(result['minAmount'])} ${CurrencyHelper.currencyCode}\n\n';
+
+    final List<dynamic> txs = result['transactions'];
+    if (txs.isNotEmpty) {
+      contextStr += 'DETALLE DE TRANSACCIONES ENCONTRADAS:\n';
+      final displayedTxs = txs.take(10).toList();
+      for (var tx in displayedTxs) {
+        contextStr += '- ${_formatDate(tx['date'])} | ${tx['type'] == "Income" ? "INGRESO" : "EGRESO"} | '
+            '${CurrencyHelper.format(tx['amount'])} | Categoría: ${tx['category']} | Detalle: ${tx['detail']} | Cuenta: ${tx['account']}\n';
+      }
+      if (txs.length > 10) {
+        contextStr += '- ... y ${txs.length - 10} transacciones más.\n';
+      }
+    } else {
+      contextStr += 'No se encontraron transacciones con los filtros aplicados.\n';
+    }
+
+    return contextStr;
+  }
+
+  String _normalizeString(String str) {
+    return str
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ñ', 'n')
+        .trim();
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 }
