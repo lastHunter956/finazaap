@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:finazaap/Screens/home.dart';
 import 'package:finazaap/Screens/statistics.dart';
 import 'package:finazaap/Screens/responsibilities_screen.dart';
-import 'package:finazaap/screens/categories_screen.dart';
-import 'package:finazaap/screens/settings_screen.dart';
+import 'package:finazaap/Screens/categories_screen.dart';
+import 'package:finazaap/Screens/settings_screen.dart';
 import 'package:finazaap/widgets/custom_pill_bottom_nav_bar.dart';
 
 class MainContainer extends StatefulWidget {

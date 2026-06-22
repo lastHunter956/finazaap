@@ -61,9 +61,18 @@ class NotificationService {
         AndroidFlutterLocalNotificationsPlugin>();
     
     if (androidPlugin != null) {
-      final bool? granted = await androidPlugin.requestNotificationsPermission();
-      AppLogger.info('Permiso de notificaciones Android: $granted');
-      return granted ?? false;
+      final bool? notificationsGranted = await androidPlugin.requestNotificationsPermission();
+      AppLogger.info('Permiso de notificaciones Android (POST_NOTIFICATIONS): $notificationsGranted');
+      
+      // Intentar solicitar permiso de Alarmas Exactas para Android 13/14+
+      try {
+        final bool? exactAlarmsGranted = await androidPlugin.requestExactAlarmsPermission();
+        AppLogger.info('Permiso de alarmas exactas Android (SCHEDULE_EXACT_ALARM): $exactAlarmsGranted');
+      } catch (e) {
+        AppLogger.warning('No se pudo solicitar el permiso de alarmas exactas', error: e);
+      }
+      
+      return notificationsGranted ?? false;
     }
 
     final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
@@ -358,7 +367,7 @@ class NotificationService {
       body,
       tz.TZDateTime.from(scheduledDate, tz.local),
       details,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
   

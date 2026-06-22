@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:finazaap/Screens/home.dart';
 import 'package:finazaap/providers/pin_provider.dart';
-import 'package:finazaap/screens/pin_code_screen.dart';
-import 'package:finazaap/screens/main_container.dart';
+import 'package:finazaap/Screens/pin_code_screen.dart';
+import 'package:finazaap/Screens/main_container.dart';
 
 /// Pantalla de Splash Premium con logo de la app
 class AuthSplashScreen extends StatefulWidget {

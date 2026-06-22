@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:finazaap/screens/edit_profile_screen.dart';
+import 'package:finazaap/Screens/edit_profile_screen.dart';
 import 'package:image_picker/image_picker.dart'; // Importar el paquete image_picker
 
 class HeaderWidget extends StatelessWidget {

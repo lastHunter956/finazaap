@@ -26,13 +26,15 @@ class AdddataAdapter extends TypeAdapter<Add_data> {
       fields[6] as int?,
       fields[7] == null ? '1' : fields[7] as String?,
       fields[8] == null ? false : fields[8] as bool?,
+      fields[9] as String?,
+      fields[10] as bool?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Add_data obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.IN)
       ..writeByte(1)
@@ -50,7 +52,11 @@ class AdddataAdapter extends TypeAdapter<Add_data> {
       ..writeByte(7)
       ..write(obj.installments)
       ..writeByte(8)
-      ..write(obj.isInterestFree);
+      ..write(obj.isInterestFree)
+      ..writeByte(9)
+      ..write(obj.responsibilityId)
+      ..writeByte(10)
+      ..write(obj.isObligationPayment);
   }
 
   @override

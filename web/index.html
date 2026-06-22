@@ -31,8 +31,46 @@
 
   <title>finazaap</title>
   <link rel="manifest" href="manifest.json">
+
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Detect WebGPU support for Dart validation
+    window.webGpuSupported = typeof navigator !== 'undefined' && !!navigator.gpu;
+
+    console.log('🚀 Iniciando secuencia de carga de ML Engines...');
+
+    // 1. Iniciar la descarga de MediaPipe
+    const loadMediaPipe = import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27').then(m => {
+      window.FilesetResolver = m.FilesetResolver;
+      window.LlmInference = m.LlmInference;
+      console.log('✅ MediaPipe GenAI cargado exitosamente en window');
+    });
+
+    // 2. Iniciar la descarga de LiteRT-LM y asignar la promesa a window.litertLmReady (como exige la lib)
+    window.litertLmReady = (async () => {
+      const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.12.1/+esm');
+      window.Engine = m.Engine;
+      console.log('✅ LiteRT-LM cargado exitosamente en window');
+      return m.Engine;
+    })();
+
+    // 3. RETRASAR EL ARRANQUE DE FLUTTER HASTA QUE TODO ESTÉ LISTO
+    // Esto garantiza 100% que window.LlmInference y window.Engine NO sean null
+    Promise.all([loadMediaPipe, window.litertLmReady]).then(() => {
+      console.log('⚡ Todos los motores listos. Arrancando Flutter Web...');
+      const script = document.createElement('script');
+      script.src = 'flutter_bootstrap.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }).catch(err => {
+      console.error('❌ Error crítico descargando dependencias ML:', err);
+      // Arrancar Flutter de todos modos para que la UI muestre el error capturado
+      const script = document.createElement('script');
+      script.src = 'flutter_bootstrap.js';
+      script.async = true;
+      document.body.appendChild(script);
+    });
+  </script>
 </body>
 </html>

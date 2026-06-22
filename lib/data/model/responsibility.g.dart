@@ -44,7 +44,7 @@ class ResponsibilityAdapter extends TypeAdapter<Responsibility> {
   @override
   void write(BinaryWriter writer, Responsibility obj) {
     writer
-      ..writeByte(20)
+      ..writeByte(21)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)

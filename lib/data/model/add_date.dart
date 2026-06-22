@@ -41,6 +41,12 @@ class Add_data extends HiveObject {
   String get safeAccount => name ?? 'Sin cuenta';
   int get safeIconCode => iconCode ?? 0;
 
+  @HiveField(9)
+  String? responsibilityId;
+  
+  @HiveField(10)
+  bool? isObligationPayment;
+
   // Estos getters son para compatibilidad con el código existente
   String get type => safeType;
   DateTime get date => safeDate;
@@ -56,7 +62,9 @@ class Add_data extends HiveObject {
     this.name,
     this.iconCode = 0,
     this.installments = '1',
-    this.isInterestFree = false]
+    this.isInterestFree = false,
+    this.responsibilityId,
+    this.isObligationPayment = false]
   );
 }
 

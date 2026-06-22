@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:finazaap/screens/add.dart';
-import 'package:finazaap/screens/add_expense.dart';
-import 'package:finazaap/screens/transfer.dart';
+import 'package:finazaap/Screens/add.dart';
+import 'package:finazaap/Screens/add_expense.dart';
+import 'package:finazaap/Screens/transfer.dart';
 import 'dart:ui';
 
 class FloatingActionMenuScreen extends StatefulWidget {

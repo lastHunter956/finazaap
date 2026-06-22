@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:finazaap/data/model/add_date.dart';
@@ -10,6 +11,10 @@ import 'package:finazaap/core/utils/app_logger.dart';
 // Nuevas importaciones para localizacion
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:finazaap/services/ai_chat_service.dart';
 
 /// Punto de entrada principal de FinazaApp
 /// Inicializa servicios de seguridad, Hive y registra adaptadores
@@ -22,6 +27,28 @@ void main() async {
 
     // Inicializar formateo de fechas para español
     await initializeDateFormatting('es_ES', null);
+    
+    // Inicializar Flutter Gemma (motor de IA on-device)
+    // IMPORTANTE: webStorageMode solo existe en Web. En Android/iOS se omite.
+    try {
+      if (kIsWeb) {
+        await FlutterGemma.initialize(
+          inferenceEngines: const [MediaPipeEngine(), LiteRtLmEngine()],
+          webStorageMode: WebStorageMode.streaming,
+          maxDownloadRetries: 5,
+        );
+      } else {
+        // En Android/iOS solo necesitamos LiteRtLmEngine (soporta .litertlm nativo via FFI)
+        await FlutterGemma.initialize(
+          inferenceEngines: const [LiteRtLmEngine()],
+          maxDownloadRetries: 3,
+        );
+      }
+      AppLogger.success('FlutterGemma inicializado correctamente para ${kIsWeb ? "Web" : "nativo"}');
+    } catch (e) {
+      AppLogger.warning('Error inicializando FlutterGemma (continuando sin IA): $e');
+      AiChatService.initError = e.toString();
+    }
     
     // 1. Inicializar Hive (CRÍTICO)
     // Esto es lo más importante, si falla, la app no funciona

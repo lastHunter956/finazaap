@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:finazaap/providers/pin_provider.dart';
-import 'package:finazaap/screens/pin_code_screen.dart';
+import 'package:finazaap/Screens/pin_code_screen.dart';
 import 'package:finazaap/services/notification_service.dart';
 import 'package:finazaap/services/data_management_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';

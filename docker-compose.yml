@@ -1,0 +1,22 @@
+services:
+  flutter-env:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finazaap-flutter
+    volumes:
+      - .:/app
+      # Cache de pub para evitar volver a descargar paquetes cada vez que se reinicia el contenedor
+      - pub-cache:/root/.pub-cache
+    environment:
+      # Conectar el cliente ADB de Docker con el servidor ADB del host macOS
+      - ADB_SERVER_SOCKET=tcp:host.docker.internal:5037
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    stdin_open: true # keep-alive
+    tty: true        # keep-alive
+
+volumes:
+  pub-cache:

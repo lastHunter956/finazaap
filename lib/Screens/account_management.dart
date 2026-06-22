@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:settings_ui/settings_ui.dart';
-import 'package:finazaap/screens/edit_profile_screen.dart'; // Asegúrate de que la ruta sea correcta
+import 'package:finazaap/Screens/edit_profile_screen.dart'; // Asegúrate de que la ruta sea correcta
 
 class AccountManagement extends StatelessWidget {
   @override

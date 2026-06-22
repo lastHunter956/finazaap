@@ -16,7 +16,7 @@ import 'package:finazaap/utils/currency_helper.dart';
 
 // Importa todas las clases necesarias, ocultando AccountItem para evitar conflictos
 // Importa todas las clases necesarias
-import 'package:finazaap/screens/selecctaccount.dart';
+import 'package:finazaap/Screens/selecctaccount.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'package:finazaap/Screens/add.dart';
 import 'package:finazaap/Screens/add_expense.dart';
@@ -26,9 +26,10 @@ import 'package:finazaap/data/models/account_item.dart'; // Modelo centralizado
 // Añadir esta importación al inicio del archivo
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/data/category_service.dart';
-import 'package:finazaap/screens/settings_screen.dart';
+import 'package:finazaap/Screens/settings_screen.dart';
 import 'package:finazaap/Screens/daily_transactions.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:finazaap/Screens/ai_chat_screen.dart';
 import 'package:finazaap/services/widget_service.dart';
 import 'dart:async'; // Necesario para StreamSubscription
 
@@ -317,16 +318,59 @@ class _HomeState extends State<Home> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          const Text(
-                            'Transacciones',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                          const SizedBox(
+                            height: 44,
+                            child: Center(
+                              child: Text(
+                                'Transacciones',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                          // Botón de configuración eliminado (movido a barra de navegación)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            child: Center(
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const AiChatScreen()),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF52E2FF).withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color(0xFF52E2FF).withOpacity(0.4),
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF52E2FF).withOpacity(0.15),
+                                        blurRadius: 10,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.chat_rounded,
+                                    color: Color(0xFF52E2FF),
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
