@@ -295,6 +295,16 @@ class TransactionService {
           originalDate
         );
       }
+
+      // Revertir pago de obligación si la transacción estaba vinculada
+      if (oldTransaction.isObligationPayment == true && oldTransaction.responsibilityId != null) {
+        AppLogger.debug('Revertir pago de obligación: ${oldTransaction.responsibilityId}');
+        await ResponsibilityService.revertPayment(
+          oldTransaction.responsibilityId!,
+          amount,
+          originalDate,
+        );
+      }
       
       AppLogger.success('REVERSIÓN COMPLETADA');
     } catch (e) {
@@ -381,6 +391,15 @@ class TransactionService {
       
       // Actualizar saldo global
       await _updateGlobalBalance(accounts);
+
+      // Revertir pago de obligación si la transacción estaba vinculada
+      if (transaction.isObligationPayment == true && transaction.responsibilityId != null) {
+        await ResponsibilityService.revertPayment(
+          transaction.responsibilityId!,
+          amount,
+          transaction.date ?? DateTime.now(),
+        );
+      }
       
       // Eliminar la transacción de Hive
       await transaction.delete();

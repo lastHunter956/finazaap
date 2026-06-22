@@ -772,4 +772,144 @@ class ResponsibilityService {
       // print('No matching card responsibility found for $cardName');
     }
   }
+
+  /// Registrar un pago para cualquier responsabilidad (tarjeta, servicio, préstamo, etc.)
+  static Future<void> registerPayment(String id, double payAmount, DateTime paymentDate, bool forcePaidComplete) async {
+    final box = getBox();
+    try {
+      final index = box.values.toList().indexWhere((r) => r.safeId == id);
+      if (index == -1) {
+        print('⚠️ [REGISTER_PAYMENT] No se encontró responsabilidad con ID: $id');
+        return;
+      }
+      
+      final responsibility = box.getAt(index);
+      if (responsibility == null) return;
+      
+      final currentMonth = paymentDate.month;
+      final currentYear = paymentDate.year;
+      
+      // Obtener el monto esperado del mes
+      double expectedAmount = responsibility.getAmountForDate(currentMonth, currentYear);
+      
+      // Calcular pago anterior en este ciclo
+      double previousPaidInCycle = 0.0;
+      if (responsibility.lastPaymentMonth == currentMonth && responsibility.lastPaymentYear == currentYear) {
+        previousPaidInCycle = responsibility.paidAmountThisMonth ?? 0.0;
+      }
+      
+      // Acumular pago
+      double totalPaidInCycle = previousPaidInCycle + payAmount;
+      
+      // Si es tarjeta de crédito, también debemos sincronizar su deuda (cardBalance)
+      if (responsibility.safeCategory == 'tarjeta') {
+        double currentDebt = responsibility.cardBalance ?? 0.0;
+        double newDebt = currentDebt - payAmount;
+        if (newDebt < 0) newDebt = 0;
+        responsibility.cardBalance = newDebt;
+      }
+      
+      // Marcar como pagada si se forzó o si el total acumulado cubre la cuota
+      bool isPaid = forcePaidComplete || (totalPaidInCycle >= expectedAmount * 0.98);
+      
+      // Crear copia actualizada
+      final updated = Responsibility(
+        id: responsibility.safeId,
+        name: responsibility.safeName,
+        amount: responsibility.safeAmount,
+        dueDay: responsibility.safeDueDay,
+        category: responsibility.safeCategory,
+        frequency: responsibility.safeFrequency,
+        iconCode: responsibility.safeIconCode,
+        isPaid: isPaid,
+        lastPaymentDate: isPaid ? paymentDate : responsibility.lastPaymentDate,
+        cardLimit: responsibility.cardLimit,
+        cardBalance: responsibility.cardBalance,
+        interestRate: responsibility.interestRate,
+        installments: responsibility.installments,
+        cutoffDay: responsibility.cutoffDay,
+        installmentPlansJson: responsibility.installmentPlansJson,
+        minimumPayment: responsibility.minimumPayment,
+        paymentDay: responsibility.paymentDay,
+        paidAmountThisMonth: totalPaidInCycle,
+        lastPaymentMonth: currentMonth,
+        lastPaymentYear: currentYear,
+        paymentDates: responsibility.paymentDates,
+      );
+      
+      await box.putAt(index, updated);
+      print('✅ Pago registrado en responsabilidad ${responsibility.safeName}: \$${payAmount.toStringAsFixed(0)}. Pagado ciclo: \$${totalPaidInCycle.toStringAsFixed(0)} / \$${expectedAmount.toStringAsFixed(0)}. Completado: $isPaid');
+    } catch (e) {
+      print('⚠️ Error al registrar pago de responsabilidad: $e');
+    }
+  }
+
+  /// Revertir un pago registrado previamente (cuando se edita o elimina la transacción)
+  static Future<void> revertPayment(String id, double payAmount, DateTime originalPaymentDate) async {
+    final box = getBox();
+    try {
+      final index = box.values.toList().indexWhere((r) => r.safeId == id);
+      if (index == -1) {
+        print('⚠️ [REVERT_PAYMENT] No se encontró responsabilidad con ID: $id');
+        return;
+      }
+      
+      final responsibility = box.getAt(index);
+      if (responsibility == null) return;
+      
+      final currentMonth = originalPaymentDate.month;
+      final currentYear = originalPaymentDate.year;
+      
+      double previousPaidInCycle = 0.0;
+      if (responsibility.lastPaymentMonth == currentMonth && responsibility.lastPaymentYear == currentYear) {
+        previousPaidInCycle = responsibility.paidAmountThisMonth ?? 0.0;
+      }
+      
+      double totalPaidInCycle = previousPaidInCycle - payAmount;
+      if (totalPaidInCycle < 0) totalPaidInCycle = 0;
+      
+      if (responsibility.safeCategory == 'tarjeta') {
+        double currentDebt = responsibility.cardBalance ?? 0.0;
+        responsibility.cardBalance = currentDebt + payAmount;
+      }
+      
+      double expectedAmount = responsibility.getAmountForDate(currentMonth, currentYear);
+      bool isPaid = totalPaidInCycle >= expectedAmount * 0.98;
+      
+      // Si ya no está completado, limpiar la fecha de último pago si coincide con el mes de la transacción
+      DateTime? lastPaymentDate = responsibility.lastPaymentDate;
+      if (!isPaid && lastPaymentDate != null && lastPaymentDate.month == currentMonth && lastPaymentDate.year == currentYear) {
+        lastPaymentDate = null;
+      }
+      
+      final updated = Responsibility(
+        id: responsibility.safeId,
+        name: responsibility.safeName,
+        amount: responsibility.safeAmount,
+        dueDay: responsibility.safeDueDay,
+        category: responsibility.safeCategory,
+        frequency: responsibility.safeFrequency,
+        iconCode: responsibility.safeIconCode,
+        isPaid: isPaid,
+        lastPaymentDate: lastPaymentDate,
+        cardLimit: responsibility.cardLimit,
+        cardBalance: responsibility.cardBalance,
+        interestRate: responsibility.interestRate,
+        installments: responsibility.installments,
+        cutoffDay: responsibility.cutoffDay,
+        installmentPlansJson: responsibility.installmentPlansJson,
+        minimumPayment: responsibility.minimumPayment,
+        paymentDay: responsibility.paymentDay,
+        paidAmountThisMonth: totalPaidInCycle,
+        lastPaymentMonth: responsibility.lastPaymentMonth,
+        lastPaymentYear: responsibility.lastPaymentYear,
+        paymentDates: responsibility.paymentDates,
+      );
+      
+      await box.putAt(index, updated);
+      print('🔄 Pago revertido en responsabilidad ${responsibility.safeName}: -\$${payAmount.toStringAsFixed(0)}. Nuevo pagado ciclo: \$${totalPaidInCycle.toStringAsFixed(0)}');
+    } catch (e) {
+      print('⚠️ Error al revertir pago de responsabilidad: $e');
+    }
+  }
 }

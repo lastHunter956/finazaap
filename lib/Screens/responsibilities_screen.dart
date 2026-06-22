@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:finazaap/data/model/responsibility.dart';
+import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/responsibility_service.dart';
+import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/utils/currency_helper.dart'; // Import added
 import 'package:finazaap/widgets/responsibility_dashboard_card.dart';
 import 'package:finazaap/widgets/urgent_payments_section.dart';
@@ -681,69 +683,41 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
   }
 
   void _handlePayResponsibility(Responsibility responsibility) async {
-    // Si es tarjeta de crédito, REDIRIGIR A TRANSFERENCIA
-    if (responsibility.safeCategory == 'tarjeta') {
-       // Calcular monto sugerido (Cuota o Mínimo)
-       final quota = responsibility.dynamicMonthlyPayment;
-       final balance = responsibility.dynamicCardBalance;
-       
-       // Priorizar Quota > 0, sino Balance, sino 0
-       final initialAmount = quota > 0 ? quota : (balance > 0 ? balance : 0.0);
-       
-       final result = await Navigator.push(
-         context,
-         MaterialPageRoute(
-           builder: (context) => TransferScreen(
-             initialAmount: initialAmount,
-             initialDestinationAccount: responsibility.safeName,
-             // Usar 'isPayResponsibility' flag si existiera para mejorar lógica, 
-             // pero con descripción basta por ahora.
-             initialDescription: 'Pago Cuota ${responsibility.safeName}',
-           ),
-         ),
-       );
-       
-       // Recargar responsabilidades al volver (por si se completó el pago)
-       _loadResponsibilities();
-       return;
-    }
-
-    // Comportamiento estándar para otras categorías
-    // Usamos el día actual ya que no seleccionamos día específico en UI
-    final now = DateTime.now();
-    await ResponsibilityService.togglePaidStatus(
-      responsibility.safeId, 
-      month: _selectedMonth, 
-      year: _selectedYear,
-      // Para pagos diarios, asumimos que pagas el día de hoy.
-      specificDate: DateTime(now.year, now.month, now.day), 
-    );
-    setState(() {});
+    _showUnifiedPaymentDialog(responsibility);
   }
 
-  void _showCreditCardPaymentDialog(Responsibility responsibility) async {
-    // Calcular la cuota sugerida automáticamente (Priorizando minimumPayment si existe)
-    final suggestedAmount = responsibility.dynamicMonthlyPayment;
-    final balance = responsibility.dynamicCardBalance;
+  void _showUnifiedPaymentDialog(Responsibility responsibility) async {
+    // 1. Calcular cuota y balance sugeridos
+    final double expected = responsibility.getAmountForDate(_selectedMonth, _selectedYear);
+    final double paid = responsibility.getPaidAmountInCycle(_selectedMonth, _selectedYear);
+    final double suggestedAmount = (expected - paid).clamp(0.0, double.infinity);
     
-    // FIX: Pre-llenar con la cuota sugerida. Si es 0, intentar con el balance, si no 0.
-    double initialValue = suggestedAmount > 0 ? suggestedAmount : (balance > 0 ? balance : 0);
+    // Si la cuota restante es 0, sugerir el monto total del mes (o balance si es tarjeta)
+    double initialValue = suggestedAmount > 0 
+        ? suggestedAmount 
+        : (responsibility.safeCategory == 'tarjeta' 
+            ? (responsibility.cardBalance ?? expected) 
+            : expected);
+
+    final TextEditingController amountController = TextEditingController(text: initialValue.toStringAsFixed(0));
     
-    final TextEditingController amountController = TextEditingController(text: initialValue > 0 ? initialValue.toStringAsFixed(0) : '');
-    String? selectedAccount;
-    
-    // Obtener cuentas activas para el origen de fondos
-    final accounts = await AccountService.getActiveAccounts();
+    // 2. Obtener cuentas activas para el dropdown
+    final List<Map<String, dynamic>> accounts = await AccountService.getActiveAccounts();
+    String? selectedAccountName;
     if (accounts.isNotEmpty) {
-      selectedAccount = accounts.first['title']; // Seleccionar la primera por defecto
+      selectedAccountName = accounts.first['title'];
     }
+
+    DateTime selectedDate = DateTime.now();
+    bool isMinimumPayment = true; // true: Sugerido, false: Personalizado
+    bool markAsPaidComplete = true; // Activo por defecto
 
     if (!mounted) return;
 
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: "Pagar Tarjeta",
+      barrierLabel: "Pagar Obligación",
       barrierColor: Colors.black.withOpacity(0.7),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) => Container(),
@@ -752,184 +726,340 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
           scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
           child: FadeTransition(
             opacity: animation,
-            child: AlertDialog(
-              backgroundColor: const Color(0xFF222939),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: Row(
-                children: [
-                   Icon(AppIcons.getIcon(responsibility.safeIconCode), color: Colors.blueAccent),
-                   const SizedBox(width: 12),
-                   Expanded(
-                     child: Text(
-                       'Pagar ${responsibility.safeName}', 
-                       style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
-                     ),
-                   ),
-                ],
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: StatefulBuilder(
-                  builder: (context, setStateSB) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Info Cards
-                        Row(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: AlertDialog(
+                backgroundColor: const Color(0xFF222939),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blueAccent.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(AppIcons.getIcon(responsibility.safeIconCode), color: Colors.blueAccent, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Pagar ${responsibility.safeName}',
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: StatefulBuilder(
+                    builder: (context, setStateSB) {
+                      // Función interna para mostrar DatePicker
+                      Future<void> _pickPaymentDate() async {
+                        final newDate = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: Colors.blueAccent,
+                                  onPrimary: Colors.white,
+                                  surface: Color(0xFF222939),
+                                  onSurface: Colors.white,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (newDate != null) {
+                          setStateSB(() {
+                            selectedDate = newDate;
+                          });
+                        }
+                      }
+
+                      return SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Deuda Total', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                                    const SizedBox(height: 4),
-                                    Text(CurrencyHelper.format(balance), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
+                            // Info Cuota Restante
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.blue.withOpacity(0.3)),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Cuota Sugerida', style: TextStyle(color: Colors.blueAccent, fontSize: 11)),
-                                    const SizedBox(height: 4),
-                                    Text(CurrencyHelper.format(suggestedAmount), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        // Amount Input
-                        Text('Monto a Pagar', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: amountController,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                          decoration: InputDecoration(
-                            prefixIcon: const Icon(Icons.attach_money, color: Colors.white70),
-                            filled: true,
-                            fillColor: Colors.black12,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 20),
-                        
-                        // Source Account Dropdown
-                        Text('Cuenta de Origen', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.black12,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: selectedAccount,
-                              dropdownColor: const Color(0xFF2C3549),
-                              isExpanded: true,
-                              hint: const Text('Seleccionar cuenta', style: TextStyle(color: Colors.white54)),
-                              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
-                              items: accounts.map<DropdownMenuItem<String>>((account) {
-                                return DropdownMenuItem<String>(
-                                  value: account['title'],
-                                  child: Row(
-                                    children: [
-                                       Icon(AppIcons.getIcon(account['icon']), size: 18, color: Color(account['iconColor'] ?? 0xFFFFFFFF)),
-                                       const SizedBox(width: 8),
-                                       Text(account['title'], style: const TextStyle(color: Colors.white)),
-                                       const Spacer(),
-                                       Text(
-                                         CurrencyHelper.formatCompact(double.tryParse(account['balance'].toString()) ?? 0),
-                                         style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
-                                       ),
-                                    ],
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Pendiente para este mes',
+                                    style: TextStyle(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.bold),
                                   ),
-                                );
-                              }).toList(),
-                              onChanged: (String? newValue) {
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    CurrencyHelper.format(suggestedAmount),
+                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Selector Tipo Pago
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ChoiceChip(
+                                    label: Text(
+                                      'Sugerido',
+                                      style: TextStyle(
+                                        color: isMinimumPayment ? const Color(0xFF1F2639) : Colors.white70,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    selected: isMinimumPayment,
+                                    selectedColor: Colors.blueAccent,
+                                    backgroundColor: Colors.white.withOpacity(0.05),
+                                    onSelected: (val) {
+                                      setStateSB(() {
+                                        isMinimumPayment = true;
+                                        amountController.text = initialValue.toStringAsFixed(0);
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ChoiceChip(
+                                    label: Text(
+                                      'Personalizado',
+                                      style: TextStyle(
+                                        color: !isMinimumPayment ? const Color(0xFF1F2639) : Colors.white70,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    selected: !isMinimumPayment,
+                                    selectedColor: Colors.blueAccent,
+                                    backgroundColor: Colors.white.withOpacity(0.05),
+                                    onSelected: (val) {
+                                      setStateSB(() {
+                                        isMinimumPayment = false;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Input de Monto (solo editable si es personalizado)
+                            Text(
+                              'Monto a pagar',
+                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 6),
+                            TextFormField(
+                              controller: amountController,
+                              keyboardType: TextInputType.number,
+                              enabled: !isMinimumPayment,
+                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                prefixIcon: const Icon(Icons.attach_money, color: Colors.white70),
+                                filled: true,
+                                fillColor: isMinimumPayment ? Colors.white.withOpacity(0.02) : Colors.black12,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Cuenta de Origen Dropdown
+                            Text(
+                              'Cuenta de Pago',
+                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.black12,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white.withOpacity(0.05)),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: selectedAccountName,
+                                  dropdownColor: const Color(0xFF222939),
+                                  isExpanded: true,
+                                  hint: const Text('Seleccionar cuenta', style: TextStyle(color: Colors.white54, fontSize: 14)),
+                                  icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
+                                  items: accounts.map<DropdownMenuItem<String>>((account) {
+                                    return DropdownMenuItem<String>(
+                                      value: account['title'],
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            AppIcons.getIcon(account['icon']),
+                                            size: 16,
+                                            color: Color(account['iconColor'] ?? 0xFFFFFFFF),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(account['title'], style: const TextStyle(color: Colors.white, fontSize: 14)),
+                                          const Spacer(),
+                                          Text(
+                                            CurrencyHelper.formatCompact(double.tryParse(account['balance'].toString()) ?? 0),
+                                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (String? newValue) {
+                                    setStateSB(() {
+                                      selectedAccountName = newValue;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Selector de Fecha
+                            Text(
+                              'Fecha del Pago',
+                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 6),
+                            InkWell(
+                              onTap: _pickPaymentDate,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: Colors.black12,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today_rounded, color: Colors.blueAccent, size: 16),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      DateFormat('dd/MM/yyyy').format(selectedDate),
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                    ),
+                                    const Spacer(),
+                                    const Icon(Icons.edit_calendar_rounded, color: Colors.white54, size: 16),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Switch Marcar Completa
+                            SwitchListTile(
+                              title: const Text(
+                                'Marcar obligación completa',
+                                style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                              ),
+                              value: markAsPaidComplete,
+                              activeColor: Colors.blueAccent,
+                              contentPadding: EdgeInsets.zero,
+                              onChanged: (val) {
                                 setStateSB(() {
-                                  selectedAccount = newValue;
+                                  markAsPaidComplete = val;
                                 });
                               },
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    );
-                  }
-                ),
-              ),
-              actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                  onPressed: () async {
-                    if (amountController.text.isEmpty || selectedAccount == null) return;
-                    
-                    final payAmount = double.tryParse(amountController.text) ?? 0.0;
-                    if (payAmount <= 0) return;
-                    
-                    Navigator.pop(dialogContext);
-                    
-                    try {
-                      // 1. Process Transaction (Transfer: Origin -> Credit Card)
-                      // This updates balances for both accounts and the credit card debt
-                      final success = await TransactionService.processTransaction(
-                        type: 'Transfer',
-                        amount: payAmount,
-                        accountName: selectedAccount!,
-                        destinationAccount: responsibility.safeName,
-                        isNewTransaction: true,
-                        targetMonth: _selectedMonth,
-                        targetYear: _selectedYear,
-                        recordInHive: true,
-                        detail: 'Pago de cuota: ${responsibility.safeName}',
                       );
-                      
-                      if (success) {
-                        _loadResponsibilities(); // Recargar datos frescos
-                        setState(() {}); // Actualizar UI
-                        AlertHelper.success(context, 'Pago registrado correctamente');
-                      } else {
-                        AlertHelper.error(context, 'Error al procesar la transacción');
-                      }
-                    } catch (e) {
-                      AlertHelper.error(context, 'Ocurrió un error: $e');
-                    }
-                  },
-                  child: const Text('Confirmar Pago', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    },
+                  ),
                 ),
-              ],
+                actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueAccent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    onPressed: () async {
+                      if (amountController.text.isEmpty || selectedAccountName == null) return;
+                      final payAmount = double.tryParse(amountController.text) ?? 0.0;
+                      if (payAmount <= 0) return;
+
+                      Navigator.pop(dialogContext);
+
+                      try {
+                        // 1. Process real transaction Expense (egreso)
+                        final success = await TransactionService.processTransaction(
+                          type: 'Expenses',
+                          amount: payAmount,
+                          accountName: selectedAccountName!,
+                          isNewTransaction: true,
+                        );
+
+                        if (success) {
+                          // 2. Add transaction to Hive
+                          final box = Hive.box<Add_data>('data');
+                          
+                          // Obtener categoría de transacción correspondiente
+                          final matchedCat = await CategoryService.findMatchingCategoryForObligation(responsibility.safeCategory);
+                          final String categoryName = matchedCat != null ? (matchedCat['text'] as String) : responsibility.safeCategory;
+                          final int iconCode = matchedCat != null ? (matchedCat['icon'] as int) : responsibility.safeIconCode;
+
+                          final transaction = Add_data(
+                            'Expenses',
+                            payAmount.toString(),
+                            selectedDate,
+                            'Pago obligación: ${responsibility.safeName}',
+                            categoryName,
+                            selectedAccountName!,
+                            iconCode,
+                            '1', // installments
+                            true, // isInterestFree
+                            responsibility.safeId,
+                            true, // isObligationPayment
+                          );
+                          await box.add(transaction);
+
+                          // 3. Register payment in Responsibility box
+                          await ResponsibilityService.registerPayment(
+                            responsibility.safeId,
+                            payAmount,
+                            selectedDate,
+                            markAsPaidComplete,
+                          );
+
+                          _loadResponsibilities();
+                          setState(() {});
+                          AlertHelper.success(context, 'Pago registrado correctamente');
+                        } else {
+                          AlertHelper.error(context, 'Error al procesar la transacción');
+                        }
+                      } catch (e) {
+                        AlertHelper.error(context, 'Ocurrió un error: $e');
+                      }
+                    },
+                    child: const Text('Confirmar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
             ),
           ),
         );

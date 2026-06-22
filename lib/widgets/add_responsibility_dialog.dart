@@ -568,12 +568,14 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
   }
 
   Widget _buildDropdown({required String value, required List<String> items, required Function(String?) onChanged}) {
+    final effectiveValue = items.contains(value) ? value : (items.isNotEmpty ? items.first : null);
+
     return _buildInputField(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
-            value: value,
+            value: effectiveValue,
             isExpanded: true,
             icon: Icon(Icons.keyboard_arrow_down, color: iconColor.withOpacity(0.7)),
             dropdownColor: const Color(0xFF2A3143),

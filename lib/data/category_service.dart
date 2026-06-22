@@ -409,4 +409,101 @@ class CategoryService {
     await prefs.setStringList(jsonKey, jsonList.map((m) => json.encode(m)).toList());
     debugPrint('✅ Categoría Premium editada: $oldName -> $newName');
   }
+
+  /// Busca una categoría de transacción/egreso que coincida con la categoría estática de una obligación.
+  static Future<Map<String, dynamic>?> findMatchingCategoryForObligation(String obligationCategory) async {
+    final categories = await getCategoriesWithMetadata('Expenses');
+    
+    const Map<String, List<String>> obligationCategoryMapping = {
+      'servicio': ['servicios', 'servicio', 'servicios publicos', 'luz', 'agua', 'gas', 'internet'],
+      'membresía': ['suscripciones', 'membresias', 'membresia', 'suscripcion', 'netflix', 'spotify'],
+      'membresia': ['suscripciones', 'membresias', 'membresia', 'suscripcion', 'netflix', 'spotify'],
+      'tarjeta': ['tarjetas', 'tarjeta', 'tarjetas de credito', 'tarjeta de credito', 'banco'],
+      'préstamo': ['prestamos', 'prestamo', 'credito', 'deudas', 'deuda'],
+      'prestamo': ['prestamos', 'prestamo', 'credito', 'deudas', 'deuda'],
+      'vivienda': ['vivienda', 'hogar', 'alquiler', 'arriendo', 'arriendos'],
+      'seguros': ['seguros', 'seguro'],
+      'educación': ['educacion', 'colegio', 'universidad', 'estudio', 'estudios'],
+      'educacion': ['educacion', 'colegio', 'universidad', 'estudio', 'estudios'],
+      'transporte': ['transporte', 'gasolina', 'carro', 'moto', 'viajes', 'viaje'],
+      'ahorro': ['ahorros', 'ahorro', 'inversion', 'inversiones'],
+      'legal': ['legal', 'otros', 'impuestos', 'tasas'],
+      'salud': ['salud', 'medicina', 'farmacia', 'doctor', 'clinica'],
+      'impuestos': ['impuestos', 'impuesto', 'tasas', 'legal', 'otros'],
+      'mascotas': ['mascotas', 'mascota', 'perro', 'gato', 'veterinaria'],
+      'otros': ['otros', 'general'],
+    };
+
+    String normalize(String str) {
+      return str
+          .toLowerCase()
+          .replaceAll('á', 'a')
+          .replaceAll('é', 'e')
+          .replaceAll('í', 'i')
+          .replaceAll('ó', 'o')
+          .replaceAll('ú', 'u')
+          .replaceAll('ñ', 'n')
+          .trim();
+    }
+
+    final cleanKey = obligationCategory.toLowerCase().trim();
+    
+    // 1. Intento de coincidencia exacta directa en la lista de categorías
+    for (var cat in categories) {
+      if (cat['text'] == obligationCategory) {
+        return cat;
+      }
+    }
+
+    // Bidirectional/Synonym Group Expansion
+    List<String> possibleMatches = [cleanKey];
+    if (obligationCategoryMapping.containsKey(cleanKey)) {
+      possibleMatches.addAll(obligationCategoryMapping[cleanKey]!);
+    }
+    
+    obligationCategoryMapping.forEach((key, synonyms) {
+      final normalizedSynonyms = synonyms.map((s) => s.toLowerCase().trim()).toList();
+      if (normalizedSynonyms.contains(cleanKey) || key == cleanKey) {
+        possibleMatches.add(key);
+        possibleMatches.addAll(synonyms);
+      }
+    });
+    
+    possibleMatches = possibleMatches.toSet().toList();
+    
+    // 2. Coincidencia exacta en orden de preferencia de sinónimos
+    for (final possibleMatch in possibleMatches) {
+      final target = normalize(possibleMatch);
+      for (var cat in categories) {
+        final catText = normalize(cat['text'] as String);
+        if (catText == target) {
+          return cat;
+        }
+      }
+    }
+    
+    // 3. Coincidencia parcial en orden de preferencia de sinónimos
+    for (final possibleMatch in possibleMatches) {
+      final target = normalize(possibleMatch);
+      for (var cat in categories) {
+        final catText = normalize(cat['text'] as String);
+        if (catText.contains(target) || target.contains(catText)) {
+          return cat;
+        }
+      }
+    }
+    
+    // 4. Fallback: coincidencia general sobre el string original normalizado
+    final target = normalize(obligationCategory);
+    if (target.isNotEmpty) {
+      for (var cat in categories) {
+        final catText = normalize(cat['text'] as String);
+        if (catText == target || catText.contains(target) || target.contains(catText)) {
+          return cat;
+        }
+      }
+    }
+    
+    return null;
+  }
 }
