@@ -8,6 +8,12 @@ import 'package:intl/intl.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:finazaap/services/ai_chat_service.dart';
 import 'package:finazaap/themes/app_colors.dart';
+import 'package:finazaap/data/category_service.dart';
+import 'package:finazaap/utils/app_icons.dart';
+import 'package:finazaap/data/model/add_date.dart';
+import 'package:finazaap/data/transaction_service.dart';
+import 'package:finazaap/utils/currency_helper.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({Key? key}) : super(key: key);
@@ -25,6 +31,16 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   bool _isLoading = false;
   bool _isInputEmpty = true;
   Map<String, dynamic>? _financialState;
+
+  // Predefined Icons and Colors for suggested category editing
+  final List<IconData> _availableIcons = AppIcons.allIcons;
+  final List<Color> _availableColors = [
+    Colors.redAccent, Colors.pinkAccent, Colors.purpleAccent, Colors.deepPurpleAccent,
+    Colors.indigoAccent, Colors.blueAccent, Colors.lightBlueAccent, Colors.cyanAccent,
+    Colors.tealAccent, Colors.greenAccent, Colors.lightGreenAccent, Colors.limeAccent,
+    Colors.yellowAccent, Colors.amberAccent, Colors.orangeAccent, Colors.deepOrangeAccent,
+    Colors.blueGrey, Colors.grey,
+  ];
 
   @override
   void initState() {
@@ -831,8 +847,10 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
 
   Widget _buildChatBubble(ChatMessage message) {
     final isUser = message.role == 'user';
-    
-    return Align(
+    final hasSuggestions = !isUser && message.categorySuggestions != null && message.categorySuggestions!.isNotEmpty;
+    final hasTxSuggestions = !isUser && message.transactionSuggestions != null && message.transactionSuggestions!.isNotEmpty;
+
+    final bubbleWidget = Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1011,6 +1029,1241 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           ),
         ],
       ),
+    );
+
+    if (hasSuggestions || hasTxSuggestions) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          bubbleWidget,
+          if (hasSuggestions)
+            _buildCategorySuggestionsList(message, _chatService.messages.indexOf(message)),
+          if (hasTxSuggestions)
+            _buildTransactionSuggestionsList(message, _chatService.messages.indexOf(message)),
+        ],
+      );
+    }
+    return bubbleWidget;
+  }
+
+  Widget _buildCategorySuggestionsList(ChatMessage message, int messageIndex) {
+    final suggestions = message.categorySuggestions!;
+    
+    return Container(
+      margin: const EdgeInsets.only(left: 34, top: 4, bottom: 12),
+      height: 145,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: suggestions.length,
+        itemBuilder: (context, index) {
+          final sug = suggestions[index];
+          final String name = sug['name'] ?? '';
+          final String type = sug['type'] ?? 'Expenses';
+          final int iconCode = sug['icon'] ?? Icons.category.codePoint;
+          final int colorValue = sug['color'] ?? Colors.blueAccent.value;
+          
+          final iconData = AppIcons.getIcon(iconCode);
+          final categoryColor = Color(colorValue);
+          
+          return Container(
+            width: 175,
+            margin: const EdgeInsets.only(right: 12, bottom: 4, top: 4),
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(20),
+              border: GradientBoxBorder(
+                gradient: LinearGradient(
+                  colors: [
+                    categoryColor.withOpacity(0.4),
+                    Colors.white.withOpacity(0.08),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: categoryColor.withOpacity(0.08),
+                  blurRadius: 10,
+                  spreadRadius: -2,
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Icono & Tipo
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: categoryColor.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: categoryColor.withOpacity(0.3), width: 1),
+                        ),
+                        child: Icon(iconData, color: categoryColor, size: 16),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          type == 'Income' ? 'INGRESO' : 'GASTO',
+                          style: GoogleFonts.outfit(
+                            color: type == 'Income' ? Colors.greenAccent : Colors.redAccent,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Nombre sugerido
+                  Expanded(
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        color: AppColors.textPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Acciones (Aceptar, Editar, Rechazar)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Rechazar
+                      _buildSuggestionAction(
+                        icon: Icons.close_rounded,
+                        color: Colors.redAccent,
+                        tooltip: 'Rechazar',
+                        onTap: () async {
+                          await _chatService.removeCategorySuggestion(messageIndex, name);
+                        },
+                      ),
+                      // Editar
+                      _buildSuggestionAction(
+                        icon: Icons.edit_rounded,
+                        color: Colors.blueAccent,
+                        tooltip: 'Editar',
+                        onTap: () {
+                          _showEditSuggestedCategoryDialog(
+                            messageIndex: messageIndex,
+                            type: type,
+                            name: name,
+                            iconCode: iconCode,
+                            colorValue: colorValue,
+                          );
+                        },
+                      ),
+                      // Aceptar
+                      _buildSuggestionAction(
+                        icon: Icons.check_rounded,
+                        color: Colors.greenAccent,
+                        tooltip: 'Aceptar',
+                        onTap: () async {
+                          await _chatService.acceptCategorySuggestion(messageIndex, sug);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Categoría "$name" guardada exitosamente.',
+                                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w500),
+                              ),
+                              backgroundColor: Colors.green.shade800,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSuggestionAction({
+    required IconData icon,
+    required Color color,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withOpacity(0.15), width: 1),
+          ),
+          child: Icon(icon, color: color, size: 14),
+        ),
+      ),
+    );
+  }
+
+  void _showEditSuggestedCategoryDialog({
+    required int messageIndex,
+    required String type,
+    required String name,
+    required int iconCode,
+    required int colorValue,
+  }) {
+    final TextEditingController _nameController = TextEditingController(text: name);
+    IconData _selectedIcon = AppIcons.getIcon(iconCode);
+    Color _selectedColor = Color(colorValue);
+
+    final Color cardColor = const Color(0xFF222939);
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "Categoría Sugerida",
+      barrierColor: Colors.black.withOpacity(0.75),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation1, animation2) => Container(),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(parent: animation, curve: Curves.easeOutQuart);
+        
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.9, end: 1.0).animate(curvedAnimation),
+          child: FadeTransition(
+            opacity: animation,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Dialog(
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                child: StatefulBuilder(
+                  builder: (context, setDialogState) {
+                    return Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 560),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            cardColor,
+                            Color.lerp(cardColor, _selectedColor.withOpacity(0.15), 0.3) ?? cardColor,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        border: GradientBoxBorder(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withOpacity(0.15),
+                              _selectedColor.withOpacity(0.3),
+                              Colors.white.withOpacity(0.05),
+                            ],
+                          ),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                           BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: -5),
+                           BoxShadow(color: _selectedColor.withOpacity(0.2), blurRadius: 15, spreadRadius: -2),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Cabecera estilizada
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  _selectedColor.withOpacity(0.18),
+                                  _selectedColor.withOpacity(0.05),
+                                ],
+                              ),
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: Colors.white.withOpacity(0.08),
+                                  width: 1,
+                                ),
+                              ),
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 58,
+                                  height: 58,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        _selectedColor.withOpacity(0.22),
+                                        _selectedColor.withOpacity(0.13),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 6),
+                                        spreadRadius: -2,
+                                      ),
+                                    ],
+                                    border: Border.all(
+                                      color: _selectedColor.withOpacity(0.35),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    _selectedIcon,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                ),
+                                const SizedBox(width: 18),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Editar Sugerencia',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        type == 'Income' ? 'Categoría de Ingreso' : 'Categoría de Egreso',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Contenido
+                          Flexible(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Nombre
+                                  Text(
+                                    'Nombre de Categoría',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextField(
+                                    controller: _nameController,
+                                    maxLength: 25,
+                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 16),
+                                    decoration: InputDecoration(
+                                      hintText: 'Ej. Supermercado, Salario...',
+                                      hintStyle: GoogleFonts.outfit(color: Colors.white30),
+                                      filled: true,
+                                      fillColor: Colors.black26,
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: BorderSide(color: _selectedColor, width: 1.5),
+                                      ),
+                                      counterText: '',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  // Color
+                                  Text(
+                                    'Color distintivo',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    height: 52,
+                                    child: ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: _availableColors.length,
+                                      itemBuilder: (context, index) {
+                                        final color = _availableColors[index];
+                                        final isSelected = color.value == _selectedColor.value;
+                                        return GestureDetector(
+                                          onTap: () {
+                                            setDialogState(() {
+                                              _selectedColor = color;
+                                            });
+                                          },
+                                          child: Container(
+                                            width: 42,
+                                            margin: const EdgeInsets.only(right: 10, top: 4, bottom: 4),
+                                            decoration: BoxDecoration(
+                                              color: color,
+                                              shape: BoxShape.circle,
+                                              border: isSelected
+                                                  ? Border.all(color: Colors.white, width: 3)
+                                                  : null,
+                                              boxShadow: isSelected
+                                                  ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 8, spreadRadius: 1)]
+                                                  : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  // Icono
+                                  Text(
+                                    'Ícono representativo',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  GridView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 6,
+                                      crossAxisSpacing: 10,
+                                      mainAxisSpacing: 10,
+                                    ),
+                                    itemCount: _availableIcons.length,
+                                    itemBuilder: (context, index) {
+                                      final icon = _availableIcons[index];
+                                      final isSelected = icon.codePoint == _selectedIcon.codePoint;
+                                      return GestureDetector(
+                                        onTap: () {
+                                          setDialogState(() {
+                                            _selectedIcon = icon;
+                                          });
+                                        },
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: isSelected 
+                                                ? _selectedColor.withOpacity(0.2) 
+                                                : Colors.black26,
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: isSelected 
+                                                  ? _selectedColor 
+                                                  : Colors.white.withOpacity(0.08),
+                                              width: isSelected ? 1.5 : 1,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            icon,
+                                            color: isSelected ? Colors.white : Colors.white54,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Acciones
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                top: BorderSide(
+                                  color: Colors.white.withOpacity(0.08),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.white70,
+                                      side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    ),
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text('Cancelar', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: _selectedColor.withOpacity(0.3),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _selectedColor,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        elevation: 0,
+                                      ),
+                                      onPressed: () async {
+                                        final enteredName = _nameController.text.trim();
+                                        if (enteredName.isEmpty) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Por favor, ingresa un nombre para la categoría.',
+                                                style: GoogleFonts.outfit(color: Colors.white),
+                                              ),
+                                              backgroundColor: Colors.redAccent,
+                                            ),
+                                          );
+                                          return;
+                                        }
+
+                                        // Guardar categoría en base de datos
+                                        await CategoryService.addCategoryWithMetadata(
+                                          type,
+                                          enteredName,
+                                          _selectedIcon.codePoint,
+                                          _selectedColor.value,
+                                        );
+
+                                        // Remover de sugerencias originales
+                                        await _chatService.removeCategorySuggestion(messageIndex, name);
+
+                                        if (!mounted) return;
+                                        Navigator.pop(context);
+
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Categoría "$enteredName" guardada exitosamente.',
+                                              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w500),
+                                            ),
+                                            backgroundColor: Colors.green.shade800,
+                                            behavior: SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          ),
+                                        );
+                                      },
+                                      child: Text(
+                                        'Guardar',
+                                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTransactionSuggestionsList(ChatMessage message, int messageIndex) {
+    final suggestions = message.transactionSuggestions!;
+    
+    return Container(
+      margin: const EdgeInsets.only(left: 34, top: 4, bottom: 12),
+      height: 155,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: suggestions.length,
+        itemBuilder: (context, index) {
+          final tx = suggestions[index];
+          final String type = tx['type'] ?? 'Expenses';
+          final double amount = tx['amount'] ?? 0.0;
+          final String category = tx['category'] ?? 'Otros';
+          final String detail = tx['detail'] ?? '';
+          final String dateStr = tx['date'] ?? '';
+          final String account = tx['account'] ?? 'Efectivo';
+          
+          final accentColor = type == 'Income' ? Colors.greenAccent : Colors.redAccent;
+          
+          return Container(
+            width: 195,
+            margin: const EdgeInsets.only(right: 12, bottom: 4, top: 4),
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(20),
+              border: GradientBoxBorder(
+                gradient: LinearGradient(
+                  colors: [
+                    accentColor.withOpacity(0.4),
+                    Colors.white.withOpacity(0.08),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: accentColor.withOpacity(0.08),
+                  blurRadius: 10,
+                  spreadRadius: -2,
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tipo & Monto
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          type == 'Income' ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                          color: accentColor,
+                          size: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          CurrencyHelper.format(amount),
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // Detalle
+                  Text(
+                    detail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: AppColors.textPrimary,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  // Cuenta y Categoría
+                  Text(
+                    '$category • $account',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: AppColors.textSecondary,
+                      fontSize: 10,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Acciones (Aceptar, Editar, Rechazar)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Rechazar
+                      _buildSuggestionAction(
+                        icon: Icons.close_rounded,
+                        color: Colors.redAccent,
+                        tooltip: 'Rechazar',
+                        onTap: () async {
+                          await _chatService.removeTransactionSuggestion(messageIndex, detail);
+                        },
+                      ),
+                      // Editar
+                      _buildSuggestionAction(
+                        icon: Icons.edit_rounded,
+                        color: Colors.blueAccent,
+                        tooltip: 'Editar',
+                        onTap: () {
+                          _showEditSuggestedTransactionDialog(
+                            messageIndex: messageIndex,
+                            type: type,
+                            detail: detail,
+                            amount: amount,
+                            category: category,
+                            dateStr: dateStr,
+                            account: account,
+                          );
+                        },
+                      ),
+                      // Aceptar
+                      _buildSuggestionAction(
+                        icon: Icons.check_rounded,
+                        color: Colors.greenAccent,
+                        tooltip: 'Aceptar',
+                        onTap: () async {
+                          await _chatService.acceptTransactionSuggestion(messageIndex, tx);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Transacción registrada exitosamente.',
+                                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w500),
+                              ),
+                              backgroundColor: Colors.green.shade800,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showEditSuggestedTransactionDialog({
+    required int messageIndex,
+    required String type,
+    required String detail,
+    required double amount,
+    required String category,
+    required String dateStr,
+    required String account,
+  }) async {
+    final categories = await CategoryService.getCategoriesWithMetadata(type);
+    final accounts = _financialState != null && _financialState!['accounts'] != null
+        ? List<Map<String, dynamic>>.from(_financialState!['accounts'])
+        : <Map<String, dynamic>>[];
+
+    final TextEditingController _detailController = TextEditingController(text: detail);
+    final TextEditingController _amountController = TextEditingController(text: amount.toStringAsFixed(0));
+    
+    DateTime _selectedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
+    String _selectedCategory = category;
+    String _selectedAccount = account;
+
+    if (accounts.isNotEmpty && !accounts.any((a) => a['title'] == _selectedAccount)) {
+      _selectedAccount = accounts.first['title'];
+    }
+    if (categories.isNotEmpty && !categories.any((c) => c['text'] == _selectedCategory)) {
+      _selectedCategory = categories.first['text'];
+    }
+
+    final Color cardColor = const Color(0xFF222939);
+    final Color accentColor = type == 'Income' ? Colors.greenAccent : Colors.redAccent;
+
+    if (!mounted) return;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "Editar Transacción Sugerida",
+      barrierColor: Colors.black.withOpacity(0.75),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation1, animation2) => Container(),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(parent: animation, curve: Curves.easeOutQuart);
+        
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.9, end: 1.0).animate(curvedAnimation),
+          child: FadeTransition(
+            opacity: animation,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Dialog(
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                child: StatefulBuilder(
+                  builder: (context, setDialogState) {
+                    return Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 600),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            cardColor,
+                            Color.lerp(cardColor, accentColor.withOpacity(0.12), 0.3) ?? cardColor,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        border: GradientBoxBorder(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withOpacity(0.15),
+                              accentColor.withOpacity(0.3),
+                              Colors.white.withOpacity(0.05),
+                            ],
+                          ),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                           BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: -5),
+                           BoxShadow(color: accentColor.withOpacity(0.15), blurRadius: 15, spreadRadius: -2),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  accentColor.withOpacity(0.15),
+                                  accentColor.withOpacity(0.03),
+                                ],
+                              ),
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: Colors.white.withOpacity(0.08),
+                                  width: 1,
+                                ),
+                              ),
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: accentColor.withOpacity(0.15),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
+                                  ),
+                                  child: Icon(
+                                    type == 'Income' ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                                    color: accentColor,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Editar Registro',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        type == 'Income' ? 'Sugerencia de Ingreso' : 'Sugerencia de Gasto',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white60,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Flexible(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Descripción / Detalle',
+                                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: _detailController,
+                                    maxLength: 35,
+                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                                    decoration: InputDecoration(
+                                      hintText: 'Ej. Almuerzo con amigos',
+                                      hintStyle: GoogleFonts.outfit(color: Colors.white24),
+                                      filled: true,
+                                      fillColor: Colors.black12,
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                      counterText: '',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    'Monto',
+                                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: _amountController,
+                                    keyboardType: TextInputType.number,
+                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                    decoration: InputDecoration(
+                                      prefixText: '\$ ',
+                                      prefixStyle: GoogleFonts.outfit(color: accentColor),
+                                      filled: true,
+                                      fillColor: Colors.black12,
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Cuenta',
+                                              style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black12,
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: DropdownButtonHideUnderline(
+                                                child: DropdownButton<String>(
+                                                  value: _selectedAccount,
+                                                  dropdownColor: cardColor,
+                                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                                  isExpanded: true,
+                                                  items: accounts.map((acc) {
+                                                    return DropdownMenuItem<String>(
+                                                      value: acc['title'],
+                                                      child: Text(acc['title']),
+                                                    );
+                                                  }).toList(),
+                                                  onChanged: (val) {
+                                                    if (val != null) {
+                                                      setDialogState(() {
+                                                        _selectedAccount = val;
+                                                      });
+                                                    }
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Categoría',
+                                              style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black12,
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: DropdownButtonHideUnderline(
+                                                child: DropdownButton<String>(
+                                                  value: _selectedCategory,
+                                                  dropdownColor: cardColor,
+                                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                                  isExpanded: true,
+                                                  items: categories.map((cat) {
+                                                    return DropdownMenuItem<String>(
+                                                      value: cat['text'],
+                                                      child: Text(cat['text']),
+                                                    );
+                                                  }).toList(),
+                                                  onChanged: (val) {
+                                                    if (val != null) {
+                                                      setDialogState(() {
+                                                        _selectedCategory = val;
+                                                      });
+                                                    }
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Fecha',
+                                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  InkWell(
+                                    onTap: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: _selectedDate,
+                                        firstDate: DateTime(2020),
+                                        lastDate: DateTime(2030),
+                                        builder: (context, child) {
+                                          return Theme(
+                                            data: Theme.of(context).copyWith(
+                                              colorScheme: ColorScheme.dark(
+                                                primary: accentColor,
+                                                onPrimary: Colors.black,
+                                                surface: cardColor,
+                                                onSurface: Colors.white,
+                                              ),
+                                              dialogBackgroundColor: cardColor,
+                                            ),
+                                            child: child!,
+                                          );
+                                        },
+                                      );
+                                      if (picked != null) {
+                                        setDialogState(() {
+                                          _selectedDate = picked;
+                                        });
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black12,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            DateFormat('dd/MM/yyyy').format(_selectedDate),
+                                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                          ),
+                                          Icon(Icons.calendar_today_rounded, color: accentColor, size: 16),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                top: BorderSide(
+                                  color: Colors.white.withOpacity(0.08),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.white70,
+                                      side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text('Cancelar', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13)),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: accentColor.withOpacity(0.3),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: accentColor,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        elevation: 0,
+                                      ),
+                                      onPressed: () async {
+                                        final finalDetail = _detailController.text.trim();
+                                        final finalAmt = double.tryParse(_amountController.text.trim()) ?? 0.0;
+                                        
+                                        if (finalDetail.isEmpty) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Ingresa una descripción', style: GoogleFonts.outfit())),
+                                          );
+                                          return;
+                                        }
+                                        if (finalAmt <= 0) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Ingresa un monto válido', style: GoogleFonts.outfit())),
+                                          );
+                                          return;
+                                        }
+
+                                        int iconCode = Icons.receipt_long_rounded.codePoint;
+                                        for (var cat in categories) {
+                                          if (cat['text'] == _selectedCategory) {
+                                            iconCode = cat['icon'] ?? iconCode;
+                                            break;
+                                          }
+                                        }
+
+                                        final success = await TransactionService.processTransaction(
+                                          type: type,
+                                          amount: finalAmt,
+                                          accountName: _selectedAccount,
+                                          isNewTransaction: true,
+                                          recordInHive: false,
+                                        );
+                                        
+                                        if (success) {
+                                          final box = Hive.box<Add_data>('data');
+                                          final transaction = Add_data(
+                                            type,
+                                            finalAmt.toString(),
+                                            _selectedDate,
+                                            finalDetail,
+                                            _selectedCategory,
+                                            _selectedAccount,
+                                            iconCode,
+                                            '1',
+                                            true,
+                                          );
+                                          await box.add(transaction);
+                                          
+                                          await _chatService.removeTransactionSuggestion(messageIndex, detail);
+                                          
+                                          if (!mounted) return;
+                                          Navigator.pop(context);
+                                          
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Transacción guardada exitosamente.',
+                                                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w500),
+                                              ),
+                                              backgroundColor: Colors.green.shade800,
+                                              behavior: SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            ),
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Error al procesar el saldo de la cuenta', style: GoogleFonts.outfit()), backgroundColor: Colors.redAccent),
+                                          );
+                                        }
+                                      },
+                                      child: Text(
+                                        'Guardar',
+                                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

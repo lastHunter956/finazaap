@@ -338,11 +338,16 @@ class _HomeState extends State<Home> {
                             bottom: 0,
                             child: Center(
                               child: InkWell(
-                                onTap: () {
-                                  Navigator.push(
+                                onTap: () async {
+                                  await Navigator.push(
                                     context,
                                     MaterialPageRoute(builder: (context) => const AiChatScreen()),
                                   );
+                                  if (mounted) {
+                                    setState(() {});
+                                    await _updateAvailableBalance();
+                                    await _loadCategoryMetadata();
+                                  }
                                 },
                                 borderRadius: BorderRadius.circular(12),
                                 child: Container(
