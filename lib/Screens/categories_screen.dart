@@ -6,7 +6,8 @@ import 'package:finazaap/widgets/account_dialogs.dart'; // Import for helper wid
 import 'package:finazaap/utils/app_icons.dart';
 
 class CategoriesScreen extends StatefulWidget {
-  const CategoriesScreen({Key? key}) : super(key: key);
+  final int activeIndex;
+  const CategoriesScreen({Key? key, this.activeIndex = 0}) : super(key: key);
 
   @override
   State<CategoriesScreen> createState() => _CategoriesScreenState();
@@ -35,6 +36,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadCategories();
+  }
+
+  @override
+  void didUpdateWidget(covariant CategoriesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.activeIndex == 2 && oldWidget.activeIndex != 2) {
+      _loadCategories();
+    }
   }
 
   Future<void> _loadCategories() async {

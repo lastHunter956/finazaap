@@ -1809,7 +1809,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
         : <Map<String, dynamic>>[];
 
     final TextEditingController _detailController = TextEditingController(text: detail);
-    final TextEditingController _amountController = TextEditingController(text: amount.toStringAsFixed(0));
+    final TextEditingController _amountController = TextEditingController(text: CurrencyHelper.format(amount, showSymbol: false));
     
     DateTime _selectedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
     String _selectedCategory = category;
@@ -1977,6 +1977,9 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                                   TextField(
                                     controller: _amountController,
                                     keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      ThousandsSeparatorInputFormatter(),
+                                    ],
                                     style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                                     decoration: InputDecoration(
                                       prefixText: '\$ ',
@@ -2176,7 +2179,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                                       ),
                                       onPressed: () async {
                                         final finalDetail = _detailController.text.trim();
-                                        final finalAmt = double.tryParse(_amountController.text.trim()) ?? 0.0;
+                                        final finalAmt = double.tryParse(CurrencyHelper.cleanAmountString(_amountController.text.trim())) ?? 0.0;
                                         
                                         if (finalDetail.isEmpty) {
                                           ScaffoldMessenger.of(context).showSnackBar(

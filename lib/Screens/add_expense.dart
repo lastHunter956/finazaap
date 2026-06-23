@@ -634,7 +634,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void _updateAmountFromResponsibility() {
     if (_selectedResponsibility != null && _isMinimumPayment) {
       final double amt = _getSuggestedPaymentAmount();
-      _amountCtrl.text = amt.toStringAsFixed(0);
+      _amountCtrl.text = CurrencyHelper.format(amt, showSymbol: false);
     }
   }
 
@@ -651,7 +651,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       return;
     }
 
-    if (_amountCtrl.text.isEmpty ||
+    final cleanAmountText = CurrencyHelper.cleanAmountString(_amountCtrl.text);
+    if (cleanAmountText.isEmpty ||
         _selectedAccount == null ||
         categoryToSave == null) {
       AlertHelper.warning(context, 'Por favor completa todos los campos');
@@ -659,7 +660,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
 
     try {
-      final amount = double.parse(_amountCtrl.text);
+      final amount = double.parse(cleanAmountText);
 
       // Obtener el código del icono para esta categoría específica
       final int categoryIconCode = _isObligationPayment
@@ -669,7 +670,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       // Crear objeto de transacción con el iconCode y datos de tarjeta de crédito
       final Add_data transaction = Add_data(
         'Expenses',
-        _amountCtrl.text,
+        cleanAmountText,
         _selectedDate,
         _detailCtrl.text,
         categoryToSave,
@@ -825,7 +826,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final transaction = widget.transaction!;
 
     // Cargar los valores en los controladores y estado
-    _amountCtrl.text = transaction.safeAmount;
+    _amountCtrl.text = CurrencyHelper.formatString(transaction.safeAmount, showSymbol: false);
     _detailCtrl.text = transaction.safeDetail;
     _selectedDate = transaction.safeDate;
     _selectedCategory = transaction.safeCategory; // Categoría
@@ -1125,10 +1126,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                 ),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                      RegExp(r'^\d*\.?\d*$')),
-                                ],
+                                 inputFormatters: [
+                                   ThousandsSeparatorInputFormatter(),
+                                 ],
                                 decoration: InputDecoration(
                                   hintText: '0.00',
                                   hintStyle: TextStyle(

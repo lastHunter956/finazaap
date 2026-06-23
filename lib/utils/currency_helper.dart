@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 /// Helper class para formatear cantidades con la divisa configurada por el usuario
 class CurrencyHelper {
@@ -185,6 +186,115 @@ class CurrencyHelper {
       locale: config['locale'] as String,
       symbol: showSymbol ? config['symbol'] as String : '',
       decimalDigits: decimalDigits ?? config['decimals'] as int,
+    );
+  }
+
+  /// Limpia un string de cantidad eliminando los separadores de miles y normalizando el separador decimal a '.'
+  static String cleanAmountString(String amountStr) {
+    final code = _cachedCurrency;
+    // COP, ARS, BRL, UYU, VES, CLP, EUR -> Thousands: '.', Decimal: ','
+    // USD, MXN, PEN, GBP, JPY -> Thousands: ',', Decimal: '.'
+    final isCommaDecimal = const ['COP', 'ARS', 'BRL', 'UYU', 'VES', 'EUR'].contains(code);
+    
+    String clean = amountStr.trim();
+    if (isCommaDecimal) {
+      // Remover puntos (miles) y reemplazar coma por punto (decimal)
+      clean = clean.replaceAll('.', '').replaceAll(',', '.');
+    } else {
+      // Remover comas (miles)
+      clean = clean.replaceAll(',', '');
+    }
+    return clean;
+  }
+}
+
+/// Formateador dinámico para campos de texto monetarios
+class ThousandsSeparatorInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    final code = CurrencyHelper.currencyCode;
+    final isCommaDecimal = const ['COP', 'ARS', 'BRL', 'UYU', 'VES', 'EUR'].contains(code);
+    final thousandSeparator = isCommaDecimal ? '.' : ',';
+    final decimalSeparator = isCommaDecimal ? ',' : '.';
+
+    if (newValue.text == decimalSeparator) {
+      return newValue;
+    }
+
+    final escapedDecimal = RegExp.escape(decimalSeparator);
+    // Permitir opcionalmente un signo negativo al principio
+    final isNegative = newValue.text.startsWith('-');
+    final cleanRegex = RegExp('[^0-9$escapedDecimal]');
+    
+    String cleanText = newValue.text.replaceAll(cleanRegex, '');
+    if (isNegative) {
+      cleanText = '-' + cleanText;
+    }
+
+    final occurrences = decimalSeparator.allMatches(cleanText).length;
+    if (occurrences > 1) {
+      return oldValue;
+    }
+
+    final parts = cleanText.split(decimalSeparator);
+    String integerPart = parts[0];
+    final String? decimalPart = parts.length > 1 ? parts[1] : null;
+
+    final hasSign = integerPart.startsWith('-');
+    String digitsOnly = hasSign ? integerPart.substring(1) : integerPart;
+
+    if (digitsOnly.length > 1 && digitsOnly.startsWith('0')) {
+      digitsOnly = int.parse(digitsOnly).toString();
+    }
+
+    if (digitsOnly.isNotEmpty) {
+      final chars = digitsOnly.split('');
+      final buffer = StringBuffer();
+      for (int i = 0; i < chars.length; i++) {
+        if (i > 0 && (chars.length - i) % 3 == 0) {
+          buffer.write(thousandSeparator);
+        }
+        buffer.write(chars[i]);
+      }
+      digitsOnly = buffer.toString();
+    }
+
+    String formattedText = (hasSign ? '-' : '') + digitsOnly;
+    if (decimalPart != null) {
+      formattedText += decimalSeparator + decimalPart;
+    }
+
+    int newSelectionStart = newValue.selection.start;
+    int cleanCharsInNewValue = 0;
+    for (int i = 0; i < newSelectionStart && i < newValue.text.length; i++) {
+      if (newValue.text[i] != thousandSeparator) {
+        cleanCharsInNewValue++;
+      }
+    }
+
+    int targetCursor = 0;
+    int cleanCount = 0;
+    while (targetCursor < formattedText.length && cleanCount < cleanCharsInNewValue) {
+      if (formattedText[targetCursor] != thousandSeparator) {
+        cleanCount++;
+      }
+      targetCursor++;
+    }
+
+    if (targetCursor > formattedText.length) {
+      targetCursor = formattedText.length;
+    }
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: targetCursor),
     );
   }
 }

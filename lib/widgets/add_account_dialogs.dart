@@ -6,6 +6,7 @@ import 'package:finazaap/data/models/account_item.dart';
 import 'package:finazaap/widgets/account_dialogs.dart';
 import 'package:finazaap/themes/theme.dart';
 import 'package:finazaap/utils/app_icons.dart';
+import 'package:finazaap/utils/currency_helper.dart';
 
 Future<AccountItem?> showAddAccountDialog(BuildContext context) async {
   return showDialog<AccountItem>(
@@ -331,7 +332,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                           controller: balanceController,
                                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                           inputFormatters: [
-                                            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                                            ThousandsSeparatorInputFormatter(),
                                           ],
                                           style: const TextStyle(
                                             color: Colors.white,
@@ -616,10 +617,10 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                 icon: selectedIcon,
                                 title: titleController.text,
                                 subtitle: selectedAccountType,
-                                balance: balanceController.text,
+                                balance: CurrencyHelper.cleanAmountString(balanceController.text),
                                 iconColor: iconColor,
                                 includeInTotal: includeInTotal,
-                                creditLimit: isCreditCard ? balanceController.text : null,
+                                creditLimit: isCreditCard ? CurrencyHelper.cleanAmountString(balanceController.text) : null,
                                 cutoffDay: isCreditCard && cutoffController.text.isNotEmpty ? int.tryParse(cutoffController.text) : null,
                                 paymentDay: isCreditCard && paymentController.text.isNotEmpty ? int.tryParse(paymentController.text) : null,
                                 interestRate: isCreditCard && interestController.text.isNotEmpty ? double.tryParse(interestController.text) : null,

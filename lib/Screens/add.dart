@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:finazaap/data/account_utils.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:flutter/services.dart'; // Para FilteringTextInputFormatter
+import 'package:finazaap/utils/currency_helper.dart';
 import 'dart:collection';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/account_service.dart';
@@ -79,7 +80,7 @@ class _Add_ScreenState extends State<Add_Screen> {
     final transaction = widget.transaction!;
 
     // Cargar valores en controladores
-    _amountCtrl.text = transaction.safeAmount;
+    _amountCtrl.text = CurrencyHelper.formatString(transaction.safeAmount, showSymbol: false);
     _detailCtrl.text = transaction.safeDetail;
     _selectedDate = transaction.safeDate;
     _selectedCategory = transaction.safeCategory;
@@ -215,7 +216,7 @@ class _Add_ScreenState extends State<Add_Screen> {
   Future<void> _saveTransaction() async {
     // Validaciones básicas
     // Validaciones
-    final amountText = _amountCtrl.text;
+    final amountText = CurrencyHelper.cleanAmountString(_amountCtrl.text);
     if (amountText.isEmpty) {
       AlertHelper.warning(context, 'Por favor ingresa un monto');
       return;
@@ -238,13 +239,13 @@ class _Add_ScreenState extends State<Add_Screen> {
     }
 
     try {
-      final amount = double.parse(_amountCtrl.text);
+      final amount = double.parse(amountText);
       final int categoryIconCode = _getCategoryIconCode(_selectedCategory!);
 
       // Crear objeto de transacción
       final Add_data transaction = Add_data(
         'Income',
-        _amountCtrl.text,
+        amountText,
         _selectedDate,
         _detailCtrl.text,
         _selectedCategory!,
@@ -599,8 +600,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                                 fontWeight: FontWeight.w600,
                               ),
                               inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d*$')),
+                                ThousandsSeparatorInputFormatter(),
                               ],
                               decoration: InputDecoration(
                                 hintText: '0.00',

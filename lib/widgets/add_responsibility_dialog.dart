@@ -5,6 +5,7 @@ import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/icon_lists.dart';
 import 'package:intl/intl.dart';
+import 'package:finazaap/utils/currency_helper.dart';
 import 'dart:math' as math;
 import 'package:uuid/uuid.dart';
 
@@ -38,10 +39,10 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
     super.initState();
     final r = widget.responsibility;
     _nameCtrl = TextEditingController(text: r?.safeName ?? '');
-    _amountCtrl = TextEditingController(text: r?.safeAmount.toStringAsFixed(0) ?? '');
+    _amountCtrl = TextEditingController(text: r != null ? CurrencyHelper.format(r.safeAmount, showSymbol: false) : '');
     _dueDayCtrl = TextEditingController(text: r?.safeDueDay.toString() ?? '1');
-    _cardLimitCtrl = TextEditingController(text: r?.cardLimit?.toStringAsFixed(0) ?? '');
-    _cardBalanceCtrl = TextEditingController(text: r?.cardBalance?.toStringAsFixed(0) ?? '');
+    _cardLimitCtrl = TextEditingController(text: r?.cardLimit != null ? CurrencyHelper.format(r!.cardLimit!, showSymbol: false) : '');
+    _cardBalanceCtrl = TextEditingController(text: r?.cardBalance != null ? CurrencyHelper.format(r!.cardBalance!, showSymbol: false) : '');
     _interestRateCtrl = TextEditingController(text: r?.interestRate?.toString() ?? '');
     _installmentsCtrl = TextEditingController(text: r?.installments?.toString() ?? '1');
     
@@ -67,7 +68,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
 
   void _calculateCardPayment() {
     if (_selectedCategory == 'préstamo') {
-      final balance = double.tryParse(_cardBalanceCtrl.text) ?? 0;
+      final balance = double.tryParse(CurrencyHelper.cleanAmountString(_cardBalanceCtrl.text)) ?? 0;
       final rate = (double.tryParse(_interestRateCtrl.text) ?? 0) / 100;
       final n = int.tryParse(_installmentsCtrl.text) ?? 1;
 
@@ -78,7 +79,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
         } else {
           monthly = balance / n;
         }
-        _amountCtrl.text = monthly.toStringAsFixed(0);
+        _amountCtrl.text = CurrencyHelper.format(monthly, showSymbol: false);
       }
     }
   }
@@ -322,6 +323,9 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                         child: TextFormField(
                                           controller: _cardBalanceCtrl,
                                           keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            ThousandsSeparatorInputFormatter(),
+                                          ],
                                           style: const TextStyle(color: Colors.white),
                                           onChanged: (_) => _calculateCardPayment(),
                                           decoration: InputDecoration(
@@ -398,6 +402,9 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                         child: TextFormField(
                                           controller: _cardLimitCtrl,
                                           keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            ThousandsSeparatorInputFormatter(),
+                                          ],
                                           style: const TextStyle(color: Colors.white),
                                           decoration: InputDecoration(
                                             hintText: 'Ej: 5000',
@@ -430,6 +437,9 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                       child: TextFormField(
                                         controller: _amountCtrl,
                                         keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          ThousandsSeparatorInputFormatter(),
+                                        ],
                                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                         decoration: InputDecoration(
                                           hintText: '0.00',
@@ -666,15 +676,15 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
       final responsibility = Responsibility(
         id: widget.responsibility?.id ?? Uuid().v4(),
         name: _nameCtrl.text,
-        amount: double.tryParse(_amountCtrl.text) ?? 0,
+        amount: double.tryParse(CurrencyHelper.cleanAmountString(_amountCtrl.text)) ?? 0,
         dueDay: int.tryParse(_dueDayCtrl.text) ?? 1,
         category: _selectedCategory,
         frequency: _selectedFrequency,
         iconCode: _selectedIconCode,
         isPaid: widget.responsibility?.isPaid ?? false,
         lastPaymentDate: widget.responsibility?.lastPaymentDate,
-        cardLimit: double.tryParse(_cardLimitCtrl.text),
-        cardBalance: double.tryParse(_cardBalanceCtrl.text),
+        cardLimit: double.tryParse(CurrencyHelper.cleanAmountString(_cardLimitCtrl.text)),
+        cardBalance: double.tryParse(CurrencyHelper.cleanAmountString(_cardBalanceCtrl.text)),
         interestRate: double.tryParse(_interestRateCtrl.text),
         installments: int.tryParse(_installmentsCtrl.text),
       );

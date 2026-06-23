@@ -108,7 +108,7 @@ class _TransferScreenState extends State<TransferScreen> {
     } else {
       // Si no es edición, verificar si hay datos iniciales
       if (widget.initialAmount != null) {
-        _amountCtrl.text = widget.initialAmount.toString();
+        _amountCtrl.text = CurrencyHelper.format(widget.initialAmount!, showSymbol: false);
       }
       if (widget.initialDescription != null) {
         _detailCtrl.text = widget.initialDescription!;
@@ -143,7 +143,8 @@ class _TransferScreenState extends State<TransferScreen> {
   // Reemplazar el método _saveTransfer con esta versión mejorada
 
 Future<void> _saveTransfer() async {
-  if (_amountCtrl.text.isEmpty) {
+  final cleanAmountText = CurrencyHelper.cleanAmountString(_amountCtrl.text);
+  if (cleanAmountText.isEmpty) {
     AlertHelper.warning(context, 'Por favor ingresa un monto');
     return;
   }
@@ -164,12 +165,12 @@ Future<void> _saveTransfer() async {
       _isProcessing = true;
     });
 
-    final amount = double.parse(_amountCtrl.text);
+    final amount = double.parse(cleanAmountText);
     
     // Crear objeto de transferencia
     final Add_data transferTransaction = Add_data(
       'Transfer',
-      _amountCtrl.text,
+      cleanAmountText,
       _selectedDate,
       _detailCtrl.text,
       '${_selectedSourceAccount!.title} > ${_selectedDestinationAccount!.title}',
@@ -476,7 +477,7 @@ Widget build(BuildContext context) {
                               fontWeight: FontWeight.w600,
                             ),
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+                              ThousandsSeparatorInputFormatter(),
                             ],
                             decoration: InputDecoration(
                               hintText: '0.00',
@@ -915,7 +916,7 @@ void _loadTransactionData() {
   final transaction = widget.transaction!;
   
   // Cargar valores básicos
-  _amountCtrl.text = transaction.safeAmount;
+  _amountCtrl.text = CurrencyHelper.formatString(transaction.safeAmount, showSymbol: false);
   _detailCtrl.text = transaction.safeDetail;
   _selectedDate = transaction.safeDate;
   

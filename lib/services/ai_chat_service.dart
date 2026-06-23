@@ -1274,6 +1274,10 @@ class AiChatService extends ChangeNotifier {
     if (name.isNotEmpty) {
       await CategoryService.addCategoryWithMetadata(type, name, iconCode, colorValue);
       await removeCategorySuggestion(messageIndex, name);
+      
+      // Actualizar patrones frescos y estado cognitivo de inmediato
+      await updateLearnedPatterns();
+      notifyListeners();
     }
   }
 
@@ -1338,7 +1342,7 @@ class AiChatService extends ChangeNotifier {
     }
     
     // 4. Determinar Detalle
-    String detail = isIncome ? 'Ingreso registrado' : 'Gasto registrado';
+    String detail = '';
     if (lowerMsg.contains('novia') && (lowerMsg.contains('comimos') || lowerMsg.contains('comida') || lowerMsg.contains('cena') || lowerMsg.contains('restaurante'))) {
       detail = 'Comida con novia';
     } else if (lowerMsg.contains('novia')) {
@@ -1356,10 +1360,22 @@ class AiChatService extends ChangeNotifier {
     } else {
       String cleanText = userMessage;
       cleanText = cleanText.replaceAll(RegExp(r'\b\d+(?:[\.,]\d+)?\b'), '');
-      final wordsToRemove = ['gaste', 'gasté', 'pague', 'pagué', 'compre', 'compré', 'ayer', 'hoy', 'cop', 'pesos', 'usd', 'dolares', 'dólares', '\$', 'ingrese', 'ingresé', 'gane', 'gané', 'recibi', 'recibí', 'con', 'en'];
-      for (var word in wordsToRemove) {
+      
+      final stopWords = [
+        'gaste', 'gasté', 'pague', 'pagué', 'compre', 'compré', 
+        'gastar', 'pagar', 'comprar', 'sali', 'salí',
+        'ingrese', 'ingresé', 'gane', 'gané', 'recibi', 'recibí', 
+        'ingresar', 'ganar', 'recibir', 'me pagaron', 'depositaron',
+        'registra', 'registrar', 'ingresa', 'ingresar', 'agrega', 'agregar', 
+        'adiciona', 'adicionar', 'pago', 'recibo', 'sueldo', 'salario',
+        'ayer', 'hoy', 'cop', 'pesos', 'usd', 'dolares', 'dólares', '\$',
+        'un', 'una', 'el', 'la', 'de', 'del', 'por', 'con', 'en', 'para', 'mi', 'mis'
+      ];
+      
+      for (var word in stopWords) {
         cleanText = cleanText.replaceAll(RegExp('\\b$word\\b', caseSensitive: false), '');
       }
+      
       cleanText = cleanText.replaceAll(RegExp(r'\s+'), ' ').trim();
       if (cleanText.isNotEmpty) {
         if (cleanText.length > 25) {
@@ -1372,32 +1388,56 @@ class AiChatService extends ChangeNotifier {
     // 5. Buscar Categoría
     final categories = await CategoryService.getCategories(type);
     final normMsg = _normalizeString(userMessage);
-    String bestCategory = categories.isNotEmpty ? categories.first : (isIncome ? 'Otros' : 'Otros');
     
+    String? matchedCategory;
     for (var cat in categories) {
       final normCat = _normalizeString(cat);
       if (normMsg.contains(normCat)) {
-        bestCategory = cat;
+        matchedCategory = cat;
         break;
       }
       if (normCat == 'comida' || normCat == 'alimentos' || normCat == 'restaurantes' || normCat == 'gastronomia' || normCat == 'gastronomía') {
         if (normMsg.contains('comi') || normMsg.contains('cena') || normMsg.contains('almuer') || normMsg.contains('restaurante')) {
-          bestCategory = cat;
+          matchedCategory = cat;
           break;
         }
       }
       if (normCat == 'novia' || normCat == 'pareja' || normCat == 'salidas') {
         if (normMsg.contains('novia') || normMsg.contains('pareja')) {
-          bestCategory = cat;
+          matchedCategory = cat;
           break;
         }
       }
       if (normCat == 'transporte' || normCat == 'viajes' || normCat == 'vehículo' || normCat == 'vehiculo') {
         if (normMsg.contains('taxi') || normMsg.contains('uber') || normMsg.contains('cabify') || normMsg.contains('gasolina') || normMsg.contains('bus')) {
+          matchedCategory = cat;
+          break;
+        }
+      }
+      if (normCat == 'salario' || normCat == 'sueldo' || normCat == 'nomina' || normCat == 'nómina') {
+        if (normMsg.contains('salario') || normMsg.contains('sueldo') || normMsg.contains('pago') || normMsg.contains('nomina') || normMsg.contains('nómina')) {
+          matchedCategory = cat;
+          break;
+        }
+      }
+    }
+
+    String bestCategory = matchedCategory ?? '';
+    if (bestCategory.isEmpty) {
+      for (var cat in categories) {
+        final norm = _normalizeString(cat);
+        if (norm == 'otros' || norm == 'general' || norm == 'varios' || norm.contains('otros')) {
           bestCategory = cat;
           break;
         }
       }
+      if (bestCategory.isEmpty && categories.isNotEmpty) {
+        bestCategory = categories.first;
+      }
+    }
+    
+    if (detail.isEmpty) {
+      detail = bestCategory;
     }
     
     // 6. Determinar Cuenta
@@ -1476,7 +1516,19 @@ class AiChatService extends ChangeNotifier {
     final String category = suggestion['category'] ?? 'Otros';
     final String detail = suggestion['detail'] ?? '';
     final DateTime date = DateTime.tryParse(suggestion['date'] ?? '') ?? DateTime.now();
-    final String account = suggestion['account'] ?? 'Efectivo';
+    
+    // Validar y asegurar cuenta válida
+    final financialState = await getFinancialState();
+    final List<dynamic> accountsList = financialState['accounts'] ?? [];
+    String account = suggestion['account'] ?? '';
+    
+    // Si la cuenta sugerida no existe en el sistema, usar la primera cuenta disponible como fallback
+    bool accountExists = accountsList.any((acc) => acc['title']?.toString() == account);
+    if (!accountExists && accountsList.isNotEmpty) {
+      account = accountsList.first['title']?.toString() ?? 'Efectivo';
+    } else if (account.isEmpty) {
+      account = 'Efectivo';
+    }
     
     if (amount > 0) {
       int iconCode = Icons.receipt_long_rounded.codePoint;
@@ -1492,7 +1544,8 @@ class AiChatService extends ChangeNotifier {
         AppLogger.error('Error fetching category icon for suggestion', error: e);
       }
 
-      final success = await TransactionService.processTransaction(
+      // Procesar el saldo de la cuenta (si existe)
+      await TransactionService.processTransaction(
         type: type,
         amount: amount,
         accountName: account,
@@ -1500,22 +1553,25 @@ class AiChatService extends ChangeNotifier {
         recordInHive: false,
       );
       
-      if (success) {
-        final box = Hive.box<Add_data>('data');
-        final transaction = Add_data(
-          type,
-          amount.toString(),
-          date,
-          detail,
-          category,
-          account,
-          iconCode,
-          '1',
-          true,
-        );
-        await box.add(transaction);
-        await removeTransactionSuggestion(messageIndex, detail);
-      }
+      // Registrar SIEMPRE en el historial local de Hive para visualización inmediata y persistencia
+      final box = Hive.box<Add_data>('data');
+      final transaction = Add_data(
+        type,
+        amount.toString(),
+        date,
+        detail,
+        category,
+        account,
+        iconCode,
+        '1',
+        true,
+      );
+      await box.add(transaction);
+      await removeTransactionSuggestion(messageIndex, detail);
+      
+      // Actualizar patrones frescos y estado cognitivo de inmediato
+      await updateLearnedPatterns();
+      notifyListeners();
     }
   }
 

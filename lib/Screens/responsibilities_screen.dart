@@ -699,7 +699,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
             ? (responsibility.cardBalance ?? expected) 
             : expected);
 
-    final TextEditingController amountController = TextEditingController(text: initialValue.toStringAsFixed(0));
+    final TextEditingController amountController = TextEditingController(text: CurrencyHelper.format(initialValue, showSymbol: false));
     
     // 2. Obtener cuentas activas para el dropdown
     final List<Map<String, dynamic>> accounts = await AccountService.getActiveAccounts();
@@ -832,7 +832,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                     onSelected: (val) {
                                       setStateSB(() {
                                         isMinimumPayment = true;
-                                        amountController.text = initialValue.toStringAsFixed(0);
+                                        amountController.text = CurrencyHelper.format(initialValue, showSymbol: false);
                                       });
                                     },
                                   ),
@@ -873,6 +873,9 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                               keyboardType: TextInputType.number,
                               enabled: !isMinimumPayment,
                               style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                              inputFormatters: [
+                                ThousandsSeparatorInputFormatter(),
+                              ],
                               decoration: InputDecoration(
                                 prefixIcon: const Icon(Icons.attach_money, color: Colors.white70),
                                 filled: true,
@@ -1000,7 +1003,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                     ),
                     onPressed: () async {
                       if (amountController.text.isEmpty || selectedAccountName == null) return;
-                      final payAmount = double.tryParse(amountController.text) ?? 0.0;
+                      final payAmount = double.tryParse(CurrencyHelper.cleanAmountString(amountController.text)) ?? 0.0;
                       if (payAmount <= 0) return;
 
                       Navigator.pop(dialogContext);

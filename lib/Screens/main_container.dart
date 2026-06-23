@@ -27,7 +27,7 @@ class _MainContainerState extends State<MainContainer> {
     final List<Widget> screens = [
       const Home(),
       const ResponsibilitiesScreen(), // Nueva pantalla de responsabilidades
-      const CategoriesScreen(),
+      CategoriesScreen(activeIndex: _currentIndex),
       const Statistics(),
       const SettingsScreen(),
     ];

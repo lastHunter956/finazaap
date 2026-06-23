@@ -6,6 +6,7 @@ import 'package:finazaap/data/models/account_item.dart';
 import 'package:finazaap/widgets/account_dialogs.dart';
 import 'package:finazaap/themes/theme.dart';
 import 'package:finazaap/utils/app_icons.dart';
+import 'package:finazaap/utils/currency_helper.dart';
 
 /// Muestra el diálogo de edición de cuenta asegurando un manejo de estado correcto.
 Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) async {
@@ -70,7 +71,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
     super.initState();
     // Inicializar estado con los valores del item
     titleController = TextEditingController(text: widget.item.title);
-    balanceController = TextEditingController(text: widget.item.balance);
+    balanceController = TextEditingController(text: CurrencyHelper.formatString(widget.item.balance, showSymbol: false));
     cutoffController = TextEditingController(text: widget.item.cutoffDay?.toString() ?? '');
     paymentController = TextEditingController(text: widget.item.paymentDay?.toString() ?? '');
     interestController = TextEditingController(text: widget.item.interestRate?.toString() ?? '');
@@ -281,7 +282,9 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                                     child: TextField(
                                       controller: balanceController,
                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                                      inputFormatters: [
+                                         ThousandsSeparatorInputFormatter(),
+                                       ],
                                       style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
                                       decoration: InputDecoration(
                                         hintText: '0.00',
@@ -556,10 +559,10 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                                 icon: selectedIcon,
                                 title: titleController.text,
                                 subtitle: selectedAccountType,
-                                balance: balanceController.text.isEmpty ? "0" : balanceController.text,
+                                balance: balanceController.text.isEmpty ? "0" : CurrencyHelper.cleanAmountString(balanceController.text),
                                 iconColor: iconColor,
                                 includeInTotal: includeInTotal,
-                                creditLimit: isCreditCard ? balanceController.text : null,
+                                creditLimit: isCreditCard ? CurrencyHelper.cleanAmountString(balanceController.text) : null,
                                 cutoffDay: isCreditCard && cutoffController.text.isNotEmpty ? int.tryParse(cutoffController.text) : null,
                                 paymentDay: isCreditCard && paymentController.text.isNotEmpty ? int.tryParse(paymentController.text) : null,
                                 interestRate: isCreditCard && interestController.text.isNotEmpty ? double.tryParse(interestController.text) : null,
