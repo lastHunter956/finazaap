@@ -317,6 +317,29 @@ class Responsibility extends HiveObject {
     }
   }
 
+  // Obtener el monto anual equivalente según frecuencia
+  double getAnnualAmount() {
+    final amt = safeAmount;
+    switch (safeFrequency) {
+      case 'diario':
+        return amt * 365;
+      case 'semanal':
+        return amt * 52;
+      case 'quincenal':
+        return amt * 24;
+      case 'mensual':
+        return amt * 12;
+      case 'bimestral':
+        return amt * 6;
+      case 'trimestral':
+        return amt * 4;
+      case 'anual':
+        return amt;
+      default:
+        return amt * 12;
+    }
+  }
+
   // Helper para manejar planes de cuotas
   List<Map<String, dynamic>> get installmentPlans {
     if (installmentPlansJson == null) return [];

@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/utils/currency_helper.dart'; // Import added
+import 'package:finazaap/Screens/annual_projection_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'dart:ui';
-import 'package:flutter/services.dart';
-import 'package:gradient_borders/gradient_borders.dart';
 
 class ResponsibilityDashboardCard extends StatefulWidget {
   final List<dynamic> responsibilities;
@@ -53,10 +51,6 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
     int localYear = widget.selectedYear;
     // localDay removed
     
-    // Obtener días en el mes seleccionado
-    int getDaysInMonth(int m, int y) {
-      return DateTime(y, m + 1, 0).day;
-    }
 
     final List<String> monthNames = [
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -254,6 +248,11 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
     final progress = totalAmount > 0 ? (paid / totalAmount) : 0.0;
     final percentage = (progress * 100).round();
 
+    final allResponsibilities = ResponsibilityService.getAllResponsibilities();
+    final annualProjection = allResponsibilities
+        .where((r) => r.safeCategory != 'tarjeta')
+        .fold(0.0, (sum, r) => sum + r.getAnnualAmount());
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
@@ -292,33 +291,71 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                 ),
               ),
               const SizedBox(height: 12),
-              // Botón Selector de Fecha movido debajo
-              InkWell(
-                onTap: () => _showDateSelector(context),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1F2639),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white.withOpacity(0.05)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.calendar_month, size: 14, color: Colors.white),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatDate(widget.selectedMonth, widget.selectedYear),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
+              // Botón Selector de Fecha y Proyección Anual
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  InkWell(
+                    onTap: () => _showDateSelector(context),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1F2639),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white.withOpacity(0.05)),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calendar_month, size: 14, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatDate(widget.selectedMonth, widget.selectedYear),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                  InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AnnualProjectionScreen()),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1F2639),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.trending_up_rounded, size: 14, color: Color(0xFF52E2FF)),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Proy. Anual: ${CurrencyHelper.format(annualProjection, decimalDigits: 0)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -478,9 +515,4 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
     );
   }
 
-  Widget _buildStatItem(String label, double amount, Color color, IconData icon) {
-    // Ya no se usa directamente pero lo mantenemos por si acaso o lo borramos.
-    // Lo borré en el bloque anterior para usar el diseño inline unificado.
-    return Container();
-  }
 }

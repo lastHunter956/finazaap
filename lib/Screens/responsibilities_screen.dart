@@ -88,235 +88,236 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
       body: ValueListenableBuilder(
         valueListenable: ResponsibilityService.getBox().listenable(),
         builder: (context, Box<Responsibility> box, _) {
+          final list = box.values.toList();
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // Dashboard Card
-              SliverToBoxAdapter(
-                child: ResponsibilityDashboardCard(
-                  responsibilities: [], 
-                  selectedMonth: _selectedMonth,
-                  selectedYear: _selectedYear,
-                  onDateSelected: (day, month, year) {
-                    setState(() {
-                      _selectedMonth = month;
-                      _selectedYear = year;
-                    });
-                    _loadResponsibilities();
-                  },
-                ),
-              ),
-              
-              // Urgent Payments Section
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    UrgentPaymentsSection(
-                      month: _selectedMonth,
-                      year: _selectedYear,
-                      day: null,
-                      onTogglePaid: (id) async {
-                        // Pass current view context to pay for the correct month
-                        await ResponsibilityService.togglePaidStatus(id, month: _selectedMonth, year: _selectedYear);
-                        setState(() {});
-                      },
-                      onTap: (r, m, y) {}, // No se usa directamente ahora que llama al utility dentro
-                      onEdit: (r) => _showAddResponsibilityDialog(responsibility: r),
-                      onDelete: (r) => _confirmDeleteResponsibility(r),
+                    // Dashboard Card
+                    SliverToBoxAdapter(
+                      child: ResponsibilityDashboardCard(
+                        responsibilities: [], 
+                        selectedMonth: _selectedMonth,
+                        selectedYear: _selectedYear,
+                        onDateSelected: (day, month, year) {
+                          setState(() {
+                            _selectedMonth = month;
+                            _selectedYear = year;
+                          });
+                          _loadResponsibilities();
+                        },
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
+                    
+                    // Urgent Payments Section
+                    SliverToBoxAdapter(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 8),
+                          UrgentPaymentsSection(
+                            month: _selectedMonth,
+                            year: _selectedYear,
+                            day: null,
+                            onTogglePaid: (id) async {
+                              // Pass current view context to pay for the correct month
+                              await ResponsibilityService.togglePaidStatus(id, month: _selectedMonth, year: _selectedYear);
+                              setState(() {});
+                            },
+                            onTap: (r, m, y) {}, // No se usa directamente ahora que llama al utility dentro
+                            onEdit: (r) => _showAddResponsibilityDialog(responsibility: r),
+                            onDelete: (r) => _confirmDeleteResponsibility(r),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
 
-              // Sticky Category Header
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _StickyCategoryDelegate(
-                  child: Container(
-                    color: const Color.fromRGBO(31, 38, 57, 1),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // Sticky Category Header
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _StickyCategoryDelegate(
+                        child: Container(
+                          color: const Color.fromRGBO(31, 38, 57, 1),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text(
-                                'Obligaciones',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Obligaciones',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${box.length} total',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.5),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              Text(
-                                '${box.length} total',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
-                                  fontSize: 12,
+                              const SizedBox(height: 8),
+                              Container(
+                                height: 48,
+                                margin: const EdgeInsets.symmetric(horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: const Color.fromRGBO(42, 49, 67, 1).withOpacity(.8),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.2),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const BouncingScrollPhysics(),
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  // +1 para el botón de "Más"
+                                  itemCount: _quickCategories.length + 1,
+                                  itemBuilder: (context, index) {
+                                    // Botón "Más Filtros" al final
+                                    if (index == _quickCategories.length) {
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: _showFilterDialog,
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(0.05),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: Colors.white.withOpacity(0.1),
+                                                  width: 1,
+                                                ),
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.filter_list_rounded, size: 16, color: Colors.white.withOpacity(0.7)),
+                                                  const SizedBox(width: 6),
+                                                  const Text(
+                                                    'Más',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12.5,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    final category = _quickCategories[index];
+                                    final isSelected = _selectedCategories.contains(category);
+                                    
+                                    // Conteo: Si es 'Todos', cuenta total. Si es específico, cuenta filtrada.
+                                    final count = category == 'Todos' 
+                                        ? box.length 
+                                        : box.values.where((r) => r.safeCategory == category).length;
+                                    
+                                    const accentColor = Color(0xFF3B82F6);
+                                    
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: () {
+                                            setState(() {
+                                              if (category == 'Todos') {
+                                                _selectedCategories = ['Todos'];
+                                              } else {
+                                                if (_selectedCategories.contains('Todos')) {
+                                                  _selectedCategories.clear();
+                                                }
+                                                if (_selectedCategories.contains(category)) {
+                                                  _selectedCategories.remove(category);
+                                                  if (_selectedCategories.isEmpty) _selectedCategories.add('Todos');
+                                                } else {
+                                                  _selectedCategories.add(category);
+                                                }
+                                              }
+                                            });
+                                          },
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(milliseconds: 250),
+                                            curve: Curves.easeOutCubic,
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: isSelected ? 16 : 14,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: isSelected ? accentColor.withOpacity(0.2) : Colors.transparent,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: isSelected ? accentColor : Colors.transparent,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (isSelected) ...[
+                                                  const Icon(Icons.check_circle_rounded, size: 14, color: accentColor),
+                                                  const SizedBox(width: 6),
+                                                ],
+                                                Text(
+                                                  category == 'Todos' ? category : _capitalize(category),
+                                                  style: TextStyle(
+                                                    color: isSelected ? Colors.white : Colors.white.withOpacity(0.8),
+                                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                    fontSize: isSelected ? 13 : 12.5,
+                                                  ),
+                                                ),
+                                                if (count > 0) ...[
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    count.toString(),
+                                                    style: TextStyle(
+                                                      color: isSelected ? Colors.white : Colors.white38,
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Container(
-                          height: 48,
-                          margin: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: const Color.fromRGBO(42, 49, 67, 1).withOpacity(.8),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            // +1 para el botón de "Más"
-                            itemCount: _quickCategories.length + 1,
-                            itemBuilder: (context, index) {
-                              // Botón "Más Filtros" al final
-                              if (index == _quickCategories.length) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: _showFilterDialog,
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.05),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: Colors.white.withOpacity(0.1),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.filter_list_rounded, size: 16, color: Colors.white.withOpacity(0.7)),
-                                            const SizedBox(width: 6),
-                                            const Text(
-                                              'Más',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 12.5,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }
-
-                              final category = _quickCategories[index];
-                              final isSelected = _selectedCategories.contains(category);
-                              
-                              // Conteo: Si es 'Todos', cuenta total. Si es específico, cuenta filtrada.
-                              final count = category == 'Todos' 
-                                  ? box.length 
-                                  : box.values.where((r) => r.safeCategory == category).length;
-                              
-                              const accentColor = Color(0xFF3B82F6);
-                              
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () {
-                                      setState(() {
-                                        if (category == 'Todos') {
-                                          _selectedCategories = ['Todos'];
-                                        } else {
-                                          if (_selectedCategories.contains('Todos')) {
-                                            _selectedCategories.clear();
-                                          }
-                                          if (_selectedCategories.contains(category)) {
-                                            _selectedCategories.remove(category);
-                                            if (_selectedCategories.isEmpty) _selectedCategories.add('Todos');
-                                          } else {
-                                            _selectedCategories.add(category);
-                                          }
-                                        }
-                                      });
-                                    },
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 250),
-                                      curve: Curves.easeOutCubic,
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: isSelected ? 16 : 14,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isSelected ? accentColor.withOpacity(0.2) : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: isSelected ? accentColor : Colors.transparent,
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (isSelected) ...[
-                                            const Icon(Icons.check_circle_rounded, size: 14, color: accentColor),
-                                            const SizedBox(width: 6),
-                                          ],
-                                          Text(
-                                            category == 'Todos' ? category : _capitalize(category),
-                                            style: TextStyle(
-                                              color: isSelected ? Colors.white : Colors.white.withOpacity(0.8),
-                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                              fontSize: isSelected ? 13 : 12.5,
-                                            ),
-                                          ),
-                                          if (count > 0) ...[
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              count.toString(),
-                                              style: TextStyle(
-                                                color: isSelected ? Colors.white : Colors.white38,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
 
-              // Responsibility List
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                sliver: _buildResponsibilitySliver(_selectedCategories),
-              ),
-            ],
+                    // Responsibility List
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                      sliver: _buildResponsibilitySliver(_selectedCategories),
+                    ),
+                  ],
           );
         },
       ),
@@ -1181,6 +1182,9 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                   autofocus: true,
                                   style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                                   textAlign: TextAlign.center,
+                                  inputFormatters: [
+                                    ThousandsSeparatorInputFormatter(),
+                                  ],
                                   decoration: InputDecoration(
                                     hintText: '0.00',
                                     hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
