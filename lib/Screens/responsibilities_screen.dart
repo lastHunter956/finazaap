@@ -1020,7 +1020,9 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
 
                         if (success) {
                           // 2. Add transaction to Hive
-                          final box = Hive.box<Add_data>('data');
+                          final box = Hive.isBoxOpen('data')
+                              ? Hive.box<Add_data>('data')
+                              : await Hive.openBox<Add_data>('data');
                           
                           // Obtener categoría de transacción correspondiente
                           final matchedCat = await CategoryService.findMatchingCategoryForObligation(responsibility.safeCategory);

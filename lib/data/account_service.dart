@@ -34,7 +34,6 @@ class AccountService {
     if (!deletedAccounts.contains(accountName)) {
       deletedAccounts.add(accountName);
       await prefs.setStringList(deletedAccountsKey, deletedAccounts);
-      await prefs.setStringList(deletedAccountsKey, deletedAccounts);
       debugPrint('✅ Cuenta "$accountName" marcada como eliminada');
       
       // Sincronizar con Responsabilidades (Eliminar si existe)

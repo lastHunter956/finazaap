@@ -20,12 +20,12 @@ import 'package:finazaap/Screens/selecctaccount.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'package:finazaap/Screens/add.dart';
 import 'package:finazaap/Screens/add_expense.dart';
-import 'package:finazaap/data/utlity.dart';
 import 'package:finazaap/data/models/account_item.dart'; // Modelo centralizado
 
 // Añadir esta importación al inicio del archivo
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/data/category_service.dart';
+import 'package:finazaap/core/prefs_manager.dart';
 import 'package:finazaap/Screens/settings_screen.dart';
 import 'package:finazaap/Screens/daily_transactions.dart';
 import 'package:home_widget/home_widget.dart';
@@ -71,6 +71,7 @@ class _HomeState extends State<Home> {
 
   // Listeners para limpiar recursos
   late final VoidCallback _boxListener;
+  late final ValueListenable<Box<Add_data>> _boxListenable;
   StreamSubscription? _widgetSubscription;
 
   @override
@@ -84,15 +85,16 @@ class _HomeState extends State<Home> {
     final todayKey = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
     _expandedDates.add(todayKey);
 
-    // Definir y registrar listener
+    // Definir y registrar listener (guardamos referencia para removeListener correcto)
+    _boxListenable = box.listenable();
     _boxListener = () {
       if (mounted) {
         setState(() {});
         _updateAvailableBalance();
-        _loadCategoryMetadata(); // Recargar colores si cambian datos
+        _loadCategoryMetadata();
       }
     };
-    box.listenable().addListener(_boxListener);
+    _boxListenable.addListener(_boxListener);
 
     // Check for Widget Launch
     HomeWidget.initiallyLaunchedFromHomeWidget().then(_handleWidgetLaunch);
@@ -113,7 +115,7 @@ class _HomeState extends State<Home> {
   void dispose() {
     // Limpiar listeners para evitar memory leaks
     if (_widgetSubscription != null) _widgetSubscription!.cancel();
-    box.listenable().removeListener(_boxListener);
+    _boxListenable.removeListener(_boxListener);
     availableBalanceNotifier.dispose();
     super.dispose();
   }
@@ -242,31 +244,30 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _updateAvailableBalance() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? accountsData = prefs.getStringList('accounts');
+    final prefs = await PrefsManager.instance;
+    final List<String>? accountsData = prefs.getStringList('accounts');
 
     if (accountsData != null) {
       double totalBalance = 0.0;
-      for (var accountJson in accountsData) {
+      for (final accountJson in accountsData) {
         final Map<String, dynamic> data = json.decode(accountJson);
-        
-        // Verificar si la cuenta debe incluirse en el total
-        // Por defecto es true si no existe la clave
         final bool includeInTotal = data['includeInTotal'] ?? true;
-        
         if (includeInTotal) {
-          // Convertir el balance a double (puede estar como String)
-          final balance = data['balance'] is String
-              ? double.tryParse(data['balance']) ?? 0.0
-              : (data['balance'] is double ? data['balance'] : 0.0);
+          final raw = data['balance'];
+          double balance;
+          if (raw is String) {
+            balance = double.tryParse(raw) ?? 0.0;
+          } else if (raw is double) {
+            balance = raw;
+          } else if (raw is int) {
+            balance = raw.toDouble();
+          } else {
+            balance = 0.0;
+          }
           totalBalance += balance;
         }
       }
-
-      // Actualiza el notificador con el valor calculado
       availableBalanceNotifier.value = totalBalance;
-      
-      // Actualizar el Widget de Android con ingresos y gastos del mes
       await WidgetService.refreshWidgetFromData();
     }
   }
@@ -291,99 +292,72 @@ class _HomeState extends State<Home> {
       onPopInvokedWithResult: (didPop, result) {
         // Lógica adicional si es necesario
       },
-      child: Scaffold( // Mover el child aquí con la indentación correcta
-        // Fondo original
+      child: Scaffold(
         backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-        body: SafeArea(
-          child: ValueListenableBuilder(
-            valueListenable: box.listenable(),
-            builder: (context, value, child) {
-              // _updateAvailableBalance(); // REMOVIDO: Causa rebuilds innecesarios, ya se maneja en el listener
-              
-              // Agrupar las transacciones por fecha primero
-              final transactionsByDate = _getTransactionsGroupedByDate();
-              
-              return CustomScrollView(
-                slivers: [
-
-
-                  // Título superior "Transacciones" en un container azul a lo ancho de la pantalla
-                  SliverToBoxAdapter(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      decoration: BoxDecoration(
-                        color: const Color.fromRGBO(42, 49, 67, 1),
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          const SizedBox(
-                            height: 44,
-                            child: Center(
-                              child: Text(
-                                'Transacciones',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            bottom: 0,
-                            child: Center(
-                              child: InkWell(
-                                onTap: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => const AiChatScreen()),
-                                  );
-                                  if (mounted) {
-                                    setState(() {});
-                                    await _updateAvailableBalance();
-                                    await _loadCategoryMetadata();
-                                  }
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF52E2FF).withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFF52E2FF).withOpacity(0.4),
-                                      width: 1.5,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFF52E2FF).withOpacity(0.15),
-                                        blurRadius: 10,
-                                        spreadRadius: 1,
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.chat_rounded,
-                                    color: Color(0xFF52E2FF),
-                                    size: 24,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+        appBar: AppBar(
+          backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
+          elevation: 0,
+          centerTitle: true,
+          toolbarHeight: 75,
+          title: const Text(
+            'Transacciones',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: InkWell(
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AiChatScreen()),
+                  );
+                  if (mounted) {
+                    setState(() {});
+                    await _updateAvailableBalance();
+                    await _loadCategoryMetadata();
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF52E2FF).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF52E2FF).withOpacity(0.4),
+                      width: 1.5,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF52E2FF).withOpacity(0.15),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ],
                   ),
-                  // Espacio entre el título y el siguiente contenedor
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 20),
+                  child: const Icon(
+                    Icons.chat_rounded,
+                    color: Color(0xFF52E2FF),
+                    size: 24,
                   ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        body: ValueListenableBuilder(
+          valueListenable: _boxListenable,
+          builder: (context, value, child) {
+            final transactionsByDate = _getTransactionsGroupedByDate();
+
+            return CustomScrollView(
+              slivers: [
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
                   // Contenedor con TotalBalanceWidget
                   SliverToBoxAdapter(
                     child: Padding(
@@ -474,7 +448,6 @@ class _HomeState extends State<Home> {
               );
             },
           ),
-        ),
         floatingActionButton: const FloatingActionMenu(),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       ), // Añadir esta coma

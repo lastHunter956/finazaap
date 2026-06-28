@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/core/prefs_manager.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/core/utils/app_logger.dart';
@@ -106,13 +107,13 @@ class NotificationService {
 
   /// Verificar si las notificaciones están habilitadas en la app
   Future<bool> isEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     return prefs.getBool(_prefsKeyEnabled) ?? false;
   }
 
   /// Habilitar/deshabilitar notificaciones
   Future<void> setEnabled(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     await prefs.setBool(_prefsKeyEnabled, enabled);
 
     if (enabled) {
@@ -127,12 +128,12 @@ class NotificationService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Future<int> getDaysBefore() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     return prefs.getInt(_prefsKeyDaysBefore) ?? _defaultDaysBefore;
   }
 
   Future<void> setDaysBefore(int days) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     await prefs.setInt(_prefsKeyDaysBefore, days.clamp(0, 7));
     if (await isEnabled()) {
       await scheduleAllNotifications();
@@ -140,12 +141,12 @@ class NotificationService {
   }
 
   Future<bool> getSameDay() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     return prefs.getBool(_prefsKeySameDay) ?? _defaultSameDay;
   }
 
   Future<void> setSameDay(bool sameDay) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     await prefs.setBool(_prefsKeySameDay, sameDay);
     if (await isEnabled()) {
       await scheduleAllNotifications();
@@ -153,17 +154,17 @@ class NotificationService {
   }
 
   Future<int> getHour() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     return prefs.getInt(_prefsKeyHour) ?? _defaultHour;
   }
 
   Future<int> getMinute() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     return prefs.getInt(_prefsKeyMinute) ?? _defaultMinute;
   }
 
   Future<void> setTime(int hour, int minute) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     await prefs.setInt(_prefsKeyHour, hour.clamp(0, 23));
     await prefs.setInt(_prefsKeyMinute, minute.clamp(0, 59));
     if (await isEnabled()) {
@@ -323,13 +324,13 @@ class NotificationService {
   
   // Helpers para control de notificaciones duplicadas
   Future<bool> _hasNotifiedToday(String uniqueId) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     final today = DateTime.now().toIso8601String().substring(0, 10);
     return prefs.getBool('notif_sent_${uniqueId}_$today') ?? false;
   }
   
   Future<void> _markAsNotifiedToday(String uniqueId) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     final today = DateTime.now().toIso8601String().substring(0, 10);
     await prefs.setBool('notif_sent_${uniqueId}_$today', true);
   }

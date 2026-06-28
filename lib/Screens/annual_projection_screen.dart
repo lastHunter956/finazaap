@@ -411,7 +411,9 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                         );
 
                         if (success) {
-                          final box = Hive.box<Add_data>('data');
+                          final box = Hive.isBoxOpen('data')
+                              ? Hive.box<Add_data>('data')
+                              : await Hive.openBox<Add_data>('data');
                           final matchedCat = await CategoryService.findMatchingCategoryForObligation(responsibility.safeCategory);
                           final String categoryName = matchedCat != null ? (matchedCat['text'] as String) : responsibility.safeCategory;
                           final int iconCode = matchedCat != null ? (matchedCat['icon'] as int) : responsibility.safeIconCode;

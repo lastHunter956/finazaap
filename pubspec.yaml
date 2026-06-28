@@ -12,9 +12,6 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  # State Management
-  flutter_riverpod: ^2.4.9
-  
   # Local Storage - Encriptación
   hive: ^2.2.3
   hive_flutter: ^1.1.0
@@ -61,6 +58,8 @@ dependencies:
   flutter_gemma_mediapipe: ^1.0.1
   flutter_gemma_litertlm: ^1.0.1
   flutter_markdown: ^0.7.7+1
+  device_info_plus: ^10.1.0
+  disk_space: ^0.1.0
 
 dev_dependencies:
   flutter_test:

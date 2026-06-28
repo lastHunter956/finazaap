@@ -48,17 +48,17 @@ class AppColors {
   static const Color textPrimary = Colors.white;
   
   /// Texto secundario con opacidad
-  static Color textSecondary = Colors.white.withOpacity(0.7);
+  static Color textSecondary = Colors.white.withValues(alpha: 0.7);
   
   /// Texto terciario/hint
-  static Color textHint = Colors.white.withOpacity(0.4);
+  static Color textHint = Colors.white.withValues(alpha: 0.4);
 
   // ========== Colores de Borde ==========
   /// Borde sutil para elementos
-  static Color borderSubtle = Colors.white.withOpacity(0.08);
+  static Color borderSubtle = Colors.white.withValues(alpha: 0.08);
   
   /// Borde más visible
-  static Color borderVisible = Colors.white.withOpacity(0.2);
+  static Color borderVisible = Colors.white.withValues(alpha: 0.2);
 
   // ========== Gradientes Predefinidos ==========
   /// Gradiente para cabeceras premium
@@ -66,8 +66,8 @@ class AppColors {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Colors.white.withOpacity(0.1),
-          Colors.white.withOpacity(0.05),
+          Colors.white.withValues(alpha: 0.1),
+          Colors.white.withValues(alpha: 0.05),
         ],
       );
   

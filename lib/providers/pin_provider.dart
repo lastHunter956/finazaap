@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/core/prefs_manager.dart';
 import 'package:local_auth/local_auth.dart';
 
 class PinProvider with ChangeNotifier {
@@ -26,7 +27,7 @@ class PinProvider with ChangeNotifier {
   }
 
   Future<void> _init() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     _isPinEnabled = prefs.getBool(_pinEnabledKey) ?? false;
     _isBiometricEnabled = prefs.getBool(_biometricEnabledKey) ?? false;
     
@@ -53,7 +54,7 @@ class PinProvider with ChangeNotifier {
   }
 
   Future<void> _enablePin(bool enable) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     await prefs.setBool(_pinEnabledKey, enable);
     _isPinEnabled = enable;
     notifyListeners();
@@ -75,7 +76,7 @@ class PinProvider with ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════
 
   Future<void> setBiometricEnabled(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PrefsManager.instance;
     await prefs.setBool(_biometricEnabledKey, enabled);
     _isBiometricEnabled = enabled;
     notifyListeners();

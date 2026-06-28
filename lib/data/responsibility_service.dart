@@ -6,6 +6,7 @@ import 'dart:math';
 import 'dart:convert';
 import 'package:hive/hive.dart';
 import 'package:finazaap/data/credit_card_calculator.dart';
+import 'package:finazaap/core/utils/app_logger.dart';
 
 class ResponsibilityService {
   static const String _boxName = 'responsibilities';
@@ -82,7 +83,7 @@ class ResponsibilityService {
       if (responsibility == null) return;
 
       if (responsibility.safeCategory == 'tarjeta') {
-         print('ℹ️ El pago de tarjetas se sincroniza automáticamente a través de TransactionService');
+         AppLogger.info(' El pago de tarjetas se sincroniza automáticamente a través de TransactionService');
          return; 
       }
       
@@ -107,7 +108,7 @@ class ResponsibilityService {
         paymentDate = DateTime(targetYear, targetMonth + 1, 0); // Último día del mes
       }
       
-      print('🔄 Toggling $id: $wasAlreadyPaid -> $willBePaid for $targetMonth/$targetYear');
+      AppLogger.info(' Toggling $id: $wasAlreadyPaid -> $willBePaid for $targetMonth/$targetYear');
 
       // Crear copia explícita para asegurar invalidación
       final updated = Responsibility(
@@ -139,10 +140,10 @@ class ResponsibilityService {
       
       // Usar putAt para forzar la actualización en Hive
       await box.putAt(index, updated);
-      print('✅ Toggled successfully. New state: isPaid=${updated.isPaid}, Date=${updated.lastPaymentDate}');
+      AppLogger.success(' Toggled successfully. New state: isPaid=${updated.isPaid}, Date=${updated.lastPaymentDate}');
       await responsibility.save();
     } catch (e) {
-      print('Error toggling paid status: $e');
+      AppLogger.error('Error toggling paid status', error: e);
     }
   }
 
@@ -292,7 +293,7 @@ class ResponsibilityService {
       interestRate: account.interestRate,
       installments: 1, // Por defecto
     ));
-    print('✅ Responsabilidad creada para tarjeta: ${account.title}');
+    AppLogger.success(' Responsabilidad creada para tarjeta: ${account.title}');
   }
 
   // Procesar aumento de deuda (Compra con tarjeta)
@@ -302,17 +303,17 @@ class ResponsibilityService {
       // Usar índice para putAt
       final index = box.values.toList().indexWhere((r) => r.safeName == accountName && r.safeCategory == 'tarjeta');
       if (index == -1) {
-        print('⚠️ [DEBT_INCREASE] No se encontró responsabilidad para tarjeta: $accountName');
+        AppLogger.warning(' [DEBT_INCREASE] No se encontró responsabilidad para tarjeta: $accountName');
         return;
       }
       
       final responsibility = box.getAt(index);
       if (responsibility == null) {
-        print('⚠️ [DEBT_INCREASE] Responsabilidad null en índice $index');
+        AppLogger.warning(' [DEBT_INCREASE] Responsabilidad null en índice $index');
         return;
       }
       
-      print('📊 [DEBT_INCREASE] ANTES: $accountName - Deuda: ${responsibility.cardBalance}, Mensual: ${responsibility.safeAmount}');
+      AppLogger.info(' [DEBT_INCREASE] ANTES: $accountName - Deuda: ${responsibility.cardBalance}, Mensual: ${responsibility.safeAmount}');
       
       // 1. Aumentar Deuda Total (Principal)
       double currentDebt = responsibility.cardBalance ?? responsibility.safeAmount; 
@@ -347,7 +348,7 @@ class ResponsibilityService {
           planStartDate = DateTime(planStartDate.year, planStartDate.month + 1, 1);
           isPostCutoff = true;
           newMonthlyPayment = currentMonthlyPayment; // No sumar al mes actual
-          print('📅 [DEBT_INCREASE] Compra post-corte. Cuota diferida al próximo mes.');
+          AppLogger.info(' [DEBT_INCREASE] Compra post-corte. Cuota diferida al próximo mes.');
       }
       
       // Copiar planes existentes y agregar el nuevo
@@ -389,9 +390,9 @@ class ResponsibilityService {
       );
       
       await box.putAt(index, updated);
-      print('✅ [DEBT_INCREASE] DESPUÉS: $accountName - Deuda: $newDebt, Mensual: $newMonthlyPayment (Compra: \$$amount, Cuotas: $installments)');
+      AppLogger.success(' [DEBT_INCREASE] DESPUÉS: $accountName - Deuda: $newDebt, Mensual: $newMonthlyPayment (Compra: \$$amount, Cuotas: $installments)');
     } catch (e) {
-      print('⚠️ [DEBT_INCREASE] Error: $e');
+      AppLogger.warning(' [DEBT_INCREASE] Error: $e');
     }
   }
 
@@ -403,17 +404,17 @@ class ResponsibilityService {
       // Usar índice para putAt
       final index = box.values.toList().indexWhere((r) => r.safeName == accountName && r.safeCategory == 'tarjeta');
       if (index == -1) {
-        print('⚠️ [DEBT_REVERSAL] No se encontró responsabilidad para tarjeta: $accountName');
+        AppLogger.warning(' [DEBT_REVERSAL] No se encontró responsabilidad para tarjeta: $accountName');
         return;
       }
       
       final responsibility = box.getAt(index);
       if (responsibility == null) {
-        print('⚠️ [DEBT_REVERSAL] Responsabilidad null en índice $index');
+        AppLogger.warning(' [DEBT_REVERSAL] Responsabilidad null en índice $index');
         return;
       }
       
-      print('📊 [DEBT_REVERSAL] ANTES: $accountName - Deuda: ${responsibility.cardBalance}, Mensual: ${responsibility.safeAmount}');
+      AppLogger.info(' [DEBT_REVERSAL] ANTES: $accountName - Deuda: ${responsibility.cardBalance}, Mensual: ${responsibility.safeAmount}');
       
       // 1. Disminuir Deuda Total (Capital)
       double currentDebt = responsibility.cardBalance ?? 0.0; 
@@ -449,7 +450,7 @@ class ResponsibilityService {
           
           if (startMonth.isAfter(currentMonth)) {
              wasAffectingCurrentMonth = false;
-             print('📅 [DEBT_REVERSAL] Compra diferida futura. No descontar de mensualidad actual.');
+             AppLogger.info(' [DEBT_REVERSAL] Compra diferida futura. No descontar de mensualidad actual.');
           }
       }
       
@@ -472,7 +473,7 @@ class ResponsibilityService {
           
           if ((planAmount - monthlyDecrease).abs() < 0.01 && planMonths == installments) {
             updatedPlans.removeAt(i);
-            print('📋 [DEBT_REVERSAL] Plan de cuotas removido: \$${planAmount.toStringAsFixed(2)} x $planMonths meses');
+            AppLogger.info(' [DEBT_REVERSAL] Plan de cuotas removido: \$${planAmount.toStringAsFixed(2)} x $planMonths meses');
             break;
           }
         } catch (e) {
@@ -505,9 +506,9 @@ class ResponsibilityService {
       );
       
       await box.putAt(index, updated);
-      print('✅ [DEBT_REVERSAL] DESPUÉS: $accountName - Deuda: $newDebt, Mensual: $newMonthlyPayment (Revertido: \$$amount)');
+      AppLogger.success(' [DEBT_REVERSAL] DESPUÉS: $accountName - Deuda: $newDebt, Mensual: $newMonthlyPayment (Revertido: \$$amount)');
     } catch (e) {
-      print('⚠️ [DEBT_REVERSAL] Error: $e');
+      AppLogger.warning(' [DEBT_REVERSAL] Error: $e');
     }
   }
 
@@ -522,7 +523,7 @@ class ResponsibilityService {
     try {
       final index = box.values.toList().indexWhere((r) => r.safeName == accountName && r.safeCategory == 'tarjeta');
       if (index == -1) {
-        print('⚠️ No se encontró responsabilidad para tarjeta: $accountName');
+        AppLogger.warning(' No se encontró responsabilidad para tarjeta: $accountName');
         return;
       }
       
@@ -557,7 +558,7 @@ class ResponsibilityService {
         // Si hay capital extra, recalcular las cuotas futuras
         if (capitalPayment > 0.01) {
           responsibility.applyCapitalPayment(capitalPayment);
-          print('💰 Abono a Capital detectado: \$${capitalPayment.toStringAsFixed(2)}');
+          AppLogger.info(' Abono a Capital detectado: \$${capitalPayment.toStringAsFixed(2)}');
         }
       }
       
@@ -591,9 +592,9 @@ class ResponsibilityService {
       
       String paymentType = totalPaidInCycle >= expectedQuota * 0.95 ? 'CUOTA COMPLETA' : 'PAGO PARCIAL';
       if (newDebt <= 0) paymentType = 'PAGO TOTAL';
-      print('✅ $paymentType en $accountName: \$${amount.toStringAsFixed(0)}. Deuda restante: \$${newDebt.toStringAsFixed(0)}');
+      AppLogger.success(' $paymentType en $accountName: \$${amount.toStringAsFixed(0)}. Deuda restante: \$${newDebt.toStringAsFixed(0)}');
     } catch (e) {
-      print('⚠️ Error al procesar pago de tarjeta: $e');
+      AppLogger.warning(' Error al procesar pago de tarjeta: $e');
     }
   }
 
@@ -656,9 +657,9 @@ class ResponsibilityService {
       );
       
       await box.putAt(index, updated);
-      print('🔄 Pago revertido en $accountName: +\$${amount.toStringAsFixed(0)}. Nueva deuda: \$${newDebt.toStringAsFixed(0)}');
+      AppLogger.info(' Pago revertido en $accountName: +\$${amount.toStringAsFixed(0)}. Nueva deuda: \$${newDebt.toStringAsFixed(0)}');
     } catch (e) {
-      print('⚠️ Error al revertir pago de tarjeta: $e');
+      AppLogger.warning(' Error al revertir pago de tarjeta: $e');
     }
   }
   // Eliminar responsabilidad por nombre (Sync con eliminación de cuenta)
@@ -670,7 +671,7 @@ class ResponsibilityService {
         r.safeCategory == 'tarjeta'
       );
       await responsibility.delete();
-      print('✅ Responsabilidad eliminada por sync: $name');
+      AppLogger.success(' Responsabilidad eliminada por sync: $name');
     } catch (e) {
       // No existe o no es tarjeta, ignorar
     }
@@ -713,7 +714,7 @@ class ResponsibilityService {
     );
 
     await box.putAt(index, updated);
-    print('✅ Responsibility ${responsibility.safeName} marked as paid for full month ($month/$year)');
+    AppLogger.success(' Responsibility ${responsibility.safeName} marked as paid for full month ($month/$year)');
   }
 
   // Actualizar responsabilidad desde cuenta editada
@@ -734,7 +735,7 @@ class ResponsibilityService {
       }
 
       await responsibility.save();
-      print('✅ Responsabilidad actualizada por sync: $oldName -> ${newAccount.title}');
+      AppLogger.success(' Responsabilidad actualizada por sync: $oldName -> ${newAccount.title}');
     } catch (e) {
       // No existe, ignorar
     }
@@ -765,7 +766,7 @@ class ResponsibilityService {
       
       responsibility.cardBalance = currentDebt;
       await responsibility.save();
-      print('💳 Card Balance Synced for $cardName: New Debt = $currentDebt');
+      AppLogger.info(' Card Balance Synced for $cardName: New Debt = $currentDebt');
       
     } catch (e) {
       // Es normal si no encuentra una responsabilidad asociada (ej. cuenta de efectivo)
@@ -779,7 +780,7 @@ class ResponsibilityService {
     try {
       final index = box.values.toList().indexWhere((r) => r.safeId == id);
       if (index == -1) {
-        print('⚠️ [REGISTER_PAYMENT] No se encontró responsabilidad con ID: $id');
+        AppLogger.warning(' [REGISTER_PAYMENT] No se encontró responsabilidad con ID: $id');
         return;
       }
       
@@ -838,9 +839,9 @@ class ResponsibilityService {
       );
       
       await box.putAt(index, updated);
-      print('✅ Pago registrado en responsabilidad ${responsibility.safeName}: \$${payAmount.toStringAsFixed(0)}. Pagado ciclo: \$${totalPaidInCycle.toStringAsFixed(0)} / \$${expectedAmount.toStringAsFixed(0)}. Completado: $isPaid');
+      AppLogger.success(' Pago registrado en responsabilidad ${responsibility.safeName}: \$${payAmount.toStringAsFixed(0)}. Pagado ciclo: \$${totalPaidInCycle.toStringAsFixed(0)} / \$${expectedAmount.toStringAsFixed(0)}. Completado: $isPaid');
     } catch (e) {
-      print('⚠️ Error al registrar pago de responsabilidad: $e');
+      AppLogger.warning(' Error al registrar pago de responsabilidad: $e');
     }
   }
 
@@ -850,7 +851,7 @@ class ResponsibilityService {
     try {
       final index = box.values.toList().indexWhere((r) => r.safeId == id);
       if (index == -1) {
-        print('⚠️ [REVERT_PAYMENT] No se encontró responsabilidad con ID: $id');
+        AppLogger.warning(' [REVERT_PAYMENT] No se encontró responsabilidad con ID: $id');
         return;
       }
       
@@ -907,9 +908,9 @@ class ResponsibilityService {
       );
       
       await box.putAt(index, updated);
-      print('🔄 Pago revertido en responsabilidad ${responsibility.safeName}: -\$${payAmount.toStringAsFixed(0)}. Nuevo pagado ciclo: \$${totalPaidInCycle.toStringAsFixed(0)}');
+      AppLogger.info(' Pago revertido en responsabilidad ${responsibility.safeName}: -\$${payAmount.toStringAsFixed(0)}. Nuevo pagado ciclo: \$${totalPaidInCycle.toStringAsFixed(0)}');
     } catch (e) {
-      print('⚠️ Error al revertir pago de responsabilidad: $e');
+      AppLogger.warning(' Error al revertir pago de responsabilidad: $e');
     }
   }
 }

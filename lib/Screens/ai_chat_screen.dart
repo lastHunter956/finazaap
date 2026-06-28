@@ -7,6 +7,7 @@ import 'package:gradient_borders/gradient_borders.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:finazaap/services/ai_chat_service.dart';
+import 'package:finazaap/services/device_capability_service.dart';
 import 'package:finazaap/themes/app_colors.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
@@ -385,8 +386,26 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       'Este proceso puede tomar varios minutos según tu conexión. El modelo se guarda para usos futuros.',
                       style: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 10),
                     ),
-                  ] else if (!kIsWeb && _chatService.gemmaError != null && _chatService.gemmaError!.contains('URL')) ...[
-                    // Android: Mostrar campo para ingresar la URL del modelo
+                  ] else if (_chatService.isCheckingDeviceSpecs) ...[
+                    Row(
+                      children: [
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Verificando compatibilidad del dispositivo...',
+                            style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else if (!kIsWeb && _chatService.gemmaError != null &&
+                      (_chatService.gemmaError!.contains('URL') ||
+                       _chatService.gemmaError!.contains('INCOMPATIBLE'))) ...[
                     _buildModelUrlSetup(),
                   ] else ...[
                     Row(
@@ -446,17 +465,24 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   /// Aparece cuando el usuario activa Gemma IA pero no hay modelo instalado.
   Widget _buildModelUrlSetup() {
     final urlController = TextEditingController();
-    
+    final cap = _chatService.deviceCapability;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (cap != null && !cap.canRunModel) ...[
+          _buildIncompatibilityBanner(cap),
+          const SizedBox(height: 12),
+        ],
         Row(
           children: [
             const Icon(Icons.download_rounded, color: AppColors.accent, size: 16),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'Configura la descarga del modelo Gemma AI',
+                cap != null && !cap.canRunModel
+                    ? 'Prueba con un modelo más ligero'
+                    : 'Configura la descarga del modelo Gemma AI',
                 style: GoogleFonts.outfit(
                   color: AppColors.textPrimary,
                   fontSize: 12,
@@ -468,7 +494,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
         ),
         const SizedBox(height: 8),
         Text(
-          'El modelo (2.5 GB) se descarga una sola vez y se guarda en tu dispositivo. '
+          'El modelo se descarga una sola vez y se guarda en tu dispositivo. '
           'Ingresa la URL de descarga directa del archivo .litertlm:',
           style: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 10),
         ),
@@ -570,6 +596,88 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildIncompatibilityBanner(DeviceCapabilityResult cap) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Tu dispositivo no tiene los recursos suficientes',
+                  style: GoogleFonts.outfit(
+                    color: AppColors.warning,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _specRow(
+            Icons.storage_rounded,
+            'Almacenamiento libre',
+            '${cap.freeStorageGB.toStringAsFixed(1)} GB',
+            cap.hasEnoughStorage,
+            '≥ 3.5 GB',
+          ),
+          _specRow(
+            Icons.memory_rounded,
+            'RAM total',
+            cap.totalRAMGB != null ? '${cap.totalRAMGB!.toStringAsFixed(1)} GB' : 'desconocida',
+            cap.hasEnoughRAM,
+            '≥ 4 GB',
+          ),
+          _specRow(
+            Icons.developer_board_rounded,
+            'Procesador',
+            cap.isArm64 ? 'ARM64' : 'No ARM64',
+            cap.hasCompatProcessor,
+            'ARM64',
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Aun así, puedes intentarlo ingresando la URL de un modelo más ligero abajo.',
+            style: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 9.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _specRow(IconData icon, String label, String value, bool ok, String req) {
+    final color = ok ? AppColors.success : AppColors.error;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Icon(
+            ok ? Icons.check_circle_outline : Icons.cancel_outlined,
+            size: 12,
+            color: color,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              '$label: $value  (mín. $req)',
+              style: GoogleFonts.outfit(color: color, fontSize: 10),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2211,7 +2319,9 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                                         );
                                         
                                         if (success) {
-                                          final box = Hive.box<Add_data>('data');
+                                          final box = Hive.isBoxOpen('data')
+                                              ? Hive.box<Add_data>('data')
+                                              : await Hive.openBox<Add_data>('data');
                                           final transaction = Add_data(
                                             type,
                                             finalAmt.toString(),

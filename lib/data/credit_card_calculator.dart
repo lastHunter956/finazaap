@@ -3,6 +3,7 @@ import 'package:finazaap/data/model/add_date.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/core/utils/app_logger.dart';
 
 /// Servicio para calcular datos de tarjetas de crédito dinámicamente desde transacciones.
 /// Esta es la ÚNICA fuente de verdad para deudas de tarjetas de crédito.
@@ -10,6 +11,9 @@ class CreditCardCalculator {
   
   /// Obtiene el box de transacciones
   static Box<Add_data> _getTransactionBox() {
+    if (!Hive.isBoxOpen('data')) {
+      throw StateError('Hive box "data" no está abierto. Verifica la inicialización en main.dart.');
+    }
     return Hive.box<Add_data>('data');
   }
   
@@ -174,7 +178,7 @@ class CreditCardCalculator {
       
       return totalPaid;
     } catch (e) {
-      print('⚠️ [CreditCardCalculator] Error calculando pagado en mes: $e');
+      AppLogger.warning(' [CreditCardCalculator] Error calculando pagado en mes: $e');
       return 0.0;
     }
   }
@@ -211,7 +215,7 @@ class CreditCardCalculator {
       
       return true; // No se encontró la cuenta, es huérfana
     } catch (e) {
-      print('⚠️ [CreditCardCalculator] Error verificando cuenta huérfana: $e');
+      AppLogger.warning(' [CreditCardCalculator] Error verificando cuenta huérfana: $e');
       return false; // En caso de error, asumir que no es huérfana
     }
   }

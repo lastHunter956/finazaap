@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/core/prefs_manager.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:finazaap/data/models/account_item.dart';
@@ -36,7 +37,7 @@ class TransactionService {
   }) async {
     try {
       // 1. Obtener el estado actual de las cuentas
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await PrefsManager.instance;
       List<String>? accountsData = prefs.getStringList('accounts');
       
       if (accountsData == null) {
@@ -74,7 +75,9 @@ class TransactionService {
         // 6. Si se solicita, registrar en el historial de transacciones (Hive)
         if (recordInHive) {
           try {
-            final box = Hive.box<Add_data>('data');
+            final box = Hive.isBoxOpen('data')
+                ? Hive.box<Add_data>('data')
+                : await Hive.openBox<Add_data>('data');
             final transaction = Add_data(
               type,
               amount.toString(),
@@ -100,10 +103,11 @@ class TransactionService {
       
       return false;
     } catch (e) {
+      AppLogger.error('processTransaction falló', error: e);
       return false;
     }
   }
-  
+
   // Método para actualizar el saldo de una cuenta específica
   static Future<bool> _updateAccountBalance(
     String accountName, 
@@ -245,9 +249,9 @@ class TransactionService {
       final installments = int.tryParse(oldTransaction.installments ?? '1') ?? 1;
       final isInterestFree = oldTransaction.isInterestFree ?? true;
       
-      AppLogger.debug('🔄 INICIANDO REVERSIÓN: Type=${oldTransaction.IN}, Account=${oldTransaction.safeAccount}, Amount=$amount, Installments=$installments');
-      
-      if (oldTransaction.IN == 'Transfer') {
+      AppLogger.debug('🔄 INICIANDO REVERSIÓN: Type=${oldTransaction.safeType}, Account=${oldTransaction.safeAccount}, Amount=$amount, Installments=$installments');
+
+      if (oldTransaction.safeType == 'Transfer') {
         // Para transferencias
         final parts = oldTransaction.safeCategory.split(' > ');
         AppLogger.debug('Es TRANSFER: ${oldTransaction.safeCategory}');
@@ -316,7 +320,7 @@ class TransactionService {
   // Método para actualizar el saldo global disponible
   static Future<void> _updateGlobalBalance(List<Map<String, dynamic>> accounts) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await PrefsManager.instance;
       double totalBalance = 0.0;
       
       for (var account in accounts) {
@@ -347,7 +351,7 @@ class TransactionService {
   static Future<bool> deleteTransaction(Add_data transaction) async {
     try {
       // Obtener cuentas actuales
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await PrefsManager.instance;
       List<String>? accountsData = prefs.getStringList('accounts');
       
       if (accountsData == null) {
@@ -360,7 +364,7 @@ class TransactionService {
       // Revertir efectos según tipo de transacción
       double amount = double.parse(transaction.safeAmount);
       
-      if (transaction.IN == 'Transfer') {
+      if (transaction.safeType == 'Transfer') {
         final parts = transaction.safeCategory.split(' > ');
         if (parts.length == 2) {
           final sourceAccount = parts[0].trim();
@@ -435,7 +439,7 @@ class TransactionService {
         final transaction = transactions[i];
         bool needsUpdate = false;
 
-        if (transaction.IN == 'Income' || transaction.IN == 'Expenses') {
+        if (transaction.safeType == 'Income' || transaction.safeType == 'Expenses') {
           if (transaction.safeAccount == oldAccountName) {
             // Actualizar nombre de cuenta
             transaction.name = newAccount.title;
@@ -497,7 +501,7 @@ class TransactionService {
       AppLogger.debug('🔄 Iniciando sincronización de saldos de cuentas...');
       
       // Obtener datos frescos
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await PrefsManager.instance;
       final box = await Hive.openBox<Add_data>('data');
       List<String>? accountsData = prefs.getStringList('accounts');
       
@@ -522,7 +526,7 @@ class TransactionService {
     try {
       AppLogger.info('🔍 Verificando integridad de la base de datos...');
       final box = await Hive.openBox<Add_data>('data');
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await PrefsManager.instance;
       List<String>? accountsData = prefs.getStringList('accounts');
       
       if (accountsData == null) {

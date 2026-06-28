@@ -11,6 +11,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/transaction_service.dart';
+import 'package:finazaap/services/device_capability_service.dart';
 
 class ChatMessage {
   final String role; // 'user' | 'model' | 'system'
@@ -80,7 +81,12 @@ class AiChatService extends ChangeNotifier {
   Completer<void>? _initCompleter;
   double _downloadProgress = 0.0;
   bool _isDownloading = false;
-  
+  bool _checkingDeviceSpecs = false;
+  DeviceCapabilityResult? _deviceCapability;
+
+  static const _defaultModelUrl =
+      'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
+
   // Metadatos parseados del perfil cognitivo
   double _savingsRatio = 0.0;
   String _topCategory = 'Ninguna';
@@ -107,6 +113,8 @@ class AiChatService extends ChangeNotifier {
   int get lastSummaryCount => _lastSummaryCount;
   double get downloadProgress => _downloadProgress;
   bool get isDownloading => _isDownloading;
+  bool get isCheckingDeviceSpecs => _checkingDeviceSpecs;
+  DeviceCapabilityResult? get deviceCapability => _deviceCapability;
 
   double get savingsRatio => _savingsRatio;
   String get topCategory => _topCategory;
@@ -238,36 +246,57 @@ class AiChatService extends ChangeNotifier {
           ).fromNetwork(absoluteUrl).install();
         } else {
           // Android / iOS: necesitamos una URL del modelo
-          final mobileUrl = customMobileUrl ?? await _getSavedModelUrl();
-          
+          var mobileUrl = customMobileUrl ?? await _getSavedModelUrl();
+
           if (mobileUrl == null || mobileUrl.isEmpty) {
-            throw Exception(
-              'No hay URL de modelo configurada para este dispositivo.\n\n'
-              'El modelo Gemma AI (2.5GB) debe descargarse una vez.\n'
-              'Toca "Configurar URL del modelo" para establecer la fuente de descarga.',
-            );
+            _checkingDeviceSpecs = true;
+            notifyListeners();
+
+            try {
+              final cap = await DeviceCapabilityService.check();
+              _deviceCapability = cap;
+              _checkingDeviceSpecs = false;
+              notifyListeners();
+
+              if (cap.canRunModel) {
+                AppLogger.info('Dispositivo compatible. Usando URL hardcodeada del modelo.');
+                mobileUrl = _defaultModelUrl;
+              } else {
+                throw Exception(
+                  'INCOMPATIBLE: RAM ${cap.totalRAMGB?.toStringAsFixed(1) ?? "?"} GB | '
+                  'Espacio ${cap.freeStorageGB.toStringAsFixed(1)} GB | '
+                  'ARM64: ${cap.isArm64}',
+                );
+              }
+            } catch (e) {
+              _checkingDeviceSpecs = false;
+              notifyListeners();
+              if (e.toString().contains('INCOMPATIBLE')) rethrow;
+              throw Exception('URL del modelo requerida. Introduce la URL de descarga.');
+            }
           }
           
-          final filename = Uri.parse(mobileUrl).pathSegments.last;
+          final resolvedUrl = mobileUrl!;
+          final filename = Uri.parse(resolvedUrl).pathSegments.last;
           final isInstalled = await FlutterGemma.isModelInstalled(filename);
-          
+
           if (isInstalled) {
             AppLogger.info('Android/iOS: El modelo ya está instalado localmente, activándolo...');
             // Al estar ya instalado, install() se ejecuta instantáneamente sin descargar
             await FlutterGemma.installModel(
               modelType: ModelType.gemmaIt,
               fileType: ModelFileType.litertlm,
-            ).fromNetwork(mobileUrl).install();
+            ).fromNetwork(resolvedUrl).install();
           } else {
-            AppLogger.info('Android/iOS: descargando desde $mobileUrl');
+            AppLogger.info('Android/iOS: descargando desde $resolvedUrl');
             _isDownloading = true;
             _downloadProgress = 0.0;
             notifyListeners();
-            
+
             await FlutterGemma.installModel(
               modelType: ModelType.gemmaIt,
               fileType: ModelFileType.litertlm,
-            ).fromNetwork(mobileUrl).install();
+            ).fromNetwork(resolvedUrl).install();
             
             _isDownloading = false;
           }
@@ -426,7 +455,9 @@ class AiChatService extends ChangeNotifier {
     }
 
     // Calcular ingresos y gastos del mes actual
-    final box = Hive.box<Add_data>('data');
+    final box = Hive.isBoxOpen('data')
+        ? Hive.box<Add_data>('data')
+        : await Hive.openBox<Add_data>('data');
     final now = DateTime.now();
     double monthlyIncome = 0.0;
     double monthlyExpenses = 0.0;
@@ -455,7 +486,9 @@ class AiChatService extends ChangeNotifier {
   Future<void> updateLearnedPatterns() async {
     try {
       final state = await getFinancialState();
-      final box = Hive.box<Add_data>('data');
+      final box = Hive.isBoxOpen('data')
+          ? Hive.box<Add_data>('data')
+          : await Hive.openBox<Add_data>('data');
       
       double totalExpenses = state['monthlyExpenses'];
       double totalIncome = state['monthlyIncome'];
@@ -932,6 +965,7 @@ class AiChatService extends ChangeNotifier {
 
   // Obtener gastos de este mes agrupados por categoría
   Map<String, double> getCategoryExpenses() {
+    if (!Hive.isBoxOpen('data')) return {};
     final box = Hive.box<Add_data>('data');
     final now = DateTime.now();
     Map<String, double> categorySums = {};
@@ -1100,7 +1134,9 @@ class AiChatService extends ChangeNotifier {
     DateTime? startDate,
     DateTime? endDate,
   }) async {
-    final box = Hive.box<Add_data>('data');
+    final box = Hive.isBoxOpen('data')
+        ? Hive.box<Add_data>('data')
+        : await Hive.openBox<Add_data>('data');
     double totalSum = 0.0;
     int count = 0;
     double maxAmount = 0.0;
@@ -1544,17 +1580,22 @@ class AiChatService extends ChangeNotifier {
         AppLogger.error('Error fetching category icon for suggestion', error: e);
       }
 
-      // Procesar el saldo de la cuenta (si existe)
-      await TransactionService.processTransaction(
+      // Procesar el saldo de la cuenta
+      final balanceUpdated = await TransactionService.processTransaction(
         type: type,
         amount: amount,
         accountName: account,
         isNewTransaction: true,
         recordInHive: false,
       );
-      
-      // Registrar SIEMPRE en el historial local de Hive para visualización inmediata y persistencia
-      final box = Hive.box<Add_data>('data');
+      if (!balanceUpdated) {
+        AppLogger.warning('acceptTransactionSuggestion: no se pudo actualizar saldo para cuenta "$account"');
+      }
+
+      // Registrar en el historial local de Hive para visualización inmediata y persistencia
+      final box = Hive.isBoxOpen('data')
+          ? Hive.box<Add_data>('data')
+          : await Hive.openBox<Add_data>('data');
       final transaction = Add_data(
         type,
         amount.toString(),

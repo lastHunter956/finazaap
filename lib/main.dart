@@ -8,6 +8,7 @@ import 'package:finazaap/services/notification_service.dart';
 import 'package:finazaap/presentation/screens/auth_splash_screen.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/core/utils/app_logger.dart';
+import 'package:finazaap/core/prefs_manager.dart';
 // Nuevas importaciones para localizacion
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -24,6 +25,9 @@ void main() async {
   
   try {
     AppLogger.start('Iniciando FinazaApp');
+
+    // Inicializar SharedPreferences (singleton cacheado)
+    await PrefsManager.init();
 
     // Inicializar formateo de fechas para español
     await initializeDateFormatting('es_ES', null);
