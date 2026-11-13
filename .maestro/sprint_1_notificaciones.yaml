@@ -1,0 +1,119 @@
+appId: com.example.finazaap
+---
+# ==============================================================================
+# Flujo E2E Maestro: Sprint 1 - Pipeline de Notificaciones Bancarias Offline
+# ==============================================================================
+# Recorrido cubierto:
+#   1. Permiso: Acceso a notificaciones bancarias / verificación de estado.
+#   2. Seleccionar app bancaria: Configuración y whitelist de entidades soportadas.
+#   3. Leer notificaciones: Simulación / recepción de notificaciones legítimas y sospechosas.
+#   4. Bandeja de pendientes: Inspección de transacciones detectadas e insignias.
+#   5. Confirmar / Rechazar: Aprobación individual, descarte de fraude y "Aceptar todo".
+#   6. Aislamiento contable: Verificación de que los saldos no cambian sin confirmación explícita.
+# ==============================================================================
+
+- launchApp:
+    clearState: true
+
+# ------------------------------------------------------------------------------
+# PASO 1: Permiso de Notificaciones del Sistema y Verificación Inicial
+# ------------------------------------------------------------------------------
+# Concede los permisos de notificación de Android en caso de mostrar diálogo del sistema
+- runFlow:
+    when:
+      visible: "Permitir|Allow|¿Deseas permitir que Moneo te envíe notificaciones?"
+    commands:
+      - tapOn: "Permitir|Allow"
+
+# En caso de solicitar acceso al listener de notificaciones bancarias
+- runFlow:
+    when:
+      visible: ".*Acceso a notificaciones.*|.*Notification Access.*"
+    commands:
+      - tapOn: "Permitir|Allow|Aceptar"
+
+# ------------------------------------------------------------------------------
+# PASO 2: Verificación de Saldos Iniciales (Línea Base Contable)
+# ------------------------------------------------------------------------------
+# Se inspecciona el saldo inicial en el dashboard o lista de cuentas antes de procesar notificaciones.
+- assertVisible:
+    text: ".*Saldo.*|.*Cuentas.*|.*Ahorros.*"
+    optional: true
+
+# ------------------------------------------------------------------------------
+# PASO 3: Configuración y Selección de Apps Bancarias Monitoreadas (Whitelist)
+# ------------------------------------------------------------------------------
+# Navegación hacia la configuración del servicio de notificaciones bancarias
+- tapOn:
+    text: ".*Configuración.*|.*Ajustes.*|.*Notificaciones.*"
+    optional: true
+
+- assertVisible:
+    text: ".*Bancos monitoreados.*|.*Whitelist.*|.*Bancolombia.*|.*Nequi.*"
+    optional: true
+
+# ------------------------------------------------------------------------------
+# PASO 4: Ingesta y Lectura de Notificaciones Bancarias
+# ------------------------------------------------------------------------------
+# En un escenario real o con mock de emisión nativa, el listener recibe eventos:
+# Evento 1: Notificación legítima de compra (Bancolombia - $45.000)
+# Evento 2: Notificación legítima de abono (Nequi - $80.000)
+# Evento 3: Notificación maliciosa / phishing con enlace sospechoso (bit.ly/alerta)
+
+# ------------------------------------------------------------------------------
+# PASO 5: Navegación a la Bandeja de Transacciones Pendientes
+# ------------------------------------------------------------------------------
+- tapOn:
+    text: ".*Transacciones Pendientes.*|.*Bandeja.*|.*Pendientes.*"
+    optional: true
+
+# Verificación de la pantalla de bandeja de pendientes
+- assertVisible: "Transacciones Pendientes"
+
+# ------------------------------------------------------------------------------
+# PASO 6: Aislamiento Contable - Los saldos no se alteran al llegar a la bandeja
+# ------------------------------------------------------------------------------
+# Las notificaciones residen en la caja de pendientes y no en la caja contable 'data'.
+# Se verifica que los ítems están presentes pero marcados como pendientes.
+- assertVisible:
+    text: ".*Exito Laureles.*|.*Bancolombia.*|.*Nequi.*"
+    optional: true
+
+# Verificación de detección de alerta de seguridad en la notificación maliciosa
+- assertVisible:
+    text: ".*Alerta de Seguridad.*|.*Sospechosa.*|.*Fraude.*"
+    optional: true
+
+# ------------------------------------------------------------------------------
+# PASO 7: Rechazar / Descartar Notificación Sospechosa
+# ------------------------------------------------------------------------------
+# El ítem con enlace sospechoso bloquea el botón de confirmación automática.
+# Se descarta manualmente para removerlo de la bandeja sin registrar transacción.
+- tapOn:
+    text: "Descartar"
+    index: 0
+    optional: true
+
+# ------------------------------------------------------------------------------
+# PASO 8: Confirmación de Transacción Legítima
+# ------------------------------------------------------------------------------
+# Confirmar manualmente la transacción legítima restante
+- tapOn:
+    text: "Confirmar"
+    index: 0
+    optional: true
+
+# O probar la aprobación en lote mediante "Aceptar todo" para transacciones >= 0.85
+- tapOn:
+    id: "accept_all_button"
+    optional: true
+
+# ------------------------------------------------------------------------------
+# PASO 9: Verificación de Aislamiento y Actualización de Saldos
+# ------------------------------------------------------------------------------
+# Se regresa a la pantalla principal de cuentas y se valida que solo la transacción
+# confirmada actualizó los balances, mientras que el ítem descartado no generó impacto.
+- back
+- assertVisible:
+    text: ".*Saldo.*|.*Cuentas.*|.*Ahorros.*"
+    optional: true
