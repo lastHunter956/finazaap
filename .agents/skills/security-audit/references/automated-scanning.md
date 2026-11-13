@@ -1,0 +1,636 @@
+<!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+
+# Automated Scanning Tools Reference
+
+Configuration, custom rules, CI integration, and best practices for semgrep / opengrep, trivy, and gitleaks, plus false-positive handling for SonarCloud / SonarQube quality gates (SonarCloud is hosted; SonarQube is self-hosted).
+
+## Tool Comparison
+
+| Tool | Purpose | Scans | Best For |
+|------|---------|-------|----------|
+| **semgrep** / **opengrep** | SAST (Static Application Security Testing) | Source code patterns | Injection, XSS, insecure crypto, code quality |
+| **trivy** | Vulnerability scanner | Dependencies, containers, IaC | Known CVEs, outdated packages, misconfigurations |
+| **gitleaks** | Secret detection | Git history, staged files | API keys, passwords, tokens, private keys |
+
+**Run order in audits:**
+
+1. **gitleaks** -- fast, catches critical secrets immediately
+2. **trivy** -- scans dependencies and infrastructure
+3. **semgrep** / **opengrep** -- deep code analysis, takes longest
+
+> **semgrep vs opengrep:** [Opengrep](https://github.com/opengrep/opengrep) is a fully open-source (LGPL-2.1) fork of Semgrep, created after Semgrep relicensed the community rule registry to CC-BY-NC-SA. The CLI is a drop-in replacement — rule syntax, `.semgrepignore`, `nosemgrep:` comments, and config files all work identically. See the [opengrep subsection](#opengrep-fully-oss-drop-in-replacement) below for when to prefer it.
+
+---
+
+## semgrep - Static Analysis (SAST)
+
+### Configuration (.semgrep.yml)
+
+Place in project root for custom rules alongside community rulesets:
+
+```yaml
+# .semgrep.yml
+rules:
+  - id: no-eval-user-input
+    patterns:
+      - pattern: eval($INPUT)
+      - pattern-not: eval("static string")
+    message: "eval() with dynamic input is a code injection risk (CWE-95)"
+    languages: [php, python, javascript]
+    severity: ERROR
+    metadata:
+      cwe: ["CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code"]
+      owasp: ["A03:2021 - Injection"]
+
+  - id: no-md5-passwords
+    pattern: md5($PASSWORD)
+    message: "MD5 is not suitable for password hashing. Use password_hash() with PASSWORD_ARGON2ID"
+    languages: [php]
+    severity: WARNING
+    metadata:
+      cwe: ["CWE-328: Use of Weak Hash"]
+
+  - id: no-unserialize-user-input
+    patterns:
+      - pattern: unserialize($INPUT)
+      - metavariable-regex:
+          metavariable: $INPUT
+          regex: "^(?!.*(static_value)).*$"
+    message: "unserialize() with user input leads to object injection (CWE-502). Use json_decode() instead."
+    languages: [php]
+    severity: ERROR
+    metadata:
+      cwe: ["CWE-502: Deserialization of Untrusted Data"]
+```
+
+### Ignoring False Positives
+
+```python
+# nosemgrep: rule-id
+some_safe_code()
+```
+
+Two details decide whether the comment suppresses anything. Measured with semgrep 1.181.0 and opengrep 1.31.0, which behave the same:
+
+- **The id must be a dotted suffix of the `check_id` the scanner reports.** Registry rules report a doubled last segment, e.g. `python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected`. `# nosemgrep: dynamic-urllib-use-detected` and the full doubled id both suppress it; the path-looking single form `python.lang.security.audit.dynamic-urllib-use-detected` does **not**, because it is not a suffix. Copy the id from the scan output (`--json` → `.results[].check_id`), not from the rule's file path.
+- **The comment goes on the flagged line or on the line directly above it.** A second comment line between `# nosemgrep:` and the finding (a `# reason: …` line underneath) makes the suppression miss. Put the justification on the same line after the id (`# nosemgrep: <id> -- reason`) or above the `nosemgrep` line.
+
+A bare `# nosemgrep` with no id suppresses every rule on that line; name the rule so a new finding on the same line is still reported.
+
+An inline `nosemgrep` comment does not reliably close a GitHub code-scanning alert. Observed with Opengrep's `php.lang.security.injection.tainted-filename.tainted-filename` rule: the commit that added the suppression comment also moved the flagged line down by five lines. The alert on the old line switched to "fixed", and a new alert with the same rule opened on the suppressed line, so the finding was still reported under a new alert number. After suppressing, check the full list of open alerts, not one alert id. When the flagged flow is real — for example a request path reaching `is_file()` — fix the code instead: confine the path with `realpath()` against the base directory (see [path-traversal-prevention.md](path-traversal-prevention.md), "realpath() Validation"), then confirm with the scanner version CI pins that the finding fires before the fix and is gone after it.
+
+**CodeQL `js/bad-tag-filter` (and its Python twin) is fixed in the regex, not suppressed.** The query flags a regular expression that tries to match an HTML element but misses forms browsers accept: an end tag with whitespace or attributes before `>` (`</script >`, `</script foo="bar">`) and upper-case tag names (`<SCRIPT>`). Adding `\s*` before `>` is not enough. A pattern that covers both:
+
+```python
+re.sub(r"<script\b[^>]*>[\s\S]*?</script\b[^>]*>", "", html, flags=re.S | re.I)
+```
+
+```javascript
+html.replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, "");
+```
+
+The same query names HTML comments ending in `--!>` as a further case. A regex is still not a sanitizer; use a parser or a sanitizer library where the output reaches a browser, and keep a regex like this for stripping known, trusted markup (a build step removing scripts from a template, for example).
+
+Or use `.semgrepignore` (follows .gitignore syntax):
+
+```
+# .semgrepignore
+tests/
+vendor/
+node_modules/
+*.min.js
+```
+
+### Key Rulesets
+
+| Ruleset | Command | Coverage |
+|---------|---------|----------|
+| Auto (recommended) | `--config auto` | Language-detected community rules |
+| OWASP Top 10 | `--config p/owasp-top-ten` | All OWASP categories |
+| PHP Security | `--config p/php-security` | PHP-specific patterns |
+| JavaScript | `--config p/javascript` | JS/TS patterns |
+| Secrets | `--config p/secrets` | Hardcoded credentials |
+| Docker | `--config p/dockerfile` | Dockerfile misconfigurations |
+| Supply chain | `--config p/supply-chain` | Dependency confusion, typosquatting |
+
+### CI Integration
+
+```yaml
+# GitHub Actions
+- name: Semgrep SAST
+  uses: semgrep/semgrep-action@v1
+  with:
+    config: >-
+      p/owasp-top-ten
+      p/php-security
+      .semgrep.yml
+  env:
+    SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+```
+
+### opengrep: fully-OSS drop-in replacement
+
+[Opengrep](https://github.com/opengrep/opengrep) is an LGPL-2.1 fork of Semgrep maintained by a coalition of security vendors. Reasons to prefer it:
+
+- **No license friction.** Semgrep's Community rule registry is CC-BY-NC-SA (non-commercial). Opengrep rules are freely usable in any setting, including commercial audits and derived rulesets.
+- **Fully open engine.** Semgrep's Pro engine (interfile / taint tracking beyond the OSS baseline) is proprietary. Opengrep keeps the complete analysis engine open.
+- **CLI-compatible.** Same rule syntax, same config files (`.semgrep.yml`, `.semgrepignore`), same `nosemgrep:` ignore comments. Existing rules and CI pipelines port over by swapping the binary.
+
+Install via `coding_agent_cli_toolset`:
+
+```bash
+make install-opengrep   # downloads statically-linked binary to ~/.local/bin
+```
+
+Usage — identical to semgrep:
+
+```bash
+opengrep scan --config auto --error .                           # community rules
+opengrep scan --config p/owasp-top-ten --sarif --output out.sarif .
+opengrep scan --config .semgrep.yml .                           # custom rules (same format)
+```
+
+CI integration (no official action yet — invoke the binary directly). Pin the version and verify the SHA256 to keep the pipeline reproducible and supply-chain safe:
+
+```yaml
+- name: Opengrep SAST
+  env:
+    OPENGREP_VERSION: v1.19.0
+    # SHA256 of opengrep_manylinux_x86 at OPENGREP_VERSION
+    OPENGREP_SHA256: 1d69a41beb88e8e7917f26cc6a16c1edf298f31402807e6d1afbb5d8684c3590
+  run: |
+    mkdir -p "$HOME/.local/bin"
+    curl -fsSL -o "$HOME/.local/bin/opengrep" \
+      "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_manylinux_x86"
+    echo "${OPENGREP_SHA256}  $HOME/.local/bin/opengrep" | sha256sum -c -
+    chmod +x "$HOME/.local/bin/opengrep"
+    echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+    opengrep scan --config auto --sarif --output opengrep.sarif --error .
+- name: Upload SARIF
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: opengrep.sarif
+```
+
+**When to stay on semgrep:** Semgrep Pro/AppSec Platform features (interfile taint tracking, managed registry, SCM integrations). **When to switch:** rule-authoring freedom, offline/air-gapped scanning, avoiding the Semgrep account requirement for `--config auto` against the Pro registry.
+
+---
+
+## trivy - Vulnerability Scanner
+
+### Configuration (trivy.yaml)
+
+Place in project root:
+
+```yaml
+# trivy.yaml
+severity:
+  - HIGH
+  - CRITICAL
+
+scan:
+  # Skip directories
+  skip-dirs:
+    - vendor
+    - node_modules
+    - .git
+
+  # Skip specific files
+  skip-files:
+    - "composer.lock.bak"
+
+# Ignore specific CVEs (document why!)
+ignore:
+  # CVE-YYYY-NNNNN: Not exploitable in our context because...
+  unfixed: false
+```
+
+### Ignore File (.trivyignore)
+
+```
+# .trivyignore
+# CVE-2024-12345: False positive - function not reachable from user input
+CVE-2024-12345
+
+# CVE-2024-67890: Accepted risk - mitigated by WAF rules, fix ETA Q2 2026
+CVE-2024-67890
+```
+
+**Important:** Always document WHY a CVE is ignored. Revisit ignored CVEs quarterly.
+
+### Scan Types
+
+```bash
+# Filesystem scan (dependencies)
+trivy fs --severity HIGH,CRITICAL .
+
+# Docker image scan
+trivy image --severity HIGH,CRITICAL myapp:latest
+
+# IaC scan (Terraform, Kubernetes, CloudFormation, Dockerfile)
+trivy config --severity HIGH,CRITICAL .
+
+# SBOM generation
+trivy fs --format cyclonedx --output sbom.json .
+
+# License scanning
+trivy fs --scanners license .
+```
+
+### CI Integration
+
+```yaml
+# GitHub Actions
+- name: Trivy vulnerability scan
+  uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+  with:
+    scan-type: fs
+    severity: HIGH,CRITICAL
+    format: table
+    exit-code: 1
+    ignore-unfixed: true
+
+- name: Trivy Docker scan
+  uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+  with:
+    scan-type: image
+    image-ref: ${{ env.IMAGE }}
+    severity: HIGH,CRITICAL
+    exit-code: 1
+```
+
+---
+
+## gitleaks - Secret Detection
+
+### Configuration (.gitleaks.toml)
+
+```toml
+# .gitleaks.toml
+title = "Custom gitleaks config"
+
+# Extend default rules (recommended)
+[extend]
+useDefault = true
+
+# Allowlist specific paths or patterns
+[allowlist]
+  description = "Allowed patterns"
+  commits = [
+    "abc123def456",  # Commit that added test fixtures with dummy keys
+  ]
+  paths = [
+    '''vendor/.*''',
+    '''node_modules/.*''',
+    '''tests/fixtures/.*''',
+    '''\.env\.example''',
+  ]
+  regexes = [
+    '''EXAMPLE_API_KEY''',
+    '''test[_-]?key''',
+    '''dummy[_-]?secret''',
+    '''AKIAIOSFODNN7EXAMPLE''',  # AWS example key from documentation
+  ]
+
+# Custom rules
+[[rules]]
+  id = "custom-internal-token"
+  description = "Internal service token"
+  regex = '''NR-[A-Za-z0-9]{32}'''
+  secretGroup = 0
+  entropy = 3.5
+  keywords = ["NR-"]
+```
+
+### Two traps when writing an allowlist
+
+**1. The repo may already ship a tuned config — do not measure against your
+own.** Before concluding anything about an allowlist's effect, check for an
+existing `.gitleaks.toml` / `.betterleaks.toml` at the repo root. Overwriting a
+config that already names the exact fixture files with a generic one makes the
+finding count jump, and the jump looks like the new config *caused* findings
+rather than that it *stopped suppressing* known ones. Measured on a real repo:
+119 findings with no config, 2 with the repo's own tuned config, 110 with a
+generic two-path config dropped on top — the 2 → 110 move was the tuned config
+being replaced, not a syntax effect.
+
+For the same reason, test config changes on a copy of the tree **outside any
+repo**: gitleaks auto-discovers `(target)/.gitleaks.toml` (betterleaks also
+`.betterleaks.toml`) and walks up the tree, so a "with vs without" comparison
+run inside a clone silently picks up a config you did not intend to include.
+
+**2. The scan covers git history, so deleting the file does not clear the
+finding.** `gitleaks git` / `betterleaks git` walk every commit. A secret
+committed once stays reported after it is deleted or the file is moved, and the
+alert cites the **historical** path at the **old** commit. Consequences:
+
+- A path allowlist must match where the file *was*, not only where it is now —
+  e.g. `'''^Tests/(Unit|Functional)/Service/Tool/AgentStateCodecTest\.php'''`
+  for a fixture that moved between the two directories.
+- "Just delete the file" is not a fix. The real choices are an allowlist entry
+  or history rewriting; for synthetic fixtures and local dev material, rewriting
+  public history is disproportionate.
+
+**Prefer concrete paths over value regexes.** A repo-wide regex on the secret
+shape masks a genuine leak of the same shape elsewhere. Verify the allowlist is
+still sharp by planting a fresh synthetic secret outside the allowlisted paths
+and confirming it is still reported:
+
+```bash
+# Control probe — must still report a finding.
+printf 'const T = "ghp_%s";\n' "$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 36)" \
+  > ./probe.tmp
+gitleaks dir --redact .
+status=$?
+rm -f ./probe.tmp
+exit $status   # preserve the scan's exit code; rm must not mask it
+```
+
+### Pre-commit Hook Setup
+
+```bash
+# Install pre-commit hook
+cat > .git/hooks/pre-commit << 'HOOK'
+#!/bin/bash
+gitleaks protect --staged --verbose
+if [ $? -ne 0 ]; then
+    echo "gitleaks detected secrets in staged files. Commit blocked."
+    echo "If this is a false positive, add to .gitleaks.toml allowlist."
+    exit 1
+fi
+HOOK
+chmod +x .git/hooks/pre-commit
+```
+
+Or with the `pre-commit` framework:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+```
+
+### CI Integration
+
+```yaml
+# GitHub Actions
+- name: Gitleaks secret scan
+  uses: gitleaks/gitleaks-action@v2.3.9
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+---
+
+## SonarCloud / SonarQube Quality Gate
+
+SonarCloud runs its own SAST engine (including AI-authored taint rules) and gates a PR
+via a **quality gate**. Sonar's inline suppression is `# NOSONAR` (or
+`# NOSONAR(ruleKey)`), but it leaves a marker in the code and suppresses *every* issue on
+the line. For a genuine false positive, prefer clearing it through the SonarCloud **API**
+(or UI): it records an auditable review decision, keeps the source clean, and the gate
+then recomputes.
+
+### AI taint rules over-flag safe patterns
+
+Sonar's AI taint rules match a **call pattern**, not the actual exploitability, so they
+raise false positives on code that is already safe:
+
+| Rule | Flags | Why it is often a false positive |
+|------|-------|----------------------------------|
+| `pythonsecurity:S8705` | `subprocess.run([...])` reaching a variable argument (framed as "an LLM could pass faulty CLI arguments and escape a shell sandbox") | Fires even in **array form** (`[cmd, "-x", var]`), which is immune to shell injection because no shell parses the arguments. Adding inline **or** cross-function argument validation does not clear it — the rule matches the shape of the call. |
+| `python:S5443` | String literals under publicly writable directories (`/tmp/...`) | Fires on `/tmp/...` **string literals even inside test fixtures**, where no untrusted process shares the path. |
+
+Practical consequences:
+
+- For **S8705** on an array-form `subprocess` call, three source-side sanitization
+  attempts are now recorded as **not** clearing the finding: inline validation, a
+  cross-function validator, and — measured 2026-09-20 on `netresearch/retro-skill#119` —
+  an anchored allowlist rejecting an option-shaped value *plus* `--end-of-options` before
+  the operand. The rule matches the shape of the call, so a fourth attempt is not worth
+  the round trip. If the call is genuinely safe, mark it a false positive via the API
+  rather than contorting the code.
+- **Establish that the finding is a false positive before marking it one.** The rule
+  over-flags, which is not the same as never being right: in the case above the original
+  report was real. Without `--end-of-options`, git read a revision of the form
+  `--output=<path>` as its own option and created that file — reproduced before the fix,
+  and reproduced as refused afterwards. The cheap check is a probe in both directions: the
+  hostile value returns empty and writes nothing, an ordinary value still works. Mark the
+  issue only once that passes, and put the two results in the comment — the next reader
+  then has the evidence instead of the assertion.
+- For **S5443** in test data, prefer a non-writable placeholder such as `/opt/...` instead
+  of `/tmp/...` so the literal never trips the rule in the first place.
+
+### Marking a false positive via the API
+
+Requires a token with **Administer Issues** on the project. Use an `Authorization: Bearer`
+header rather than `curl -u` basic auth — the `-u user:pass` form trips secret scanners
+(and reviewers). Note that a token passed as *any* curl argument (header included) is
+still visible to other users via `ps`; to keep it off the process list entirely, load it
+from a file with `curl --config <file>` or a `~/.netrc`.
+
+```bash
+AUTH="Authorization: Bearer $SONAR_TOKEN"
+
+# 1. Find the open issue keys for this PR
+curl -H "$AUTH" \
+  "https://sonarcloud.io/api/issues/search?components=<projectKey>&pullRequest=<N>&types=VULNERABILITY&resolved=false"
+
+# 2. (Optional) attach context explaining why it is a false positive
+curl -H "$AUTH" -X POST \
+  "https://sonarcloud.io/api/issues/add_comment" \
+  --data-urlencode "issue=<issueKey>" \
+  --data-urlencode "text=Array-form subprocess call; args never reach a shell. FP."
+
+# 3. Transition the issue to false-positive
+curl -H "$AUTH" -X POST \
+  "https://sonarcloud.io/api/issues/do_transition" \
+  --data-urlencode "issue=<issueKey>" \
+  --data-urlencode "transition=falsepositive"
+
+# 4. Confirm the gate recomputed green (status: OK)
+curl -H "$AUTH" \
+  "https://sonarcloud.io/api/qualitygates/project_status?projectKey=<projectKey>&pullRequest=<N>"
+```
+
+> **Always document the rationale** (step 2) before resolving — a bare `falsepositive`
+> transition with no comment is indistinguishable from suppressing a real finding.
+
+### Confirm the gate actually blocks merge
+
+SonarCloud's check is frequently **not a required status check**. Before treating a red
+SonarCloud gate as a merge blocker, verify the branch ruleset / protection rules actually
+require it. If it is advisory, fix genuine findings but do not let an over-flagging AI
+taint rule stall the PR.
+
+---
+
+## Combined CI Pipeline
+
+A complete security scanning pipeline combining all three tools:
+
+```yaml
+# .github/workflows/security-scan.yml
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly full scan (catches newly disclosed CVEs)
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  secret-detection:
+    name: Secret Detection (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git log scanning
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependency-scan:
+    name: Dependency Scan (trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+        with:
+          scan-type: fs
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: 1
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+  sast:
+    name: Static Analysis (semgrep)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Semgrep scan
+        run: semgrep --config auto --sarif --output semgrep-results.sarif .
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep-results.sarif
+
+  iac-scan:
+    name: IaC Scan (trivy)
+    runs-on: ubuntu-latest
+    if: hashFiles('**/Dockerfile') != '' || hashFiles('**/*.tf') != '' || hashFiles('**/k8s/**') != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy config scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+        with:
+          scan-type: config
+          severity: HIGH,CRITICAL
+          exit-code: 1
+```
+
+### Pipeline Design Notes
+
+- **secret-detection** runs first and independently -- secrets are always critical
+- **dependency-scan** and **sast** run in parallel for speed
+- **iac-scan** only runs when infrastructure files exist
+- SARIF output integrates with GitHub Security tab (Code Scanning alerts)
+- Weekly scheduled scan catches newly disclosed CVEs in existing dependencies
+- `fetch-depth: 0` for gitleaks ensures full git history is scanned
+
+### Local Development Workflow
+
+Run all three tools locally before pushing:
+
+```bash
+#!/bin/bash
+# scripts/security-check.sh - Run before push
+
+set -euo pipefail
+
+echo "=== Secret Detection (gitleaks) ==="
+gitleaks detect --source . --verbose
+echo "PASS: No secrets detected"
+
+echo ""
+echo "=== Dependency Scan (trivy) ==="
+trivy fs --severity HIGH,CRITICAL .
+echo "PASS: No high/critical CVEs"
+
+echo ""
+echo "=== Static Analysis (semgrep) ==="
+semgrep --config auto --error .
+echo "PASS: No security findings"
+
+echo ""
+echo "All security checks passed."
+```
+
+---
+
+## Read the Scanner's Coverage Claim Before Reading Its Findings
+
+Every scoped scanner reports two things: what it *found*, and what it *looked
+at*. The second one is the load-bearing half of a clean result, and it is the
+one nobody reads. "No findings" means "clean" only if the scanner examined what
+you think it examined.
+
+Scoping goes wrong quietly:
+
+- **A tool resolving paths against the wrong working tree.** In a bare-repo /
+  worktree layout (`.bare/`, `main/`, several short-lived feature worktrees), a
+  scan of a 22-file range reported its target as "adds only the `.gitattributes`
+  file" — a file that was not in the range at all, but *was* the entire diff of a
+  sibling worktree. Its component list named one file; the range had 22.
+- **A path filter that silently matches nothing** — a renamed directory, a typo
+  in an `include:` glob, an `--exclude` that swallows the target.
+- **A cap that truncates** — max files, max findings, per-rule limits — dropping
+  the tail of the target without failing.
+- **An expired or missing upload** in the reporting backend, so the *metric* is
+  computed from a subset while the run itself was complete.
+
+Before acting on a low count, diff the claim against the target:
+
+```bash
+# What the scan says it covered vs. what the range actually contains
+git diff --numstat <base>..<head> | wc -l      # real file count
+# then compare against the tool's own coverage/inventory output
+```
+
+**A non-empty result does not prove the scoping was right.** In the case above
+the researchers did read real code and did report a genuine defect — while the
+inventory was still wrong, so nothing could be concluded about the other 21
+files. Findings validate themselves; they never validate coverage.
+
+When the coverage claim and the target disagree, say so in the report rather
+than passing the finding count on unqualified. "Partial review of the range" and
+"clean" are different results, and only one of them is safe to act on.

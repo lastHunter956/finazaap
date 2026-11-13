@@ -253,6 +253,12 @@
       "skillPath": "skills/flutter-implement-json-serialization/SKILL.md",
       "computedHash": "48727033cb05de551ef14264112e36e8aec015b3cf955fa2115cfdac6094fe69"
     },
+    "flutter-performance": {
+      "source": "zakariaf/Flutter-Skills",
+      "sourceType": "github",
+      "skillPath": "skills/flutter-performance/SKILL.md",
+      "computedHash": "8ca8b7a4171f91bc1d67f8ab235b1941896ef98e5cf4c9411dcc9db7c264404e"
+    },
     "flutter-setup-declarative-routing": {
       "source": "flutter/agent-plugins",
       "sourceType": "github",
@@ -301,6 +307,12 @@
       "skillPath": "skills/interview-me/SKILL.md",
       "computedHash": "68615337944c1d56cd9db6b934e247ff1d67600dd9db3d41cc9bf7236b9d986c"
     },
+    "mobile-app-ui-design": {
+      "source": "ceorkm/mobile-app-ui-design",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "a7f5257845f24d24195d41dd2be378dc30843e5a50536ad0e96ebd2c65021341"
+    },
     "observability-and-instrumentation": {
       "source": "addyosmani/agent-skills",
       "sourceType": "github",
@@ -324,6 +336,12 @@
       "sourceType": "github",
       "skillPath": "skills/security-and-hardening/SKILL.md",
       "computedHash": "4970681073e6138c4cec8eca31546187f47723a61a7f1204710ae86d9f704517"
+    },
+    "security-audit": {
+      "source": "netresearch/security-audit-skill",
+      "sourceType": "github",
+      "skillPath": "skills/security-audit/SKILL.md",
+      "computedHash": "0b9d573508799864565197c196ef0727b5bcf7babb17d675fc89672f018cf991"
     },
     "shipping-and-launch": {
       "source": "addyosmani/agent-skills",

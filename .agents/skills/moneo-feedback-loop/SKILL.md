@@ -13,7 +13,7 @@ Skill de dominio para cerrar el ciclo de aprendizaje continuo en Moneo: las noti
 
 ## Skills genéricas que debes reutilizar (NO duplicar)
 
-- **`frontend-ui-engineering`**: Construye la bandeja accesible, responsiva y consistente con el tema oscuro de Moneo.
+- **`mobile-app-ui-design`**: Construye la bandeja accesible, responsiva y consistente con el tema oscuro de Moneo.
 - **`flutter-add-widget-test`** y **`test-driven-development`**: Escribe widget tests que fallen si `"aceptar todo"` acepta elementos de baja confianza/sospechosos o si no se actualiza `learned_patterns`.
 
 ---

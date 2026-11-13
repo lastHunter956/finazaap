@@ -77,22 +77,30 @@ Todo cambio debe ejecutarse en este orden estricto (definido en `.agents/rules/f
 2. **`plan` (`.specify/`):** Contrasta el diseño contra `docs/discovery/PROJECT_AUDIT.md`. Para decisiones complejas o ambiguas, usa las skills EGM (`egm-bootstrap`, `egm-brainstorm`, `egm-draft`, `egm-review`, `egm-review-loop`, `egm-drift-report`, `egm-resolve`) y `doubt-driven-development`.
 3. **`tasks` (`.specify/`):** Desglosa el plan en tareas pequeñas con `planning-and-task-breakdown`.
 4. **`implement`:** Ejecuta en cortes incrementales (`incremental-implementation`) aplicando las skills `dart-*` / `flutter-*` correspondientes.
-5. **`test`:** Verifica con `test-driven-development`, `dart analyze`, `flutter test` y flujos E2E en `.maestro/`. Para revisión final usa `code-review` (Spec Kit) y `code-review-and-quality`.
+5. **`test`:** Verifica con `test-driven-development`, `dart analyze`, `flutter test` y flujos E2E en `.maestro/`. Para revisión final usa `code-review-and-quality` y `doubt-driven-development`.
+
+### Directrices de Calidad y Eficiencia (FASE 4.5)
+- **`no-new-files-by-default`:** Edita archivos existentes siempre que sea posible. No crees archivos nuevos innecesarios, duplicados ni micro-archivos de una sola función/clase salvo que la arquitectura por capas o una spec aprobada lo exija.
+- **`DRY-first`:** Antes de escribir lógica o UI nueva, busca helpers, utilidades y servicios existentes (por ejemplo `AppColors` en `lib/themes/app_colors.dart`, `CurrencyHelper` en `lib/utils/currency_helper.dart`, `TransactionService`, `ResponsibilityService`) para reutilizarlos en lugar de duplicar código.
 
 ---
 
 ## 5. Índice de Skills Instaladas (`./.agents/skills/`)
 
-Las **59 skills** ya están instaladas localmente. **No dupliques skills ni crees guías paralelas** (por ejemplo: *usa `test-driven-development` o `dart-add-unit-test` para escribir tests, no crees tu propia skill de testing*).
+Las **48 skills curadas** ya están instaladas localmente (45 externas + 3 de dominio Moneo). **No dupliques skills ni crees guías paralelas** (por ejemplo: *usa `test-driven-development` o `dart-add-unit-test` para escribir tests, no crees tu propia skill de testing*).
 
-### A. Spec Kit y Elephant Goldfish Model (EGM)
+### A. Dominio Moneo (`moneo-*`)
+- `moneo-notification-parser`: Extracción estructurada de notificaciones bancarias (`{tipo, monto, comercio, fecha, cuenta}`) y bloqueo anti-fraude de links.
+- `moneo-transaction-classifier`: Clasificación en `gasto` / `ingreso` / `transferencia-propia` / `sospechosa` (anti-fraude → Hive `learned_patterns` → reglas deterministas → Gemma solo como respaldo).
+- `moneo-feedback-loop`: Bandeja de pendientes, modo `"aceptar todo"` (alta confianza) y actualización de `learned_patterns`.
+
+### B. Spec Kit y Elephant Goldfish Model (EGM)
 - `spec-driven-development`: Crear especificaciones y PRDs antes de codificar.
-- `code-review` (Spec Kit): Auditar diffs contra diseño, pruebas y terminología del repo.
-- `add-community-extension`: Solo para catálogo de extensiones Spec Kit (no aplica a features de la app).
 - `egm-bootstrap`, `egm-brainstorm`, `egm-draft`, `egm-drift-report`, `egm-resolve`, `egm-review`, `egm-review-loop`: Gestión de decisiones, lluvia de ideas, borradores, detección de deriva y ciclos de revisión.
 
-### B. Proceso de Ingeniería, Calidad y Seguridad
+### C. Proceso de Ingeniería, Calidad, Seguridad y UI
 - `using-agent-skills`: Descubrir y elegir qué skill activar al iniciar una tarea.
+- `context-engineering`: Optimizar contexto, compactación y carga selectiva de archivos.
 - `interview-me` / `idea-refine`: Aclarar requerimientos ambiguos o refinar ideas antes de planificar.
 - `planning-and-task-breakdown`: Dividir una spec en tareas ordenadas e implementables.
 - `incremental-implementation`: Entregar cambios en cortes pequeños y verificables.
@@ -102,30 +110,24 @@ Las **59 skills** ya están instaladas localmente. **No dupliques skills ni cree
 - `code-review-and-quality`: Revisión multi-eje antes de mergear.
 - `code-simplification`: Simplificar código complejo sin alterar su comportamiento.
 - `debugging-and-error-recovery`: Depuración sistemática de causa raíz.
-- `security-and-hardening`: Auditoría de cifrado, entradas, permisos y privacidad offline.
+- `security-and-hardening`: Threat modeling (STRIDE), validación de entradas y manejo de secretos.
+- `security-audit`: Auditoría de seguridad OWASP, CWE Top 25, CVSS y dependencias.
+- `mobile-app-ui-design`: Diseño UI/UX móvil pulido (jerarquía, 8-point grid, 60/30/10, estados vacíos/error).
 - `api-and-interface-design`: Diseño de contratos entre módulos, servicios y capa nativa.
-- `observability-and-instrumentation`: Logging seguro (sin exponer PII ni datos financieros) y diagnóstico.
-- `performance-optimization`: Optimización de UI, consultas Hive y uso de memoria.
 - `documentation-and-adrs`: Registro de ADRs y documentación técnica.
-- `source-driven-development`: Verificar decisiones contra documentación oficial.
-- `context-engineering`: Optimizar contexto y reglas del proyecto.
+- `source-driven-development`: Verificar decisiones contra documentación oficial o código real del repo.
 - `deprecation-and-migration`: Migrar código muerto o esquemas sin romper datos existentes.
-- `frontend-ui-engineering`: Interfaces accesibles, responsivas y consistentes con `AppColors`.
 - `git-workflow-and-versioning`: Ramas, commits atómicos, worktrees y PRs.
-- `ci-cd-and-automation` / `shipping-and-launch`: Automatización de checks y preparación de releases.
-- `browser-testing-with-devtools`: Depuración e inspección en navegador para build Web.
+- `ci-cd-and-automation`: Automatización de checks en CI/Docker.
 
-### C. Flutter y Dart
+### D. Flutter y Dart
 - `flutter-apply-architecture-best-practices`: Estructurar capas UI, lógica y datos.
-- `flutter-add-widget-test` / `flutter-add-integration-test` / `flutter-add-widget-preview`: Pruebas de widgets, integración y previews.
+- `flutter-add-widget-test` / `flutter-add-integration-test`: Pruebas de widgets e integración.
 - `flutter-build-responsive-layout` / `flutter-fix-layout-issues`: Layouts adaptativos y corrección de overflows.
 - `flutter-implement-json-serialization`: Serialización JSON manual `fromJson`/`toJson`.
-- `flutter-setup-declarative-routing`: Configuración de `go_router` y navegación declarativa.
 - `flutter-setup-localization`: Configuración de `intl` y `flutter_localizations`.
-- `flutter-use-http-package`: Solo si existiera integración HTTP explícitamente aprobada (Moneo es 100% offline).
 - `dart-run-static-analysis` / `dart-fix-runtime-errors`: Análisis estático (`dart analyze`) y corrección de errores en runtime.
-- `dart-add-unit-test` / `dart-generate-test-mocks` / `dart-collect-coverage` / `dart-migrate-to-checks-package`: Pruebas unitarias, mocks con `mockito`, cobertura LCOV y `package:checks`.
-- `dart-use-pattern-matching` / `dart-use-primary-constructors` / `dart-use-path-package`: Idiomaticidad Dart 3 y manejo seguro de rutas.
-- `dart-write-documentation` / `dart-use-doc-examples`: Documentación Dartdoc (`///`).
+- `dart-add-unit-test` / `dart-generate-test-mocks` / `dart-collect-coverage`: Pruebas unitarias, mocks con `mockito` y cobertura LCOV.
+- `dart-use-pattern-matching` / `dart-use-path-package`: Idiomaticidad Dart 3 y manejo seguro de rutas.
+- `dart-write-documentation`: Documentación Dartdoc (`///`).
 - `dart-resolve-package-conflicts`: Resolver conflictos en `pubspec.yaml` / `pub get`.
-- `dart-build-cli-app` / `dart-setup-ffi-assets` / `dart-use-ffigen`: Herramientas CLI o FFI nativo cuando aplique.
