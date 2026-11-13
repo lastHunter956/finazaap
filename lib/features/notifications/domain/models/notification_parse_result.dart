@@ -11,9 +11,9 @@ class AccountHint {
   Map<String, dynamic> toJson() => {'last4': last4, 'hint': hint};
 
   factory AccountHint.fromJson(Map<String, dynamic> json) => AccountHint(
-    last4: json['last4'] as String?,
-    hint: json['hint'] as String?,
-  );
+        last4: json['last4'] as String?,
+        hint: json['hint'] as String?,
+      );
 
   @override
   bool operator ==(Object other) =>
@@ -119,18 +119,18 @@ class ParsedTransaction extends NotificationParseResult {
 
   @override
   Map<String, dynamic> toJson() => {
-    'status': status,
-    'tipo': tipo,
-    'monto': monto,
-    'moneda': moneda,
-    'comercio': comercio,
-    'fecha': fecha.toIso8601String(),
-    'cuenta': cuenta?.toJson(),
-    'confidence': confidence,
-    'requires_review': requiresReview,
-    'auto_processable': autoProcessable,
-    'flags': flags,
-  };
+        'status': status,
+        'tipo': tipo,
+        'monto': monto,
+        'moneda': moneda,
+        'comercio': comercio,
+        'fecha': fecha.toIso8601String(),
+        'cuenta': cuenta?.toJson(),
+        'confidence': confidence,
+        'requires_review': requiresReview,
+        'auto_processable': autoProcessable,
+        'flags': flags,
+      };
 
   factory ParsedTransaction.fromJson(Map<String, dynamic> json) {
     AccountHint? accountHint;
@@ -156,7 +156,7 @@ class ParsedTransaction extends NotificationParseResult {
           (json['requires_review'] ?? json['requiresReview']) as bool? ?? true,
       autoProcessable:
           (json['auto_processable'] ?? json['autoProcessable']) as bool? ??
-          false,
+              false,
       flags: json['flags'] != null
           ? List<String>.from(json['flags'] as List)
           : const [],
@@ -241,19 +241,19 @@ class SuspiciousNotification extends NotificationParseResult {
 
   @override
   Map<String, dynamic> toJson() => {
-    'status': status,
-    'tipo': tipo,
-    'monto': null,
-    'comercio': null,
-    'fecha': fecha.toIso8601String(),
-    'cuenta': null,
-    'confidence': confidence,
-    'requires_review': requiresReview,
-    'auto_processable': autoProcessable,
-    'flags': flags,
-    'raw_text': rawText,
-    'reason': reason,
-  };
+        'status': status,
+        'tipo': tipo,
+        'monto': null,
+        'comercio': null,
+        'fecha': fecha.toIso8601String(),
+        'cuenta': null,
+        'confidence': confidence,
+        'requires_review': requiresReview,
+        'auto_processable': autoProcessable,
+        'flags': flags,
+        'raw_text': rawText,
+        'reason': reason,
+      };
 
   factory SuspiciousNotification.fromJson(Map<String, dynamic> json) {
     return SuspiciousNotification(
@@ -331,19 +331,19 @@ class UnparseableNotification extends NotificationParseResult {
 
   @override
   Map<String, dynamic> toJson() => {
-    'status': status,
-    'tipo': tipo,
-    'monto': null,
-    'comercio': null,
-    'fecha': fecha.toIso8601String(),
-    'cuenta': null,
-    'confidence': confidence,
-    'requires_review': requiresReview,
-    'auto_processable': autoProcessable,
-    'flags': flags,
-    'raw_text': rawText,
-    'reason': reason,
-  };
+        'status': status,
+        'tipo': tipo,
+        'monto': null,
+        'comercio': null,
+        'fecha': fecha.toIso8601String(),
+        'cuenta': null,
+        'confidence': confidence,
+        'requires_review': requiresReview,
+        'auto_processable': autoProcessable,
+        'flags': flags,
+        'raw_text': rawText,
+        'reason': reason,
+      };
 
   factory UnparseableNotification.fromJson(Map<String, dynamic> json) {
     return UnparseableNotification(

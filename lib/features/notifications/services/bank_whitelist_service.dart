@@ -39,7 +39,8 @@ class BankMetadata {
   int get hashCode => packageName.hashCode;
 
   @override
-  String toString() => 'BankMetadata($name, pkg: $packageName, country: $country)';
+  String toString() =>
+      'BankMetadata($name, pkg: $packageName, country: $country)';
 }
 
 /// Servicio de whitelist bancaria para filtrado previo de notificaciones entrantes.

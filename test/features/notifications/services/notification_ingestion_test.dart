@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:finazaap/features/notifications/adapters/simulated_notification_source.dart';
@@ -16,18 +15,25 @@ void main() {
     });
 
     test('contiene las entidades colombianas clave por defecto', () {
-      expect(whitelistService.isWhitelisted('com.bancolombia.personas'), isTrue);
+      expect(
+          whitelistService.isWhitelisted('com.bancolombia.personas'), isTrue);
       expect(whitelistService.isWhitelisted('com.nequi.MobileApp'), isTrue);
-      expect(whitelistService.isWhitelisted('com.davivienda.billetera'), isTrue);
+      expect(
+          whitelistService.isWhitelisted('com.davivienda.billetera'), isTrue);
       expect(whitelistService.isWhitelisted('co.daviplata'), isTrue);
       expect(whitelistService.isWhitelisted('com.nu.production'), isTrue);
       expect(whitelistService.isWhitelisted('co.com.bbva.mb'), isTrue);
-      expect(whitelistService.isWhitelisted('com.scotiabank.colpatria'), isTrue);
-      expect(whitelistService.isWhitelisted('com.bancofalabella.mobile'), isTrue);
-      expect(whitelistService.isWhitelisted('com.moneo.simulated.bank'), isTrue);
+      expect(
+          whitelistService.isWhitelisted('com.scotiabank.colpatria'), isTrue);
+      expect(
+          whitelistService.isWhitelisted('com.bancofalabella.mobile'), isTrue);
+      expect(
+          whitelistService.isWhitelisted('com.moneo.simulated.bank'), isTrue);
 
-      expect(whitelistService.getBankName('com.bancolombia.personas'), equals('Bancolombia'));
-      expect(whitelistService.getBankName('com.nequi.MobileApp'), equals('Nequi'));
+      expect(whitelistService.getBankName('com.bancolombia.personas'),
+          equals('Bancolombia'));
+      expect(
+          whitelistService.getBankName('com.nequi.MobileApp'), equals('Nequi'));
     });
 
     test('rechaza paquetes no autorizados o desconocidos', () {
@@ -45,7 +51,8 @@ void main() {
       );
 
       expect(whitelistService.isWhitelisted('com.custom.fintech'), isTrue);
-      expect(whitelistService.getBankName('com.custom.fintech'), equals('Mi Fintech Local'));
+      expect(whitelistService.getBankName('com.custom.fintech'),
+          equals('Mi Fintech Local'));
 
       final removed = whitelistService.removePackage('com.custom.fintech');
       expect(removed, isTrue);
@@ -68,12 +75,14 @@ void main() {
       whitelistService.disablePackage('com.bancolombia.personas');
 
       expect(whitelistService.isWhitelisted('com.temp.bank'), isTrue);
-      expect(whitelistService.isWhitelisted('com.bancolombia.personas'), isFalse);
+      expect(
+          whitelistService.isWhitelisted('com.bancolombia.personas'), isFalse);
 
       whitelistService.resetToDefaults();
 
       expect(whitelistService.isWhitelisted('com.temp.bank'), isFalse);
-      expect(whitelistService.isWhitelisted('com.bancolombia.personas'), isTrue);
+      expect(
+          whitelistService.isWhitelisted('com.bancolombia.personas'), isTrue);
     });
   });
 
@@ -99,7 +108,7 @@ void main() {
         id: 'evt_1',
         packageName: 'com.bancolombia.personas',
         title: 'Bancolombia',
-        body: 'Compra aprobada por $45.000 en Éxito',
+        body: 'Compra aprobada por \$45.000 en Éxito',
         timestamp: now,
       );
 
@@ -148,7 +157,7 @@ void main() {
         id: 'evt_original',
         packageName: 'com.nequi.MobileApp',
         title: 'Nequi',
-        body: 'Te enviaron $20.000 de Pedro',
+        body: 'Te enviaron \$20.000 de Pedro',
         timestamp: baseTime,
       );
 
@@ -156,7 +165,7 @@ void main() {
         id: 'evt_dup',
         packageName: 'com.nequi.MobileApp',
         title: 'Nequi',
-        body: 'Te enviaron $20.000 de Pedro',
+        body: 'Te enviaron \$20.000 de Pedro',
         timestamp: baseTime.add(const Duration(seconds: 45)),
       );
 
@@ -175,14 +184,15 @@ void main() {
       expect(ingestionService.totalReceivedCount, equals(2));
     });
 
-    test('permite un evento con el mismo texto si ocurre pasados los 5 minutos', () {
+    test('permite un evento con el mismo texto si ocurre pasados los 5 minutos',
+        () {
       final baseTime = DateTime(2026, 11, 13, 15, 0, 0);
 
       final event1 = NotificationEvent(
         id: 'evt_first',
         packageName: 'co.daviplata',
         title: 'Daviplata',
-        body: 'Pasaste $10.000 a Juan',
+        body: 'Pasaste \$10.000 a Juan',
         timestamp: baseTime,
       );
 
@@ -190,7 +200,7 @@ void main() {
         id: 'evt_second',
         packageName: 'co.daviplata',
         title: 'Daviplata',
-        body: 'Pasaste $10.000 a Juan',
+        body: 'Pasaste \$10.000 a Juan',
         timestamp: baseTime.add(const Duration(minutes: 6)),
       );
 
@@ -206,14 +216,16 @@ void main() {
       expect(ingestionService.discardedDuplicatesCount, equals(0));
     });
 
-    test('eventos con distinto body o distinto package no se deduplican entre sí', () {
+    test(
+        'eventos con distinto body o distinto package no se deduplican entre sí',
+        () {
       final now = DateTime(2026, 11, 13, 15, 0, 0);
 
       final ev1 = NotificationEvent(
         id: '1',
         packageName: 'com.bancolombia.personas',
         title: 'Bancolombia',
-        body: 'Compra por $50.000 en Tienda A',
+        body: 'Compra por \$50.000 en Tienda A',
         timestamp: now,
       );
 
@@ -221,7 +233,7 @@ void main() {
         id: '2',
         packageName: 'com.bancolombia.personas',
         title: 'Bancolombia',
-        body: 'Compra por $50.000 en Tienda B',
+        body: 'Compra por \$50.000 en Tienda B',
         timestamp: now,
       );
 
@@ -229,7 +241,7 @@ void main() {
         id: '3',
         packageName: 'com.nequi.MobileApp',
         title: 'Bancolombia',
-        body: 'Compra por $50.000 en Tienda A',
+        body: 'Compra por \$50.000 en Tienda A',
         timestamp: now,
       );
 
@@ -245,14 +257,14 @@ void main() {
         id: 'A',
         packageName: 'com.nu.production',
         title: 'Nu',
-        body: 'Compra de $12.000',
+        body: 'Compra de \$12.000',
         timestamp: time,
       );
       final evB = NotificationEvent(
         id: 'B',
         packageName: 'com.nu.production',
         title: 'Nu',
-        body: 'Compra de $12.000',
+        body: 'Compra de \$12.000',
         timestamp: time,
       );
 
@@ -285,7 +297,8 @@ void main() {
     test('estado inicial del simulador y control de escucha', () async {
       var status = await simulatedSource.checkStatus();
       expect(status.isListening, isFalse);
-      expect(status.permissionStatus, equals(NotificationPermissionStatus.granted));
+      expect(status.permissionStatus,
+          equals(NotificationPermissionStatus.granted));
 
       final started = await simulatedSource.startListening();
       expect(started, isTrue);
@@ -303,7 +316,7 @@ void main() {
         id: 'ev_1',
         packageName: 'com.moneo.simulated.bank',
         title: 'Sim',
-        body: 'Compra de $10.000',
+        body: 'Compra de \$10.000',
         timestamp: DateTime.now(),
       );
 
@@ -311,7 +324,8 @@ void main() {
       expect(emitted, isFalse);
     });
 
-    test('flujo integrado: attachSource canaliza eventos al stream ingerido', () async {
+    test('flujo integrado: attachSource canaliza eventos al stream ingerido',
+        () async {
       await simulatedSource.startListening();
       ingestionService.attachSource(simulatedSource);
 
@@ -321,7 +335,7 @@ void main() {
       final ev1 = simulatedSource.emitRaw(
         packageName: 'com.bancolombia.personas',
         title: 'Alerta Bancolombia',
-        body: 'Compra por $25.000 en Farmacia',
+        body: 'Compra por \$25.000 en Farmacia',
       );
       expect(ev1, isNotNull);
 
@@ -329,7 +343,8 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
       expect(ingestedEvents.length, equals(1));
-      expect(ingestedEvents.first.packageName, equals('com.bancolombia.personas'));
+      expect(
+          ingestedEvents.first.packageName, equals('com.bancolombia.personas'));
       expect(ingestedEvents.first.body, contains('25.000'));
 
       // Detach y verificar que ya no recibe más eventos
@@ -338,7 +353,7 @@ void main() {
       simulatedSource.emitRaw(
         packageName: 'com.nequi.MobileApp',
         title: 'Nequi',
-        body: 'Enviaste $5.000',
+        body: 'Enviaste \$5.000',
       );
 
       await Future<void>.delayed(const Duration(milliseconds: 10));

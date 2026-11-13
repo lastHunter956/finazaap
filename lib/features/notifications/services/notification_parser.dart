@@ -199,7 +199,8 @@ class NotificationParser {
       currency = 'PEN';
     } else if (RegExp(r'\bGBP\b|£', caseSensitive: false).hasMatch(text)) {
       currency = 'GBP';
-    } else if (RegExp(r'\bCOP\b|\bCOL\$\b', caseSensitive: false).hasMatch(text)) {
+    } else if (RegExp(r'\bCOP\b|\bCOL\$\b', caseSensitive: false)
+        .hasMatch(text)) {
       currency = 'COP';
     }
 
@@ -247,7 +248,8 @@ class NotificationParser {
   }
 
   /// Analiza y convierte una cadena numérica a double considerando separadores de miles y decimales.
-  _AmountResult? _parseNumericToken(String token, {required String currencyContext}) {
+  _AmountResult? _parseNumericToken(String token,
+      {required String currencyContext}) {
     final hasDot = token.contains('.');
     final hasComma = token.contains(',');
 
@@ -261,14 +263,16 @@ class NotificationParser {
         final clean = token.replaceAll('.', '').replaceAll(',', '.');
         final value = double.tryParse(clean);
         return value != null
-            ? _AmountResult(amount: value, currency: currencyContext, isAmbiguous: false)
+            ? _AmountResult(
+                amount: value, currency: currencyContext, isAmbiguous: false)
             : null;
       } else {
         // Formato Americano: 1,250,000.50 (Coma miles, Punto decimales)
         final clean = token.replaceAll(',', '');
         final value = double.tryParse(clean);
         return value != null
-            ? _AmountResult(amount: value, currency: currencyContext, isAmbiguous: false)
+            ? _AmountResult(
+                amount: value, currency: currencyContext, isAmbiguous: false)
             : null;
       }
     }
@@ -282,7 +286,8 @@ class NotificationParser {
         final clean = token.replaceAll('.', '');
         final value = double.tryParse(clean);
         return value != null
-            ? _AmountResult(amount: value, currency: currencyContext, isAmbiguous: false)
+            ? _AmountResult(
+                amount: value, currency: currencyContext, isAmbiguous: false)
             : null;
       }
 
@@ -294,7 +299,8 @@ class NotificationParser {
       if (decimalPart.length == 1 || decimalPart.length == 2) {
         final value = double.tryParse(token);
         return value != null
-            ? _AmountResult(amount: value, currency: currencyContext, isAmbiguous: false)
+            ? _AmountResult(
+                amount: value, currency: currencyContext, isAmbiguous: false)
             : null;
       }
 
@@ -306,7 +312,8 @@ class NotificationParser {
           final clean = token.replaceAll('.', '');
           final value = double.tryParse(clean);
           return value != null
-              ? _AmountResult(amount: value, currency: currencyContext, isAmbiguous: false)
+              ? _AmountResult(
+                  amount: value, currency: currencyContext, isAmbiguous: false)
               : null;
         }
 
@@ -315,7 +322,8 @@ class NotificationParser {
         final clean = token.replaceAll('.', '');
         final value = double.tryParse(clean);
         return value != null
-            ? _AmountResult(amount: value, currency: currencyContext, isAmbiguous: true)
+            ? _AmountResult(
+                amount: value, currency: currencyContext, isAmbiguous: true)
             : null;
       }
     }
@@ -329,7 +337,8 @@ class NotificationParser {
         final clean = token.replaceAll(',', '');
         final value = double.tryParse(clean);
         return value != null
-            ? _AmountResult(amount: value, currency: currencyContext, isAmbiguous: false)
+            ? _AmountResult(
+                amount: value, currency: currencyContext, isAmbiguous: false)
             : null;
       }
 
@@ -342,7 +351,8 @@ class NotificationParser {
         final clean = token.replaceAll(',', '.');
         final value = double.tryParse(clean);
         return value != null
-            ? _AmountResult(amount: value, currency: currencyContext, isAmbiguous: false)
+            ? _AmountResult(
+                amount: value, currency: currencyContext, isAmbiguous: false)
             : null;
       }
 
@@ -365,7 +375,8 @@ class NotificationParser {
     // Caso 4: Sin separadores (ej. 45000)
     final value = double.tryParse(token);
     if (value != null) {
-      return _AmountResult(amount: value, currency: currencyContext, isAmbiguous: false);
+      return _AmountResult(
+          amount: value, currency: currencyContext, isAmbiguous: false);
     }
 
     return null;
@@ -434,47 +445,71 @@ class NotificationParser {
 
   /// Extrae el nombre del comercio o establecimiento posterior a conectores comunes.
   String? _extractMerchant(String text) {
-    final merchantPattern = RegExp(
-      r'(?:en|a|hacia|de|establecimiento|comercio)\s+([A-Za-z0-9ÁÉÍÓÚáéíóúñÑüÜ\.\-&'
-      r"'\s]{2,45})",
-      caseSensitive: false,
-    );
+    final candidatePatterns = [
+      RegExp(
+        r'\b(?:en|establecimiento|comercio)\s+([A-Za-z0-9ÁÉÍÓÚáéíóúñÑüÜ\.\-&'
+        r"'\s]{2,45})",
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'\b(?:de|a|hacia)\s+([A-Za-z0-9ÁÉÍÓÚáéíóúñÑüÜ\.\-&'
+        r"'\s]{2,45})",
+        caseSensitive: false,
+      ),
+    ];
 
-    final match = merchantPattern.firstMatch(text);
-    if (match == null) return null;
+    for (final pattern in candidatePatterns) {
+      for (final match in pattern.allMatches(text)) {
+        String candidate = match.group(1)?.trim() ?? '';
+        if (candidate.isEmpty) continue;
 
-    String candidate = match.group(1)?.trim() ?? '';
-    if (candidate.isEmpty) return null;
+        // Recortar conectores o palabras de parada que siguen al nombre del comercio
+        final stopWordsRegex = RegExp(
+          r'\s+(?:con|desde|por|para|fecha|hora|tarjeta|cta|cuenta|exitosa|exitoso|aprobada|aprobado|rechazada|valor|saldo|ref|codigo|cod|en\s+tu|en\s+su|en\s+la|en\s+el|en\s+cuenta|el\s+\d|la\s+\d)\b.*$',
+          caseSensitive: false,
+        );
+        candidate = candidate.replaceFirst(stopWordsRegex, '').trim();
 
-    // Recortar conectores o palabras de parada que siguen al nombre del comercio
-    final stopWordsRegex = RegExp(
-      r'\s+(?:con|desde|por|el|la|los|las|fecha|hora|tarjeta|cta|cuenta|exitosa|exitoso|aprobada|aprobado|rechazada|valor|saldo|ref|codigo|cod|tu|su|al)\b.*$',
-      caseSensitive: false,
-    );
-    candidate = candidate.replaceFirst(stopWordsRegex, '').trim();
+        // Si fue capturado tras de/a/hacia, recortar conectores de destino como " en "
+        if (candidate.toLowerCase().contains(' en ')) {
+          candidate = candidate
+              .split(RegExp(r'\s+en\s+', caseSensitive: false))
+              .first
+              .trim();
+        }
 
-    // Limpiar caracteres de puntuación al final
-    candidate = candidate.replaceAll(RegExp(r'[\.,;:\*#-]+$'), '').trim();
+        // Limpiar caracteres de puntuación al final
+        candidate = candidate.replaceAll(RegExp(r'[\.,;:\*#-]+$'), '').trim();
 
-    // Descartar si coincide con términos genéricos del sistema
-    final genericTerms = {
-      'tu cuenta',
-      'cuenta',
-      'tarjeta',
-      'ahorros',
-      'corriente',
-      'nequi',
-      'daviplata',
-      'banco',
-      'cajero',
-      'clave',
-      'linea',
-    };
-    if (genericTerms.contains(candidate.toLowerCase()) || candidate.length < 2) {
-      return null;
+        // Descartar si coincide con términos genéricos del sistema
+        final genericTerms = {
+          'tu',
+          'su',
+          'tu cuenta',
+          'su cuenta',
+          'cuenta',
+          'tarjeta',
+          'ahorros',
+          'corriente',
+          'nequi',
+          'daviplata',
+          'banco',
+          'cajero',
+          'clave',
+          'linea',
+          'tus cuentas',
+          'mis cuentas',
+        };
+        if (genericTerms.contains(candidate.toLowerCase()) ||
+            candidate.length < 2) {
+          continue;
+        }
+
+        return candidate;
+      }
     }
 
-    return candidate;
+    return null;
   }
 
   /// Extrae los últimos 4 dígitos y el indicio del tipo de cuenta o tarjeta.
@@ -533,7 +568,10 @@ class NotificationParser {
         if (year < 100) year += 2000;
         if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
           try {
-            return (DateTime(year, month, day, fallback.hour, fallback.minute), false);
+            return (
+              DateTime(year, month, day, fallback.hour, fallback.minute),
+              false
+            );
           } catch (_) {
             // Fecha inválida, continuar con fallback
           }

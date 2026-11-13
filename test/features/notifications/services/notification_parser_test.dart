@@ -26,7 +26,9 @@ void main() {
     ];
 
     for (final phishingText in phishingTestCases) {
-      test('bloquea incondicionalmente notificación sospechosa: "$phishingText"', () {
+      test(
+          'bloquea incondicionalmente notificación sospechosa: "$phishingText"',
+          () {
         final result = parser.parseRaw(
           title: 'Alerta Bancaria',
           body: phishingText,
@@ -79,7 +81,8 @@ void main() {
     });
 
     test('descarta clave dinámica no financiera', () {
-      const text = 'Usa la clave dinámica 482910 para autorizar tu operación en línea.';
+      const text =
+          'Usa la clave dinámica 482910 para autorizar tu operación en línea.';
 
       final result = parser.parseRaw(title: 'Alerta Dinámica', body: text);
 
@@ -89,7 +92,8 @@ void main() {
     });
 
     test('descarta notificación informativa sin monto ni movimiento', () {
-      const text = 'Conoce las nuevas funciones y promociones de tu app Bancolombia Personas.';
+      const text =
+          'Conoce las nuevas funciones y promociones de tu app Bancolombia Personas.';
 
       final result = parser.parseRaw(title: 'Novedades', body: text);
 
@@ -100,7 +104,8 @@ void main() {
     });
   });
 
-  group('NotificationParser — Extracción de Montos Multi-Moneda y Separadores', () {
+  group('NotificationParser — Extracción de Montos Multi-Moneda y Separadores',
+      () {
     late NotificationParser parser;
 
     setUp(() {
@@ -126,10 +131,12 @@ void main() {
       expect(tx.autoProcessable, isTrue);
     });
 
-    test('parsea millones en COP con punto y coma decimal (\$ 1.250.000,50)', () {
+    test('parsea millones en COP con punto y coma decimal (\$ 1.250.000,50)',
+        () {
       final result = parser.parseRaw(
         title: 'Alerta de Débito',
-        body: 'Pago por \$ 1.250.000,50 en Tienda Apple con tarjeta de crédito terminada en 3344',
+        body:
+            'Pago por \$ 1.250.000,50 en Tienda Apple con tarjeta de crédito terminada en 3344',
       );
 
       expect(result, isA<ParsedTransaction>());
@@ -142,7 +149,9 @@ void main() {
       expect(tx.autoProcessable, isTrue);
     });
 
-    test('parsea formato americano USD con coma miles y punto decimal (USD 1,234.56)', () {
+    test(
+        'parsea formato americano USD con coma miles y punto decimal (USD 1,234.56)',
+        () {
       final result = parser.parseRaw(
         title: 'Cargo Internacional',
         body: 'Compra por USD 1,234.56 en Amazon.com con tarjeta *9988',
@@ -170,7 +179,9 @@ void main() {
       expect(tx.moneda, equals('EUR'));
     });
 
-    test('identifica monto ambiguo (ej. \$1.234 sin contexto unívoco) y activa requires_review', () {
+    test(
+        'identifica monto ambiguo (ej. \$1.234 sin contexto unívoco) y activa requires_review',
+        () {
       final result = parser.parseRaw(
         title: 'Aviso',
         body: 'Compra aprobada por \$1.234 en Panadería San Juan',
@@ -194,10 +205,13 @@ void main() {
       parser = NotificationParser();
     });
 
-    test('extrae tipo ingreso correctamente para abonos y transferencias recibidas', () {
+    test(
+        'extrae tipo ingreso correctamente para abonos y transferencias recibidas',
+        () {
       final result = parser.parseRaw(
         title: 'Nequi',
-        body: '¡Te enviaron dinero! Recibiste \$80.000 de Pedro Gómez en tu cuenta de ahorros',
+        body:
+            '¡Te enviaron dinero! Recibiste \$80.000 de Pedro Gómez en tu cuenta de ahorros',
       );
 
       expect(result, isA<ParsedTransaction>());
@@ -213,7 +227,8 @@ void main() {
     test('extrae tipo transferencia entre cuentas propias', () {
       final result = parser.parseRaw(
         title: 'Bancolombia',
-        body: 'Transferencia entre cuentas propias por \$300.000 desde cta *1020',
+        body:
+            'Transferencia entre cuentas propias por \$300.000 desde cta *1020',
       );
 
       expect(result, isA<ParsedTransaction>());
@@ -223,7 +238,9 @@ void main() {
       expect(tx.cuenta?.last4, equals('1020'));
     });
 
-    test('maneja ausencia de comercio reduciendo confianza sin romper el parsing', () {
+    test(
+        'maneja ausencia de comercio reduciendo confianza sin romper el parsing',
+        () {
       final result = parser.parseRaw(
         title: 'Débito Automático',
         body: 'Pago aprobado por \$50.000 desde tu cta *7766',
@@ -265,7 +282,9 @@ void main() {
       parser = NotificationParser();
     });
 
-    test('invariante: si confidence < 0.80, forzosamente requires_review=true y auto_processable=false', () {
+    test(
+        'invariante: si confidence < 0.80, forzosamente requires_review=true y auto_processable=false',
+        () {
       // Notificación sin comercio y sin tipo claro pero con monto
       final result = parser.parseRaw(
         title: 'Aviso',
@@ -279,7 +298,9 @@ void main() {
       expect(tx.autoProcessable, isFalse);
     });
 
-    test('invariante JSON: todas las salidas cumplen con los 9 campos obligatorios', () {
+    test(
+        'invariante JSON: todas las salidas cumplen con los 9 campos obligatorios',
+        () {
       final inputs = [
         ('Bancolombia', 'Compra aprobada por \$45.000 en Éxito con *1234'),
         ('Alerta', 'Transacción de \$10.000. Ver más en bit.ly/promo'),

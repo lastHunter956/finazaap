@@ -71,7 +71,14 @@ class DefaultGemmaInferenceClient implements GemmaInferenceClient {
         maxOutputTokens: 128,
       );
       await chat.addQueryChunk(Message.text(text: prompt, isUser: true));
-      return await chat.generateChatResponse();
+      final response = await chat.generateChatResponse();
+      if (response is TextResponse) {
+        return response.token;
+      } else if (response is ThinkingResponse) {
+        return response.content;
+      } else {
+        return response.toString();
+      }
     } catch (_) {
       return null;
     }

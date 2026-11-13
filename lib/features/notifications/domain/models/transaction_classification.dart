@@ -1,6 +1,6 @@
 class TransactionClassification {
   final String
-  classification; // 'gasto', 'ingreso', 'transferencia-propia', 'sospechosa'
+      classification; // 'gasto', 'ingreso', 'transferencia-propia', 'sospechosa'
   final String? moneoType; // 'Expenses', 'Income', 'Transfer', null
   final String? category;
   final String? accountName;
@@ -9,7 +9,7 @@ class TransactionClassification {
   final bool requiresReview;
   final bool createTransaction;
   final String
-  decisionSource; // 'anti_fraud', 'learned_patterns', 'deterministic_rules', 'gemma_fallback', 'fallback_ambiguous'
+      decisionSource; // 'anti_fraud', 'learned_patterns', 'deterministic_rules', 'gemma_fallback', 'fallback_ambiguous'
 
   const TransactionClassification({
     required this.classification,
@@ -67,33 +67,35 @@ class TransactionClassification {
   }
 
   Map<String, dynamic> toJson() => {
-    'classification': classification,
-    'moneo_type': moneoType,
-    'category': category,
-    'account_name': accountName,
-    'destination_account': destinationAccount,
-    'confidence': confidence,
-    'requires_review': requiresReview,
-    'create_transaction': createTransaction,
-    'decision_source': decisionSource,
-  };
+        'classification': classification,
+        'moneo_type': moneoType,
+        'category': category,
+        'account_name': accountName,
+        'destination_account': destinationAccount,
+        'confidence': confidence,
+        'requires_review': requiresReview,
+        'create_transaction': createTransaction,
+        'decision_source': decisionSource,
+      };
 
   factory TransactionClassification.fromJson(
     Map<String, dynamic> json,
-  ) => TransactionClassification(
-    classification: json['classification'] as String,
-    moneoType: (json['moneo_type'] ?? json['moneoType']) as String?,
-    category: json['category'] as String?,
-    accountName: (json['account_name'] ?? json['accountName']) as String?,
-    destinationAccount:
-        (json['destination_account'] ?? json['destinationAccount']) as String?,
-    confidence: (json['confidence'] as num).toDouble(),
-    requiresReview: (json['requires_review'] ?? json['requiresReview']) as bool,
-    createTransaction:
-        (json['create_transaction'] ?? json['createTransaction']) as bool,
-    decisionSource:
-        (json['decision_source'] ?? json['decisionSource']) as String,
-  );
+  ) =>
+      TransactionClassification(
+        classification: json['classification'] as String,
+        moneoType: (json['moneo_type'] ?? json['moneoType']) as String?,
+        category: json['category'] as String?,
+        accountName: (json['account_name'] ?? json['accountName']) as String?,
+        destinationAccount: (json['destination_account'] ??
+            json['destinationAccount']) as String?,
+        confidence: (json['confidence'] as num).toDouble(),
+        requiresReview:
+            (json['requires_review'] ?? json['requiresReview']) as bool,
+        createTransaction:
+            (json['create_transaction'] ?? json['createTransaction']) as bool,
+        decisionSource:
+            (json['decision_source'] ?? json['decisionSource']) as String,
+      );
 
   @override
   bool operator ==(Object other) =>

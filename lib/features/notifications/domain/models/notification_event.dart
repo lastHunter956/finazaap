@@ -34,12 +34,12 @@ class NotificationEvent {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'package_name': packageName,
-    'title': title,
-    'body': body,
-    'timestamp': timestamp.toIso8601String(),
-  };
+        'id': id,
+        'package_name': packageName,
+        'title': title,
+        'body': body,
+        'timestamp': timestamp.toIso8601String(),
+      };
 
   factory NotificationEvent.fromJson(Map<String, dynamic> json) =>
       NotificationEvent(

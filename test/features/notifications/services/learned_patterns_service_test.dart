@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:finazaap/features/notifications/domain/models/learned_pattern.dart';
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
 
 void main() {
@@ -16,7 +15,8 @@ void main() {
   });
 
   setUp(() async {
-    testBox = await Hive.openBox<dynamic>('test_learned_patterns_${DateTime.now().microsecondsSinceEpoch}');
+    testBox = await Hive.openBox<dynamic>(
+        'test_learned_patterns_${DateTime.now().microsecondsSinceEpoch}');
     service = LearnedPatternsService(box: testBox);
   });
 
@@ -47,14 +47,17 @@ void main() {
       expect(LearnedPatternsService.normalizeMerchant('3B'), equals('3b'));
     });
 
-    test('Elimina sufijos de sucursal y puntuación en "Farmacia Cruz Verde Suc. 5"', () {
+    test(
+        'Elimina sufijos de sucursal y puntuación en "Farmacia Cruz Verde Suc. 5"',
+        () {
       expect(
         LearnedPatternsService.normalizeMerchant('Farmacia Cruz Verde Suc. 5'),
         equals('farmacia cruz verde'),
       );
     });
 
-    test('Elimina símbolos especiales y números finales en "Uber *Trip 12"', () {
+    test('Elimina símbolos especiales y números finales en "Uber *Trip 12"',
+        () {
       expect(
         LearnedPatternsService.normalizeMerchant('Uber *Trip 12'),
         equals('uber trip'),
@@ -74,8 +77,10 @@ void main() {
     });
   });
 
-  group('LearnedPatternsService - Registro de confirmaciones y correcciones', () {
-    test('recordConfirmation crea un nuevo patrón con confirmations = 1', () async {
+  group('LearnedPatternsService - Registro de confirmaciones y correcciones',
+      () {
+    test('recordConfirmation crea un nuevo patrón con confirmations = 1',
+        () async {
       final pattern = await service.recordConfirmation(
         merchant: 'Éxito Laureles 034',
         category: 'Alimentación',
@@ -96,7 +101,8 @@ void main() {
       expect(stored.confirmations, equals(1));
     });
 
-    test('Segunda confirmación incrementa confirmations y actualiza lastUsedAt', () async {
+    test('Segunda confirmación incrementa confirmations y actualiza lastUsedAt',
+        () async {
       final t1 = DateTime(2026, 11, 10, 10, 0);
       final t2 = DateTime(2026, 11, 12, 15, 30);
 
@@ -119,13 +125,17 @@ void main() {
       expect(retrieved?.confirmations, equals(2));
     });
 
-    test('recordCorrection reinicia confirmations a 1 y registra lastCorrectedAt', () async {
+    test(
+        'recordCorrection reinicia confirmations a 1 y registra lastCorrectedAt',
+        () async {
       final t1 = DateTime(2026, 11, 1, 9, 0);
       final tCorrect = DateTime(2026, 11, 13, 16, 0);
 
       // Confirmar dos veces una categoría equivocada
-      await service.recordConfirmation(merchant: 'Uber', category: 'Otros', at: t1);
-      await service.recordConfirmation(merchant: 'Uber', category: 'Otros', at: t1);
+      await service.recordConfirmation(
+          merchant: 'Uber', category: 'Otros', at: t1);
+      await service.recordConfirmation(
+          merchant: 'Uber', category: 'Otros', at: t1);
 
       // El usuario corrige a 'Transporte'
       final corrected = await service.recordCorrection(
@@ -146,7 +156,8 @@ void main() {
       expect(retrieved?.lastCorrectedAt, equals(tCorrect));
     });
 
-    test('findPattern resuelve usando variaciones de mayúsculas y acentos', () async {
+    test('findPattern resuelve usando variaciones de mayúsculas y acentos',
+        () async {
       await service.recordConfirmation(
         merchant: 'cafetería juan valdez',
         category: 'Alimentación',
@@ -157,8 +168,10 @@ void main() {
       expect(found!.category, equals('Alimentación'));
     });
 
-    test('findPattern retorna null cuando el comercio no ha sido registrado', () async {
-      final result = await service.findPattern('Comercio Totalmente Desconocido');
+    test('findPattern retorna null cuando el comercio no ha sido registrado',
+        () async {
+      final result =
+          await service.findPattern('Comercio Totalmente Desconocido');
       expect(result, isNull);
     });
 
@@ -176,7 +189,9 @@ void main() {
       expect((await service.getAllPatterns()).length, equals(0));
     });
 
-    test('Persistencia usa Map/JSON en Hive sin generar dependencias de *.g.dart', () async {
+    test(
+        'Persistencia usa Map/JSON en Hive sin generar dependencias de *.g.dart',
+        () async {
       await service.recordConfirmation(
         merchant: 'Spotify',
         category: 'Entretenimiento',

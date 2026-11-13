@@ -63,7 +63,8 @@ class TransactionClassifier {
         parseResult.flags.contains('anti_fraud_link_detected');
 
     final bool hasTextFraudSignals = hasFraudSignals(text) ||
-        (parseResult is ParsedTransaction && hasFraudSignals(parseResult.comercio));
+        (parseResult is ParsedTransaction &&
+            hasFraudSignals(parseResult.comercio));
 
     if (isMarkedSuspicious || hasTextFraudSignals) {
       return const TransactionClassification(
@@ -98,11 +99,13 @@ class TransactionClassifier {
 
         // Solo emitir transferencia-propia si la cuenta destino no es nula
         if (!isTransfer || destAccount != null) {
-          final confidence = _confidenceFromConfirmations(pattern.confirmations);
+          final confidence =
+              _confidenceFromConfirmations(pattern.confirmations);
           return TransactionClassification(
             classification: pattern.classification,
             moneoType: pattern.moneoType ??
-                TransactionClassification.resolveMoneoType(pattern.classification),
+                TransactionClassification.resolveMoneoType(
+                    pattern.classification),
             category: pattern.category,
             accountName: resolvedAccount,
             destinationAccount: destAccount,
@@ -154,9 +157,8 @@ class TransactionClassifier {
           moneoType: TransactionClassification.resolveMoneoType(
             gemmaResult.classification,
           ),
-          category: gemmaResult.category ??
-              deterministicResult?.category ??
-              'Otros',
+          category:
+              gemmaResult.category ?? deterministicResult?.category ?? 'Otros',
           accountName: deterministicResult?.accountName ??
               _detectAccountName(parseResult, text, accounts),
           destinationAccount: destAccount,
@@ -190,9 +192,8 @@ class TransactionClassifier {
       moneoType: actualMoneo,
       category: deterministicResult?.category ?? 'Otros',
       accountName: fallbackAccount,
-      destinationAccount: actualClassification == 'transferencia-propia'
-          ? fallbackDest
-          : null,
+      destinationAccount:
+          actualClassification == 'transferencia-propia' ? fallbackDest : null,
       confidence: (deterministicResult != null &&
               deterministicResult.confidence < 0.80 &&
               deterministicResult.confidence > 0.0)
@@ -315,7 +316,8 @@ class TransactionClassifier {
     ).hasMatch(lowerText);
 
     // Buscar si 2 cuentas del usuario coinciden en el texto / indicios
-    final matchedAccounts = _findMatchingUserAccounts(lowerText, parseResult, accounts);
+    final matchedAccounts =
+        _findMatchingUserAccounts(lowerText, parseResult, accounts);
 
     if (matchedAccounts.length >= 2) {
       final source = matchedAccounts[0].title;
@@ -354,7 +356,9 @@ class TransactionClassifier {
     }
 
     // Si es transferencia pero hacia terceros, es un gasto
-    if (isTransferType && !hasExplicitOwnKeywords && matchedAccounts.length < 2) {
+    if (isTransferType &&
+        !hasExplicitOwnKeywords &&
+        matchedAccounts.length < 2) {
       final accountName = _detectAccountName(parseResult, lowerText, accounts);
       return TransactionClassification(
         classification: 'gasto',
@@ -376,7 +380,8 @@ class TransactionClassifier {
   // Asignación de categorías deterministas
   // ---------------------------------------------------------------------------
   String _resolveIncomeCategory(String text) {
-    if (RegExp(r'\b(nomina|nómina|salario|sueldo|honorarios)\b').hasMatch(text)) {
+    if (RegExp(r'\b(nomina|nómina|salario|sueldo|honorarios)\b')
+        .hasMatch(text)) {
       return 'Salario';
     }
     if (RegExp(r'\b(rendimientos|intereses|dividendos)\b').hasMatch(text)) {
@@ -389,27 +394,33 @@ class TransactionClassifier {
   }
 
   String _resolveExpenseCategory(String text) {
-    if (RegExp(r'\b(exito|éxito|jumbo|d1|ara|olimpica|olímpica|carulla|restaurante|mcdonalds|rappi|uber eats|comida|panaderia|panadería|cafeteria|cafetería|starbucks|supermercado|mercado)\b')
+    if (RegExp(
+            r'\b(exito|éxito|jumbo|d1|ara|olimpica|olímpica|carulla|restaurante|mcdonalds|rappi|uber eats|comida|panaderia|panadería|cafeteria|cafetería|starbucks|supermercado|mercado)\b')
         .hasMatch(text)) {
       return 'Alimentación';
     }
-    if (RegExp(r'\b(uber|didi|cabify|gasolina|gasolinera|terpel|primax|peaje|metro|transmilenio|taxi|indriver)\b')
+    if (RegExp(
+            r'\b(uber|didi|cabify|gasolina|gasolinera|terpel|primax|peaje|metro|transmilenio|taxi|indriver)\b')
         .hasMatch(text)) {
       return 'Transporte';
     }
-    if (RegExp(r'\b(claro|tigo|movistar|epm|enel|acueducto|energia|energía|gas natural|vanti|luz|agua|directv|etb)\b')
+    if (RegExp(
+            r'\b(claro|tigo|movistar|epm|enel|acueducto|energia|energía|gas natural|vanti|luz|agua|directv|etb)\b')
         .hasMatch(text)) {
       return 'Servicios';
     }
-    if (RegExp(r'\b(netflix|spotify|hbo|disney|prime video|youtube|cinema|cine|playstation|steam|cinecolombia)\b')
+    if (RegExp(
+            r'\b(netflix|spotify|hbo|disney|prime video|youtube|cinema|cine|playstation|steam|cinecolombia)\b')
         .hasMatch(text)) {
       return 'Entretenimiento';
     }
-    if (RegExp(r'\b(farmacia|drogueria|droguería|cruz verde|pasteur|salud|medico|médico|clinica|clínica|hospital|optica|óptica)\b')
+    if (RegExp(
+            r'\b(farmacia|drogueria|droguería|cruz verde|pasteur|salud|medico|médico|clinica|clínica|hospital|optica|óptica)\b')
         .hasMatch(text)) {
       return 'Salud';
     }
-    if (RegExp(r'\b(universidad|colegio|curso|udemy|platzi|libreria|librería)\b')
+    if (RegExp(
+            r'\b(universidad|colegio|curso|udemy|platzi|libreria|librería)\b')
         .hasMatch(text)) {
       return 'Educación';
     }
@@ -468,9 +479,7 @@ class TransactionClassifier {
             return acc.title;
           }
         }
-        return hint.last4 != null
-            ? '${hint.hint} *${hint.last4}'
-            : hint.hint;
+        return hint.last4 != null ? '${hint.hint} *${hint.last4}' : hint.hint;
       }
       if (hint.last4 != null) {
         return 'Cuenta *${hint.last4}';

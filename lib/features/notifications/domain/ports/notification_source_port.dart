@@ -26,10 +26,10 @@ class NotificationSourceStatus {
   }
 
   Map<String, dynamic> toJson() => {
-    'is_listening': isListening,
-    'permission_status': permissionStatus.name,
-    'message': message,
-  };
+        'is_listening': isListening,
+        'permission_status': permissionStatus.name,
+        'message': message,
+      };
 
   factory NotificationSourceStatus.fromJson(Map<String, dynamic> json) =>
       NotificationSourceStatus(

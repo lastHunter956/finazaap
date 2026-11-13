@@ -54,13 +54,15 @@ class LearnedPatternsService {
 
     // 3. Eliminar sufijos o prefijos explícitos de sucursal / tienda / sede seguidos de número
     text = text.replaceAll(
-      RegExp(r'\b(sucursal|suc|tienda|store|sede|no)\s*\d+\b', caseSensitive: false),
+      RegExp(r'\b(sucursal|suc|tienda|store|sede|no)\s*\d+\b',
+          caseSensitive: false),
       ' ',
     );
 
     // 4. Eliminar números aislados al final del texto (ej. 'Éxito Laureles 034' -> 'exito laureles')
     // preservando tokens alfanuméricos integrados como 'd1' o '3b'
-    final withoutTrailingNumbers = text.replaceAll(RegExp(r'(?:\s+\d+)+$'), '').trim();
+    final withoutTrailingNumbers =
+        text.replaceAll(RegExp(r'(?:\s+\d+)+$'), '').trim();
     if (withoutTrailingNumbers.isNotEmpty) {
       text = withoutTrailingNumbers;
     }
@@ -149,7 +151,8 @@ class LearnedPatternsService {
     final box = await _getBox();
     final existing = await findPattern(merchant);
     final now = at ?? DateTime.now();
-    final classification = newClassification ?? existing?.classification ?? 'gasto';
+    final classification =
+        newClassification ?? existing?.classification ?? 'gasto';
     final resolvedMoneo = newMoneoType ??
         TransactionClassification.resolveMoneoType(classification) ??
         'Expenses';

@@ -34,25 +34,28 @@ class TransactionExecutionRequest {
   }
 
   Map<String, dynamic> toJson() => {
-    'type': type,
-    'amount': amount,
-    'account_name': accountName,
-    'destination_account': destinationAccount,
-    'detail': detail,
-    'date': date?.toIso8601String(),
-  };
+        'type': type,
+        'amount': amount,
+        'account_name': accountName,
+        'destination_account': destinationAccount,
+        'detail': detail,
+        'date': date?.toIso8601String(),
+      };
 
   factory TransactionExecutionRequest.fromJson(
     Map<String, dynamic> json,
-  ) => TransactionExecutionRequest(
-    type: json['type'] as String,
-    amount: (json['amount'] as num).toDouble(),
-    accountName: (json['account_name'] ?? json['accountName']) as String,
-    destinationAccount:
-        (json['destination_account'] ?? json['destinationAccount']) as String?,
-    detail: json['detail'] as String?,
-    date: json['date'] != null ? DateTime.parse(json['date'] as String) : null,
-  );
+  ) =>
+      TransactionExecutionRequest(
+        type: json['type'] as String,
+        amount: (json['amount'] as num).toDouble(),
+        accountName: (json['account_name'] ?? json['accountName']) as String,
+        destinationAccount: (json['destination_account'] ??
+            json['destinationAccount']) as String?,
+        detail: json['detail'] as String?,
+        date: json['date'] != null
+            ? DateTime.parse(json['date'] as String)
+            : null,
+      );
 
   @override
   bool operator ==(Object other) =>
@@ -92,24 +95,27 @@ class TransactionExecutionResult {
   });
 
   const TransactionExecutionResult.success({String? transactionId})
-    : this(success: true, transactionId: transactionId);
+      : this(success: true, transactionId: transactionId);
 
   const TransactionExecutionResult.failure({required String errorMessage})
-    : this(success: false, errorMessage: errorMessage);
+      : this(success: false, errorMessage: errorMessage);
 
   Map<String, dynamic> toJson() => {
-    'success': success,
-    'transaction_id': transactionId,
-    'error_message': errorMessage,
-  };
+        'success': success,
+        'transaction_id': transactionId,
+        'error_message': errorMessage,
+      };
 
   factory TransactionExecutionResult.fromJson(
     Map<String, dynamic> json,
-  ) => TransactionExecutionResult(
-    success: json['success'] as bool,
-    transactionId: (json['transaction_id'] ?? json['transactionId']) as String?,
-    errorMessage: (json['error_message'] ?? json['errorMessage']) as String?,
-  );
+  ) =>
+      TransactionExecutionResult(
+        success: json['success'] as bool,
+        transactionId:
+            (json['transaction_id'] ?? json['transactionId']) as String?,
+        errorMessage:
+            (json['error_message'] ?? json['errorMessage']) as String?,
+      );
 
   @override
   bool operator ==(Object other) =>

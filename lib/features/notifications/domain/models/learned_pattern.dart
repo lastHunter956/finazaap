@@ -74,42 +74,43 @@ class LearnedPattern {
   }
 
   Map<String, dynamic> toJson() => {
-    'merchant_key': merchantKey,
-    'category': category,
-    'account_name': accountName,
-    'classification': classification,
-    'moneo_type': moneoType,
-    'confirmations': confirmations,
-    'created_at': createdAt.toIso8601String(),
-    'last_used_at': lastUsedAt.toIso8601String(),
-    'last_corrected_at': lastCorrectedAt?.toIso8601String(),
-  };
+        'merchant_key': merchantKey,
+        'category': category,
+        'account_name': accountName,
+        'classification': classification,
+        'moneo_type': moneoType,
+        'confirmations': confirmations,
+        'created_at': createdAt.toIso8601String(),
+        'last_used_at': lastUsedAt.toIso8601String(),
+        'last_corrected_at': lastCorrectedAt?.toIso8601String(),
+      };
 
   factory LearnedPattern.fromJson(Map<String, dynamic> json) => LearnedPattern(
-    merchantKey: (json['merchant_key'] ?? json['merchantKey']) as String,
-    category: json['category'] as String,
-    accountName: (json['account_name'] ?? json['accountName']) as String?,
-    classification: (json['classification'] as String?) ?? 'gasto',
-    moneoType:
-        (json['moneo_type'] ?? json['moneoType']) as String? ?? 'Expenses',
-    confirmations: (json['confirmations'] as num?)?.toInt() ?? 1,
-    createdAt: json['created_at'] != null
-        ? DateTime.parse(json['created_at'] as String)
-        : (json['createdAt'] != null
-              ? DateTime.parse(json['createdAt'] as String)
-              : DateTime.now()),
-    lastUsedAt: json['last_used_at'] != null
-        ? DateTime.parse(json['last_used_at'] as String)
-        : (json['lastUsedAt'] != null
-              ? DateTime.parse(json['lastUsedAt'] as String)
-              : DateTime.now()),
-    lastCorrectedAt:
-        (json['last_corrected_at'] ?? json['lastCorrectedAt']) != null
-        ? DateTime.parse(
-            (json['last_corrected_at'] ?? json['lastCorrectedAt']) as String,
-          )
-        : null,
-  );
+        merchantKey: (json['merchant_key'] ?? json['merchantKey']) as String,
+        category: json['category'] as String,
+        accountName: (json['account_name'] ?? json['accountName']) as String?,
+        classification: (json['classification'] as String?) ?? 'gasto',
+        moneoType:
+            (json['moneo_type'] ?? json['moneoType']) as String? ?? 'Expenses',
+        confirmations: (json['confirmations'] as num?)?.toInt() ?? 1,
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'] as String)
+            : (json['createdAt'] != null
+                ? DateTime.parse(json['createdAt'] as String)
+                : DateTime.now()),
+        lastUsedAt: json['last_used_at'] != null
+            ? DateTime.parse(json['last_used_at'] as String)
+            : (json['lastUsedAt'] != null
+                ? DateTime.parse(json['lastUsedAt'] as String)
+                : DateTime.now()),
+        lastCorrectedAt:
+            (json['last_corrected_at'] ?? json['lastCorrectedAt']) != null
+                ? DateTime.parse(
+                    (json['last_corrected_at'] ?? json['lastCorrectedAt'])
+                        as String,
+                  )
+                : null,
+      );
 
   @override
   bool operator ==(Object other) =>

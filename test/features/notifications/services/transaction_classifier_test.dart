@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:finazaap/data/models/account_item.dart';
 import 'package:finazaap/features/notifications/domain/models/notification_parse_result.dart';
-import 'package:finazaap/features/notifications/domain/models/transaction_classification.dart';
 import 'package:finazaap/features/notifications/services/gemma_classifier_adapter.dart';
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
 import 'package:finazaap/features/notifications/services/transaction_classifier.dart';
@@ -53,7 +52,8 @@ void main() {
   });
 
   setUp(() async {
-    patternsBox = await Hive.openBox<dynamic>('patterns_${DateTime.now().microsecondsSinceEpoch}');
+    patternsBox = await Hive.openBox<dynamic>(
+        'patterns_${DateTime.now().microsecondsSinceEpoch}');
     patternsService = LearnedPatternsService(box: patternsBox);
     mockGemmaClient = MockGemmaClient();
     gemmaAdapter = GemmaClassifierAdapter(
@@ -103,15 +103,10 @@ void main() {
 
   group('Etapa 0: Anti-Fraude (Bloqueo Absoluto)', () {
     test('Bloquea notificación marcada como SuspiciousNotification', () async {
-      const suspicious = SuspiciousNotification(
-        rawText: 'Ingresa a https://bit.ly/actualiza-banco para evitar bloqueo',
-        reason: 'Enlace detectado',
-        fecha: null, // usa default en constructor o fecha fija
-      );
-
       final result = await classifier.classify(
         parseResult: SuspiciousNotification(
-          rawText: 'Ingresa a https://bit.ly/actualiza-banco para evitar bloqueo',
+          rawText:
+              'Ingresa a https://bit.ly/actualiza-banco para evitar bloqueo',
           reason: 'Enlace sospechoso',
           fecha: DateTime.now(),
         ),
@@ -123,10 +118,12 @@ void main() {
       expect(result.requiresReview, isTrue);
       expect(result.decisionSource, equals('anti_fraud'));
       expect(result.confidence, equals(0.0));
-      expect(mockGemmaClient.callCount, equals(0), reason: 'Gemma no debe ser invocado');
+      expect(mockGemmaClient.callCount, equals(0),
+          reason: 'Gemma no debe ser invocado');
     });
 
-    test('Bloquea textos con palabras de urgencia / ingeniería social', () async {
+    test('Bloquea textos con palabras de urgencia / ingeniería social',
+        () async {
       final urgencyPhrases = [
         'URGENTE: cuenta bloqueada, ingresa aquí para desbloquear',
         'Alerta: suspensión inmediata de tus servicios financieros',
@@ -153,7 +150,8 @@ void main() {
           rawText: text,
         );
 
-        expect(result.classification, equals('sospechosa'), reason: 'Falló para frase: "$text"');
+        expect(result.classification, equals('sospechosa'),
+            reason: 'Falló para frase: "$text"');
         expect(result.moneoType, isNull);
         expect(result.createTransaction, isFalse);
         expect(result.requiresReview, isTrue);
@@ -181,8 +179,10 @@ void main() {
           autoProcessable: true,
         );
 
-        final result = await classifier.classify(parseResult: parsed, rawText: text);
-        expect(result.classification, equals('sospechosa'), reason: 'Debió bloquear URL en: "$text"');
+        final result =
+            await classifier.classify(parseResult: parsed, rawText: text);
+        expect(result.classification, equals('sospechosa'),
+            reason: 'Debió bloquear URL en: "$text"');
         expect(result.createTransaction, isFalse);
         expect(result.decisionSource, equals('anti_fraud'));
       }
@@ -190,7 +190,9 @@ void main() {
   });
 
   group('Etapa 1: Aprendizaje Local ("learned_patterns")', () {
-    test('Clasifica exitosamente basándose en un patrón aprendido sin llamar a Gemma', () async {
+    test(
+        'Clasifica exitosamente basándose en un patrón aprendido sin llamar a Gemma',
+        () async {
       // Registrar un patrón previo confirmado
       await patternsService.recordConfirmation(
         merchant: 'Éxito Laureles 034',
@@ -219,7 +221,8 @@ void main() {
       expect(result.confidence, greaterThanOrEqualTo(0.85));
       expect(result.requiresReview, isFalse);
       expect(result.createTransaction, isTrue);
-      expect(mockGemmaClient.callCount, equals(0), reason: 'Gemma NO debe invocarse si hay learned_pattern');
+      expect(mockGemmaClient.callCount, equals(0),
+          reason: 'Gemma NO debe invocarse si hay learned_pattern');
     });
 
     test('Usa la corrección más reciente guardada por el usuario', () async {
@@ -256,7 +259,8 @@ void main() {
   });
 
   group('Etapa 2: Reglas Deterministas (Sin LLM)', () {
-    test('Clasifica gasto en supermercado con categoría "Alimentación"', () async {
+    test('Clasifica gasto en supermercado con categoría "Alimentación"',
+        () async {
       final parsed = ParsedTransaction(
         tipo: 'gasto',
         monto: 45000,
@@ -284,7 +288,8 @@ void main() {
       expect(mockGemmaClient.callCount, equals(0));
     });
 
-    test('Clasifica gasto en servicios públicos con categoría "Servicios"', () async {
+    test('Clasifica gasto en servicios públicos con categoría "Servicios"',
+        () async {
       final parsed = ParsedTransaction(
         tipo: 'gasto',
         monto: 85000,
@@ -322,7 +327,8 @@ void main() {
 
       final result = await classifier.classify(
         parseResult: parsed,
-        rawText: 'Abono de nómina EMPRESA SAS por \$2.500.000 en tu cuenta Ahorros *4821',
+        rawText:
+            'Abono de nómina EMPRESA SAS por \$2.500.000 en tu cuenta Ahorros *4821',
       );
 
       expect(result.classification, equals('ingreso'));
@@ -348,7 +354,8 @@ void main() {
 
       final result = await classifier.classify(
         parseResult: parsed,
-        rawText: 'Transferencia de \$200.000 desde Bancolombia Ahorros *4821 hacia tu cuenta Nequi *1234',
+        rawText:
+            'Transferencia de \$200.000 desde Bancolombia Ahorros *4821 hacia tu cuenta Nequi *1234',
       );
 
       expect(result.classification, equals('transferencia-propia'));
@@ -363,7 +370,9 @@ void main() {
       expect(mockGemmaClient.callCount, equals(0));
     });
 
-    test('Transferencia a un tercero es clasificada como gasto, no transferencia propia', () async {
+    test(
+        'Transferencia a un tercero es clasificada como gasto, no transferencia propia',
+        () async {
       final parsed = ParsedTransaction(
         tipo: 'transferencia',
         monto: 50000,
@@ -388,7 +397,9 @@ void main() {
   });
 
   group('Etapa 3: Respaldo On-Device con Gemma (flutter_gemma)', () {
-    test('Invoca a Gemma cuando las reglas deterministas dejan ambigüedad (confidence < 0.80)', () async {
+    test(
+        'Invoca a Gemma cuando las reglas deterministas dejan ambigüedad (confidence < 0.80)',
+        () async {
       mockGemmaClient.responseToReturn =
           '{"classification": "gasto", "category": "Mascotas", "confidence": 0.88}';
 
@@ -407,7 +418,8 @@ void main() {
         rawText: 'Operacion especial en Veterinaria El Can por \$45.000',
       );
 
-      expect(mockGemmaClient.callCount, equals(1), reason: 'Gemma debía ser invocado');
+      expect(mockGemmaClient.callCount, equals(1),
+          reason: 'Gemma debía ser invocado');
       expect(result.decisionSource, equals('gemma_fallback'));
       expect(result.classification, equals('gasto'));
       expect(result.moneoType, equals('Expenses'));
@@ -417,7 +429,9 @@ void main() {
       expect(result.requiresReview, isFalse);
     });
 
-    test('Maneja respuesta de Gemma con baja confianza activando requiresReview', () async {
+    test(
+        'Maneja respuesta de Gemma con baja confianza activando requiresReview',
+        () async {
       mockGemmaClient.responseToReturn =
           '{"classification": "gasto", "category": "Otros", "confidence": 0.65}';
 
@@ -433,7 +447,7 @@ void main() {
 
       final result = await classifier.classify(
         parseResult: ambiguous,
-        rawText: 'Cargo no especificado en Comercio Raro por \$10.000',
+        rawText: 'Movimiento no especificado en Comercio Raro por \$10.000',
       );
 
       expect(result.decisionSource, equals('gemma_fallback'));
@@ -441,7 +455,9 @@ void main() {
       expect(result.createTransaction, isFalse);
     });
 
-    test('Fallback seguro cuando Gemma no está disponible o falla por hardware/RAM', () async {
+    test(
+        'Fallback seguro cuando Gemma no está disponible o falla por hardware/RAM',
+        () async {
       mockGemmaClient.isLoaded = false; // Modelo no cargado
 
       final ambiguous = ParsedTransaction(
@@ -456,7 +472,7 @@ void main() {
 
       final result = await classifier.classify(
         parseResult: ambiguous,
-        rawText: 'Cargo sin categoria Kiosko 99',
+        rawText: 'Movimiento sin categoria Kiosko 99',
       );
 
       expect(result.decisionSource, equals('fallback_ambiguous'));
@@ -467,7 +483,8 @@ void main() {
     });
 
     test('Fallback seguro ante timeout de Gemma (> 200 ms)', () async {
-      mockGemmaClient.delay = const Duration(milliseconds: 500); // Excede timeout de 200ms
+      mockGemmaClient.delay =
+          const Duration(milliseconds: 500); // Excede timeout de 200ms
       mockGemmaClient.responseToReturn =
           '{"classification": "gasto", "category": "Lenta", "confidence": 0.90}';
 
@@ -493,7 +510,9 @@ void main() {
   });
 
   group('Invariantes y Jerarquía de Precedencia', () {
-    test('Etapa 0 (Anti-Fraude) tiene precedencia sobre patrón aprendido previo', () async {
+    test(
+        'Etapa 0 (Anti-Fraude) tiene precedencia sobre patrón aprendido previo',
+        () async {
       // Guardar patrón de comercio
       await patternsService.recordConfirmation(
         merchant: 'bancolombia',
@@ -513,16 +532,20 @@ void main() {
 
       final result = await classifier.classify(
         parseResult: parsed,
-        rawText: 'Bancolombia informa: cuenta bloqueada, ingresa aquí para evitar el bloqueo',
+        rawText:
+            'Bancolombia informa: cuenta bloqueada, ingresa aquí para evitar el bloqueo',
       );
 
-      expect(result.classification, equals('sospechosa'), reason: 'Anti-fraude debe superar learned_patterns');
+      expect(result.classification, equals('sospechosa'),
+          reason: 'Anti-fraude debe superar learned_patterns');
       expect(result.decisionSource, equals('anti_fraud'));
       expect(result.createTransaction, isFalse);
       expect(mockGemmaClient.callCount, equals(0));
     });
 
-    test('Invariante estricto: ninguna clasificación sospechosa crea transacción', () async {
+    test(
+        'Invariante estricto: ninguna clasificación sospechosa crea transacción',
+        () async {
       final result = await classifier.classify(
         parseResult: SuspiciousNotification(
           rawText: 'Phishing evidente wa.me/12345 haz clic',
@@ -536,7 +559,9 @@ void main() {
       expect(result.moneoType, isNull);
     });
 
-    test('Invariante estricto: requiresReview=true nunca puede tener createTransaction=true', () async {
+    test(
+        'Invariante estricto: requiresReview=true nunca puede tener createTransaction=true',
+        () async {
       // Caso fallback_ambiguous
       mockGemmaClient.isLoaded = false;
       final ambiguous = ParsedTransaction(
@@ -551,11 +576,15 @@ void main() {
       final result = await classifier.classify(parseResult: ambiguous);
 
       if (result.requiresReview) {
-        expect(result.createTransaction, isFalse, reason: 'Invariante violado: requiresReview=true con createTransaction=true');
+        expect(result.createTransaction, isFalse,
+            reason:
+                'Invariante violado: requiresReview=true con createTransaction=true');
       }
     });
 
-    test('Invariante estricto: transferencia-propia siempre tiene destinationAccount no nulo', () async {
+    test(
+        'Invariante estricto: transferencia-propia siempre tiene destinationAccount no nulo',
+        () async {
       final parsed = ParsedTransaction(
         tipo: 'transferencia',
         monto: 100000,
@@ -567,7 +596,8 @@ void main() {
 
       final result = await classifier.classify(
         parseResult: parsed,
-        rawText: 'Transferencia entre tus cuentas: de Bancolombia *4821 a Nequi *1234',
+        rawText:
+            'Transferencia entre tus cuentas: de Bancolombia *4821 a Nequi *1234',
       );
 
       if (result.classification == 'transferencia-propia') {

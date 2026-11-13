@@ -8,7 +8,7 @@ class PendingTransactionItem {
   final String moneda;
   final DateTime fecha;
   final String
-  classification; // 'gasto', 'ingreso', 'transferencia-propia', 'sospechosa'
+      classification; // 'gasto', 'ingreso', 'transferencia-propia', 'sospechosa'
   final String? moneoType; // 'Expenses', 'Income', 'Transfer', null
   final String? category;
   final String? accountName;
@@ -100,66 +100,69 @@ class PendingTransactionItem {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'notification_id': notificationId,
-    'raw_text': rawText,
-    'merchant_key': merchantKey,
-    'comercio': comercio,
-    'monto': monto,
-    'moneda': moneda,
-    'fecha': fecha.toIso8601String(),
-    'classification': classification,
-    'moneo_type': moneoType,
-    'category': category,
-    'account_name': accountName,
-    'destination_account': destinationAccount,
-    'confidence': confidence,
-    'requires_review': requiresReview,
-    'auto_processable': autoProcessable,
-    'decision_source': decisionSource,
-    'flags': flags,
-    'created_at': createdAt.toIso8601String(),
-  };
+        'id': id,
+        'notification_id': notificationId,
+        'raw_text': rawText,
+        'merchant_key': merchantKey,
+        'comercio': comercio,
+        'monto': monto,
+        'moneda': moneda,
+        'fecha': fecha.toIso8601String(),
+        'classification': classification,
+        'moneo_type': moneoType,
+        'category': category,
+        'account_name': accountName,
+        'destination_account': destinationAccount,
+        'confidence': confidence,
+        'requires_review': requiresReview,
+        'auto_processable': autoProcessable,
+        'decision_source': decisionSource,
+        'flags': flags,
+        'created_at': createdAt.toIso8601String(),
+      };
 
   factory PendingTransactionItem.fromJson(
     Map<String, dynamic> json,
-  ) => PendingTransactionItem(
-    id: json['id'] as String,
-    notificationId:
-        (json['notification_id'] ?? json['notificationId']) as String?,
-    rawText: (json['raw_text'] ?? json['rawText'] ?? '') as String,
-    merchantKey: (json['merchant_key'] ?? json['merchantKey']) as String?,
-    comercio: json['comercio'] as String?,
-    monto: json['monto'] != null ? (json['monto'] as num).toDouble() : null,
-    moneda: (json['moneda'] as String?) ?? 'COP',
-    fecha: json['fecha'] != null
-        ? DateTime.parse(json['fecha'] as String)
-        : DateTime.now(),
-    classification: (json['classification'] as String?) ?? 'desconocido',
-    moneoType: (json['moneo_type'] ?? json['moneoType']) as String?,
-    category: json['category'] as String?,
-    accountName: (json['account_name'] ?? json['accountName']) as String?,
-    destinationAccount:
-        (json['destination_account'] ?? json['destinationAccount']) as String?,
-    confidence: json['confidence'] != null
-        ? (json['confidence'] as num).toDouble()
-        : 0.0,
-    requiresReview:
-        (json['requires_review'] ?? json['requiresReview']) as bool? ?? true,
-    autoProcessable:
-        (json['auto_processable'] ?? json['autoProcessable']) as bool? ?? false,
-    decisionSource:
-        (json['decision_source'] ?? json['decisionSource']) as String? ??
-        'deterministic_rules',
-    flags: json['flags'] != null
-        ? List<String>.from(json['flags'] as List)
-        : const [],
-    createdAt: json['created_at'] != null
-        ? DateTime.parse(json['created_at'] as String)
-        : (json['createdAt'] != null
-              ? DateTime.parse(json['createdAt'] as String)
-              : DateTime.now()),
-  );
+  ) =>
+      PendingTransactionItem(
+        id: json['id'] as String,
+        notificationId:
+            (json['notification_id'] ?? json['notificationId']) as String?,
+        rawText: (json['raw_text'] ?? json['rawText'] ?? '') as String,
+        merchantKey: (json['merchant_key'] ?? json['merchantKey']) as String?,
+        comercio: json['comercio'] as String?,
+        monto: json['monto'] != null ? (json['monto'] as num).toDouble() : null,
+        moneda: (json['moneda'] as String?) ?? 'COP',
+        fecha: json['fecha'] != null
+            ? DateTime.parse(json['fecha'] as String)
+            : DateTime.now(),
+        classification: (json['classification'] as String?) ?? 'desconocido',
+        moneoType: (json['moneo_type'] ?? json['moneoType']) as String?,
+        category: json['category'] as String?,
+        accountName: (json['account_name'] ?? json['accountName']) as String?,
+        destinationAccount: (json['destination_account'] ??
+            json['destinationAccount']) as String?,
+        confidence: json['confidence'] != null
+            ? (json['confidence'] as num).toDouble()
+            : 0.0,
+        requiresReview:
+            (json['requires_review'] ?? json['requiresReview']) as bool? ??
+                true,
+        autoProcessable:
+            (json['auto_processable'] ?? json['autoProcessable']) as bool? ??
+                false,
+        decisionSource:
+            (json['decision_source'] ?? json['decisionSource']) as String? ??
+                'deterministic_rules',
+        flags: json['flags'] != null
+            ? List<String>.from(json['flags'] as List)
+            : const [],
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'] as String)
+            : (json['createdAt'] != null
+                ? DateTime.parse(json['createdAt'] as String)
+                : DateTime.now()),
+      );
 
   @override
   bool operator ==(Object other) =>
