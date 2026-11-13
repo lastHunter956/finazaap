@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:intl/intl.dart';
@@ -62,10 +63,10 @@ class UrgentPaymentsSection extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Vencen esta semana',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: context.appTheme.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -114,7 +115,7 @@ class UrgentPaymentsSection extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: const Color.fromRGBO(42, 49, 67, 1),
+        color: context.appTheme.cardBackground,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
@@ -180,8 +181,8 @@ class UrgentPaymentsSection extends StatelessWidget {
                         responsibility.safeName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: context.appTheme.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         ),
@@ -201,20 +202,20 @@ class UrgentPaymentsSection extends StatelessWidget {
                               letterSpacing: 0.3,
                             ),
                           ),
-                          Text(
+                           Text(
                             '•',
-                            style: TextStyle(color: Colors.white.withOpacity(0.15), fontSize: 10),
+                            style: TextStyle(color: context.appTheme.borderVisible, fontSize: 10),
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
+                              color: context.appTheme.darkBackground,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               responsibility.safeCategory.toUpperCase(),
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.4),
+                                color: context.appTheme.textSecondary,
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.2,
@@ -240,8 +241,8 @@ class UrgentPaymentsSection extends StatelessWidget {
                         responsibility.getAmountForDate(month, year),
                         showSymbol: false,
                       ),
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.appTheme.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),

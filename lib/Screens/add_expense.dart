@@ -13,6 +13,7 @@ import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 // Modelo de cuenta adaptado para recibir datos desde selecctaccount.dart
 class AccountItem {
@@ -420,13 +421,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1F2B),
-        borderRadius: BorderRadius.circular(16),
+        color: context.appTheme.darkBackground,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: _isObligationPayment 
-              ? primaryColor.withOpacity(0.4) 
-              : Colors.white.withOpacity(0.05),
-          width: 1.5,
+          color: _isObligationPayment
+              ? primaryColor.withOpacity(0.4)
+              : context.appTheme.borderSubtle,
+          width: 1,
         ),
       ),
       child: Column(
@@ -439,14 +440,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 children: [
                   Icon(
                     Icons.assignment_turned_in_rounded,
-                    color: _isObligationPayment ? primaryColor : Colors.white54,
+                    color: _isObligationPayment ? primaryColor : context.appTheme.textSecondary,
                     size: 22,
                   ),
                   const SizedBox(width: 10),
-                  const Text(
+                  Text(
                     '¿Vincular a una obligación?',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: context.appTheme.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -458,7 +459,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 activeColor: primaryColor,
                 activeTrackColor: primaryColor.withOpacity(0.3),
                 inactiveThumbColor: Colors.grey,
-                inactiveTrackColor: Colors.white.withOpacity(0.05),
+                inactiveTrackColor: context.appTheme.darkBackground,
                 onChanged: (val) {
                   setState(() {
                     _isObligationPayment = val;
@@ -484,27 +485,27 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           
           if (_isObligationPayment) ...[
             const SizedBox(height: 16),
-            const Divider(color: Colors.white10, height: 1),
+            Divider(color: context.appTheme.borderSubtle, height: 1),
             const SizedBox(height: 16),
             Text(
               'Seleccionar Obligación Pendiente',
-              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF131722),
+                color: context.appTheme.darkBackground,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
+                border: Border.all(color: context.appTheme.borderSubtle),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<Responsibility>(
                   value: _selectedResponsibility,
-                  dropdownColor: const Color(0xFF1A1F2B),
+                  dropdownColor: context.appTheme.secondaryCardBackground,
                   isExpanded: true,
-                  hint: const Text('Seleccionar obligación', style: TextStyle(color: Colors.white54, fontSize: 14)),
-                  icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white70),
+                  hint: Text('Seleccionar obligación', style: TextStyle(color: context.appTheme.textHint, fontSize: 14)),
+                  icon: Icon(Icons.arrow_drop_down_rounded, color: context.appTheme.textSecondary),
                   items: _responsibilities.map((r) {
                     final expected = r.getAmountForDate(_selectedDate.month, _selectedDate.year);
                     final paid = r.getPaidAmountInCycle(_selectedDate.month, _selectedDate.year);
@@ -515,11 +516,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         children: [
                           Icon(AppIcons.getIcon(r.safeIconCode), size: 16, color: primaryColor),
                           const SizedBox(width: 8),
-                          Text(r.safeName, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                          Text(r.safeName, style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14)),
                           const Spacer(),
                           Text(
                             'Falta: ${CurrencyHelper.formatCompact(remaining)}',
-                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                           ),
                         ],
                       ),
@@ -543,7 +544,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             if (_selectedResponsibility != null) ...[
               Text(
                 'Modalidad de Pago',
-                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Row(
@@ -555,7 +556,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         child: Text(
                           'Sugerido (${CurrencyHelper.formatCompact(_getSuggestedPaymentAmount())})',
                           style: TextStyle(
-                            color: _isMinimumPayment ? Colors.white : Colors.white54,
+                            color: _isMinimumPayment ? Colors.white : context.appTheme.textSecondary,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -563,7 +564,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       ),
                       selected: _isMinimumPayment,
                       selectedColor: primaryColor,
-                      backgroundColor: Colors.white.withOpacity(0.03),
+                      backgroundColor: context.appTheme.darkBackground,
                       onSelected: (val) {
                         setState(() {
                           _isMinimumPayment = true;
@@ -577,9 +578,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     child: ChoiceChip(
                       label: Container(
                         alignment: Alignment.center,
-                        child: const Text(
+                        child: Text(
                           'Personalizado',
                           style: TextStyle(
+                            color: !_isMinimumPayment ? Colors.white : context.appTheme.textSecondary,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -587,7 +589,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       ),
                       selected: !_isMinimumPayment,
                       selectedColor: primaryColor,
-                      backgroundColor: Colors.white.withOpacity(0.03),
+                      backgroundColor: context.appTheme.darkBackground,
                       onSelected: (val) {
                         setState(() {
                           _isMinimumPayment = false;
@@ -600,9 +602,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 8),
               
               CheckboxListTile(
-                title: const Text(
+                title: Text(
                   'Marcar obligación como pagada completa',
-                  style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
                 ),
                 value: _markAsPaidComplete,
                 activeColor: primaryColor,
@@ -918,17 +920,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF2A2A3A),
-          title: const Text('Confirmar eliminación',
-              style: TextStyle(color: Colors.white)),
-          content: const Text(
+          backgroundColor: context.appTheme.cardBackground,
+          title: Text('Confirmar eliminación',
+              style: TextStyle(color: context.appTheme.textPrimary)),
+          content: Text(
               '¿Estás seguro que deseas eliminar esta transacción?',
-              style: TextStyle(color: Colors.white)),
+              style: TextStyle(color: context.appTheme.textSecondary)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child:
-                  const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+              child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
             ),
             TextButton(
               onPressed: () async {
@@ -994,26 +995,26 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget build(BuildContext context) {
     // Colores y constantes de diseño
     const Color primaryColor = Colors.redAccent; // Rojo para gastos
-    const Color surfaceColor = Color(0xFF222939);
-    const Color cardColor = Color(0xFF1A1F2B);
+    final Color surfaceColor = context.appTheme.secondaryCardBackground;
+    final Color cardColor = context.appTheme.darkBackground;
     const double cornerRadius = 20.0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1F2639),
+      backgroundColor: context.appTheme.primaryBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           widget.isEditing ? 'Editar Egreso' : 'Nuevo Egreso',
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.appTheme.textPrimary,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios_rounded, color: context.appTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -1036,7 +1037,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ),
                   ],
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.05),
+                    color: context.appTheme.borderSubtle,
                     width: 1.0,
                   ),
                 ),
@@ -1092,7 +1093,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 Text(
                                   'Registra un nuevo egreso',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
+                                    color: context.appTheme.textSecondary,
                                     fontSize: 16,
                                   ),
                                 ),
@@ -1120,8 +1121,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
                                         decimal: true),
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: context.appTheme.textPrimary,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1131,7 +1132,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 decoration: InputDecoration(
                                   hintText: '0.00',
                                   hintStyle: TextStyle(
-                                    color: Colors.white.withOpacity(0.3),
+                                    color: context.appTheme.textHint,
                                   ),
                                   border: InputBorder.none,
                                   prefixIcon: const Icon(
@@ -1163,19 +1164,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                           hint: Text(
                                             'Cuenta',
                                             style: TextStyle(
-                                              color:
-                                                  Colors.white.withOpacity(0.5),
+                                              color: context.appTheme.textHint,
                                               fontSize: 14,
                                             ),
                                           ),
-                                          dropdownColor: cardColor,
-                                          icon: const Icon(
+                                          dropdownColor: context.appTheme.secondaryCardBackground,
+                                          icon: Icon(
                                             Icons.arrow_drop_down_rounded,
-                                            color: Colors.white54,
+                                            color: context.appTheme.textSecondary,
                                           ),
                                           isExpanded: true,
-                                          style: const TextStyle(
-                                              color: Colors.white),
+                                          style: TextStyle(
+                                              color: context.appTheme.textPrimary),
                                           onChanged: (value) {
                                             setState(() {
                                               _selectedAccount = value;
@@ -1270,8 +1270,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                         child: TextField(
                                           controller: _installmentsCtrl,
                                           keyboardType: TextInputType.number,
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: context.appTheme.textPrimary,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -1281,7 +1281,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                           decoration: InputDecoration(
                                             hintText: '1',
                                             hintStyle: TextStyle(
-                                              color: Colors.white.withOpacity(0.3),
+                                              color: context.appTheme.textHint,
                                             ),
                                             border: InputBorder.none,
                                             prefixIcon: const Icon(
@@ -1310,12 +1310,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                       Container(
                                         height: 50, // Altura similar al input
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF1A1F2B),
+                                          color: context.appTheme.darkBackground,
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(
                                             color: _isInterestFree
                                                 ? Colors.greenAccent.withOpacity(0.5)
-                                                : Colors.white.withOpacity(0.08),
+                                                : context.appTheme.borderSubtle,
                                             width: 1,
                                           ),
                                         ),
@@ -1347,7 +1347,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                                     style: TextStyle(
                                                       color: _isInterestFree
                                                           ? Colors.greenAccent
-                                                          : Colors.white70,
+                                                          : context.appTheme.textSecondary,
                                                       fontWeight: FontWeight.w600,
                                                       fontSize: 15,
                                                     ),
@@ -1380,15 +1380,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                     _buildInputField(
                                       child: TextField(
                                         controller: _detailCtrl,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: context.appTheme.textPrimary,
                                           fontSize: 14,
                                         ),
                                         decoration: InputDecoration(
                                           hintText: 'Detalles...',
                                           hintStyle: TextStyle(
-                                            color:
-                                                Colors.white.withOpacity(0.3),
+                                            color: context.appTheme.textHint,
                                           ),
                                           border: InputBorder.none,
                                           prefixIcon: const Icon(
@@ -1435,8 +1434,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                                   _formatDate(_selectedDate),
                                                   overflow:
                                                       TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
+                                                  style: TextStyle(
+                                                    color: context.appTheme.textPrimary,
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w500,
                                                   ),
@@ -1464,7 +1463,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 child: _buildActionButton(
                                   label: 'Cancelar',
                                   icon: Icons.close_rounded,
-                                  color: Colors.white54,
+                                  color: context.appTheme.textSecondary,
                                   isOutlined: true,
                                   onPressed: () => Navigator.of(context)
                                       .popUntil((route) => route.isFirst),
@@ -1685,19 +1684,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
+            child: Text(
                 catText,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: context.appTheme.textSecondary,
                   fontWeight: FontWeight.w500,
                   fontSize: 14,
                 ),
               ),
             ),
-            const Icon(
+            Icon(
               Icons.lock_rounded,
-              color: Colors.white30,
+              color: context.appTheme.textHint,
               size: 14,
             ),
           ],
@@ -1707,7 +1706,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   Widget _buildCategoryDropdown() {
-    const Color cardColor = Color(0xFF1A1F2B);
+    final Color cardColor = context.appTheme.secondaryCardBackground;
     return _buildInputField(
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -1715,17 +1714,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           hint: Text(
             'Categoría',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: context.appTheme.textHint,
               fontSize: 14,
             ),
           ),
           dropdownColor: cardColor,
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_drop_down_rounded,
-            color: Colors.white54,
+            color: context.appTheme.textSecondary,
           ),
           isExpanded: true,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: context.appTheme.textPrimary),
           onChanged: (value) {
             setState(() {
               _selectedCategory = value;
@@ -1779,7 +1778,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       child: Text(
         label,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.7),
+          color: context.appTheme.textSecondary,
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
@@ -1791,15 +1790,26 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget _buildInputField({required Widget child}) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1F2B),
+        color: context.appTheme.darkBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.08),
+          color: context.appTheme.borderSubtle,
           width: 1,
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: child,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            filled: false,
+          ),
+        ),
+        child: child,
+      ),
     );
   }
 
@@ -1827,7 +1837,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             color: isOutlined ? Colors.transparent : color,
             borderRadius: BorderRadius.circular(12),
             border:
-                isOutlined ? Border.all(color: Colors.white24, width: 1) : null,
+                isOutlined ? Border.all(color: context.appTheme.borderSubtle, width: 1) : null,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),

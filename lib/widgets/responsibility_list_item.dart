@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:intl/intl.dart';
 import 'package:finazaap/widgets/show_responsibility_options.dart';
@@ -32,6 +33,16 @@ class ResponsibilityListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.appTheme;
+    
+    Widget _buildSubInfo(String text, {Color? color}) {
+      return this._buildSubInfo(text, t.textHint, color: color);
+    }
+
+    Widget _buildStatusChip(bool isPaid, Color color) {
+      return this._buildStatusChip(isPaid, color, t.borderVisible, t.textHint, t.textSecondary);
+    }
+
     final urgency = responsibility.getUrgencyLevel();
     // Si tenemos día específico seleccionado, verificamos si está pagado ESE día
     final isPaidInSelectedMonth = (day != null) 
@@ -48,7 +59,7 @@ class ResponsibilityListItem extends StatelessWidget {
     } else if (urgency == 'upcoming') {
       statusColor = const Color(0xFFF59E0B);
     } else {
-      statusColor = Colors.white.withOpacity(0.4);
+      statusColor = context.appTheme.textHint;
     }
     
     // Cálculos dinámicos para el resumen de tarjetas
@@ -94,9 +105,9 @@ class ResponsibilityListItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -129,18 +140,18 @@ class ResponsibilityListItem extends StatelessWidget {
               duration: const Duration(milliseconds: 300),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color.fromRGBO(42, 49, 67, 1).withOpacity(0.9),
+                color: context.appTheme.cardBackground.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isPaidInSelectedMonth ? statusColor.withOpacity(0.3) : statusColor.withOpacity(0.2),
-                  width: 1.5,
+                  color: isPaidInSelectedMonth ? statusColor.withOpacity(0.2) : statusColor.withOpacity(0.12),
+                  width: 1,
                 ),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color.fromRGBO(42, 49, 67, 1),
-                    const Color.fromRGBO(31, 38, 57, 1),
+                    context.appTheme.cardBackground,
+                    context.appTheme.primaryBackground,
                   ],
                 ),
               ),
@@ -174,8 +185,8 @@ class ResponsibilityListItem extends StatelessWidget {
                           responsibility.safeName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: context.appTheme.textPrimary,
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.2,
@@ -189,11 +200,13 @@ class ResponsibilityListItem extends StatelessWidget {
                             _buildMiniBadge(
                               text: responsibility.safeCategory.toUpperCase(),
                               color: categoryColor,
+                              context: context,
                             ),
                             _buildMiniBadge(
                               text: _getFrequencyLabel(responsibility),
                               color: statusColor,
                               icon: Icons.calendar_today_rounded,
+                              context: context,
                             ),
                           ],
                         ),
@@ -217,7 +230,9 @@ class ResponsibilityListItem extends StatelessWidget {
                                   ),
                                   _buildSubInfo(
                                     'Pendiente: ${CurrencyHelper.format(pending)}',
-                                    color: pending > 0 ? Colors.orangeAccent : Colors.greenAccent,
+                                    color: pending > 0 
+                                         ? (Theme.of(context).brightness == Brightness.light ? const Color(0xFFD97706) : Colors.orangeAccent)
+                                         : (Theme.of(context).brightness == Brightness.light ? const Color(0xFF16A34A) : Colors.greenAccent),
                                   ),
                                 ],
                                 if (responsibility.installments != null && responsibility.installments! > 1)
@@ -258,8 +273,8 @@ class ResponsibilityListItem extends StatelessWidget {
                                   : responsibility.getAmountForDate(month, year),
                               showSymbol: false,
                             ),
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: context.appTheme.textPrimary,
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
                             ),
@@ -270,8 +285,8 @@ class ResponsibilityListItem extends StatelessWidget {
                         ['diario', 'semanal', 'quincenal'].contains(responsibility.safeFrequency)
                           ? '${CurrencyHelper.currencyCode} / ${_getShortFrequency(responsibility.safeFrequency)}'
                           : CurrencyHelper.currencyCode,
-                        style: const TextStyle(
-                          color: Colors.white38,
+                        style: TextStyle(
+                          color: context.appTheme.textHint,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -289,25 +304,40 @@ class ResponsibilityListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildMiniBadge({required String text, required Color color, IconData? icon}) {
+  Widget _buildMiniBadge({required String text, required Color color, IconData? icon, required BuildContext context}) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    Color themedColor = color;
+    if (isLight) {
+      if (color.value == const Color(0xFF3B82F6).value) {
+        themedColor = const Color(0xFF1D4ED8); // Dark Blue
+      } else if (color.value == const Color(0xFF8B5CF6).value) {
+        themedColor = const Color(0xFF6D28D9); // Dark Purple
+      } else if (color.value == const Color(0xFFEF4444).value) {
+        themedColor = const Color(0xFFB91C1C); // Dark Red
+      } else if (color.value == const Color(0xFFF59E0B).value) {
+        themedColor = const Color(0xFFB45309); // Dark Orange/Amber
+      } else if (color == Colors.grey || color == context.appTheme.textHint) {
+        themedColor = const Color(0xFF475569); // Dark Slate
+      }
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: themedColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.2), width: 0.5),
+        border: Border.all(color: themedColor.withOpacity(0.2), width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 10, color: color),
+            Icon(icon, size: 10, color: themedColor),
             const SizedBox(width: 4),
           ],
           Text(
             text,
             style: TextStyle(
-              color: color,
+              color: themedColor,
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
@@ -318,26 +348,35 @@ class ResponsibilityListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildSubInfo(String text, {Color? color}) {
+  Widget _buildSubInfo(String text, Color defaultColor, {Color? color}) {
     return Text(
       text,
       style: TextStyle(
-        color: color ?? Colors.white.withOpacity(0.4),
+        color: color ?? defaultColor,
         fontSize: 11,
         fontWeight: FontWeight.w500,
       ),
     );
   }
 
-  Widget _buildStatusChip(bool isPaid, Color color) {
+  Widget _buildStatusChip(
+    bool isPaid,
+    Color color,
+    Color borderVisibleColor,
+    Color textHintColor,
+    Color textSecondaryColor,
+  ) {
+    // In light mode the chip needs solid, readable colors
+    // isPaid:    filled with the status color, white text on top
+    // isPending: outlined with border, status color text (no white-on-white)
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isPaid ? color.withOpacity(0.2) : Colors.transparent,
+        color: isPaid ? color.withOpacity(0.18) : Colors.transparent,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isPaid ? color.withOpacity(0.5) : Colors.white.withOpacity(0.1),
-          width: 1,
+          color: isPaid ? color : borderVisibleColor,
+          width: isPaid ? 1.5 : 1,
         ),
       ),
       child: Row(
@@ -346,16 +385,17 @@ class ResponsibilityListItem extends StatelessWidget {
           Icon(
             isPaid ? Icons.check_circle : Icons.pending_actions_rounded,
             size: 12,
-            color: isPaid ? color : Colors.white24,
+            color: isPaid ? color : textHintColor,
           ),
           const SizedBox(width: 6),
           Text(
             isPaid ? 'PAGADO' : 'PENDIENTE',
             style: TextStyle(
-              color: isPaid ? color : Colors.white38,
+              // Use the status color itself as text — visible on both dark and light
+              color: isPaid ? color : textSecondaryColor,
               fontSize: 9,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.6,
             ),
           ),
         ],
@@ -400,11 +440,11 @@ class ResponsibilityListItem extends StatelessWidget {
     return await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
-        title: const Text('Eliminar responsabilidad', style: TextStyle(color: Colors.white)),
+        backgroundColor: context.appTheme.cardBackground,
+        title: Text('Eliminar responsabilidad', style: TextStyle(color: context.appTheme.textPrimary)),
         content: Text(
           '¿Estás seguro de eliminar "${responsibility.safeName}"?',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: context.appTheme.textSecondary),
         ),
         actions: [
           TextButton(

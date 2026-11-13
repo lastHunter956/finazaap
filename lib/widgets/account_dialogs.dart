@@ -3,15 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'dart:ui';
 import 'package:finazaap/icon_lists.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 // Método helper para etiquetas de campos
-Widget buildInputLabel(String label) {
+Widget buildInputLabel(String label, [BuildContext? context]) {
   return Padding(
     padding: const EdgeInsets.only(left: 4, bottom: 8),
     child: Text(
       label,
       style: TextStyle(
-        color: Colors.white.withOpacity(0.7),
+        color: context != null ? context.appTheme.textSecondary : Colors.white.withOpacity(0.7),
         fontSize: 14,
         fontWeight: FontWeight.w500,
       ),
@@ -20,18 +21,29 @@ Widget buildInputLabel(String label) {
 }
 
 // Método helper para campos de entrada
-Widget buildInputField({required Widget child}) {
+Widget buildInputField({required Widget child, BuildContext? context}) {
   return Container(
     decoration: BoxDecoration(
-      color: const Color(0xFF1A1F2B),
+      color: context != null ? context.appTheme.darkBackground : const Color(0xFF1A1F2B),
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
-        color: Colors.white.withOpacity(0.08),
+        color: context != null ? context.appTheme.borderSubtle : Colors.white.withOpacity(0.08),
         width: 1,
       ),
     ),
     padding: const EdgeInsets.symmetric(horizontal: 12),
-    child: child,
+    child: Theme(
+      data: (context != null ? Theme.of(context) : ThemeData.dark()).copyWith(
+        inputDecorationTheme: const InputDecorationTheme(
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          filled: false,
+        ),
+      ),
+      child: child,
+    ),
   );
 }
 
@@ -51,7 +63,7 @@ Future<IconData?> showIconPickerDialog(BuildContext context, Color accentColor) 
             width: double.infinity,
             constraints: const BoxConstraints(maxHeight: 500),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1F2B),
+              color: context.appTheme.secondaryCardBackground,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
@@ -68,7 +80,7 @@ Future<IconData?> showIconPickerDialog(BuildContext context, Color accentColor) 
                 ),
               ],
               border: Border.all(
-                color: Colors.white.withOpacity(0.08),
+                color: context.appTheme.borderSubtle,
                 width: 1.0,
               ),
             ),
@@ -94,10 +106,10 @@ Future<IconData?> showIconPickerDialog(BuildContext context, Color accentColor) 
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Text(
+                      Text(
                         'Seleccionar Icono',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: context.appTheme.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.3,
@@ -125,10 +137,10 @@ Future<IconData?> showIconPickerDialog(BuildContext context, Color accentColor) 
                               width: 56,
                               height: 56,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF222939),
+                                color: context.appTheme.darkBackground,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.08),
+                                  color: context.appTheme.borderSubtle,
                                   width: 1.0,
                                 ),
                               ),
@@ -151,10 +163,10 @@ Future<IconData?> showIconPickerDialog(BuildContext context, Color accentColor) 
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.2),
+                    color: context.appTheme.darkBackground,
                     border: Border(
                       top: BorderSide(
-                        color: Colors.white.withOpacity(0.08),
+                        color: context.appTheme.borderSubtle,
                         width: 1,
                       ),
                     ),
@@ -163,11 +175,11 @@ Future<IconData?> showIconPickerDialog(BuildContext context, Color accentColor) 
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white70,
+                      foregroundColor: context.appTheme.textSecondary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                         side: BorderSide(
-                          color: Colors.white.withOpacity(0.2),
+                          color: context.appTheme.borderSubtle,
                           width: 1,
                         ),
                       ),
@@ -206,7 +218,7 @@ Future<Color?> showColorPickerDialog(BuildContext context, Color currentColor) a
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1F2B),
+              color: context.appTheme.secondaryCardBackground,
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
@@ -222,7 +234,7 @@ Future<Color?> showColorPickerDialog(BuildContext context, Color currentColor) a
                 ),
               ],
               border: Border.all(
-                color: Colors.white.withOpacity(0.08),
+                color: context.appTheme.borderSubtle,
                 width: 1,
               ),
             ),
@@ -257,10 +269,10 @@ Future<Color?> showColorPickerDialog(BuildContext context, Color currentColor) a
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Elige un color',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: context.appTheme.textPrimary,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -269,7 +281,7 @@ Future<Color?> showColorPickerDialog(BuildContext context, Color currentColor) a
                               Text(
                                 'Personaliza tu cuenta',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: context.appTheme.textSecondary,
                                   fontSize: 13,
                                 ),
                               ),
@@ -326,7 +338,7 @@ Future<Color?> showColorPickerDialog(BuildContext context, Color currentColor) a
                               )
                             ],
                             border: isCurrentColor
-                                ? Border.all(color: Colors.white, width: 2)
+                                ? Border.all(color: context.appTheme.textPrimary, width: 2)
                                 : null,
                           ),
                           child: Material(
@@ -361,7 +373,7 @@ Future<Color?> showColorPickerDialog(BuildContext context, Color currentColor) a
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: TextButton.styleFrom(
-                            foregroundColor: Colors.white70,
+                            foregroundColor: context.appTheme.textSecondary,
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           ),
                           child: const Text(

@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:finazaap/widgets/floating_action_menu_screen.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 class FloatingActionMenu extends StatelessWidget {
   const FloatingActionMenu({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
+    final Color buttonColor = context.appTheme.accent;
+
     return Container(
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
-            color: const Color.fromARGB(255, 82, 226, 255).withOpacity(0.4),
+            color: buttonColor.withOpacity(isLight ? 0.2 : 0.4),
             blurRadius: 12,
             spreadRadius: -2,
             offset: const Offset(0, 4),
@@ -20,7 +24,7 @@ class FloatingActionMenu extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       child: FloatingActionButton(
-        backgroundColor: const Color.fromARGB(255, 82, 226, 255),
+        backgroundColor: buttonColor,
         onPressed: () {
           HapticFeedback.mediumImpact();
           Navigator.of(context).push(
@@ -63,9 +67,9 @@ class FloatingActionMenu extends StatelessWidget {
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(16.0)),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.add_rounded,
-          color: Color.fromRGBO(31, 38, 57, 1),
+          color: isLight ? Colors.white : context.appTheme.primaryBackground,
           size: 32,
         ),
       ),

@@ -1,47 +1,66 @@
 import 'package:flutter/material.dart';
-import 'package:settings_ui/settings_ui.dart';
-import 'package:finazaap/Screens/edit_profile_screen.dart'; // Asegúrate de que la ruta sea correcta
+import 'package:finazaap/Screens/edit_profile_screen.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 class AccountManagement extends StatelessWidget {
+  const AccountManagement({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: context.appTheme.primaryBackground,
       appBar: AppBar(
-        title: Text('Administrar Cuenta'),
+        title: Text('Administrar Cuenta', style: TextStyle(color: context.appTheme.textPrimary)),
+        backgroundColor: context.appTheme.cardBackground,
+        iconTheme: IconThemeData(color: context.appTheme.textPrimary),
+        elevation: 0,
       ),
-      body: SettingsList(
-        sections: [
-          SettingsSection(
-            title: Text('Common'),
-            tiles: <SettingsTile>[
-              SettingsTile.navigation(
-                leading: Icon(Icons.language),
-                title: Text('Language'),
-                value: Text('Spanish'),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Common',
+              style: TextStyle(
+                color: context.appTheme.accent,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
-              SettingsTile.switchTile(
-                onToggle: (value) {},
-                initialValue: true,
-                leading: Icon(Icons.format_paint),
-                title: Text('Enable custom theme'),
-              ),
-              SettingsTile.navigation(
-                leading: Icon(Icons.person),
-                title: Text('Editar Perfil'),
-                onPressed: (context) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditProfileScreen(
-                        onSave: (name, profileImage) {
-                          // Implementa la lógica de guardado aquí si es necesario
-                        },
+            ),
+          ),
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: context.appTheme.cardBackground,
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.language, color: context.appTheme.accent),
+                  title: Text('Language', style: TextStyle(color: context.appTheme.textPrimary)),
+                  trailing: Text('Spanish', style: TextStyle(color: context.appTheme.textSecondary)),
+                ),
+                Divider(height: 1, color: context.appTheme.borderSubtle),
+                ListTile(
+                  leading: Icon(Icons.person, color: context.appTheme.accent),
+                  title: Text('Editar Perfil', style: TextStyle(color: context.appTheme.textPrimary)),
+                  trailing: Icon(Icons.chevron_right, color: context.appTheme.textHint),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditProfileScreen(
+                          onSave: (name, profileImage) {
+                            // Implementa la lógica de guardado aquí si es necesario
+                          },
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ],
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),

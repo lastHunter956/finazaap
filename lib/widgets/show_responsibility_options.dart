@@ -6,6 +6,7 @@ import 'package:finazaap/icon_lists.dart';
 import 'package:finazaap/data/credit_card_calculator.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/data/responsibility_service.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 void showResponsibilityOptions({
   required BuildContext context,
@@ -61,7 +62,7 @@ void showResponsibilityOptions({
                 width: MediaQuery.of(context).size.width * 0.88,
                 constraints: const BoxConstraints(maxWidth: 400),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF222939),
+                  color: context.appTheme.secondaryCardBackground,
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
@@ -107,15 +108,15 @@ void showResponsibilityOptions({
                               ),
                             ),
                             const SizedBox(height: 16),
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
+                             Text(
+                               title,
+                               style: TextStyle(
+                                 fontSize: 19,
+                                 fontWeight: FontWeight.bold,
+                                 color: context.appTheme.textPrimary,
+                               ),
+                               textAlign: TextAlign.center,
+                             ),
                             const SizedBox(height: 8),
                             Text(
                               responsibility.safeCategory.toUpperCase(),
@@ -171,11 +172,11 @@ void showResponsibilityOptions({
                                           size: 20,
                                         ),
                                         const SizedBox(width: 10),
-                                        const Expanded(
+                                        Expanded(
                                           child: Text(
                                             'Esta cuenta fue eliminada. Puedes eliminar esta responsabilidad.',
                                             style: TextStyle(
-                                              color: Colors.white70,
+                                              color: context.appTheme.textSecondary,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -202,21 +203,21 @@ void showResponsibilityOptions({
                                     
                                     // Botón Pagar (o Pagar Cuota para tarjetas) - Solo si NO es huérfana
                                     if (!isOrphaned)
-                                      _buildActionButton(
+                                       _buildActionButton(
                                         label: isCard 
                                             ? 'Pagar Cuota' 
                                             : (isPaid ? 'Desmarcar' : 'Pagar'),
                                         icon: isCard 
                                             ? Icons.payment_rounded 
                                             : (isPaid ? Icons.undo_rounded : Icons.check_circle_rounded),
-                                        color: isCard 
-                                            ? const Color(0xFF3D7AF0)
-                                            : (isPaid ? Colors.blueAccent : Colors.greenAccent),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          onPay(responsibility);
-                                        },
-                                      ),
+                                         color: isCard 
+                                             ? context.appTheme.accent
+                                             : (isPaid ? context.appTheme.accent : context.appTheme.success),
+                                         onTap: () {
+                                           Navigator.pop(context);
+                                           onPay(responsibility);
+                                         },
+                                       ),
                                     
                                     // Pagar Resto del Mes (DIARIO/SEMANAL)
                                     if (!isCard && !isPaid && ['diario', 'semanal'].contains(responsibility.safeFrequency)) ...[
@@ -224,11 +225,11 @@ void showResponsibilityOptions({
                                        _buildActionButton(
                                           label: 'Pagar Mes',
                                           icon: Icons.done_all_rounded,
-                                          color: Colors.tealAccent,
-                                          onTap: () {
-                                             Navigator.pop(context);
-                                             ResponsibilityService.payFullMonth(responsibility.safeId, selectedMonth, selectedYear);
-                                          }
+                                           color: context.appTheme.success,
+                                           onTap: () {
+                                              Navigator.pop(context);
+                                              ResponsibilityService.payFullMonth(responsibility.safeId, selectedMonth, selectedYear);
+                                           }
                                        ),
                                     ],
 
@@ -238,8 +239,8 @@ void showResponsibilityOptions({
                                       _buildActionButton(
                                         label: isOrphaned ? 'Eliminar Tarjeta' : 'Borrar',
                                         icon: Icons.delete_rounded,
-                                        color: const Color(0xFFE53935),
-                                        onTap: () {
+                                         color: context.appTheme.error,
+                                         onTap: () {
                                           Navigator.pop(context);
                                           onDelete(responsibility);
                                         },
@@ -264,12 +265,12 @@ void showResponsibilityOptions({
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.close_rounded, size: 16, color: Colors.white.withOpacity(0.7)),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Cerrar',
-                                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontWeight: FontWeight.w500),
-                                ),
+                                 Icon(Icons.close_rounded, size: 16, color: context.appTheme.textSecondary),
+                                 const SizedBox(width: 6),
+                                 Text(
+                                   'Cerrar',
+                                   style: TextStyle(color: context.appTheme.textSecondary, fontWeight: FontWeight.w500),
+                                 ),
                               ],
                             ),
                           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 class CustomPillBottomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -26,7 +27,7 @@ class CustomPillBottomNavBar extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10, left: 10, right: 10, top: 10),
       height: 60, // Altura del contenedor total
       decoration: BoxDecoration(
-        color: const Color(0xFF2A3143), // Color de fondo del navbar idéntico al fondo de la app
+        color: context.appTheme.cardBackground,
         borderRadius: BorderRadius.circular(35), // Pill shape extremo
         boxShadow: [
           BoxShadow(
@@ -51,8 +52,8 @@ class CustomPillBottomNavBar extends StatelessWidget {
               width: isSelected ? 110 : 50, // Expandir si está seleccionado
               height: 50,
               decoration: BoxDecoration(
-                color: isSelected 
-                    ? const Color.fromARGB(255, 31, 38, 57) // Cyan activo
+                color: isSelected
+                    ? context.appTheme.primaryBackground
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(25),
               ),
@@ -62,9 +63,9 @@ class CustomPillBottomNavBar extends StatelessWidget {
                   // Icono
                   Icon(
                     isSelected ? item.activeIcon : item.icon,
-                    color: isSelected 
-                        ? const Color.fromARGB(255, 255, 255, 255) // Cyan para icono activo
-                        : Colors.white.withOpacity(0.5), // Grey para inactivo
+                    color: isSelected
+                        ? context.appTheme.textPrimary
+                        : context.appTheme.textHint,
                     size: 24,
                   ),
                   
@@ -74,8 +75,8 @@ class CustomPillBottomNavBar extends StatelessWidget {
                     Flexible(
                       child: Text(
                         item.label,
-                        style: const TextStyle(
-                          color: Color.fromARGB(255, 255, 255, 255), // Cyan para texto activo
+                        style: TextStyle(
+                          color: context.appTheme.textPrimary,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),

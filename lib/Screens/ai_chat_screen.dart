@@ -9,6 +9,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:finazaap/services/ai_chat_service.dart';
 import 'package:finazaap/services/device_capability_service.dart';
 import 'package:finazaap/themes/app_colors.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/data/model/add_date.dart';
@@ -198,8 +199,14 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              decoration: const BoxDecoration(
-                color: Color.fromRGBO(42, 49, 67, 1),
+              decoration: BoxDecoration(
+                color: context.appTheme.cardBackground,
+                border: Border(
+                  bottom: BorderSide(
+                    color: context.appTheme.borderSubtle,
+                    width: 1,
+                  ),
+                ),
               ),
               child: Stack(
                 alignment: Alignment.center,
@@ -207,7 +214,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                   Positioned(
                     left: 0,
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 22),
+                      icon: Icon(Icons.arrow_back_ios_rounded, color: context.appTheme.textPrimary, size: 22),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
@@ -215,7 +222,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                     'Asistente Financiero',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(
-                      color: Colors.white,
+                      color: context.appTheme.textPrimary,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
@@ -230,29 +237,29 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
               child: Container(
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.25),
+                  color: context.appTheme.darkBackground,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.08),
+                    color: context.appTheme.borderSubtle,
                     width: 1,
                   ),
                 ),
                 child: TabBar(
                   controller: _tabController,
                   indicator: BoxDecoration(
-                    color: const Color(0xFF52E2FF),
+                    color: context.appTheme.accent,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF52E2FF).withOpacity(0.4),
+                        color: context.appTheme.accent.withValues(alpha: 0.4),
                         blurRadius: 15,
                         offset: const Offset(0, 0),
                       ),
                     ],
                   ),
                   indicatorPadding: const EdgeInsets.all(4),
-                  labelColor: const Color.fromRGBO(31, 38, 57, 1),
-                  unselectedLabelColor: Colors.white.withOpacity(0.5),
+                  labelColor: context.appTheme.buttonForeground,
+                  unselectedLabelColor: context.appTheme.textSecondary,
                   labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
                   indicatorSize: TabBarIndicatorSize.tab,
                   tabs: const [
@@ -365,7 +372,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                   if (_chatService.gemmaInitializing || _chatService.isDownloading) ...[
                     Row(
                       children: [
-                        const SizedBox(
+                        SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
@@ -389,7 +396,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                   ] else if (_chatService.isCheckingDeviceSpecs) ...[
                     Row(
                       children: [
-                        const SizedBox(
+                        SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
@@ -411,7 +418,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
+                        Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -476,7 +483,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
         ],
         Row(
           children: [
-            const Icon(Icons.download_rounded, color: AppColors.accent, size: 16),
+            Icon(Icons.download_rounded, color: AppColors.accent, size: 16),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -583,7 +590,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.info_outline_rounded, color: AppColors.accent, size: 13),
+              Icon(Icons.info_outline_rounded, color: AppColors.accent, size: 13),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -612,7 +619,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
         children: [
           Row(
             children: [
-              const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 16),
+              Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 16),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -806,7 +813,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
       decoration: BoxDecoration(
         color: AppColors.cardBackground.withOpacity(0.4),
         borderRadius: BorderRadius.circular(24),
-        border: const GradientBoxBorder(
+        border: GradientBoxBorder(
           gradient: LinearGradient(
             colors: [
               AppColors.accent,
@@ -829,7 +836,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                   shape: BoxShape.circle,
                   color: AppColors.accent.withOpacity(0.1),
                 ),
-                child: const Icon(Icons.auto_awesome_rounded, color: AppColors.accent, size: 18),
+                child: Icon(Icons.auto_awesome_rounded, color: AppColors.accent, size: 18),
               ),
               const SizedBox(width: 8),
               Text(
@@ -973,7 +980,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
               child: CircleAvatar(
                 backgroundColor: AppColors.cardBackground,
                 radius: 13,
-                child: const Icon(
+                child: Icon(
                   Icons.auto_awesome_rounded,
                   color: AppColors.accent,
                   size: 13,
@@ -1057,58 +1064,71 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                           data: message.content,
                           styleSheet: MarkdownStyleSheet(
                             p: GoogleFonts.outfit(
-                              color: AppColors.textPrimary,
+                              color: isUser ? Colors.white : AppColors.textPrimary,
                               fontSize: 14,
                               height: 1.45,
                             ),
                             strong: GoogleFonts.outfit(
-                              color: isUser ? AppColors.textPrimary : AppColors.accent,
+                              color: isUser ? Colors.white : AppColors.accent,
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
                             ),
                             listBullet: GoogleFonts.outfit(
-                              color: AppColors.accent,
+                              color: isUser ? Colors.white70 : AppColors.accent,
                               fontSize: 14,
                             ),
                             h1: GoogleFonts.outfit(
-                              color: AppColors.accent,
+                              color: isUser ? Colors.white : AppColors.accent,
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
                               height: 1.5,
                             ),
                             h2: GoogleFonts.outfit(
-                              color: AppColors.accent,
+                              color: isUser ? Colors.white : AppColors.accent,
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                               height: 1.4,
                             ),
                             h3: GoogleFonts.outfit(
-                              color: AppColors.textPrimary,
+                              color: isUser ? Colors.white : AppColors.textPrimary,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
                             blockquote: GoogleFonts.outfit(
-                              color: AppColors.textSecondary,
+                              color: isUser ? Colors.white.withOpacity(0.8) : AppColors.textSecondary,
                               fontSize: 13,
                               height: 1.4,
                             ),
                             blockquoteDecoration: BoxDecoration(
-                              color: AppColors.darkBackground.withOpacity(0.4),
+                              color: isUser 
+                                  ? Colors.black.withOpacity(0.15)
+                                  : AppColors.darkBackground.withOpacity(0.4),
                               borderRadius: BorderRadius.circular(8),
-                              border: const Border(
-                                left: BorderSide(color: AppColors.accent, width: 3.5),
+                              border: Border(
+                                left: BorderSide(
+                                  color: isUser ? Colors.white70 : AppColors.accent, 
+                                  width: 3.5,
+                                ),
                               ),
                             ),
                             blockquotePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             code: GoogleFonts.jetBrainsMono(
-                              color: AppColors.accent,
-                              backgroundColor: AppColors.darkBackground,
+                              color: isUser ? Colors.white : AppColors.accent,
+                              backgroundColor: isUser 
+                                  ? Colors.black.withOpacity(0.2)
+                                  : AppColors.darkBackground,
                               fontSize: 12,
                             ),
                             codeblockDecoration: BoxDecoration(
-                              color: AppColors.darkBackground,
+                              color: isUser 
+                                  ? Colors.black.withOpacity(0.2)
+                                  : AppColors.darkBackground,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.borderSubtle),
+                              border: Border.all(
+                                color: isUser 
+                                    ? Colors.white.withOpacity(0.1)
+                                    : AppColors.borderSubtle,
+                              ),
                             ),
                             codeblockPadding: const EdgeInsets.all(10),
                           ),
@@ -1122,7 +1142,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                             Text(
                               DateFormat('HH:mm').format(message.timestamp),
                               style: GoogleFonts.outfit(
-                                color: Colors.white38,
+                                color: isUser ? Colors.white.withOpacity(0.65) : AppColors.textHint,
                                 fontSize: 9,
                               ),
                             ),
@@ -1226,7 +1246,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                         child: Text(
                           type == 'Income' ? 'INGRESO' : 'GASTO',
                           style: GoogleFonts.outfit(
-                            color: type == 'Income' ? Colors.greenAccent : Colors.redAccent,
+                            color: type == 'Income' ? AppColors.income : AppColors.expense,
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.8,
@@ -1257,7 +1277,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       // Rechazar
                       _buildSuggestionAction(
                         icon: Icons.close_rounded,
-                        color: Colors.redAccent,
+                        color: AppColors.error,
                         tooltip: 'Rechazar',
                         onTap: () async {
                           await _chatService.removeCategorySuggestion(messageIndex, name);
@@ -1266,7 +1286,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       // Editar
                       _buildSuggestionAction(
                         icon: Icons.edit_rounded,
-                        color: Colors.blueAccent,
+                        color: AppColors.accent,
                         tooltip: 'Editar',
                         onTap: () {
                           _showEditSuggestedCategoryDialog(
@@ -1281,7 +1301,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       // Aceptar
                       _buildSuggestionAction(
                         icon: Icons.check_rounded,
-                        color: Colors.greenAccent,
+                        color: AppColors.success,
                         tooltip: 'Aceptar',
                         onTap: () async {
                           await _chatService.acceptCategorySuggestion(messageIndex, sug);
@@ -1751,7 +1771,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           final String dateStr = tx['date'] ?? '';
           final String account = tx['account'] ?? 'Efectivo';
           
-          final accentColor = type == 'Income' ? Colors.greenAccent : Colors.redAccent;
+          final accentColor = type == 'Income' ? AppColors.income : AppColors.expense;
           
           return Container(
             width: 195,
@@ -1847,7 +1867,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       // Rechazar
                       _buildSuggestionAction(
                         icon: Icons.close_rounded,
-                        color: Colors.redAccent,
+                        color: AppColors.error,
                         tooltip: 'Rechazar',
                         onTap: () async {
                           await _chatService.removeTransactionSuggestion(messageIndex, detail);
@@ -1856,7 +1876,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       // Editar
                       _buildSuggestionAction(
                         icon: Icons.edit_rounded,
-                        color: Colors.blueAccent,
+                        color: AppColors.accent,
                         tooltip: 'Editar',
                         onTap: () {
                           _showEditSuggestedTransactionDialog(
@@ -1873,7 +1893,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       // Aceptar
                       _buildSuggestionAction(
                         icon: Icons.check_rounded,
-                        color: Colors.greenAccent,
+                        color: AppColors.success,
                         tooltip: 'Aceptar',
                         onTap: () async {
                           await _chatService.acceptTransactionSuggestion(messageIndex, tx);
@@ -2393,7 +2413,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
             child: CircleAvatar(
               backgroundColor: AppColors.cardBackground,
               radius: 12,
-              child: const Icon(Icons.auto_awesome, color: AppColors.accent, size: 12),
+              child: Icon(Icons.auto_awesome, color: AppColors.accent, size: 12),
             ),
           ),
           const SizedBox(width: 8),
@@ -2512,7 +2532,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                           shape: BoxShape.circle,
                           color: AppColors.secondaryAccent.withOpacity(0.1),
                         ),
-                        child: const Icon(Icons.pie_chart_outline_rounded, color: AppColors.secondaryAccent, size: 20),
+                        child: Icon(Icons.pie_chart_outline_rounded, color: AppColors.secondaryAccent, size: 20),
                       ),
                       const SizedBox(width: 10),
                       Text(
@@ -2633,7 +2653,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                   shape: BoxShape.circle,
                   color: AppColors.accent.withOpacity(0.1),
                 ),
-                child: const Icon(Icons.description_outlined, color: AppColors.accent, size: 20),
+                child: Icon(Icons.description_outlined, color: AppColors.accent, size: 20),
               ),
               title: Text(
                 'Reporte Analítico Detallado (Markdown)',
@@ -2682,7 +2702,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
         // Reset action button
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.error),
+            side: BorderSide(color: AppColors.error),
             foregroundColor: AppColors.error,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             minimumSize: const Size(double.infinity, 46),
@@ -3060,7 +3080,7 @@ class _BouncingDotsIndicatorState extends State<BouncingDotsIndicator> with Sing
                 transform: Matrix4.translationValues(0, offset, 0),
                 width: 6,
                 height: 6,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.accent,
                 ),

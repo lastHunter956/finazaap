@@ -5,6 +5,9 @@ import 'package:finazaap/services/notification_service.dart';
 import 'package:finazaap/services/data_management_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/utils/alert_helper.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/themes/app_theme_mode.dart';
+import 'package:finazaap/core/theme_notifier.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -184,14 +187,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       initialTime: _notificationTime,
       builder: (context, child) {
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color.fromARGB(255, 82, 226, 255),
-              onPrimary: Colors.black,
-              surface: Color.fromRGBO(42, 49, 67, 1),
-              onSurface: Colors.white,
-            ),
-          ),
+          data: Theme.of(context),
           child: child!,
         );
       },
@@ -242,11 +238,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+      backgroundColor: context.appTheme.primaryBackground,
       appBar: AppBar(
-        title: const Text('Ajustes', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text('Ajustes', style: TextStyle(color: context.appTheme.textPrimary)),
+        backgroundColor: context.appTheme.cardBackground,
+        iconTheme: IconThemeData(color: context.appTheme.textPrimary),
       ),
       body: _isLoading 
           ? const Center(child: CircularProgressIndicator())
@@ -256,10 +252,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // ═══════════════════════════════════════════════════════════════
                 // SECCIÓN: GENERAL
                 // ═══════════════════════════════════════════════════════════════
-                const Text(
+                Text(
                   'General',
                   style: TextStyle(
-                    color: Color.fromARGB(255, 82, 226, 255),
+                    color: context.appTheme.accent,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -267,31 +263,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 10),
                 Container(
                   decoration: BoxDecoration(
-                    color: const Color.fromRGBO(42, 49, 67, 1),
+                    color: context.appTheme.cardBackground,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: ListTile(
-                    title: const Text('Divisa por defecto', style: TextStyle(color: Colors.white)),
+                    title: Text('Divisa por defecto', style: TextStyle(color: context.appTheme.textPrimary)),
                     subtitle: Text(
                       _currencies.firstWhere((c) => c['code'] == _selectedCurrency)['name'] ?? _selectedCurrency,
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                     ),
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color.fromARGB(255, 82, 226, 255).withOpacity(0.2),
+                        color: context.appTheme.accent.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: DropdownButton<String>(
                         value: _selectedCurrency,
-                        dropdownColor: const Color.fromRGBO(42, 49, 67, 1),
+                        dropdownColor: context.appTheme.cardBackground,
                         underline: const SizedBox(),
-                        icon: const Icon(Icons.arrow_drop_down, color: Color.fromARGB(255, 82, 226, 255)),
-                        style: const TextStyle(color: Color.fromARGB(255, 82, 226, 255), fontWeight: FontWeight.bold),
+                        icon: Icon(Icons.arrow_drop_down, color: context.appTheme.accent),
+                        style: TextStyle(color: context.appTheme.accent, fontWeight: FontWeight.bold),
                         items: _currencies.map((currency) {
                           return DropdownMenuItem<String>(
                             value: currency['code'],
-                            child: Text('${currency['symbol']} ${currency['code']}'),
+                            child: Text(
+                              '${currency['symbol']} ${currency['code']}',
+                              style: TextStyle(color: context.appTheme.textPrimary),
+                            ),
                           );
                         }).toList(),
                         onChanged: (value) {
@@ -305,14 +304,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 
                 const SizedBox(height: 24),
-                
+
+                // ═══════════════════════════════════════════════════════════════
+                // SECCIÓN: APARIENCIA
+                // ═══════════════════════════════════════════════════════════════
+                Text(
+                  'Apariencia',
+                  style: TextStyle(
+                    color: context.appTheme.accent,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildThemeSelector(context),
+
+                const SizedBox(height: 24),
+
                 // ═══════════════════════════════════════════════════════════════
                 // SECCIÓN: SEGURIDAD
                 // ═══════════════════════════════════════════════════════════════
-                const Text(
+                Text(
                   'Seguridad',
                   style: TextStyle(
-                    color: Color.fromARGB(255, 82, 226, 255),
+                    color: context.appTheme.accent,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -320,36 +335,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 10),
                 Container(
                   decoration: BoxDecoration(
-                    color: const Color.fromRGBO(42, 49, 67, 1),
+                    color: context.appTheme.cardBackground,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     children: [
                       SwitchListTile(
-                        title: const Text('Habilitar PIN', style: TextStyle(color: Colors.white)),
-                        subtitle: const Text('Solicitar PIN al abrir la aplicación', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        title: Text('Habilitar PIN', style: TextStyle(color: context.appTheme.textPrimary)),
+                        subtitle: Text('Solicitar PIN al abrir la aplicación', style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12)),
                         value: _pinEnabled,
-                        activeColor: const Color.fromARGB(255, 82, 226, 255),
+                        activeColor: context.appTheme.accent,
                         onChanged: _togglePin,
                       ),
                       if (_pinEnabled) ...[
-                        const Divider(height: 1, color: Colors.white12),
+                        Divider(height: 1, color: context.appTheme.borderSubtle),
                         ListTile(
-                          title: const Text('Cambiar PIN', style: TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.chevron_right, color: Colors.white),
+                          title: Text('Cambiar PIN', style: TextStyle(color: context.appTheme.textPrimary)),
+                          trailing: Icon(Icons.chevron_right, color: context.appTheme.textSecondary),
                           onTap: _changePin,
                         ),
                         // Biometric toggle (only if available)
                         if (_biometricAvailable) ...[
-                          const Divider(height: 1, color: Colors.white12),
+                          Divider(height: 1, color: context.appTheme.borderSubtle),
                           SwitchListTile(
-                            title: const Text('Desbloqueo Biométrico', style: TextStyle(color: Colors.white)),
-                            subtitle: const Text(
+                            title: Text('Desbloqueo Biométrico', style: TextStyle(color: context.appTheme.textPrimary)),
+                            subtitle: Text(
                               'Usar huella o Face ID para desbloquear',
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                              style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                             ),
                             value: _biometricEnabled,
-                            activeColor: const Color.fromARGB(255, 82, 226, 255),
+                            activeColor: context.appTheme.accent,
                             onChanged: (value) async {
                               await _pinProvider.setBiometricEnabled(value);
                               setState(() {
@@ -376,10 +391,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // ═══════════════════════════════════════════════════════════════
                 // SECCIÓN: NOTIFICACIONES
                 // ═══════════════════════════════════════════════════════════════
-                const Text(
+                Text(
                   'Notificaciones',
                   style: TextStyle(
-                    color: Color.fromARGB(255, 82, 226, 255),
+                    color: context.appTheme.accent,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -387,50 +402,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 10),
                 Container(
                   decoration: BoxDecoration(
-                    color: const Color.fromRGBO(42, 49, 67, 1),
+                    color: context.appTheme.cardBackground,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     children: [
                       // Toggle principal
                       SwitchListTile(
-                        title: const Text('Recordatorios de Pagos', style: TextStyle(color: Colors.white)),
-                        subtitle: const Text(
+                        title: Text('Recordatorios de Pagos', style: TextStyle(color: context.appTheme.textPrimary)),
+                        subtitle: Text(
                           'Recibir recordatorios de obligaciones',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                          style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                         ),
                         value: _notificationsEnabled,
-                        activeColor: const Color.fromARGB(255, 82, 226, 255),
+                        activeColor: context.appTheme.accent,
                         onChanged: _toggleNotifications,
                       ),
                       
                       // Opciones de configuración (solo si está habilitado)
                       if (_notificationsEnabled) ...[
-                        const Divider(height: 1, color: Colors.white12),
+                        Divider(height: 1, color: context.appTheme.borderSubtle),
                         
                         // Días de anticipación
                         ListTile(
-                          title: const Text('Días de anticipación', style: TextStyle(color: Colors.white)),
+                          title: Text('Días de anticipación', style: TextStyle(color: context.appTheme.textPrimary)),
                           subtitle: Text(
                             _daysBefore == 0 
                                 ? 'Sin recordatorio previo'
                                 : _daysBefore == 1
                                     ? '1 día antes'
                                     : '$_daysBefore días antes',
-                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                           ),
                           trailing: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color.fromARGB(255, 82, 226, 255).withOpacity(0.2),
+                              color: context.appTheme.accent.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: DropdownButton<int>(
                               value: _daysBefore,
-                              dropdownColor: const Color.fromRGBO(42, 49, 67, 1),
+                              dropdownColor: context.appTheme.cardBackground,
                               underline: const SizedBox(),
-                              icon: const Icon(Icons.arrow_drop_down, color: Color.fromARGB(255, 82, 226, 255)),
-                              style: const TextStyle(color: Color.fromARGB(255, 82, 226, 255), fontWeight: FontWeight.bold),
+                              icon: Icon(Icons.arrow_drop_down, color: context.appTheme.accent),
+                              style: TextStyle(color: context.appTheme.accent, fontWeight: FontWeight.bold),
                               items: List.generate(8, (i) => i).map((days) {
                                 return DropdownMenuItem<int>(
                                   value: days,
@@ -440,6 +455,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         : days == 1 
                                             ? '1 día'
                                             : '$days días',
+                                    style: TextStyle(color: context.appTheme.textPrimary),
                                   ),
                                 );
                               }).toList(),
@@ -452,50 +468,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         
-                        const Divider(height: 1, color: Colors.white12),
+                        Divider(height: 1, color: context.appTheme.borderSubtle),
                         
                         // Notificar el mismo día
                         SwitchListTile(
-                          title: const Text('Notificar el mismo día', style: TextStyle(color: Colors.white)),
-                          subtitle: const Text(
+                          title: Text('Notificar el mismo día', style: TextStyle(color: context.appTheme.textPrimary)),
+                          subtitle: Text(
                             'Recordatorio el día de vencimiento',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                           ),
                           value: _sameDay,
-                          activeColor: const Color.fromARGB(255, 82, 226, 255),
+                          activeColor: context.appTheme.accent,
                           onChanged: _setSameDay,
                         ),
                         
-                        const Divider(height: 1, color: Colors.white12),
+                        Divider(height: 1, color: context.appTheme.borderSubtle),
                         
                         // Hora de notificación
                         ListTile(
-                          title: const Text('Hora de notificación', style: TextStyle(color: Colors.white)),
-                          subtitle: const Text(
+                          title: Text('Hora de notificación', style: TextStyle(color: context.appTheme.textPrimary)),
+                          subtitle: Text(
                             'Hora a la que recibirás recordatorios',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                           ),
                           trailing: GestureDetector(
                             onTap: _selectNotificationTime,
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 82, 226, 255).withOpacity(0.2),
+                                color: context.appTheme.accent.withOpacity(0.12),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.access_time,
-                                    color: Color.fromARGB(255, 82, 226, 255),
+                                    color: context.appTheme.accent,
                                     size: 18,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     _formatTime(_notificationTime),
-                                    style: const TextStyle(
-                                      color: Color.fromARGB(255, 82, 226, 255),
+                                    style: TextStyle(
+                                      color: context.appTheme.accent,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -505,23 +521,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         
-                        const Divider(height: 1, color: Colors.white12),
+                        Divider(height: 1, color: context.appTheme.borderSubtle),
                         
                         // Botón de prueba
                         ListTile(
-                          leading: const Icon(
+                          leading: Icon(
                             Icons.notifications_active,
-                            color: Color.fromARGB(255, 82, 226, 255),
+                            color: context.appTheme.accent,
                           ),
-                          title: const Text(
+                          title: Text(
                             'Probar notificación',
-                            style: TextStyle(color: Colors.white),
+                            style: TextStyle(color: context.appTheme.textPrimary),
                           ),
-                          subtitle: const Text(
+                          subtitle: Text(
                             'Enviar una notificación de prueba',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                           ),
-                          trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                          trailing: Icon(Icons.chevron_right, color: context.appTheme.textSecondary),
                           onTap: _sendTestNotification,
                         ),
                       ],
@@ -537,18 +553,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: const Color.fromRGBO(42, 49, 67, 1),
+                    color: context.appTheme.cardBackground,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.all(16),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
                         child: Text(
                           'Datos',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: context.appTheme.accent,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
@@ -565,16 +581,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           child: const Icon(Icons.upload_rounded, color: Colors.blue),
                         ),
-                        title: const Text('Exportar datos', style: TextStyle(color: Colors.white)),
-                        subtitle: const Text(
+                        title: Text('Exportar datos', style: TextStyle(color: context.appTheme.textPrimary)),
+                        subtitle: Text(
                           'Crear respaldo de toda la información',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                          style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                         ),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                        trailing: Icon(Icons.chevron_right, color: context.appTheme.textSecondary),
                         onTap: _exportData,
                       ),
                       
-                      const Divider(height: 1, color: Colors.white12),
+                      Divider(height: 1, color: context.appTheme.borderSubtle),
                       
                       // Importar datos
                       ListTile(
@@ -586,16 +602,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           child: const Icon(Icons.download_rounded, color: Colors.green),
                         ),
-                        title: const Text('Importar datos', style: TextStyle(color: Colors.white)),
-                        subtitle: const Text(
+                        title: Text('Importar datos', style: TextStyle(color: context.appTheme.textPrimary)),
+                        subtitle: Text(
                           'Restaurar desde un respaldo',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                          style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                         ),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                        trailing: Icon(Icons.chevron_right, color: context.appTheme.textSecondary),
                         onTap: _importData,
                       ),
                       
-                      const Divider(height: 1, color: Colors.white12),
+                      Divider(height: 1, color: context.appTheme.borderSubtle),
                       
                       // Eliminar todos los datos
                       ListTile(
@@ -608,11 +624,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: const Icon(Icons.delete_forever_rounded, color: Colors.red),
                         ),
                         title: const Text('Eliminar todos los datos', style: TextStyle(color: Colors.red)),
-                        subtitle: const Text(
+                        subtitle: Text(
                           'Borrar toda la información de la app',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                          style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                         ),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                        trailing: Icon(Icons.chevron_right, color: context.appTheme.textSecondary),
                         onTap: _confirmDeleteAllData,
                       ),
                     ],
@@ -671,7 +687,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
+        backgroundColor: context.appTheme.cardBackground,
         title: const Text('Importar datos', style: TextStyle(color: Colors.white)),
         content: const Text(
           '⚠️ Los datos importados se agregarán a los existentes.\n\n'
@@ -724,7 +740,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final firstConfirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
+        backgroundColor: context.appTheme.cardBackground,
         title: const Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
@@ -756,7 +772,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final secondConfirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
+        backgroundColor: context.appTheme.cardBackground,
         title: const Text('Confirmación final', style: TextStyle(color: Colors.white)),
         content: const Text(
           '¿Estás COMPLETAMENTE seguro?\n\nEscribe "ELIMINAR" para confirmar.',
@@ -797,5 +813,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
         AlertHelper.error(context, 'Error: $e');
       }
     }
+  }
+
+  // ─────────────── SELECTOR DE TEMA ───────────────
+
+  Widget _buildThemeSelector(BuildContext context) {
+    return ValueListenableBuilder<AppThemeMode>(
+      valueListenable: ThemeNotifier.mode,
+      builder: (context, currentMode, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final double cardWidth = (constraints.maxWidth - 16) / 3;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: AppThemeMode.values.map((mode) {
+                return SizedBox(
+                  width: cardWidth,
+                  child: _buildThemeCard(context, mode, currentMode == mode),
+                );
+              }).toList(),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildThemeCard(BuildContext context, AppThemeMode mode, bool isSelected) {
+    final t = AppTheme.forMode(mode);
+    final label = switch (mode) {
+      AppThemeMode.defaultDark => 'Default',
+      AppThemeMode.diurno => 'Diurno',
+      AppThemeMode.nocturno => 'Nocturno',
+      AppThemeMode.dia => 'Día',
+      AppThemeMode.automatico => 'Automático',
+    };
+    final icon = switch (mode) {
+      AppThemeMode.defaultDark => Icons.dark_mode_rounded,
+      AppThemeMode.diurno => Icons.light_mode_outlined,
+      AppThemeMode.nocturno => Icons.nights_stay_rounded,
+      AppThemeMode.dia => Icons.wb_sunny_rounded,
+      AppThemeMode.automatico => Icons.brightness_auto_rounded,
+    };
+
+    return GestureDetector(
+      onTap: () => ThemeNotifier.setMode(mode),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? context.appTheme.accent.withValues(alpha: 0.12)
+              : context.appTheme.cardBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? context.appTheme.accent
+                : context.appTheme.borderSubtle,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Mini preview de colores
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _colorDot(t.primaryBackground),
+                const SizedBox(width: 2),
+                _colorDot(t.cardBackground),
+                const SizedBox(width: 2),
+                _colorDot(t.buttonBackground),
+                const SizedBox(width: 2),
+                _colorDot(t.accent),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Icon(icon, size: 18, color: isSelected ? context.appTheme.accent : context.appTheme.textHint),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? context.appTheme.accent : context.appTheme.textSecondary,
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (isSelected) ...[
+              const SizedBox(height: 4),
+              Icon(Icons.check_circle_rounded, size: 12, color: context.appTheme.accent),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _colorDot(Color color) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.black12, width: 0.5),
+      ),
+    );
   }
 }

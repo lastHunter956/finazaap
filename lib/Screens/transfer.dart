@@ -13,6 +13,7 @@ import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/widgets/bottomnavigationbar.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/core/utils/app_logger.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 class AccountItem {
   String title;
@@ -350,26 +351,26 @@ Future<void> _loadAccountsFromPrefs() async {
 Widget build(BuildContext context) {
   // Colores y constantes de diseño
   const Color primaryColor = Color(0xFF3D7AF0); // Azul para transferencias
-  const Color surfaceColor = Color(0xFF222939);
-  const Color cardColor = Color(0xFF1A1F2B);
+  final Color surfaceColor = context.appTheme.secondaryCardBackground;
+  final Color cardColor = context.appTheme.darkBackground;
   const double cornerRadius = 20.0;
   
   return Scaffold(
-    backgroundColor: const Color(0xFF1F2639),
+    backgroundColor: context.appTheme.primaryBackground,
     appBar: AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       title: Text(
         widget.isEditing ? 'Editar Transferencia' : 'Nueva Transferencia',
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: context.appTheme.textPrimary,
           fontWeight: FontWeight.bold,
           fontSize: 18,
         ),
       ),
       centerTitle: true,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+        icon: Icon(Icons.arrow_back_ios_rounded, color: context.appTheme.textPrimary),
         onPressed: () => Navigator.pop(context),
       ),
     ),
@@ -392,7 +393,7 @@ Widget build(BuildContext context) {
                   ),
                 ],
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.05),
+                  color: context.appTheme.borderSubtle,
                   width: 1.0,
                 ),
               ),
@@ -448,7 +449,7 @@ Widget build(BuildContext context) {
                               Text(
                                 'Movimiento entre cuentas',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: context.appTheme.textSecondary,
                                   fontSize: 16,
                                 ),
                               ),
@@ -468,11 +469,12 @@ Widget build(BuildContext context) {
                         // Campo de monto
                         _buildInputLabel('Monto'),
                         _buildInputField(
+                          context: context,
                           child: TextField(
                             controller: _amountCtrl,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: context.appTheme.textPrimary,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
@@ -482,7 +484,7 @@ Widget build(BuildContext context) {
                             decoration: InputDecoration(
                               hintText: '0.00',
                               hintStyle: TextStyle(
-                                color: Colors.white.withOpacity(0.3),
+                                color: context.appTheme.textHint,
                               ),
                               border: InputBorder.none,
                               prefixIcon: const Icon(
@@ -498,23 +500,24 @@ Widget build(BuildContext context) {
                         // Cuenta de origen
                         _buildInputLabel('Cuenta de origen'),
                         _buildInputField(
+                          context: context,
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<AccountItem>(
                               value: _selectedSourceAccount,
                               hint: Text(
                                 'Seleccionar origen',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: context.appTheme.textHint,
                                   fontSize: 14,
                                 ),
                               ),
-                              dropdownColor: cardColor,
-                              icon: const Icon(
+                              dropdownColor: context.appTheme.cardBackground,
+                              icon: Icon(
                                 Icons.arrow_drop_down_rounded,
-                                color: Colors.white54,
+                                color: context.appTheme.textSecondary,
                               ),
                               isExpanded: true,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: context.appTheme.textPrimary),
                               onChanged: (value) {
                                 setState(() {
                                   _selectedSourceAccount = value;
@@ -571,7 +574,7 @@ Widget build(BuildContext context) {
                                 Text(
                                   'Saldo disponible: ${CurrencyHelper.format(_selectedSourceAccount!.balance)}',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.7),
+                                    color: context.appTheme.textSecondary,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w400,
                                   ),
@@ -585,23 +588,24 @@ Widget build(BuildContext context) {
                         // Cuenta de destino
                         _buildInputLabel('Cuenta de destino'),
                         _buildInputField(
+                          context: context,
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<AccountItem>(
                               value: _selectedDestinationAccount,
                               hint: Text(
                                 'Seleccionar destino',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: context.appTheme.textHint,
                                   fontSize: 14,
                                 ),
                               ),
-                              dropdownColor: cardColor,
-                              icon: const Icon(
+                              dropdownColor: context.appTheme.cardBackground,
+                              icon: Icon(
                                 Icons.arrow_drop_down_rounded,
-                                color: Colors.white54,
+                                color: context.appTheme.textSecondary,
                               ),
                               isExpanded: true,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: context.appTheme.textPrimary),
                               onChanged: (value) {
                                 setState(() {
                                   _selectedDestinationAccount = value;
@@ -656,16 +660,17 @@ Widget build(BuildContext context) {
                                 children: [
                                   _buildInputLabel('Descripción'),
                                   _buildInputField(
+                                    context: context,
                                     child: TextField(
                                       controller: _detailCtrl,
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: context.appTheme.textPrimary,
                                         fontSize: 14,
                                       ),
                                       decoration: InputDecoration(
                                         hintText: 'Detalle (opcional)',
                                         hintStyle: TextStyle(
-                                          color: Colors.white.withOpacity(0.3),
+                                          color: context.appTheme.textHint,
                                         ),
                                         border: InputBorder.none,
                                         prefixIcon: const Icon(
@@ -719,6 +724,7 @@ Widget build(BuildContext context) {
                                     },
                                     borderRadius: BorderRadius.circular(12),
                                     child: _buildInputField(
+                                      context: context,
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(vertical: 11),
                                         child: Row(
@@ -733,8 +739,8 @@ Widget build(BuildContext context) {
                                               child: Text(
                                                 _formatDate(_selectedDate),
                                                 overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
+                                                style: TextStyle(
+                                                  color: context.appTheme.textPrimary,
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.w500,
                                                 ),
@@ -762,7 +768,7 @@ Widget build(BuildContext context) {
                               child: _buildActionButton(
                                 label: 'Cancelar',
                                 icon: Icons.close_rounded,
-                                color: Colors.white54,
+                                color: context.appTheme.textSecondary,
                                 isOutlined: true,
                                 onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
                               ),
@@ -822,13 +828,13 @@ String _formatDate(DateTime date) {
 }
 
 // Método helper para etiquetas de campos más compactas
-Widget _buildInputLabel(String label) {
+Widget _buildInputLabel(String label, [BuildContext? context]) {
   return Padding(
     padding: const EdgeInsets.only(left: 4, bottom: 6),
     child: Text(
       label,
       style: TextStyle(
-        color: Colors.white.withOpacity(0.7),
+        color: context?.appTheme.textSecondary ?? const Color(0xFF94A3B8),
         fontSize: 13,
         fontWeight: FontWeight.w500,
       ),
@@ -837,18 +843,29 @@ Widget _buildInputLabel(String label) {
 }
 
 // Método helper para campos de entrada más compactos
-Widget _buildInputField({required Widget child}) {
+Widget _buildInputField({required Widget child, required BuildContext context}) {
   return Container(
     decoration: BoxDecoration(
-      color: const Color(0xFF1A1F2B),
+      color: context.appTheme.darkBackground,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
-        color: Colors.white.withOpacity(0.08),
+        color: context.appTheme.borderSubtle,
         width: 1,
       ),
     ),
     padding: const EdgeInsets.symmetric(horizontal: 12),
-    child: child,
+    child: Theme(
+      data: Theme.of(context).copyWith(
+        inputDecorationTheme: const InputDecorationTheme(
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          filled: false,
+        ),
+      ),
+      child: child,
+    ),
   );
 }
 
@@ -871,7 +888,7 @@ Widget _buildActionButton({
           color: isOutlined ? Colors.transparent : color,
           borderRadius: BorderRadius.circular(12),
           border: isOutlined
-              ? Border.all(color: Colors.white24, width: 1)
+              ? Border.all(color: color.withOpacity(0.5), width: 1)
               : null,
         ),
         child: Padding(
@@ -1002,13 +1019,13 @@ void _showDeleteConfirmation() {
     context: context,
     builder: (BuildContext context) {
       return AlertDialog(
-        backgroundColor: const Color(0xFF2A2A3A),
-        title: const Text('Confirmar eliminación', style: TextStyle(color: Colors.white)),
-        content: const Text('¿Estás seguro que deseas eliminar esta transferencia?', style: TextStyle(color: Colors.white)),
+        backgroundColor: context.appTheme.cardBackground,
+        title: Text('Confirmar eliminación', style: TextStyle(color: context.appTheme.textPrimary)),
+        content: Text('¿Estás seguro que deseas eliminar esta transferencia?', style: TextStyle(color: context.appTheme.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () async {

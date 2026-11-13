@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'package:finazaap/data/model/responsibility.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/icon_lists.dart';
 import 'package:intl/intl.dart';
@@ -99,7 +100,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
             width: double.infinity,
             constraints: const BoxConstraints(maxWidth: 420),
             decoration: BoxDecoration(
-              color: const Color(0xFF222939),
+              color: context.appTheme.secondaryCardBackground,
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
@@ -109,7 +110,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                 ),
               ],
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: context.appTheme.borderSubtle,
                 width: 1,
               ),
             ),
@@ -135,7 +136,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                         ),
                         border: Border(
                           bottom: BorderSide(
-                            color: Colors.white.withOpacity(0.08),
+                            color: context.appTheme.borderSubtle,
                             width: 1,
                           ),
                         ),
@@ -169,8 +170,8 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                               children: [
                                 Text(
                                   widget.responsibility == null ? 'Nueva Obligación' : 'Editar Obligación',
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: context.appTheme.textPrimary,
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -179,7 +180,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                 Text(
                                   'Organiza tus gastos fijos',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
+                                    color: context.appTheme.textSecondary,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -200,10 +201,10 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                           _buildInputField(
                             child: TextFormField(
                               controller: _nameCtrl,
-                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                              style: TextStyle(color: context.appTheme.textPrimary, fontSize: 16),
                               decoration: InputDecoration(
                                 hintText: 'Ej: Alquiler, Netflix...',
-                                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                hintStyle: TextStyle(color: context.appTheme.textHint),
                                 border: InputBorder.none,
                                 prefixIcon: Icon(Icons.label_important_outline, color: iconColor.withOpacity(0.7), size: 22),
                                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -221,6 +222,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                   children: [
                                     _buildInputLabel('Categoría'),
                                     _buildDropdown(
+                                      context: context,
                                       value: _selectedCategory,
                                       items: ResponsibilityService.availableCategories,
                                       onChanged: (v) {
@@ -296,6 +298,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                   children: [
                                     _buildInputLabel('Frecuencia'),
                                     _buildDropdown(
+                                      context: context,
                                       value: _selectedFrequency,
                                       items: ['mensual', 'bimestral', 'trimestral', 'anual'], // Frecuencias permitidas
                                       onChanged: (v) {
@@ -326,11 +329,11 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                           inputFormatters: [
                                             ThousandsSeparatorInputFormatter(),
                                           ],
-                                          style: const TextStyle(color: Colors.white),
+                                          style: TextStyle(color: context.appTheme.textPrimary),
                                           onChanged: (_) => _calculateCardPayment(),
                                           decoration: InputDecoration(
                                             hintText: '0.00',
-                                            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                            hintStyle: TextStyle(color: context.appTheme.textHint),
                                             border: InputBorder.none,
                                             prefixIcon: Icon(Icons.account_balance_wallet_outlined, color: iconColor.withOpacity(0.7), size: 20),
                                             contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -350,11 +353,11 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                         child: TextFormField(
                                           controller: _interestRateCtrl,
                                           keyboardType: TextInputType.number,
-                                          style: const TextStyle(color: Colors.white),
+                                          style: TextStyle(color: context.appTheme.textPrimary),
                                           onChanged: (_) => _calculateCardPayment(),
                                           decoration: InputDecoration(
                                             hintText: '2.5',
-                                            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                            hintStyle: TextStyle(color: context.appTheme.textHint),
                                             border: InputBorder.none,
                                             prefixIcon: Icon(Icons.percent, color: iconColor.withOpacity(0.7), size: 20),
                                             contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -378,11 +381,11 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                         child: TextFormField(
                                           controller: _installmentsCtrl,
                                           keyboardType: TextInputType.number,
-                                          style: const TextStyle(color: Colors.white),
+                                          style: TextStyle(color: context.appTheme.textPrimary),
                                           onChanged: (_) => _calculateCardPayment(),
                                           decoration: InputDecoration(
                                             hintText: '12',
-                                            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                            hintStyle: TextStyle(color: context.appTheme.textHint),
                                             border: InputBorder.none,
                                             prefixIcon: Icon(Icons.repeat, color: iconColor.withOpacity(0.7), size: 20),
                                             contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -405,10 +408,10 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                           inputFormatters: [
                                             ThousandsSeparatorInputFormatter(),
                                           ],
-                                          style: const TextStyle(color: Colors.white),
+                                          style: TextStyle(color: context.appTheme.textPrimary),
                                           decoration: InputDecoration(
                                             hintText: 'Ej: 5000',
-                                            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                            hintStyle: TextStyle(color: context.appTheme.textHint),
                                             border: InputBorder.none,
                                             prefixIcon: Icon(Icons.credit_card, color: iconColor.withOpacity(0.7), size: 20),
                                             contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -440,10 +443,10 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                         inputFormatters: [
                                           ThousandsSeparatorInputFormatter(),
                                         ],
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                        style: TextStyle(color: context.appTheme.textPrimary, fontWeight: FontWeight.bold),
                                         decoration: InputDecoration(
                                           hintText: '0.00',
-                                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                          hintStyle: TextStyle(color: context.appTheme.textHint),
                                           border: InputBorder.none,
                                           prefixIcon: Icon(Icons.attach_money, color: iconColor, size: 22),
                                           contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -461,7 +464,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildInputLabel(_getDueDayLabel()),
-                                    _buildDueDayInput(),
+                                    _buildDueDayInput(context),
                                   ],
                                 ),
                               ),
@@ -485,11 +488,11 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                     margin: const EdgeInsets.only(right: 12),
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: isSelected ? iconColor : Colors.white.withOpacity(0.05),
+                                      color: isSelected ? iconColor : context.appTheme.darkBackground,
                                       borderRadius: BorderRadius.circular(14),
                                       boxShadow: isSelected ? [BoxShadow(color: iconColor.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))] : [],
                                     ),
-                                    child: Icon(icon, color: isSelected ? Colors.white : Colors.white54, size: 24),
+                                    child: Icon(icon, color: isSelected ? Colors.white : context.appTheme.textSecondary, size: 24),
                                   ),
                                 );
                               },
@@ -510,11 +513,11 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                  side: BorderSide(color: context.appTheme.borderSubtle),
                                 ),
                               ),
                               onPressed: () => Navigator.pop(context),
-                              child: Text('Cancelar', style: TextStyle(color: Colors.white.withOpacity(0.7))),
+                              child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -554,7 +557,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
-          color: Colors.white.withOpacity(0.5),
+          color: context.appTheme.textSecondary,
           fontSize: 11,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.2,
@@ -566,18 +569,29 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
   Widget _buildInputField({required Widget child, bool highlight = false}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: context.appTheme.darkBackground,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: highlight ? iconColor.withOpacity(0.5) : Colors.white.withOpacity(0.1),
+          color: highlight ? iconColor.withOpacity(0.5) : context.appTheme.borderSubtle,
           width: highlight ? 1.5 : 1,
         ),
       ),
-      child: child,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            filled: false,
+          ),
+        ),
+        child: child,
+      ),
     );
   }
 
-  Widget _buildDropdown({required String value, required List<String> items, required Function(String?) onChanged}) {
+  Widget _buildDropdown({required BuildContext context, required String value, required List<String> items, required Function(String?) onChanged}) {
     final effectiveValue = items.contains(value) ? value : (items.isNotEmpty ? items.first : null);
 
     return _buildInputField(
@@ -588,8 +602,8 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
             value: effectiveValue,
             isExpanded: true,
             icon: Icon(Icons.keyboard_arrow_down, color: iconColor.withOpacity(0.7)),
-            dropdownColor: const Color(0xFF2A3143),
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            dropdownColor: context.appTheme.cardBackground,
+            style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14),
             items: items.map((i) {
               String label = i;
               if (i == 'cuota_manejo') label = 'cuota de manejo';
@@ -609,13 +623,13 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
     return 'Día Pago (1-31)';
   }
 
-  Widget _buildDueDayInput() {
+  Widget _buildDueDayInput(BuildContext context) {
     if (_selectedFrequency == 'diario') {
       return _buildInputField(
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
           alignment: Alignment.centerLeft,
-          child: Text('Todos los días', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+          child: Text('Todos los días', style: TextStyle(color: context.appTheme.textSecondary)),
         ),
       );
     }
@@ -634,8 +648,8 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
               value: days.containsKey(_dueDayCtrl.text) ? _dueDayCtrl.text : '1',
               isExpanded: true,
               icon: Icon(Icons.keyboard_arrow_down, color: iconColor.withOpacity(0.7)),
-              dropdownColor: const Color(0xFF2A3143),
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              dropdownColor: context.appTheme.cardBackground,
+              style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14),
               items: days.entries.map((e) {
                 return DropdownMenuItem(value: e.key, child: Text(e.value.toUpperCase()));
               }).toList(),
@@ -651,10 +665,10 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
       child: TextFormField(
         controller: _dueDayCtrl,
         keyboardType: TextInputType.number,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: context.appTheme.textPrimary),
         decoration: InputDecoration(
           hintText: _selectedFrequency == 'quincenal' ? '1-15' : '1-31',
-          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+          hintStyle: TextStyle(color: context.appTheme.textHint),
           border: InputBorder.none,
           prefixIcon: Icon(Icons.calendar_month, color: iconColor.withOpacity(0.7), size: 20),
           contentPadding: const EdgeInsets.symmetric(vertical: 14),

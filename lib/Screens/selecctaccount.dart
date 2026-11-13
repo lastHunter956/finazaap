@@ -13,6 +13,7 @@ import 'package:finazaap/data/transaction_service.dart';
 import 'package:gradient_borders/gradient_borders.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/theme.dart';
 import 'package:finazaap/core/utils/app_logger.dart';
 
@@ -316,7 +317,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   // Botón de retroceso (solo si se muestra)
                   if (widget.showBackButton)
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
                       onPressed: () {
                         _updateTotalBalance();
                         Navigator.pop(context);
@@ -330,7 +331,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     child: Text(
                       _isReorderMode ? 'Reordenar Cuentas' : 'Cuentas',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
@@ -361,7 +362,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     IconButton(
                       icon: Icon(
                         Icons.sort,
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         size: 24,
                       ),
                       onPressed: _showSortOptions,
@@ -460,7 +461,7 @@ class _MyHomePageState extends State<MyHomePage> {
           }
         },
         backgroundColor: AppColors.accent,
-        child: const Icon(Icons.add, color: AppColors.primaryBackground),
+        child: Icon(Icons.add, color: AppColors.primaryBackground),
       ),
     );
   }
@@ -488,7 +489,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 _hideBalance
                     ? '******** \$'
                     : '${CurrencyHelper.format(totalBalance)}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: AppSizes.fontTitle,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textPrimary,
@@ -505,14 +506,14 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: Container(
                   padding: EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: AppColors.borderSubtle,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     _hideBalance
                         ? Icons.visibility_off
                         : Icons.visibility,
-                    color: Colors.white70,
+                    color: AppColors.textSecondary,
                     size: AppSizes.iconMedium,
                   ),
                 ),
@@ -529,8 +530,9 @@ class _MyHomePageState extends State<MyHomePage> {
     // Formato eliminado
     double balanceValue = double.tryParse(item.balance) ?? 0.0;
     
-    // Definir la paleta de colores refinada
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
     final Color itemColor = item.iconColor;
+    final Color readableItemColor = AppColors.getReadableColor(itemColor, context);
     final Color surfaceColor = AppColors.secondaryCardBackground;
     final Color shadowColor = Color.alphaBlend(itemColor.withOpacity(0.1), Colors.black.withOpacity(0.3));
     
@@ -542,47 +544,54 @@ class _MyHomePageState extends State<MyHomePage> {
           end: Alignment.bottomRight,
           colors: [
             surfaceColor,
-            Color.lerp(surfaceColor, itemColor.withOpacity(0.15), 0.3) ?? surfaceColor,
+            isLight
+                ? (Color.lerp(surfaceColor, readableItemColor, 0.08) ?? surfaceColor)
+                : (Color.lerp(surfaceColor, itemColor.withOpacity(0.15), 0.3) ?? surfaceColor),
           ],
         ),
         borderRadius: BorderRadius.circular(AppSizes.borderRadiusXLarge),
         boxShadow: [
           // Sombra principal
           BoxShadow(
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withOpacity(isLight ? 0.08 : 0.25),
             offset: Offset(0, 4),
             blurRadius: 12,
             spreadRadius: -3,
           ),
           // Sombra de acento
           BoxShadow(
-            color: shadowColor,
+            color: shadowColor.withOpacity(isLight ? 0.15 : 1.0),
             offset: Offset(0, 2),
             blurRadius: 8,
             spreadRadius: -1,
           ),
         ],
-        border: GradientBoxBorder(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withOpacity(0.15),
-              itemColor.withOpacity(0.2),
-              Colors.white.withOpacity(0.05),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.3, 0.7, 1.0],
-          ),
-          width: 1.5,
-        ),
+        border: isLight
+            ? Border.all(
+                color: readableItemColor.withOpacity(0.7),
+                width: 1.8,
+              )
+            : GradientBoxBorder(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.borderVisible,
+                    itemColor.withOpacity(0.2),
+                    AppColors.borderSubtle,
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.3, 0.7, 1.0],
+                ),
+                width: 1.5,
+              ),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          splashColor: itemColor.withOpacity(0.1),
-          highlightColor: itemColor.withOpacity(0.05),
+          splashColor: readableItemColor.withOpacity(isLight ? 0.15 : 0.1),
+          highlightColor: readableItemColor.withOpacity(isLight ? 0.08 : 0.05),
           onTap: isReorderMode ? null : () {
             _showAccountOptions(context, item);
           },
@@ -597,25 +606,30 @@ class _MyHomePageState extends State<MyHomePage> {
                       width: 54,
                       height: 54,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            itemColor.withOpacity(0.22),
-                            itemColor.withOpacity(0.13),
-                          ],
-                        ),
+                        color: isLight ? readableItemColor : null,
+                        gradient: isLight
+                            ? null
+                            : LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  itemColor.withOpacity(0.22),
+                                  itemColor.withOpacity(0.13),
+                                ],
+                              ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.4),
+                            color: Colors.black.withOpacity(isLight ? 0.12 : 0.4),
                             blurRadius: 12,
                             offset: const Offset(0, 6),
                             spreadRadius: -2,
                           ),
                         ],
                         border: Border.all(
-                          color: itemColor.withOpacity(0.35),
+                          color: isLight
+                              ? readableItemColor
+                              : itemColor.withOpacity(0.35),
                           width: 1.5,
                         ),
                       ),
@@ -647,7 +661,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               if (isReorderMode)
                                 Icon(
                                   Icons.drag_indicator_rounded,
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: AppColors.textHint,
                                   size: 24,
                                 )
                               else if (!item.includeInTotal)
@@ -694,7 +708,9 @@ class _MyHomePageState extends State<MyHomePage> {
                           Text(
                             item.subtitle,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.65),
+                              color: isLight 
+                                  ? AppColors.textPrimary 
+                                  : AppColors.textSecondary,
                               fontSize: 14,
                             ),
                           ),
@@ -708,7 +724,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 CustomPaint(
                   size: Size(double.infinity, 1),
                   painter: DashedLinePainter(
-                    color: Colors.white.withOpacity(0.12),
+                    color: AppColors.borderSubtle,
                     dashWidth: 6,
                     dashSpace: 4,
                   ),
@@ -721,7 +737,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     Text(
                       isCreditCard ? 'Cupo total' : 'Saldo disponible',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7), 
+                        color: AppColors.textSecondary, 
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         letterSpacing: 0.2,
@@ -730,22 +746,29 @@ class _MyHomePageState extends State<MyHomePage> {
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            itemColor.withOpacity(0.22),
-                            itemColor.withOpacity(0.13),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: isLight ? readableItemColor : null,
+                        gradient: isLight
+                            ? null
+                            : LinearGradient(
+                                colors: [
+                                  itemColor.withOpacity(0.22),
+                                  itemColor.withOpacity(0.13),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: itemColor.withOpacity(0.35),
+                          color: isLight
+                              ? readableItemColor
+                              : itemColor.withOpacity(0.35),
                           width: 1.2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: itemColor.withOpacity(0.15),
+                            color: isLight
+                                ? readableItemColor.withOpacity(0.2)
+                                : itemColor.withOpacity(0.15),
                             blurRadius: 8,
                             spreadRadius: -2,
                           ),
@@ -780,6 +803,8 @@ class _MyHomePageState extends State<MyHomePage> {
     final Color primaryDark = AppColors.primaryBackground; // Fondo principal
     final Color cardColor = AppColors.secondaryCardBackground;   // Color de tarjetas
     final Color accentColor = account.iconColor;       // Color de acento personalizado
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
+    final Color readableAccentColor = AppColors.getReadableColor(accentColor, context);
     
     showGeneralDialog(
       context: context,
@@ -808,14 +833,17 @@ class _MyHomePageState extends State<MyHomePage> {
                   width: double.infinity,
                   constraints: BoxConstraints(maxWidth: 400),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        cardColor,
-                        Color.lerp(cardColor, accentColor.withOpacity(0.12), 0.25) ?? cardColor,
-                      ],
-                    ),
+                    color: isLight ? cardColor : null,
+                    gradient: isLight
+                        ? null
+                        : LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              cardColor,
+                              Color.lerp(cardColor, accentColor.withOpacity(0.12), 0.25) ?? cardColor,
+                            ],
+                          ),
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       // Sombra principal
@@ -833,20 +861,22 @@ class _MyHomePageState extends State<MyHomePage> {
                         offset: Offset(0, 5),
                       ),
                     ],
-                    border: GradientBoxBorder(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withOpacity(0.13),
-                          accentColor.withOpacity(0.1),
-                          Colors.white.withOpacity(0.05),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.3, 0.7, 1.0],
-                      ),
-                      width: 1.2,
-                    ),
+                    border: isLight
+                        ? Border.all(color: readableAccentColor.withOpacity(0.7), width: 1.8)
+                        : GradientBoxBorder(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withOpacity(0.13),
+                                accentColor.withOpacity(0.1),
+                                Colors.white.withOpacity(0.05),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.3, 0.7, 1.0],
+                            ),
+                            width: 1.2,
+                          ),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -855,14 +885,19 @@ class _MyHomePageState extends State<MyHomePage> {
                       Container(
                         padding: const EdgeInsets.all(22),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              accentColor.withOpacity(0.18),
-                              accentColor.withOpacity(0.08),
-                            ],
-                          ),
+                          color: isLight 
+                              ? readableAccentColor.withOpacity(0.08) 
+                              : null,
+                          gradient: isLight 
+                              ? null 
+                              : LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    accentColor.withOpacity(0.18),
+                                    accentColor.withOpacity(0.08),
+                                  ],
+                                ),
                           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                         ),
                         child: Column(
@@ -874,25 +909,28 @@ class _MyHomePageState extends State<MyHomePage> {
                                   width: 56,
                                   height: 56,
                                   decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        accentColor.withOpacity(0.22),
-                                        accentColor.withOpacity(0.13),
-                                      ],
-                                    ),
+                                    color: isLight ? readableAccentColor : null,
+                                    gradient: isLight
+                                        ? null
+                                        : LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              accentColor.withOpacity(0.22),
+                                              accentColor.withOpacity(0.13),
+                                            ],
+                                          ),
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.4),
+                                        color: Colors.black.withOpacity(isLight ? 0.12 : 0.4),
                                         blurRadius: 12,
                                         offset: const Offset(0, 6),
                                         spreadRadius: -2,
                                       ),
                                     ],
                                     border: Border.all(
-                                      color: accentColor.withOpacity(0.35),
+                                      color: isLight ? readableAccentColor : accentColor.withOpacity(0.35),
                                       width: 1.5,
                                     ),
                                   ),
@@ -911,7 +949,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                       Text(
                                         account.title,
                                         style: TextStyle(
-                                          color: Colors.white,
+                                          color: context.appTheme.textPrimary,
                                           fontSize: 20,
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 0.2,
@@ -943,7 +981,9 @@ class _MyHomePageState extends State<MyHomePage> {
                                           Text(
                                             account.subtitle,
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.7),
+                                              color: isLight 
+                                                  ? context.appTheme.textPrimary 
+                                                  : context.appTheme.textSecondary,
                                               fontSize: 14,
                                             ),
                                           ),
@@ -959,10 +999,14 @@ class _MyHomePageState extends State<MyHomePage> {
                             Container(
                               padding: EdgeInsets.all(18),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.25), // Color consistente con Home
+                                color: isLight 
+                                    ? context.appTheme.darkBackground 
+                                    : Colors.black.withOpacity(0.25),
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.08),
+                                  color: isLight 
+                                      ? context.appTheme.borderSubtle 
+                                      : Colors.white.withOpacity(0.08),
                                   width: 1,
                                 ),
                               ),
@@ -987,7 +1031,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                       Text(
                                         isCreditCard ? 'CUPO TOTAL' : 'SALDO DISPONIBLE',
                                         style: TextStyle(
-                                          color: Colors.white.withOpacity(0.6),
+                                          color: context.appTheme.textSecondary,
                                           fontSize: 11,
                                           letterSpacing: 0.8,
                                           fontWeight: FontWeight.w500,
@@ -1038,7 +1082,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                             Text(
                                               CurrencyHelper.format(balanceValue),
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color: context.appTheme.textPrimary,
                                                 fontSize: 28,
                                                 fontWeight: FontWeight.w700,
                                               ),
@@ -1049,7 +1093,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                               child: Text(
                                                 '\$',
                                                 style: TextStyle(
-                                                  color: Colors.white.withOpacity(0.8),
+                                                  color: context.appTheme.textSecondary,
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.w600,
                                                 ),
@@ -1074,15 +1118,15 @@ class _MyHomePageState extends State<MyHomePage> {
                                     child: Container(
                                       padding: EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.05),
+                                        color: context.appTheme.darkBackground,
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                        border: Border.all(color: context.appTheme.borderSubtle),
                                       ),
                                       child: Column(
                                         children: [
-                                          Text('Día Corte', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                          Text('Día Corte', style: TextStyle(color: context.appTheme.textSecondary, fontSize: 11)),
                                           SizedBox(height: 4),
-                                          Text('${account.cutoffDay}', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                          Text('${account.cutoffDay}', style: TextStyle(color: context.appTheme.textPrimary, fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                     ),
@@ -1094,15 +1138,15 @@ class _MyHomePageState extends State<MyHomePage> {
                                     child: Container(
                                       padding: EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.05),
+                                        color: context.appTheme.darkBackground,
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                        border: Border.all(color: context.appTheme.borderSubtle),
                                       ),
                                       child: Column(
                                         children: [
-                                          Text('Día Pago', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                          Text('Día Pago', style: TextStyle(color: context.appTheme.textSecondary, fontSize: 11)),
                                           SizedBox(height: 4),
-                                          Text('${account.paymentDay}', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                          Text('${account.paymentDay}', style: TextStyle(color: context.appTheme.textPrimary, fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                     ),
@@ -1114,15 +1158,15 @@ class _MyHomePageState extends State<MyHomePage> {
                                     child: Container(
                                       padding: EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.05),
+                                        color: context.appTheme.darkBackground,
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                        border: Border.all(color: context.appTheme.borderSubtle),
                                       ),
                                       child: Column(
                                         children: [
-                                          Text('Tasa', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                          Text('Tasa', style: TextStyle(color: context.appTheme.textSecondary, fontSize: 11)),
                                           SizedBox(height: 4),
-                                          Text('${account.interestRate}%', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                          Text('${account.interestRate}%', style: TextStyle(color: context.appTheme.textPrimary, fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                     ),
@@ -1137,7 +1181,9 @@ class _MyHomePageState extends State<MyHomePage> {
                       // Opciones con diseño igual al de Home
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.2), // Consistente con Home
+                          color: isLight 
+                              ? context.appTheme.darkBackground 
+                              : Colors.black.withOpacity(0.2), // Consistente con Home
                           borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
                         ),
                         child: Column(
@@ -1180,13 +1226,19 @@ class _MyHomePageState extends State<MyHomePage> {
                               padding: const EdgeInsets.all(16),
                               child: TextButton(
                                 style: TextButton.styleFrom(
-                                  foregroundColor: Colors.white.withOpacity(0.7),
-                                  backgroundColor: Colors.black.withOpacity(0.25),
+                                  foregroundColor: isLight 
+                                      ? context.appTheme.textPrimary 
+                                      : context.appTheme.textSecondary,
+                                  backgroundColor: isLight 
+                                      ? context.appTheme.cardBackground 
+                                      : Colors.black.withOpacity(0.25),
                                   padding: EdgeInsets.symmetric(vertical: 15),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
                                     side: BorderSide(
-                                      color: Colors.white.withOpacity(0.08),
+                                      color: isLight 
+                                          ? context.appTheme.borderVisible 
+                                          : Colors.white.withOpacity(0.08),
                                       width: 1,
                                     ),
                                   ),
@@ -1225,17 +1277,24 @@ class _MyHomePageState extends State<MyHomePage> {
       builder: (context) => SingleChildScrollView(
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.secondaryCardBackground,
-                AppColors.darkBackground,
-              ],
-            ),
+            color: Theme.of(context).brightness == Brightness.light 
+                ? AppColors.secondaryCardBackground 
+                : null,
+            gradient: Theme.of(context).brightness == Brightness.light
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.secondaryCardBackground,
+                      AppColors.darkBackground,
+                    ],
+                  ),
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             border: Border.all(
-              color: Colors.white.withOpacity(0.1),
+              color: Theme.of(context).brightness == Brightness.light
+                  ? context.appTheme.borderSubtle
+                  : Colors.white.withOpacity(0.1),
               width: 1,
             ),
           ),
@@ -1248,7 +1307,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 Text(
                   'Ordenar cuentas',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: context.appTheme.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1294,6 +1353,7 @@ class _MyHomePageState extends State<MyHomePage> {
     required String value,
   }) {
     final bool isSelected = _currentSortMode == value;
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
     
     return InkWell(
       onTap: () {
@@ -1306,12 +1366,16 @@ class _MyHomePageState extends State<MyHomePage> {
         decoration: BoxDecoration(
           color: isSelected 
               ? const Color(0xFF3498DB).withOpacity(0.15)
-              : Colors.black.withOpacity(0.2),
+              : (isLight 
+                  ? context.appTheme.darkBackground 
+                  : Colors.black.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
                 ? const Color(0xFF3498DB).withOpacity(0.5)
-                : Colors.white.withOpacity(0.05),
+                : (isLight
+                    ? context.appTheme.borderSubtle
+                    : Colors.white.withOpacity(0.05)),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -1322,12 +1386,16 @@ class _MyHomePageState extends State<MyHomePage> {
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFF3498DB).withOpacity(0.2)
-                    : Colors.white.withOpacity(0.05),
+                    : (isLight
+                        ? context.appTheme.secondaryCardBackground
+                        : Colors.white.withOpacity(0.05)),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 icon,
-                color: isSelected ? const Color(0xFF3498DB) : Colors.white70,
+                color: isSelected 
+                    ? const Color(0xFF3498DB) 
+                    : (isLight ? context.appTheme.textSecondary : Colors.white70),
                 size: 20,
               ),
             ),
@@ -1336,7 +1404,9 @@ class _MyHomePageState extends State<MyHomePage> {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
+                  color: isSelected 
+                      ? (isLight ? const Color(0xFF1E88E5) : Colors.white) 
+                      : (isLight ? context.appTheme.textPrimary : Colors.white70),
                   fontSize: 16,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),
@@ -1373,7 +1443,7 @@ class _MyHomePageState extends State<MyHomePage> {
           border: showBorder
               ? Border(
                   bottom: BorderSide(
-                    color: Colors.white.withOpacity(0.08),
+                    color: context.appTheme.borderSubtle,
                     width: 1,
                   ),
                 )
@@ -1409,7 +1479,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   Text(
                     text,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: context.appTheme.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1418,7 +1488,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   Text(
                     description,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: context.appTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -1427,7 +1497,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             Icon(
               Icons.arrow_forward_ios,
-              color: Colors.white.withOpacity(0.5),
+              color: context.appTheme.textHint,
               size: 16,
             ),
           ],
@@ -1504,7 +1574,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       Text(
                         '¿Eliminar esta cuenta?',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1514,7 +1584,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       Text(
                         'La cuenta "${account.title}" será eliminada permanentemente. Esta acción no se puede deshacer.',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: AppColors.textSecondary,
                           fontSize: 15,
                         ),
                         textAlign: TextAlign.center,
@@ -1556,14 +1626,14 @@ class _MyHomePageState extends State<MyHomePage> {
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  side: BorderSide(color: Colors.white24),
+                                  side: BorderSide(color: AppColors.borderSubtle),
                                 ),
                               ),
                               onPressed: () => Navigator.of(context).pop(),
                               child: Text(
                                 'Cancelar',
                                 style: TextStyle(
-                                  color: Colors.white70,
+                                  color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),

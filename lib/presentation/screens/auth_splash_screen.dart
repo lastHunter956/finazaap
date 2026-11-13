@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/Screens/home.dart';
 import 'package:finazaap/providers/pin_provider.dart';
 import 'package:finazaap/Screens/pin_code_screen.dart';
@@ -132,16 +133,17 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color.fromRGBO(42, 49, 67, 1),
-              Color.fromRGBO(31, 38, 57, 1),
-              Color.fromRGBO(20, 25, 40, 1),
+              context.appTheme.cardBackground,
+              context.appTheme.primaryBackground,
+              context.appTheme.darkBackground,
             ],
           ),
         ),
@@ -164,12 +166,14 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
                         borderRadius: BorderRadius.circular(35),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color.fromARGB(255, 82, 226, 255).withOpacity(0.3),
+                            color: isLight 
+                                ? context.appTheme.accent.withOpacity(0.15) 
+                                : const Color.fromARGB(255, 82, 226, 255).withOpacity(0.3),
                             blurRadius: 30,
                             spreadRadius: 5,
                           ),
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withOpacity(isLight ? 0.08 : 0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -186,10 +190,10 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
                                 color: const Color.fromARGB(255, 82, 226, 255),
                                 borderRadius: BorderRadius.circular(35),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.account_balance_wallet,
                                 size: 70,
-                                color: Color.fromRGBO(31, 38, 57, 1),
+                                color: context.appTheme.primaryBackground,
                               ),
                             );
                           },
@@ -202,11 +206,16 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
                   
                   // Título
                   ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [
-                        Colors.white,
-                        Color.fromARGB(255, 82, 226, 255),
-                      ],
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: isLight
+                          ? [
+                              context.appTheme.textPrimary,
+                              context.appTheme.accent,
+                            ]
+                          : [
+                              Colors.white,
+                              const Color.fromARGB(255, 82, 226, 255),
+                            ],
                     ).createShader(bounds),
                     child: const Text(
                       'Moneo',
@@ -225,7 +234,9 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
                   Text(
                     'Finanzas Personales Seguras',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: isLight 
+                          ? context.appTheme.textSecondary 
+                          : Colors.white.withOpacity(0.6),
                       fontSize: 14,
                       letterSpacing: 1.5,
                       fontWeight: FontWeight.w300,
@@ -245,7 +256,9 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              const Color.fromARGB(255, 82, 226, 255).withOpacity(0.8),
+                              isLight 
+                                  ? context.appTheme.accent 
+                                  : const Color.fromARGB(255, 82, 226, 255).withOpacity(0.8),
                             ),
                           ),
                         ),
@@ -253,7 +266,9 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
                         Text(
                           _statusMessage,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
+                            color: isLight 
+                                ? context.appTheme.textSecondary 
+                                : Colors.white.withOpacity(0.5),
                             fontSize: 13,
                             letterSpacing: 0.5,
                           ),

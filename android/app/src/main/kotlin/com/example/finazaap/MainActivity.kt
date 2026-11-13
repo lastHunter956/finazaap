@@ -2,6 +2,8 @@ package com.example.finazaap
 
 import android.app.ActivityManager
 import android.content.Context
+import android.os.StatFs
+import android.os.Environment
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -17,6 +19,15 @@ class MainActivity : FlutterFragmentActivity() {
                     val memInfo = ActivityManager.MemoryInfo()
                     am.getMemoryInfo(memInfo)
                     result.success(memInfo.totalMem)
+                } else if (call.method == "getFreeDiskSpace") {
+                    try {
+                        val stat = StatFs(Environment.getDataDirectory().path)
+                        val bytesAvailable = stat.blockSizeLong * stat.availableBlocksLong
+                        val megabytesAvailable = bytesAvailable.toDouble() / (1024.0 * 1024.0)
+                        result.success(megabytesAvailable)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
                 } else {
                     result.notImplemented()
                 }

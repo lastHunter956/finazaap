@@ -5,6 +5,7 @@ import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/data/models/account_item.dart';
 import 'package:finazaap/widgets/account_dialogs.dart';
 import 'package:finazaap/themes/theme.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 
@@ -116,7 +117,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
           width: double.infinity,
           constraints: const BoxConstraints(maxWidth: 450, maxHeight: 650),
           decoration: BoxDecoration(
-            color: AppColors.secondaryCardBackground,
+            color: context.appTheme.secondaryCardBackground,
             borderRadius: BorderRadius.circular(AppSizes.borderRadius2XLarge),
             boxShadow: [
               BoxShadow(
@@ -133,7 +134,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
               ),
             ],
             border: Border.all(
-              color: AppColors.borderSubtle,
+              color: context.appTheme.borderSubtle,
               width: 1,
             ),
           ),
@@ -147,17 +148,22 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                   duration: const Duration(milliseconds: 300),
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        iconColor.withOpacity(0.18),
-                        iconColor.withOpacity(0.05),
-                      ],
-                    ),
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? AppColors.getReadableColor(iconColor, context).withOpacity(0.08)
+                        : null,
+                    gradient: Theme.of(context).brightness == Brightness.light
+                        ? null
+                        : LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              iconColor.withOpacity(0.18),
+                              iconColor.withOpacity(0.05),
+                            ],
+                          ),
                     border: Border(
                       bottom: BorderSide(
-                        color: AppColors.borderSubtle,
+                        color: context.appTheme.borderSubtle,
                         width: 1,
                       ),
                     ),
@@ -169,25 +175,32 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              iconColor.withOpacity(0.22),
-                              iconColor.withOpacity(0.13),
-                            ],
-                          ),
+                          color: Theme.of(context).brightness == Brightness.light
+                              ? AppColors.getReadableColor(iconColor, context)
+                              : null,
+                          gradient: Theme.of(context).brightness == Brightness.light
+                              ? null
+                              : LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    iconColor.withOpacity(0.22),
+                                    iconColor.withOpacity(0.13),
+                                  ],
+                                ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.4),
+                              color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.light ? 0.12 : 0.4),
                               blurRadius: 12,
                               offset: const Offset(0, 6),
                               spreadRadius: -2,
                             ),
                           ],
                           border: Border.all(
-                            color: iconColor.withOpacity(0.35),
+                            color: Theme.of(context).brightness == Brightness.light
+                                ? AppColors.getReadableColor(iconColor, context)
+                                : iconColor.withOpacity(0.35),
                             width: 1.5,
                           ),
                         ),
@@ -202,10 +215,10 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Nueva Cuenta',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: context.appTheme.textPrimary,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.3,
@@ -215,7 +228,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             Text(
                               'Define los detalles',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.6),
+                                color: context.appTheme.textSecondary,
                                 fontSize: 13,
                               ),
                             ),
@@ -240,16 +253,17 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             // Título
                             _buildInputLabel('Nombre de la cuenta'),
                             buildInputField(
+                              context: context,
                               child: TextField(
                                 controller: titleController,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: context.appTheme.textPrimary,
                                   fontSize: 15,
                                 ),
                                 decoration: InputDecoration(
                                   hintText: 'Ej: Cuenta Principal',
                                   hintStyle: TextStyle(
-                                    color: Colors.white.withOpacity(0.3),
+                                    color: context.appTheme.textHint,
                                   ),
                                   border: InputBorder.none,
                                   prefixIcon: Icon(
@@ -276,10 +290,12 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 12),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.05),
+                                          color: context.appTheme.darkBackground,
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(
-                                            color: Colors.white.withOpacity(0.1),
+                                            color: Theme.of(context).brightness == Brightness.light
+                                                ? context.appTheme.borderSubtle
+                                                : Colors.white.withOpacity(0.1),
                                           ),
                                         ),
                                         child: DropdownButtonHideUnderline(
@@ -291,8 +307,8 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                               color: iconColor.withOpacity(0.7),
                                             ),
                                             dropdownColor: AppColors.cardBackground,
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            style: TextStyle(
+                                              color: context.appTheme.textPrimary,
                                               fontSize: 13, 
                                             ),
                                             items: accountTypes.map((String type) {
@@ -328,20 +344,21 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                     children: [
                                       _buildInputLabel(isCreditCard ? 'Cupo total' : 'Saldo inicial'),
                                       buildInputField(
+                                        context: context,
                                         child: TextField(
                                           controller: balanceController,
                                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                           inputFormatters: [
                                             ThousandsSeparatorInputFormatter(),
                                           ],
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: context.appTheme.textPrimary,
                                             fontSize: 15,
                                           ),
                                           decoration: InputDecoration(
                                             hintText: '0.00',
                                             hintStyle: TextStyle(
-                                              color: Colors.white.withOpacity(0.3),
+                                              color: context.appTheme.textHint,
                                             ),
                                             border: InputBorder.none,
                                             prefixIcon: Icon(
@@ -405,7 +422,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             ],
         
                             const SizedBox(height: 20),
-                            Divider(color: Colors.white.withOpacity(0.05)),
+                            Divider(color: context.appTheme.darkBackground),
                             const SizedBox(height: 16),
         
                             // --- SELECTORES HORIZONTALES ---
@@ -461,16 +478,28 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                       margin: const EdgeInsets.only(right: 14),
                                       width: 52,
                                       decoration: BoxDecoration(
-                                        color: isSelected ? iconColor.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                                        color: isSelected
+                                            ? iconColor.withOpacity(0.2)
+                                            : (Theme.of(context).brightness == Brightness.light
+                                                ? context.appTheme.darkBackground
+                                                : Colors.white.withOpacity(0.05)),
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(
-                                          color: isSelected ? iconColor : Colors.transparent,
+                                          color: isSelected
+                                              ? iconColor
+                                              : (Theme.of(context).brightness == Brightness.light
+                                                  ? context.appTheme.borderSubtle
+                                                  : Colors.transparent),
                                           width: 1.5,
                                         ),
                                       ),
                                       child: Icon(
                                         icon,
-                                        color: isSelected ? iconColor : Colors.white.withOpacity(0.5),
+                                        color: isSelected
+                                            ? iconColor
+                                            : (Theme.of(context).brightness == Brightness.light
+                                                ? context.appTheme.textSecondary
+                                                : Colors.white.withOpacity(0.5)),
                                         size: 26,
                                       ),
                                     ),
@@ -484,20 +513,20 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             // Opción de incluir en total
                             Container(
                               decoration: BoxDecoration(
-                                color: AppColors.secondaryCardBackground,
+                                color: context.appTheme.secondaryCardBackground,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: AppColors.borderSubtle,
+                                  color: context.appTheme.borderSubtle,
                                   width: 1,
                                 ),
                               ),
                               child: SwitchListTile(
                                 value: includeInTotal,
                                 activeColor: iconColor,
-                                title: const Text(
+                                title: Text(
                                   'Incluir en saldo total',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: context.appTheme.textPrimary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -505,7 +534,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                 subtitle: Text(
                                   'Forma parte del saldo global',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
+                                    color: context.appTheme.textSecondary,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -540,10 +569,9 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                   end: Alignment.bottomCenter,
                                   colors: [
                                     Colors.transparent,
-                                    Colors.black.withOpacity(0.6),
+                                    context.appTheme.secondaryCardBackground.withOpacity(0.95),
                                   ],
                                 ),
-                                borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppSizes.borderRadius2XLarge)),
                               ),
                               alignment: Alignment.bottomCenter,
                               padding: const EdgeInsets.only(bottom: 8),
@@ -553,13 +581,13 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                   Text(
                                     "Desliza para ver más",
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.6),
+                                      color: context.appTheme.textSecondary,
                                       fontSize: 10,
                                     ),
                                   ),
                                   Icon(
                                     Icons.keyboard_arrow_down_rounded,
-                                    color: Colors.white.withOpacity(0.6),
+                                    color: context.appTheme.textSecondary,
                                     size: 20,
                                   ),
                                 ],
@@ -576,8 +604,8 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                 Container(
                   padding: const EdgeInsets.all(AppSizes.padding2XLarge),
                   decoration: BoxDecoration(
-                    color: AppColors.secondaryCardBackground,
-                    border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))),
+                    color: context.appTheme.secondaryCardBackground,
+                    border: Border(top: BorderSide(color: context.appTheme.darkBackground)),
                   ),
                   child: Row(
                     children: [
@@ -586,7 +614,19 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                         child: TextButton(
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            foregroundColor: Colors.white70,
+                            foregroundColor: Theme.of(context).brightness == Brightness.light
+                                ? context.appTheme.textPrimary
+                                : context.appTheme.textSecondary,
+                            backgroundColor: Theme.of(context).brightness == Brightness.light
+                                ? context.appTheme.darkBackground
+                                : Colors.white.withOpacity(0.05),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color: context.appTheme.borderSubtle,
+                                width: 1,
+                              ),
+                            ),
                           ),
                           onPressed: () => Navigator.of(context).pop(),
                           child: const Text(
@@ -659,7 +699,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
       child: Text(
         text,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.7),
+          color: context.appTheme.textSecondary,
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
@@ -679,7 +719,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
             child: Text(
               'Desplázate para ver más >>',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
+                color: context.appTheme.textSecondary,
                 fontSize: 11,
                 fontStyle: FontStyle.italic,
               ),
@@ -694,17 +734,17 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: context.appTheme.darkBackground,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: context.appTheme.borderSubtle),
       ),
       child: TextField(
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+          hintStyle: TextStyle(color: context.appTheme.textHint, fontSize: 12),
           border: InputBorder.none,
           prefixIcon: Icon(icon, color: color.withOpacity(0.7), size: 16),
           contentPadding: const EdgeInsets.symmetric(vertical: 12),

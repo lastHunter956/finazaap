@@ -1,64 +1,89 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/core/theme_notifier.dart';
 
 /// Paleta de colores centralizada de FinazaApp.
 /// 
-/// Todos los colores utilizados en la aplicación deben estar definidos aquí
-/// para facilitar el mantenimiento y futuros cambios de tema.
+/// Todos los colores utilizados en la aplicación se resuelven dinámicamente
+/// a partir del tema activo en ThemeNotifier.
 class AppColors {
-  AppColors._(); // Constructor privado para prevenir instanciación
+  AppColors._();
+
+  static AppTheme get _current => AppTheme.forMode(ThemeNotifier.activeMode);
+
+  /// Acceso contextual al tema activo. Shortcut para Theme.of(context).extension<AppTheme>()!
+  static AppTheme of(BuildContext context) =>
+      Theme.of(context).extension<AppTheme>()!;
+
+  /// Ajusta un color para asegurar que tenga suficiente contraste contra el fondo.
+  /// Si el tema es claro y el color es muy brillante, lo oscurece.
+  /// Si el tema es oscuro y el color es muy oscuro, lo aclara.
+  static Color getReadableColor(Color color, BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final luminance = color.computeLuminance();
+    
+    if (isLight && luminance > 0.4) {
+      final hsl = HSLColor.fromColor(color);
+      return hsl.withLightness(hsl.lightness > 0.38 ? 0.38 : hsl.lightness).toColor();
+    } else if (!isLight && luminance < 0.15) {
+      final hsl = HSLColor.fromColor(color);
+      return hsl.withLightness(hsl.lightness < 0.65 ? 0.65 : hsl.lightness).toColor();
+    }
+    return color;
+  }
 
   // ========== Fondos ==========
   /// Color de fondo principal de la aplicación
-  static const Color primaryBackground = Color(0xFF1F2639); // Color.fromRGBO(31, 38, 57, 1)
+  static Color get primaryBackground => _current.primaryBackground;
   
   /// Color de fondo de tarjetas y contenedores
-  static const Color cardBackground = Color(0xFF2A3143); // Color.fromRGBO(42, 49, 67, 1)
+  static Color get cardBackground => _current.cardBackground;
   
   /// Color de fondo más oscuro para elementos internos
-  static const Color darkBackground = Color(0xFF1A1F2B);
+  static Color get darkBackground => _current.darkBackground;
   
   /// Color de fondo para elementos secundarios
-  static const Color secondaryCardBackground = Color(0xFF222939);
+  static Color get secondaryCardBackground => _current.secondaryCardBackground;
 
   // ========== Colores de Acento ==========
   /// Color de acento principal (cyan brillante)
-  static const Color accent = Color(0xFF52E2FF); // Color.fromARGB(255, 82, 226, 255)
+  static Color get accent => _current.accent;
   
   /// Color de acento secundario (azul)
-  static const Color secondaryAccent = Color(0xFF4A80F0);
+  static Color get secondaryAccent => _current.secondaryAccent;
 
   // ========== Colores de Estado ==========
   /// Color para ingresos
-  static const Color income = Color(0xFFA7E2A9);
+  static Color get income => _current.income;
   
   /// Color para gastos
-  static const Color expense = Color(0xFFE53935);
+  static Color get expense => _current.expense;
   
   /// Color de éxito
-  static const Color success = Color(0xFF2ECC71);
+  static Color get success => _current.success;
   
   /// Color de advertencia
-  static const Color warning = Color(0xFFFDD835);
+  static Color get warning => _current.warning;
   
   /// Color de error
-  static const Color error = Color(0xFFE53935);
+  static Color get error => _current.error;
 
   // ========== Colores de Texto ==========
-  /// Texto principal (blanco)
-  static const Color textPrimary = Colors.white;
+  /// Texto principal (blanco en oscuro, azul/negro en claro)
+  static Color get textPrimary => _current.textPrimary;
   
   /// Texto secundario con opacidad
-  static Color textSecondary = Colors.white.withValues(alpha: 0.7);
+  static Color get textSecondary => _current.textSecondary;
   
   /// Texto terciario/hint
-  static Color textHint = Colors.white.withValues(alpha: 0.4);
+  static Color get textHint => _current.textHint;
 
   // ========== Colores de Borde ==========
   /// Borde sutil para elementos
-  static Color borderSubtle = Colors.white.withValues(alpha: 0.08);
+  static Color get borderSubtle => _current.borderSubtle;
   
   /// Borde más visible
-  static Color borderVisible = Colors.white.withValues(alpha: 0.2);
+  static Color get borderVisible => _current.borderVisible;
 
   // ========== Gradientes Predefinidos ==========
   /// Gradiente para cabeceras premium
@@ -66,8 +91,8 @@ class AppColors {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Colors.white.withValues(alpha: 0.1),
-          Colors.white.withValues(alpha: 0.05),
+          _current.textPrimary.withValues(alpha: 0.1),
+          _current.textPrimary.withValues(alpha: 0.05),
         ],
       );
   
@@ -77,8 +102,8 @@ class AppColors {
         end: Alignment.bottomRight,
         stops: const [0.0, 1.0],
         colors: [
-          const Color(0xFF262D43),
-          const Color(0xFF1F2538),
+          _current.cardBackground,
+          _current.primaryBackground,
         ],
       );
 }

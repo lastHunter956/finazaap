@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:gradient_borders/gradient_borders.dart';
 import 'package:finazaap/widgets/account_dialogs.dart'; // Import for helper widgets
 import 'package:finazaap/utils/app_icons.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/themes/theme.dart';
 
 class CategoriesScreen extends StatefulWidget {
   final int activeIndex;
@@ -78,8 +80,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
     final Color color = Color(category['color'] ?? Colors.blueAccent.value);
 
     // Colores consistentes
-    final Color cardColor = const Color(0xFF222939);
+    final Color cardColor = context.appTheme.secondaryCardBackground;
     final Color accentColor = color;
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
+    final Color readableAccentColor = AppColors.getReadableColor(accentColor, context);
 
     showGeneralDialog(
       context: context,
@@ -104,43 +108,48 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                    width: double.infinity,
                    constraints: const BoxConstraints(maxWidth: 400),
                    decoration: BoxDecoration(
-                     gradient: LinearGradient(
-                       begin: Alignment.topLeft,
-                       end: Alignment.bottomRight,
-                       colors: [
-                         cardColor,
-                         Color.lerp(cardColor, accentColor.withOpacity(0.12), 0.25) ?? cardColor,
-                       ],
-                     ),
+                     color: isLight ? cardColor : null,
+                     gradient: isLight
+                         ? null
+                         : LinearGradient(
+                             begin: Alignment.topLeft,
+                             end: Alignment.bottomRight,
+                             colors: [
+                               cardColor,
+                               Color.lerp(cardColor, accentColor.withOpacity(0.12), 0.25) ?? cardColor,
+                             ],
+                           ),
                      borderRadius: BorderRadius.circular(28),
                      boxShadow: [
                        BoxShadow(
-                         color: Colors.black.withOpacity(0.35),
+                         color: Colors.black.withOpacity(isLight ? 0.08 : 0.35),
                          blurRadius: 25,
                          spreadRadius: -5,
                          offset: const Offset(0, 10),
                        ),
                        BoxShadow(
-                         color: accentColor.withOpacity(0.25),
+                         color: readableAccentColor.withOpacity(isLight ? 0.15 : 0.25),
                          blurRadius: 20,
                          spreadRadius: -10,
                          offset: const Offset(0, 5),
                        ),
                      ],
-                     border: GradientBoxBorder(
-                       gradient: LinearGradient(
-                         begin: Alignment.topLeft,
-                         end: Alignment.bottomRight,
-                         colors: [
-                           Colors.white.withOpacity(0.13),
-                           accentColor.withOpacity(0.1),
-                           Colors.white.withOpacity(0.05),
-                           Colors.transparent,
-                         ],
-                         stops: const [0.0, 0.3, 0.7, 1.0],
-                       ),
-                       width: 1.2,
-                     ),
+                     border: isLight
+                         ? Border.all(color: readableAccentColor.withOpacity(0.7), width: 1.8)
+                         : GradientBoxBorder(
+                             gradient: LinearGradient(
+                               begin: Alignment.topLeft,
+                               end: Alignment.bottomRight,
+                               colors: [
+                                 Colors.white.withOpacity(0.13),
+                                 accentColor.withOpacity(0.1),
+                                 Colors.white.withOpacity(0.05),
+                                 Colors.transparent,
+                               ],
+                               stops: const [0.0, 0.3, 0.7, 1.0],
+                             ),
+                             width: 1.2,
+                           ),
                    ),
                    child: Column(
                      mainAxisSize: MainAxisSize.min,
@@ -149,17 +158,22 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                        Container(
                          padding: const EdgeInsets.all(24),
                          decoration: BoxDecoration(
-                           gradient: LinearGradient(
-                             begin: Alignment.topLeft,
-                             end: Alignment.bottomRight,
-                             colors: [
-                               accentColor.withOpacity(0.15),
-                               accentColor.withOpacity(0.05),
-                             ],
-                           ),
+                           color: isLight ? readableAccentColor.withOpacity(0.08) : null,
+                           gradient: isLight
+                               ? null
+                               : LinearGradient(
+                                   begin: Alignment.topLeft,
+                                   end: Alignment.bottomRight,
+                                   colors: [
+                                     accentColor.withOpacity(0.15),
+                                     accentColor.withOpacity(0.05),
+                                   ],
+                                 ),
                            border: Border(
                              bottom: BorderSide(
-                               color: Colors.white.withOpacity(0.08),
+                               color: isLight
+                                   ? context.appTheme.borderSubtle
+                                   : Colors.white.withOpacity(0.08),
                                width: 1,
                              ),
                            ),
@@ -170,25 +184,28 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                width: 56,
                                height: 56,
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      accentColor.withOpacity(0.22),
-                                      accentColor.withOpacity(0.13),
-                                    ],
-                                  ),
+                                  color: isLight ? readableAccentColor : null,
+                                  gradient: isLight
+                                      ? null
+                                      : LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            accentColor.withOpacity(0.22),
+                                            accentColor.withOpacity(0.13),
+                                          ],
+                                        ),
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.4),
+                                      color: Colors.black.withOpacity(isLight ? 0.12 : 0.4),
                                       blurRadius: 12,
                                       offset: const Offset(0, 6),
                                       spreadRadius: -2,
                                     ),
                                   ],
                                   border: Border.all(
-                                    color: accentColor.withOpacity(0.35),
+                                    color: isLight ? readableAccentColor : accentColor.withOpacity(0.35),
                                     width: 1.5,
                                   ),
                                 ),
@@ -201,8 +218,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                  children: [
                                    Text(
                                      name,
-                                     style: const TextStyle(
-                                       color: Colors.white,
+                                     style: TextStyle(
+                                       color: context.appTheme.textPrimary,
                                        fontSize: 20,
                                        fontWeight: FontWeight.bold,
                                      ),
@@ -231,7 +248,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                        Text(
                                          type == 'Income' ? 'Ingreso' : 'Gasto',
                                          style: TextStyle(
-                                           color: Colors.white.withOpacity(0.7),
+                                           color: context.appTheme.textSecondary,
                                            fontSize: 14,
                                          ),
                                        ),
@@ -251,10 +268,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                          child: Container(
                            padding: EdgeInsets.all(18),
                            decoration: BoxDecoration(
-                             color: Colors.black.withOpacity(0.25),
+                             color: context.appTheme.secondaryCardBackground,
                              borderRadius: BorderRadius.circular(18),
                              border: Border.all(
-                               color: Colors.white.withOpacity(0.08),
+                               color: context.appTheme.borderSubtle,
                                width: 1,
                              ),
                            ),
@@ -280,7 +297,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                      child: Text(
                                        type == 'Income' ? 'CATEGORÍA DE INGRESO' : 'CATEGORÍA DE GASTO',
                                        style: TextStyle(
-                                         color: Colors.white.withOpacity(0.6),
+                                         color: context.appTheme.textSecondary,
                                          fontSize: 11,
                                          letterSpacing: 0.8,
                                          fontWeight: FontWeight.w500,
@@ -294,7 +311,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                  children: [
                                    Icon(
                                      Icons.label_outline,
-                                     color: Colors.white.withOpacity(0.5),
+                                     color: context.appTheme.textHint,
                                      size: 18,
                                    ),
                                    SizedBox(width: 8),
@@ -302,7 +319,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                      child: Text(
                                        'Agrupa transacciones similares',
                                        style: TextStyle(
-                                         color: Colors.white.withOpacity(0.7),
+                                         color: context.appTheme.textSecondary,
                                          fontSize: 13,
                                        ),
                                      ),
@@ -318,7 +335,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                        // 3. Actions Section
                        Container(
                          decoration: BoxDecoration(
-                           color: Colors.black.withOpacity(0.2),
+                           color: context.appTheme.darkBackground,
                            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
                          ),
                          child: Column(
@@ -355,13 +372,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                padding: const EdgeInsets.all(16),
                                child: TextButton(
                                  style: TextButton.styleFrom(
-                                   foregroundColor: Colors.white.withOpacity(0.7),
-                                   backgroundColor: Colors.black.withOpacity(0.25),
+                                   foregroundColor: isLight 
+                                       ? context.appTheme.textPrimary 
+                                       : context.appTheme.textSecondary,
+                                   backgroundColor: isLight 
+                                       ? context.appTheme.cardBackground 
+                                       : context.appTheme.darkBackground,
                                    padding: EdgeInsets.symmetric(vertical: 15),
                                    shape: RoundedRectangleBorder(
                                      borderRadius: BorderRadius.circular(14),
                                      side: BorderSide(
-                                       color: Colors.white.withOpacity(0.08),
+                                       color: isLight 
+                                           ? context.appTheme.borderVisible 
+                                           : context.appTheme.borderSubtle,
                                        width: 1,
                                      ),
                                    ),
@@ -407,7 +430,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
           border: showBorder
               ? Border(
                   bottom: BorderSide(
-                    color: Colors.white.withOpacity(0.08),
+                    color: context.appTheme.borderSubtle,
                     width: 1,
                   ),
                 )
@@ -443,7 +466,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                   Text(
                     label,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: context.appTheme.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -452,7 +475,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                   Text(
                     description,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: context.appTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -461,7 +484,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
             ),
             Icon(
               Icons.arrow_forward_ios,
-              color: Colors.white.withOpacity(0.5),
+              color: context.appTheme.textHint,
               size: 16,
             ),
           ],
@@ -483,7 +506,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
         ? Color(categoryToEdit['color'] ?? Colors.blueAccent.value) 
         : _availableColors[0];
 
-    final Color cardColor = const Color(0xFF222939);
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
+    final Color cardColor = context.appTheme.secondaryCardBackground;
+    final Color readableSelectedColor = AppColors.getReadableColor(_selectedColor, context);
 
     showGeneralDialog(
       context: context,
@@ -510,30 +535,35 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                       width: double.infinity,
                       constraints: const BoxConstraints(maxWidth: 400, maxHeight: 560),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            cardColor,
-                            Color.lerp(cardColor, _selectedColor.withOpacity(0.15), 0.3) ?? cardColor,
-                          ],
-                        ),
+                        color: isLight ? cardColor : null,
+                        gradient: isLight
+                            ? null
+                            : LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  cardColor,
+                                  Color.lerp(cardColor, _selectedColor.withOpacity(0.15), 0.3) ?? cardColor,
+                                ],
+                              ),
                         borderRadius: BorderRadius.circular(28),
-                        border: GradientBoxBorder(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white.withOpacity(0.15),
-                              _selectedColor.withOpacity(0.3),
-                              Colors.white.withOpacity(0.05),
-                            ],
-                          ),
-                          width: 1.2,
-                        ),
+                        border: isLight
+                            ? Border.all(color: readableSelectedColor.withOpacity(0.6), width: 1.8)
+                            : GradientBoxBorder(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white.withOpacity(0.15),
+                                    _selectedColor.withOpacity(0.3),
+                                    Colors.white.withOpacity(0.05),
+                                  ],
+                                ),
+                                width: 1.2,
+                              ),
                         boxShadow: [
-                           BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: -5),
-                           BoxShadow(color: _selectedColor.withOpacity(0.2), blurRadius: 15, spreadRadius: -2),
+                           BoxShadow(color: Colors.black.withOpacity(isLight ? 0.08 : 0.5), blurRadius: 20, spreadRadius: -5),
+                           BoxShadow(color: readableSelectedColor.withOpacity(isLight ? 0.12 : 0.2), blurRadius: 15, spreadRadius: -2),
                         ],
                       ),
                       child: Column(
@@ -543,17 +573,22 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                           Container(
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  _selectedColor.withOpacity(0.18),
-                                  _selectedColor.withOpacity(0.05),
-                                ],
-                              ),
+                              color: isLight ? readableSelectedColor.withOpacity(0.08) : null,
+                              gradient: isLight
+                                  ? null
+                                  : LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        _selectedColor.withOpacity(0.18),
+                                        _selectedColor.withOpacity(0.05),
+                                      ],
+                                    ),
                               border: Border(
                                 bottom: BorderSide(
-                                  color: Colors.white.withOpacity(0.08),
+                                  color: isLight
+                                      ? context.appTheme.borderSubtle
+                                      : Colors.white.withOpacity(0.08),
                                   width: 1,
                                 ),
                               ),
@@ -566,25 +601,28 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                   width: 58,
                                   height: 58,
                                   decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        _selectedColor.withOpacity(0.22),
-                                        _selectedColor.withOpacity(0.13),
-                                      ],
-                                    ),
+                                    color: isLight ? readableSelectedColor : null,
+                                    gradient: isLight
+                                        ? null
+                                        : LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              _selectedColor.withOpacity(0.22),
+                                              _selectedColor.withOpacity(0.13),
+                                            ],
+                                          ),
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.4),
+                                        color: Colors.black.withOpacity(isLight ? 0.12 : 0.4),
                                         blurRadius: 12,
                                         offset: const Offset(0, 6),
                                         spreadRadius: -2,
                                       ),
                                     ],
                                     border: Border.all(
-                                      color: _selectedColor.withOpacity(0.35),
+                                      color: isLight ? readableSelectedColor : _selectedColor.withOpacity(0.35),
                                       width: 1.5,
                                     ),
                                   ),
@@ -601,8 +639,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                     children: [
                                       Text(
                                         isEditing ? 'Editar Categoría' : 'Nueva Categoría',
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: context.appTheme.textPrimary,
                                           fontSize: 20,
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 0.3,
@@ -612,7 +650,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                       Text(
                                         isEditing ? 'Modifica los detalles' : 'Crea una nueva agrupación',
                                         style: TextStyle(
-                                          color: Colors.white.withOpacity(0.6),
+                                          color: context.appTheme.textSecondary,
                                           fontSize: 14,
                                         ),
                                       ),
@@ -630,14 +668,15 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   // Name Input (Standardized)
-                                  buildInputLabel('Nombre de la categoría'),
+                                  buildInputLabel('Nombre de la categoría', context),
                                   buildInputField(
+                                    context: context,
                                     child: TextField(
                                       controller: _nameController,
-                                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                                      style: TextStyle(color: context.appTheme.textPrimary, fontSize: 16),
                                       decoration: InputDecoration(
                                         hintText: 'Ej: Alimentación',
-                                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                        hintStyle: TextStyle(color: context.appTheme.textHint),
                                         border: InputBorder.none,
                                         prefixIcon: Icon(Icons.edit_outlined, color: _selectedColor.withOpacity(0.7), size: 20),
                                         contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -652,13 +691,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      buildInputLabel('Color'),
+                                       buildInputLabel('Color', context),
                                       Padding(
                                         padding: const EdgeInsets.only(bottom: 8, right: 4),
                                         child: Text(
                                           'Desplázate para ver más >>',
                                           style: TextStyle(
-                                            color: Colors.white.withOpacity(0.4),
+                                            color: context.appTheme.textHint,
                                             fontSize: 11,
                                             fontStyle: FontStyle.italic,
                                           ),
@@ -702,13 +741,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      buildInputLabel('Icono'),
+                                       buildInputLabel('Icono', context),
                                       Padding(
                                         padding: const EdgeInsets.only(bottom: 8, right: 4),
                                         child: Text(
                                           'Desplázate para ver más >>',
                                           style: TextStyle(
-                                            color: Colors.white.withOpacity(0.4),
+                                            color: context.appTheme.textHint,
                                             fontSize: 11,
                                             fontStyle: FontStyle.italic,
                                           ),
@@ -731,16 +770,28 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                             margin: const EdgeInsets.only(right: 14), // Increased margin
                                             width: 52, // Slightly larger
                                             decoration: BoxDecoration(
-                                              color: isSelected ? _selectedColor.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                                              color: isSelected 
+                                                  ? _selectedColor.withOpacity(0.2) 
+                                                  : (isLight 
+                                                      ? context.appTheme.darkBackground 
+                                                      : Colors.white.withOpacity(0.05)),
                                               borderRadius: BorderRadius.circular(14), // Slightly rounder
                                               border: Border.all(
-                                                color: isSelected ? _selectedColor : Colors.transparent,
+                                                color: isSelected 
+                                                    ? _selectedColor 
+                                                    : (isLight 
+                                                        ? context.appTheme.borderSubtle 
+                                                        : Colors.transparent),
                                                 width: 1.5,
                                               ),
                                             ),
                                             child: Icon(
                                               icon,
-                                              color: isSelected ? _selectedColor : Colors.white.withOpacity(0.5),
+                                              color: isSelected 
+                                                  ? _selectedColor 
+                                                  : (isLight 
+                                                      ? context.appTheme.textSecondary 
+                                                      : Colors.white.withOpacity(0.5)),
                                               size: 26, // Larger icon
                                             ),
                                           ),
@@ -764,7 +815,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                 Expanded(
                                   child: TextButton(
                                     onPressed: () => Navigator.pop(context),
-                                    style: TextButton.styleFrom(foregroundColor: Colors.white54),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: isLight 
+                                          ? context.appTheme.textPrimary 
+                                          : context.appTheme.textSecondary,
+                                      backgroundColor: isLight 
+                                          ? context.appTheme.darkBackground 
+                                          : Colors.white.withOpacity(0.05),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: BorderSide(
+                                          color: isLight 
+                                              ? context.appTheme.borderSubtle 
+                                              : Colors.transparent,
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
                                     child: const Text('Cancelar'),
                                   ),
                                 ),
@@ -829,14 +896,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
             child: AlertDialog(
-              backgroundColor: const Color(0xFF2A2A3A),
+              backgroundColor: context.appTheme.secondaryCardBackground,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: const Text('Eliminar Categoría', style: TextStyle(color: Colors.white)),
-              content: Text('¿Seguro que deseas eliminar "$name"?', style: const TextStyle(color: Colors.white70)),
+              title: Text('Eliminar Categoría', style: TextStyle(color: context.appTheme.textPrimary)),
+              content: Text('¿Seguro que deseas eliminar "$name"?', style: TextStyle(color: context.appTheme.textSecondary)),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+                  child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
                 ),
                 TextButton(
                   onPressed: () async {
@@ -857,7 +924,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+      backgroundColor: context.appTheme.primaryBackground,
       appBar: null,
       body: SafeArea(
         child: Column(
@@ -866,14 +933,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              decoration: const BoxDecoration(
-                color: Color.fromRGBO(42, 49, 67, 1),
+              decoration: BoxDecoration(
+                color: context.appTheme.cardBackground,
               ),
-              child: const Text(
+              child: Text(
                 'Categorías',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: context.appTheme.textPrimary,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
@@ -888,7 +955,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                 width: double.infinity,
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 decoration: BoxDecoration(
-                  color: const Color.fromRGBO(42, 49, 67, 1),
+                  color: context.appTheme.cardBackground,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -906,10 +973,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                       child: Container(
                         height: 48, // Altura ajustada
                          decoration: BoxDecoration(
-                           color: Colors.black.withOpacity(0.25), // Pill más oscuro como en la imagen
+                           color: context.appTheme.darkBackground, // Pill dinámico
                            borderRadius: BorderRadius.circular(24),
                            border: Border.all(
-                             color: Colors.white.withOpacity(0.08),
+                             color: context.appTheme.borderSubtle,
                              width: 1,
                            ),
                          ),
@@ -917,19 +984,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                           controller: _tabController,
                           // Indicador estilo premium (como el mes seleccionado)
                           indicator: BoxDecoration(
-                            color: const Color(0xFF52E2FF), // Cyan vibrante
+                            color: context.appTheme.accent, // Acento dinámico
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF52E2FF).withOpacity(0.4),
+                                color: context.appTheme.accent.withValues(alpha: 0.4),
                                 blurRadius: 15,
                                 offset: const Offset(0, 0),
                               ),
                             ],
                           ),
                           indicatorPadding: const EdgeInsets.all(4), // Padding interno para el indicador
-                          labelColor: const Color.fromRGBO(31, 38, 57, 1), // Texto oscuro sobre el cyan
-                          unselectedLabelColor: Colors.white.withOpacity(0.5),
+                          labelColor: context.appTheme.buttonForeground, // Texto dinámico
+                          unselectedLabelColor: context.appTheme.textSecondary,
                           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           indicatorSize: TabBarIndicatorSize.tab, // Ocupar todo el espacio del tab
                           tabs: const [
@@ -970,7 +1037,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
         },
         backgroundColor: const Color.fromARGB(255, 82, 226, 255),
         elevation: 10,
-        child: const Icon(Icons.add, color: Color.fromRGBO(31, 38, 57, 1), size: 30),
+        child: Icon(Icons.add, color: context.appTheme.primaryBackground, size: 30),
       ),
     );
   }
@@ -981,11 +1048,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.category_outlined, size: 60, color: Colors.white.withOpacity(0.1)),
+            Icon(Icons.category_outlined, size: 60, color: context.appTheme.textHint.withOpacity(0.3)),
             const SizedBox(height: 12),
             Text(
               'No hay categorías',
-              style: TextStyle(color: Colors.white.withOpacity(0.4)),
+              style: TextStyle(color: context.appTheme.textHint),
             ),
           ],
         ),
@@ -1002,36 +1069,42 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
         final IconData icon = AppIcons.getIcon(category['icon'] ?? Icons.category.codePoint);
         final Color color = Color(category['color'] ?? Colors.blue.value);
 
+        final bool isLight = Theme.of(context).brightness == Brightness.light;
+        final Color readableColor = AppColors.getReadableColor(color, context);
+
         // Estilo de Tarjeta Premium (Card Style)
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.lerp(const Color(0xFF222939), color, 0.12)!,
-                const Color(0xFF222939),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(22), // Un poco más redondeado como en la imagen
+            color: isLight ? context.appTheme.secondaryCardBackground : null,
+            gradient: isLight
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color.lerp(context.appTheme.secondaryCardBackground, color, 0.12)!,
+                      context.appTheme.secondaryCardBackground,
+                    ],
+                  ),
+            borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withOpacity(isLight ? 0.08 : 0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
                 spreadRadius: -2,
               ),
               BoxShadow(
-                color: color.withOpacity(0.1),
+                color: readableColor.withOpacity(isLight ? 0.15 : 0.1),
                 blurRadius: 12,
                 offset: const Offset(0, 2),
                 spreadRadius: -2,
               ),
             ],
             border: Border.all(
-              color: color.withOpacity(0.15),
-              width: 1,
+              color: readableColor.withOpacity(isLight ? 0.6 : 0.15),
+              width: isLight ? 1.5 : 1,
             ),
           ),
           child: Material(
@@ -1048,25 +1121,28 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            color.withOpacity(0.22),
-                            color.withOpacity(0.13),
-                          ],
-                        ),
+                        color: isLight ? readableColor : null,
+                        gradient: isLight
+                            ? null
+                            : LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  color.withOpacity(0.22),
+                                  color.withOpacity(0.13),
+                                ],
+                              ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.4),
+                            color: Colors.black.withOpacity(isLight ? 0.12 : 0.4),
                             blurRadius: 12,
                             offset: const Offset(0, 6),
                             spreadRadius: -2,
                           ),
                         ],
                         border: Border.all(
-                          color: color.withOpacity(0.35),
+                          color: isLight ? readableColor : color.withOpacity(0.35),
                           width: 1.5,
                         ),
                       ),
@@ -1078,8 +1154,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                     Expanded(
                       child: Text(
                         name,
-                        style: const TextStyle(
-                          color: Colors.white, 
+                        style: TextStyle(
+                          color: context.appTheme.textPrimary, 
                           fontSize: 16, 
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.3,
@@ -1088,7 +1164,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                     ),
                     
                     // Flecha indicadora (Action)
-                    Icon(Icons.more_vert, color: Colors.white.withOpacity(0.35), size: 22),
+                    Icon(Icons.more_vert, color: context.appTheme.textHint, size: 22),
                   ],
                 ),
               ),

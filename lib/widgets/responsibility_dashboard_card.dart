@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/utils/currency_helper.dart'; // Import added
 import 'package:finazaap/Screens/annual_projection_screen.dart';
@@ -70,7 +71,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
           child: FadeTransition(
             opacity: animation,
             child: AlertDialog(
-              backgroundColor: const Color(0xFF222939),
+              backgroundColor: context.appTheme.secondaryCardBackground,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               contentPadding: EdgeInsets.zero,
               content: SizedBox(
@@ -88,7 +89,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                             children: [
                               const Icon(Icons.calendar_month_rounded, color: Colors.blueAccent),
                               const SizedBox(width: 12),
-                              const Text('Filtrar Fecha', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                              Text('Filtrar Fecha', style: TextStyle(color: context.appTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
                               const Spacer(),
                               // Botón "Hoy"
                               TextButton(
@@ -119,7 +120,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                                 child: Center(
                                   child: Text(
                                     localYear.toString(),
-                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: context.appTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ),
@@ -152,15 +153,15 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                                 },
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: isSel ? Colors.blueAccent : Colors.white.withOpacity(0.05),
+                                    color: isSel ? Colors.blueAccent : context.appTheme.darkBackground,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: isSel ? Colors.blueAccent : Colors.white.withOpacity(0.1)),
+                                    border: Border.all(color: isSel ? Colors.blueAccent : context.appTheme.borderSubtle),
                                   ),
                                   child: Center(
                                     child: Text(
                                       monthNames[index].substring(0, 3),
                                       style: TextStyle(
-                                        color: isSel ? Colors.white : Colors.white70,
+                                        color: isSel ? Colors.white : context.appTheme.textSecondary,
                                         fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
                                         fontSize: 12,
                                       ),
@@ -186,7 +187,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                               Expanded(
                                 child: TextButton(
                                   onPressed: () => Navigator.pop(context),
-                                  child: Text('Cancelar', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+                                  child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -257,13 +258,17 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color.fromRGBO(42, 49, 67, 1),
+        color: context.appTheme.cardBackground,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: context.appTheme.borderSubtle,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -277,15 +282,15 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
               Text(
                 'Obligaciones del Mes',
                 style: TextStyle(
-                  color: Colors.grey.shade200,
+                  color: context.appTheme.textSecondary,
                   fontSize: 14,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 CurrencyHelper.format(totalAmount),
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: context.appTheme.textPrimary,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -298,23 +303,23 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                 children: [
                   InkWell(
                     onTap: () => _showDateSelector(context),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1F2639),
+                        color: context.appTheme.darkBackground,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        border: Border.all(color: context.appTheme.borderVisible),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.calendar_month, size: 14, color: Colors.white),
+                          Icon(Icons.calendar_month, size: 14, color: context.appTheme.textPrimary),
                           const SizedBox(width: 8),
                           Text(
-                            _formatDate(widget.selectedMonth, widget.selectedYear),
-                            style: const TextStyle(
-                              color: Colors.white,
+                             _formatDate(widget.selectedMonth, widget.selectedYear),
+                            style: TextStyle(
+                              color: context.appTheme.textPrimary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -334,19 +339,19 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1F2639),
+                        color: context.appTheme.darkBackground,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        border: Border.all(color: context.appTheme.borderVisible),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.trending_up_rounded, size: 14, color: Color(0xFF52E2FF)),
+                          Icon(Icons.trending_up_rounded, size: 14, color: context.appTheme.accent),
                           const SizedBox(width: 8),
                           Text(
                             'Proy. Anual: ${CurrencyHelper.format(annualProjection, decimalDigits: 0)}',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: context.appTheme.textPrimary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -372,7 +377,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                   Text(
                     'Progreso de pago',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: context.appTheme.textHint,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -380,7 +385,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                   Text(
                     '$percentage%',
                     style: TextStyle(
-                      color: percentage == 100 ? const Color(0xFF50FA7B) : const Color(0xFF4A80F0),
+                      color: percentage == 100 ? context.appTheme.success : context.appTheme.accent,
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                     ),
@@ -396,7 +401,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                         height: 10,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.2),
+                          color: context.appTheme.darkBackground,
                           borderRadius: BorderRadius.circular(5),
                         ),
                       ),
@@ -408,14 +413,14 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              percentage == 100 ? const Color(0xFF50FA7B) : const Color(0xFF4A80F0),
-                              percentage == 100 ? const Color(0xFF8BFEB9) : const Color(0xFF7CA8FF),
+                              percentage == 100 ? context.appTheme.success : context.appTheme.accent,
+                              percentage == 100 ? context.appTheme.success.withValues(alpha: 0.8) : context.appTheme.secondaryAccent,
                             ],
                           ),
                           borderRadius: BorderRadius.circular(5),
                           boxShadow: [
                             BoxShadow(
-                              color: (percentage == 100 ? const Color(0xFF50FA7B) : const Color(0xFF4A80F0)).withOpacity(0.3),
+                              color: (percentage == 100 ? context.appTheme.success : context.appTheme.accent).withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -439,7 +444,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                   padding: const EdgeInsets.all(12.0),
                   margin: const EdgeInsets.only(right: 4.0),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1F2639),
+                    color: context.appTheme.primaryBackground,
                     borderRadius: BorderRadius.circular(8.0),
                   ),
                   child: Column(
@@ -447,12 +452,12 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 14),
+                          Icon(Icons.check_circle_rounded, color: context.appTheme.success, size: 14),
                           const SizedBox(width: 6),
                           Text(
                             'Pagado',
                             style: TextStyle(
-                              color: Colors.grey.shade300,
+                              color: context.appTheme.textSecondary,
                               fontSize: 13,
                             ),
                           ),
@@ -461,8 +466,8 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                       const SizedBox(height: 6),
                       Text(
                         CurrencyHelper.formatCompact(paid),
-                        style: const TextStyle(
-                          color: Color(0xFF50FA7B),
+                        style: TextStyle(
+                          color: context.appTheme.success,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -476,7 +481,7 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                   padding: const EdgeInsets.all(12.0),
                   margin: const EdgeInsets.only(left: 4.0),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1F2639),
+                    color: context.appTheme.primaryBackground,
                     borderRadius: BorderRadius.circular(8.0),
                   ),
                   child: Column(
@@ -484,12 +489,12 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.pending_rounded, color: Color(0xFFFF7D7D), size: 14),
+                          Icon(Icons.pending_rounded, color: context.appTheme.expense, size: 14),
                           const SizedBox(width: 6),
                           Text(
                             'Pendiente',
                             style: TextStyle(
-                              color: Colors.grey.shade300,
+                              color: context.appTheme.textSecondary,
                               fontSize: 13,
                             ),
                           ),
@@ -498,8 +503,8 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                       const SizedBox(height: 6),
                       Text(
                         CurrencyHelper.formatCompact(pending),
-                        style: const TextStyle(
-                          color: Color(0xFFFF7D7D),
+                        style: TextStyle(
+                          color: context.appTheme.expense,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),

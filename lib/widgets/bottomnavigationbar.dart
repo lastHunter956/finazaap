@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 /// Widget placeholder para bottom navigation bar
 /// 
@@ -10,7 +11,7 @@ class BottomNavigationBarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color.fromRGBO(42, 49, 67, 1),
+      color: context.appTheme.cardBackground,
       child: const Center(
         child: Text(
           'Bottom Navigation Bar - Por implementar',

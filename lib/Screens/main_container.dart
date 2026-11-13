@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/Screens/home.dart';
 import 'package:finazaap/Screens/statistics.dart';
 import 'package:finazaap/Screens/responsibilities_screen.dart';
@@ -33,7 +34,7 @@ class _MainContainerState extends State<MainContainer> {
     ];
 
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+      backgroundColor: context.appTheme.primaryBackground,
       body: IndexedStack(
         index: _currentIndex,
         children: screens,

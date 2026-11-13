@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 class ResponsibilityActionsMenu extends StatefulWidget {
   final VoidCallback onAddResponsibility;
@@ -94,7 +95,7 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                         sigmaY: 12.0 * _fadeAnimation.value,
                       ),
                       child: Container(
-                        color: const Color(0xFF1F2639).withOpacity(0.85 * _fadeAnimation.value),
+                        color: context.appTheme.primaryBackground.withOpacity(0.85 * _fadeAnimation.value),
                       ),
                     ),
                   ),
@@ -118,7 +119,7 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                 child: Container(
                   width: menuWidth,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF222939),
+                    color: context.appTheme.secondaryCardBackground,
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
@@ -134,13 +135,8 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                       ),
                     ],
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
+                      color: context.appTheme.borderSubtle,
                       width: 1.5,
-                    ),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF262D43), Color(0xFF1F2538)],
                     ),
                   ),
                   child: Column(
@@ -152,7 +148,7 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                         decoration: BoxDecoration(
                           border: Border(
                             bottom: BorderSide(
-                              color: Colors.white.withOpacity(0.08),
+                              color: context.appTheme.borderSubtle,
                               width: 1,
                             ),
                           ),
@@ -172,10 +168,10 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
+                                  Text(
                                     "Acciones",
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: context.appTheme.textPrimary,
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -183,7 +179,7 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                                   Text(
                                     "Gestionar responsabilidades",
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.5),
+                                      color: context.appTheme.textSecondary,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -237,7 +233,7 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                             child: Text(
                               "Cerrar",
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: context.appTheme.textSecondary,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -278,10 +274,10 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isHovered ? color.withOpacity(0.12) : Colors.white.withOpacity(0.04),
+            color: isHovered ? color.withOpacity(0.12) : context.appTheme.darkBackground,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isHovered ? color.withOpacity(0.4) : Colors.white.withOpacity(0.08),
+              color: isHovered ? color.withOpacity(0.4) : context.appTheme.borderSubtle,
               width: 1.5,
             ),
           ),
@@ -302,8 +298,8 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                   children: [
                     Text(
                       label,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.appTheme.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -312,7 +308,7 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                     Text(
                       subtitle,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.4),
+                        color: context.appTheme.textSecondary,
                         fontSize: 11,
                       ),
                     ),
@@ -321,7 +317,7 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: isHovered ? color : Colors.white.withOpacity(0.2),
+                color: isHovered ? color : context.appTheme.textHint,
                 size: 14,
               ),
             ],

@@ -15,6 +15,7 @@ import 'package:finazaap/Screens/home.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/utils/currency_helper.dart'; // Import CurrencyHelper
+import 'package:finazaap/themes/app_theme_data.dart';
 
 
 void showTransactionOptions(Add_data transaction, BuildContext _context, Function(Add_data) _editTransaction, Function(Add_data) _confirmDeleteTransaction) {
@@ -78,7 +79,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                   maxHeight: MediaQuery.of(context).size.height * 0.85,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF222939),
+                  color: _context.appTheme.secondaryCardBackground,
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
@@ -172,10 +173,10 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                           // Título de la transacción
                                           Text(
                                             transactionTitle,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 19,
                                               fontWeight: FontWeight.bold,
-                                              color: Colors.white,
+                                              color: _context.appTheme.textPrimary,
                                               letterSpacing: 0.2,
                                             ),
                                             textAlign: TextAlign.center,
@@ -231,10 +232,10 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                             width: double.infinity,
                                             padding: const EdgeInsets.all(14),
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.05),
+                                              color: _context.appTheme.darkBackground,
                                               borderRadius: BorderRadius.circular(16),
                                               border: Border.all(
-                                                color: Colors.white.withOpacity(0.1),
+                                                color: _context.appTheme.borderSubtle,
                                                 width: 1,
                                               ),
                                             ),
@@ -248,7 +249,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                       Text(
                                                         isTransfer ? "Ruta" : "Cuenta",
                                                         style: TextStyle(
-                                                          color: Colors.white.withOpacity(0.6),
+                                                          color: _context.appTheme.textSecondary,
                                                           fontSize: 12,
                                                           fontWeight: FontWeight.w500,
                                                         ),
@@ -265,8 +266,8 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                           Expanded(
                                                             child: Text(
                                                               isTransfer ? (transaction.explain ?? '') : transaction.safeAccount,
-                                                              style: const TextStyle(
-                                                                color: Colors.white,
+                                                              style: TextStyle(
+                                                                color: _context.appTheme.textPrimary,
                                                                 fontSize: 14,
                                                                 fontWeight: FontWeight.w600,
                                                               ),
@@ -285,7 +286,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                   Container(
                                                     width: 1, 
                                                     height: 30, 
-                                                    color: Colors.white.withOpacity(0.1)
+                                                    color: _context.appTheme.borderSubtle,
                                                   ),
                                                   const SizedBox(width: 12),
                                                   
@@ -296,7 +297,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                         Text(
                                                           "Categoría",
                                                           style: TextStyle(
-                                                            color: Colors.white.withOpacity(0.6),
+                                                            color: _context.appTheme.textSecondary,
                                                             fontSize: 12,
                                                             fontWeight: FontWeight.w500,
                                                           ),
@@ -313,8 +314,8 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                             Expanded(
                                                               child: Text(
                                                                 transaction.explain ?? '',
-                                                                style: const TextStyle(
-                                                                  color: Colors.white,
+                                                                style: TextStyle(
+                                                                  color: _context.appTheme.textPrimary,
                                                                   fontSize: 14,
                                                                   fontWeight: FontWeight.w600,
                                                                 ),
@@ -341,10 +342,10 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                             margin: const EdgeInsets.only(bottom: 10),
                                             padding: const EdgeInsets.all(14),
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.05),
+                                              color: _context.appTheme.darkBackground,
                                               borderRadius: BorderRadius.circular(16),
                                               border: Border.all(
-                                                color: Colors.white.withOpacity(0.1),
+                                                color: _context.appTheme.borderSubtle,
                                                 width: 1,
                                               ),
                                             ),
@@ -359,7 +360,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                       Text(
                                                         "Cuotas",
                                                         style: TextStyle(
-                                                          color: Colors.white.withOpacity(0.6),
+                                                          color: _context.appTheme.textSecondary,
                                                           fontSize: 12,
                                                           fontWeight: FontWeight.w500,
                                                         ),
@@ -370,13 +371,13 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                           Icon(
                                                             Icons.layers_rounded,
                                                             size: 16,
-                                                            color: Colors.blueAccent.withOpacity(0.8),
+                                                            color: _context.appTheme.accent.withOpacity(0.8),
                                                           ),
                                                           const SizedBox(width: 8),
                                                           Text(
                                                             "${transaction.installments}",
-                                                            style: const TextStyle(
-                                                              color: Colors.white,
+                                                            style: TextStyle(
+                                                              color: _context.appTheme.textPrimary,
                                                               fontSize: 14,
                                                               fontWeight: FontWeight.w600,
                                                             ),
@@ -396,7 +397,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                       Text(
                                                         "Intereses",
                                                         style: TextStyle(
-                                                          color: Colors.white.withOpacity(0.6),
+                                                          color: _context.appTheme.textSecondary,
                                                           fontSize: 12,
                                                           fontWeight: FontWeight.w500,
                                                         ),
@@ -407,13 +408,13 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                           Icon(
                                                             Icons.check_circle_outline_rounded,
                                                             size: 16,
-                                                            color: Colors.greenAccent.withOpacity(0.8),
+                                                            color: _context.appTheme.success.withOpacity(0.8),
                                                           ),
                                                           const SizedBox(width: 8),
-                                                          const Text(
+                                                          Text(
                                                             "Sin interés",
                                                             style: TextStyle(
-                                                              color: Colors.greenAccent,
+                                                              color: _context.appTheme.success,
                                                               fontSize: 14,
                                                               fontWeight: FontWeight.w600,
                                                             ),
@@ -436,13 +437,13 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                 Icon(
                                                   Icons.access_time_rounded,
                                                   size: 14,
-                                                  color: Colors.white.withOpacity(0.5),
+                                                  color: _context.appTheme.textSecondary,
                                                 ),
                                                 const SizedBox(width: 6),
                                                 Text(
                                                   DateFormat('dd/MM/yyyy - HH:mm').format(transaction.safeDate),
                                                   style: TextStyle(
-                                                    color: Colors.white.withOpacity(0.5),
+                                                    color: _context.appTheme.textSecondary,
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w400,
                                                   ),
@@ -581,7 +582,7 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                       Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.2),
+                          color: _context.appTheme.darkBackground,
                         ),
                         child: Material(
                           color: Colors.transparent,
@@ -595,13 +596,13 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                   Icon(
                                     Icons.close_rounded,
                                     size: 16,
-                                    color: Colors.white.withOpacity(0.7),
+                                    color: _context.appTheme.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     'Cerrar',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.7),
+                                      color: _context.appTheme.textSecondary,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
                                       letterSpacing: 0.3,

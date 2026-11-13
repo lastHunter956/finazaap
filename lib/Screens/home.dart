@@ -1,5 +1,6 @@
 // Reemplaza las importaciones conflictivas por estas líneas:
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:hive_flutter/adapters.dart';
@@ -32,6 +33,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:finazaap/Screens/ai_chat_screen.dart';
 import 'package:finazaap/services/widget_service.dart';
 import 'dart:async'; // Necesario para StreamSubscription
+import 'package:finazaap/themes/app_theme_data.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -293,16 +295,16 @@ class _HomeState extends State<Home> {
         // Lógica adicional si es necesario
       },
       child: Scaffold(
-        backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+        backgroundColor: context.appTheme.primaryBackground,
         appBar: AppBar(
-          backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
+          backgroundColor: context.appTheme.cardBackground,
           elevation: 0,
           centerTitle: true,
           toolbarHeight: 75,
-          title: const Text(
+          title: Text(
             'Transacciones',
             style: TextStyle(
-              color: Colors.white,
+              color: context.appTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -326,23 +328,23 @@ class _HomeState extends State<Home> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF52E2FF).withOpacity(0.12),
+                    color: context.appTheme.accent.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: const Color(0xFF52E2FF).withOpacity(0.4),
+                      color: context.appTheme.accent.withOpacity(0.4),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF52E2FF).withOpacity(0.15),
+                        color: context.appTheme.accent.withOpacity(0.15),
                         blurRadius: 10,
                         spreadRadius: 1,
                       ),
                     ],
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.chat_rounded,
-                    color: Color(0xFF52E2FF),
+                    color: context.appTheme.accent,
                     size: 24,
                   ),
                 ),
@@ -416,12 +418,12 @@ class _HomeState extends State<Home> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
-                      child: const Text(
+                      child: Text(
                         'Historial de transacciones',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
-                          color: Colors.white,
+                          color: context.appTheme.textPrimary,
                         ),
                       ),
                     ),
@@ -573,8 +575,8 @@ class _HomeState extends State<Home> {
                       // Fecha formateada
                       Text(
                         dateKey,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: context.appTheme.textPrimary,
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
@@ -583,7 +585,7 @@ class _HomeState extends State<Home> {
                       // Icono de flecha
                       Icon(
                         isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                        color: Colors.white.withOpacity(0.5),
+                        color: context.appTheme.textSecondary,
                         size: 18,
                       ),
                     ],
@@ -594,8 +596,8 @@ class _HomeState extends State<Home> {
                     style: TextStyle(
                       // Color dinámico según si es positivo (ingreso neto) o negativo (gasto neto)
                       color: dailyIncome >= 0 
-                          ? const Color.fromARGB(255, 167, 226, 169) // Verde
-                          : const Color(0xFFEF9A9A), // Rojo claro
+                          ? context.appTheme.income // Verde
+                          : context.appTheme.expense, // Rojo claro
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -610,7 +612,7 @@ class _HomeState extends State<Home> {
             // === LISTA DE TRANSACCIONES (EXPANDIDO) ===
             Container(
               decoration: BoxDecoration(
-                color: const Color.fromRGBO(42, 49, 67, 1), // Color aplicado al contenedor principal
+                color: context.appTheme.cardBackground, // Color aplicado al contenedor principal
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -672,10 +674,10 @@ class _HomeState extends State<Home> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                 decoration: BoxDecoration(
-                  color: const Color.fromRGBO(42, 49, 67, 1),
+                  color: context.appTheme.cardBackground,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.05),
+                    color: context.appTheme.borderSubtle,
                     width: 1,
                   ),
                   boxShadow: [
@@ -711,15 +713,15 @@ class _HomeState extends State<Home> {
                               Text(
                                 "Ingresos",
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: context.appTheme.textSecondary,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
                               Text(
                                 CurrencyHelper.format(totalIncome),
-                                style: const TextStyle(
-                                  color: Color.fromARGB(255, 167, 226, 169),
+                                style: TextStyle(
+                                  color: context.appTheme.income,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -734,7 +736,7 @@ class _HomeState extends State<Home> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Divider(
-                        color: Colors.white.withOpacity(0.05),
+                        color: context.appTheme.borderSubtle,
                         height: 1,
                       ),
                     ),
@@ -762,15 +764,15 @@ class _HomeState extends State<Home> {
                               Text(
                                 "Gastos",
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: context.appTheme.textSecondary,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
                               Text(
                                 CurrencyHelper.format(totalExpense),
-                                style: const TextStyle(
-                                  color: Color(0xFFEF9A9A),
+                                style: TextStyle(
+                                  color: context.appTheme.expense,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -863,10 +865,10 @@ class _HomeState extends State<Home> {
                   // Título principal: Categoría - Descripción
                   Text(
                     mainTitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: context.appTheme.textPrimary,
                       height: 1.3,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -880,9 +882,9 @@ class _HomeState extends State<Home> {
                     isTransfer 
                         ? (history.explain ?? '')  // Ruta de transferencia: "Cuenta origen > Cuenta destino"
                         : history.safeAccount,     // Nombre de la cuenta
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w400,
-                      color: Colors.white60,
+                      color: context.appTheme.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -902,10 +904,10 @@ class _HomeState extends State<Home> {
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
                       color: isTransfer 
-                          ? Colors.grey
+                          ? context.appTheme.textSecondary 
                           : (isIncome
-                              ? const Color.fromARGB(255, 167, 226, 169)
-                              : const Color.fromARGB(255, 230, 172, 168)),
+                              ? context.appTheme.income
+                              : context.appTheme.expense),
                     ),
                   ),
 
@@ -1260,14 +1262,14 @@ Future<bool> _showDeletedReferenceWarning(
     context: context,
     barrierDismissible: false,
     builder: (context) => AlertDialog(
-      backgroundColor: const Color(0xFF2A2A3A),
+      backgroundColor: context.appTheme.secondaryCardBackground,
       title: const Text(
         '⚠️ Referencia eliminada detectada',
         style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold),
       ),
       content: Text(
         message,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: context.appTheme.textPrimary),
       ),
       actions: [
         // Botón rojo de eliminar
@@ -1286,12 +1288,12 @@ Future<bool> _showDeletedReferenceWarning(
         // Botón blanco de editar
         OutlinedButton(
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Colors.white),
+            side: BorderSide(color: context.appTheme.borderSubtle),
           ),
           onPressed: () {
             Navigator.of(context).pop(true); // Continuar con la edición
           },
-          child: const Text('Editar de todas formas', style: TextStyle(color: Colors.white)),
+          child: Text('Editar de todas formas', style: TextStyle(color: context.appTheme.textPrimary)),
         ),
       ],
     ),
@@ -1306,11 +1308,11 @@ Future<bool> _showDeletedReferenceWarning(
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A3A),
-        title: const Text('Confirmar eliminación', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        backgroundColor: context.appTheme.secondaryCardBackground,
+        title: Text('Confirmar eliminación', style: TextStyle(color: context.appTheme.textPrimary)),
+        content: Text(
           '¿Estás seguro que deseas eliminar esta transacción? Esta acción no se puede deshacer.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: context.appTheme.textSecondary),
         ),
         actions: [
           TextButton(

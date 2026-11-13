@@ -13,6 +13,8 @@ import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/account_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
 
+import 'package:finazaap/themes/app_theme_data.dart';
+
 // Modelo importado de package:finazaap/data/models/account_item.dart
 // Clase duplicada eliminada
 import 'package:finazaap/data/models/account_item.dart';
@@ -468,29 +470,29 @@ class _Add_ScreenState extends State<Add_Screen> {
   Widget build(BuildContext context) {
     // Colores y constantes de diseño
     const Color primaryColor = Color(0xFF368983);
-    const Color surfaceColor = Color(0xFF222939);
-    const Color cardColor = Color(0xFF1A1F2B);
+    final Color surfaceColor = context.appTheme.secondaryCardBackground;
+    final Color cardColor = context.appTheme.darkBackground;
     const double cornerRadius = 20.0;
 
     // Asegurarse de que _selectedCategory exista en _categories
     // NOTA: Esta lógica se movió a _loadCategoriesFromPrefs para evitar setState en build
     
     return Scaffold(
-      backgroundColor: const Color(0xFF1F2639),
+      backgroundColor: context.appTheme.primaryBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           widget.isEditing ? 'Editar Ingreso' : 'Nuevo Ingreso',
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.appTheme.textPrimary,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios_rounded, color: context.appTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -513,7 +515,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                     ),
                   ],
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.05),
+                    color: context.appTheme.borderSubtle,
                     width: 1.0,
                   ),
                 ),
@@ -569,7 +571,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                                 Text(
                                   'Registra un nuevo ingreso',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
+                                    color: context.appTheme.textSecondary,
                                     fontSize: 16,
                                   ),
                                 ),
@@ -594,8 +596,8 @@ class _Add_ScreenState extends State<Add_Screen> {
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: context.appTheme.textPrimary,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -605,7 +607,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                               decoration: InputDecoration(
                                 hintText: '0.00',
                                 hintStyle: TextStyle(
-                                  color: Colors.white.withOpacity(0.3),
+                                  color: context.appTheme.textHint,
                                 ),
                                 border: InputBorder.none,
                                 prefixIcon: Icon(
@@ -637,18 +639,18 @@ class _Add_ScreenState extends State<Add_Screen> {
                                             'Cuenta',
                                             style: TextStyle(
                                               color:
-                                                  Colors.white.withOpacity(0.5),
+                                                  context.appTheme.textHint,
                                               fontSize: 14,
                                             ),
                                           ),
-                                          dropdownColor: cardColor,
-                                          icon: const Icon(
+                                          dropdownColor: context.appTheme.secondaryCardBackground,
+                                          icon: Icon(
                                             Icons.arrow_drop_down_rounded,
-                                            color: Colors.white54,
+                                            color: context.appTheme.textSecondary,
                                           ),
                                           isExpanded: true,
-                                          style: const TextStyle(
-                                              color: Colors.white),
+                                          style: TextStyle(
+                                              color: context.appTheme.textPrimary),
                                           onChanged: (value) {
                                             setState(() {
                                               _selectedAccount = value;
@@ -720,18 +722,18 @@ class _Add_ScreenState extends State<Add_Screen> {
                                             'Categoría',
                                             style: TextStyle(
                                               color:
-                                                  Colors.white.withOpacity(0.5),
+                                                  context.appTheme.textHint,
                                               fontSize: 14,
                                             ),
                                           ),
-                                          dropdownColor: cardColor,
-                                          icon: const Icon(
+                                          dropdownColor: context.appTheme.secondaryCardBackground,
+                                          icon: Icon(
                                             Icons.arrow_drop_down_rounded,
-                                            color: Colors.white54,
+                                            color: context.appTheme.textSecondary,
                                           ),
                                           isExpanded: true,
-                                          style: const TextStyle(
-                                              color: Colors.white),
+                                          style: TextStyle(
+                                              color: context.appTheme.textPrimary),
                                           onChanged: (value) {
                                             setState(() {
                                               _selectedCategory = value;
@@ -766,7 +768,8 @@ class _Add_ScreenState extends State<Add_Screen> {
                                                       categoryName,
                                                       overflow: TextOverflow.ellipsis,
                                                       style: const TextStyle(
-                                                        fontWeight: FontWeight.w500,
+                                                        fontWeight:
+                                                            FontWeight.w500,
                                                         fontSize: 14,
                                                       ),
                                                     ),
@@ -799,15 +802,15 @@ class _Add_ScreenState extends State<Add_Screen> {
                                     _buildInputField(
                                       child: TextField(
                                         controller: _detailCtrl,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: context.appTheme.textPrimary,
                                           fontSize: 14,
                                         ),
                                         decoration: InputDecoration(
                                           hintText: 'Detalles...',
                                           hintStyle: TextStyle(
                                             color:
-                                                Colors.white.withOpacity(0.3),
+                                                context.appTheme.textHint,
                                           ),
                                           border: InputBorder.none,
                                           prefixIcon: Icon(
@@ -854,8 +857,8 @@ class _Add_ScreenState extends State<Add_Screen> {
                                                   _formatDate(_selectedDate),
                                                   overflow:
                                                       TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
+                                                  style: TextStyle(
+                                                    color: context.appTheme.textPrimary,
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w500,
                                                   ),
@@ -883,7 +886,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                                 child: _buildActionButton(
                                   label: 'Cancelar',
                                   icon: Icons.close_rounded,
-                                  color: Colors.white54,
+                                  color: context.appTheme.textSecondary,
                                   isOutlined: true,
                                   onPressed: () => Navigator.of(context)
                                       .popUntil((route) => route.isFirst),
@@ -924,7 +927,7 @@ class _Add_ScreenState extends State<Add_Screen> {
       child: Text(
         label,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.7),
+          color: context.appTheme.textSecondary,
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
@@ -936,15 +939,26 @@ class _Add_ScreenState extends State<Add_Screen> {
   Widget _buildInputField({required Widget child}) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1F2B),
+        color: context.appTheme.darkBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.08),
+          color: context.appTheme.borderSubtle,
           width: 1,
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: child,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            filled: false,
+          ),
+        ),
+        child: child,
+      ),
     );
   }
 
@@ -966,7 +980,7 @@ class _Add_ScreenState extends State<Add_Screen> {
             color: isOutlined ? Colors.transparent : color,
             borderRadius: BorderRadius.circular(12),
             border:
-                isOutlined ? Border.all(color: Colors.white24, width: 1) : null,
+                isOutlined ? Border.all(color: context.appTheme.borderSubtle, width: 1) : null,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1012,11 +1026,11 @@ class _Add_ScreenState extends State<Add_Screen> {
   Widget _buildAccountsDropdown() {
     return DropdownButton<AccountItem>(
       value: _selectedAccount,
-      hint: const Text('Cuenta', style: TextStyle(color: Colors.grey)),
-      dropdownColor: const Color(0xFF2A2A3A),
-      iconEnabledColor: Colors.white,
+      hint: Text('Cuenta', style: TextStyle(color: context.appTheme.textHint)),
+      dropdownColor: context.appTheme.secondaryCardBackground,
+      iconEnabledColor: context.appTheme.textPrimary,
       underline: Container(),
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: context.appTheme.textPrimary),
       onChanged: (value) {
         setState(() {
           _selectedAccount = value;
@@ -1035,11 +1049,11 @@ class _Add_ScreenState extends State<Add_Screen> {
   Widget _buildCategoriesDropdown() {
     return DropdownButton<String>(
       value: _selectedCategory,
-      hint: const Text('Categoria', style: TextStyle(color: Colors.grey)),
-      dropdownColor: const Color(0xFF2A2A3A),
-      iconEnabledColor: Colors.white,
+      hint: Text('Categoria', style: TextStyle(color: context.appTheme.textHint)),
+      dropdownColor: context.appTheme.secondaryCardBackground,
+      iconEnabledColor: context.appTheme.textPrimary,
       underline: Container(),
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: context.appTheme.textPrimary),
       onChanged: (value) {
         setState(() {
           _selectedCategory = value;

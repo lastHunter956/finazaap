@@ -5,6 +5,7 @@ import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/data/models/account_item.dart';
 import 'package:finazaap/widgets/account_dialogs.dart';
 import 'package:finazaap/themes/theme.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 
@@ -134,7 +135,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
           width: double.infinity,
           constraints: const BoxConstraints(maxWidth: 450, maxHeight: 600), // Aumentado un poco el ancho y alto máximo
           decoration: BoxDecoration(
-            color: AppColors.secondaryCardBackground,
+            color: context.appTheme.secondaryCardBackground,
             borderRadius: BorderRadius.circular(AppSizes.borderRadius2XLarge),
             boxShadow: [
               BoxShadow(
@@ -151,7 +152,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
               ),
             ],
             border: Border.all(
-              color: AppColors.borderSubtle,
+              color: context.appTheme.borderSubtle,
               width: 1,
             ),
           ),
@@ -160,21 +161,25 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header (Compacto)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        iconColor.withOpacity(0.15),
-                        iconColor.withOpacity(0.05),
-                      ],
-                    ),
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? AppColors.getReadableColor(iconColor, context).withOpacity(0.08)
+                        : null,
+                    gradient: Theme.of(context).brightness == Brightness.light
+                        ? null
+                        : LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              iconColor.withOpacity(0.15),
+                              iconColor.withOpacity(0.05),
+                            ],
+                          ),
                     border: Border(
                       bottom: BorderSide(
-                        color: AppColors.borderSubtle,
+                        color: context.appTheme.borderSubtle,
                         width: 1,
                       ),
                     ),
@@ -185,25 +190,32 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              iconColor.withOpacity(0.22),
-                              iconColor.withOpacity(0.13),
-                            ],
-                          ),
+                          color: Theme.of(context).brightness == Brightness.light
+                              ? AppColors.getReadableColor(iconColor, context)
+                              : null,
+                          gradient: Theme.of(context).brightness == Brightness.light
+                              ? null
+                              : LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    iconColor.withOpacity(0.22),
+                                    iconColor.withOpacity(0.13),
+                                  ],
+                                ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.4),
+                              color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.light ? 0.12 : 0.4),
                               blurRadius: 12,
                               offset: const Offset(0, 6),
                               spreadRadius: -2,
                             ),
                           ],
                           border: Border.all(
-                            color: iconColor.withOpacity(0.35),
+                            color: Theme.of(context).brightness == Brightness.light
+                                ? AppColors.getReadableColor(iconColor, context)
+                                : iconColor.withOpacity(0.35),
                             width: 1.5,
                           ),
                         ),
@@ -214,10 +226,10 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Text(
+                      Text(
                         'Editar Cuenta',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: context.appTheme.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -240,16 +252,17 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                         // Título
                         _buildInputLabel('Nombre de la cuenta'),
                         buildInputField(
+                          context: context,
                           child: TextField(
                             controller: titleController,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: context.appTheme.textPrimary,
                               fontSize: 15,
                             ),
                             decoration: InputDecoration(
                               hintText: 'Ej: Cuenta Principal',
                               hintStyle: TextStyle(
-                                color: Colors.white.withOpacity(0.3),
+                                color: context.appTheme.textHint,
                               ),
                               border: InputBorder.none,
                               prefixIcon: Icon(
@@ -275,7 +288,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                                   _buildInputLabel(isCreditCard ? 'Cupo total' : 'Saldo actual'),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1A1F2B).withOpacity(0.9),
+                                      color: context.appTheme.darkBackground.withOpacity(0.9),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(color: iconColor.withOpacity(0.2)),
                                     ),
@@ -285,10 +298,10 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                                       inputFormatters: [
                                          ThousandsSeparatorInputFormatter(),
                                        ],
-                                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                                      style: TextStyle(color: context.appTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
                                       decoration: InputDecoration(
                                         hintText: '0.00',
-                                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
+                                        hintStyle: TextStyle(color: context.appTheme.textHint, fontSize: 13),
                                         border: InputBorder.none,
                                         prefixIcon: Icon(isCreditCard ? Icons.credit_card : Icons.monetization_on_outlined, color: iconColor, size: 20),
                                         contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
@@ -310,7 +323,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1A1F2B).withOpacity(0.9),
+                                      color: context.appTheme.darkBackground.withOpacity(0.9),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(color: iconColor.withOpacity(0.2)),
                                     ),
@@ -320,7 +333,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                                         isExpanded: true,
                                         icon: Icon(Icons.keyboard_arrow_down_rounded, color: iconColor.withOpacity(0.7), size: 20),
                                         dropdownColor: AppColors.cardBackground,
-                                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                                        style: TextStyle(color: context.appTheme.textPrimary, fontSize: 13),
                                         items: accountTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
                                         onChanged: (v) => v != null ? setState(() => selectedAccountType = v) : null,
                                       ),
@@ -377,7 +390,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                         ],
                         
                         const SizedBox(height: 20),
-                        Divider(color: Colors.white.withOpacity(0.05)),
+                        Divider(color: context.appTheme.darkBackground),
                         const SizedBox(height: 16),
 
                         // --- SELECTORES HORIZONTALES (Color e Icono) ---
@@ -433,16 +446,28 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                                   margin: const EdgeInsets.only(right: 14),
                                   width: 52,
                                   decoration: BoxDecoration(
-                                    color: isSelected ? iconColor.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                                    color: isSelected
+                                        ? iconColor.withOpacity(0.2)
+                                        : (Theme.of(context).brightness == Brightness.light
+                                            ? context.appTheme.darkBackground
+                                            : Colors.white.withOpacity(0.05)),
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                      color: isSelected ? iconColor : Colors.transparent,
+                                      color: isSelected
+                                          ? iconColor
+                                          : (Theme.of(context).brightness == Brightness.light
+                                              ? context.appTheme.borderSubtle
+                                              : Colors.transparent),
                                       width: 1.5,
                                     ),
                                   ),
                                   child: Icon(
                                     icon,
-                                    color: isSelected ? iconColor : Colors.white.withOpacity(0.5),
+                                    color: isSelected
+                                        ? iconColor
+                                        : (Theme.of(context).brightness == Brightness.light
+                                            ? context.appTheme.textSecondary
+                                            : Colors.white.withOpacity(0.5)),
                                     size: 26,
                                   ),
                                 ),
@@ -457,18 +482,18 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                         // Switch de Incluir en Total
                         Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A1F2B).withOpacity(0.9),
+                            color: context.appTheme.darkBackground.withOpacity(0.9),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: includeInTotal ? iconColor.withOpacity(0.3) : AppColors.borderSubtle),
+                            border: Border.all(color: includeInTotal ? iconColor.withOpacity(0.3) : context.appTheme.borderSubtle),
                           ),
                           child: SwitchListTile(
                             value: includeInTotal,
                             onChanged: (v) => setState(() => includeInTotal = v),
                             activeColor: iconColor,
-                            title: const Text('Incluir en saldo total', style: TextStyle(color: Colors.white, fontSize: 14)),
+                            title: Text('Incluir en saldo total', style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14)),
                             subtitle: Text(
                               includeInTotal ? 'Suma al total general' : 'No afecta al total',
-                              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                              style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                             ),
                             secondary: Icon(includeInTotal ? Icons.visibility : Icons.visibility_off, color: includeInTotal ? iconColor : Colors.white.withOpacity(0.3)),
                           ),
@@ -493,10 +518,9 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.6),
+                                context.appTheme.secondaryCardBackground.withOpacity(0.95),
                               ],
                             ),
-                            borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppSizes.borderRadius2XLarge)),
                           ),
                           alignment: Alignment.bottomCenter,
                           padding: const EdgeInsets.only(bottom: 8),
@@ -506,13 +530,13 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                               Text(
                                 "Desliza para ver más",
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: context.appTheme.textSecondary,
                                   fontSize: 10,
                                 ),
                               ),
                               Icon(
                                 Icons.keyboard_arrow_down_rounded,
-                                color: Colors.white.withOpacity(0.6),
+                                color: context.appTheme.textSecondary,
                                 size: 20,
                               ),
                             ],
@@ -529,7 +553,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                 Container(
                   padding: const EdgeInsets.all(AppSizes.padding2XLarge),
                   decoration: BoxDecoration(
-                    border: Border(top: BorderSide(color: AppColors.borderSubtle)),
+                    border: Border(top: BorderSide(color: context.appTheme.borderSubtle)),
                   ),
                   child: Row(
                     children: [
@@ -537,7 +561,19 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                         child: TextButton(
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            foregroundColor: Colors.white70,
+                            foregroundColor: Theme.of(context).brightness == Brightness.light
+                                ? context.appTheme.textPrimary
+                                : context.appTheme.textSecondary,
+                            backgroundColor: Theme.of(context).brightness == Brightness.light
+                                ? context.appTheme.darkBackground
+                                : Colors.white.withOpacity(0.05),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color: context.appTheme.borderSubtle,
+                                width: 1,
+                              ),
+                            ),
                           ),
                           onPressed: () => Navigator.of(context).pop(),
                           child: const Text('Cancelar'),
@@ -590,8 +626,8 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white70,
+        style: TextStyle(
+          color: context.appTheme.textSecondary,
           fontWeight: FontWeight.w600,
           fontSize: 13,
           letterSpacing: 0.5,
@@ -612,7 +648,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
             child: Text(
               'Desplázate para ver más >>',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
+                color: context.appTheme.textSecondary,
                 fontSize: 11,
                 fontStyle: FontStyle.italic,
               ),
@@ -627,17 +663,17 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1F2B).withOpacity(0.9),
+        color: context.appTheme.darkBackground.withOpacity(0.9),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: context.appTheme.borderSubtle),
       ),
       child: TextField(
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+          hintStyle: TextStyle(color: context.appTheme.textHint, fontSize: 12),
           border: InputBorder.none,
           prefixIcon: Icon(icon, color: color.withOpacity(0.7), size: 16),
           contentPadding: const EdgeInsets.symmetric(vertical: 12),

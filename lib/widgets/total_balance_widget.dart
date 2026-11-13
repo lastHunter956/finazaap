@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-// Añadir al inicio del archivo
 import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:gradient_borders/gradient_borders.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 class TotalBalanceWidget extends StatefulWidget {
   // ========= Valores dinámicos =========
@@ -94,9 +94,10 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
     
     // Constantes de diseño - Sistema de tokens profesional
     const double cornerRadius = 24.0;
-    final Color accentColor = const Color(0xFF4A80F0);
-    final Color surfaceColor = const Color(0xFF222939);
-    final Color cardColor = const Color(0xFF1A1F2B);
+    final t = this.context.appTheme;
+    final Color accentColor = t.secondaryAccent;
+    final Color surfaceColor = t.secondaryCardBackground;
+    final Color cardColor = t.darkBackground;
     
     // Lista de nombres de meses con formato capitalizado
     final List<String> monthNames = [
@@ -237,7 +238,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                             Text(
                                               'Seleccionar período',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color: t.textPrimary,
                                                 fontSize: 20,
                                                 fontWeight: FontWeight.bold,
                                                 letterSpacing: 0.1,
@@ -251,7 +252,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                           child: Text(
                                             'Filtrar transacciones por mes y año',
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.6),
+                                              color: t.textSecondary,
                                               fontSize: 15,
                                               fontWeight: FontWeight.w400,
                                             ),
@@ -268,7 +269,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                             color: cardColor.withOpacity(0.6),
                                             borderRadius: BorderRadius.circular(14),
                                             border: Border.all(
-                                              color: Colors.white.withOpacity(0.07),
+                                              color: t.borderSubtle,
                                             ),
                                           ),
                                           child: Row(
@@ -283,7 +284,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                               Text(
                                                 "${monthNames[localMonth-1]} ${localYear}",
                                                 style: TextStyle(
-                                                  color: Colors.white,
+                                                  color: t.textPrimary,
                                                   fontWeight: FontWeight.w600,
                                                   fontSize: 16,
                                                 ),
@@ -317,7 +318,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                             color: cardColor,
                                             borderRadius: BorderRadius.circular(16),
                                             border: Border.all(
-                                              color: Colors.white.withOpacity(0.08),
+                                              color: t.borderSubtle,
                                               width: 1,
                                             ),
                                             boxShadow: [
@@ -334,6 +335,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                               // Botón año anterior con efecto hover
                                               _buildDirectionalButton(
                                                 icon: Icons.chevron_left_rounded,
+                                                color: t.textPrimary,
                                                 onTap: () {
                                                   setState(() {
                                                     localYear--;
@@ -350,8 +352,8 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                                       begin: Alignment.topLeft,
                                                       end: Alignment.bottomRight,
                                                       colors: [
-                                                        Colors.white.withOpacity(0.03),
-                                                        Colors.white.withOpacity(0.015),
+                                                        t.darkBackground,
+                                                        t.darkBackground.withOpacity(0.8),
                                                       ],
                                                     ),
                                                   ),
@@ -359,7 +361,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                                     child: Text(
                                                       localYear.toString(),
                                                       style: TextStyle(
-                                                        color: Colors.white,
+                                                        color: t.textPrimary,
                                                         fontSize: 22,
                                                         fontWeight: FontWeight.bold,
                                                         letterSpacing: 0.5,
@@ -372,6 +374,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                               // Botón año siguiente
                                               _buildDirectionalButton(
                                                 icon: Icons.chevron_right_rounded,
+                                                color: t.textPrimary,
                                                 onTap: () {
                                                   setState(() {
                                                     localYear++;
@@ -409,6 +412,9 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                               isSelected: isSelected,
                                               accentColor: accentColor,
                                               cardColor: cardColor,
+                                              textColor: t.textPrimary,
+                                              borderColor: t.borderSubtle,
+                                              buttonTextPrimaryColor: t.buttonForeground,
                                               onTap: () {
                                                 setState(() {
                                                   localMonth = monthNumber;
@@ -430,7 +436,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                 decoration: BoxDecoration(
                                   color: cardColor,
                                   border: Border(
-                                    top: BorderSide(color: Colors.white.withOpacity(0.06), width: 1),
+                                    top: BorderSide(color: t.borderSubtle, width: 1),
                                   ),
                                 ),
                                 child: SafeArea(
@@ -443,6 +449,9 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                         child: _buildActionButton(
                                           label: 'Cancelar',
                                           isOutlined: true,
+                                          textColor: t.textSecondary,
+                                          borderColor: t.borderVisible,
+                                          buttonTextPrimaryColor: t.buttonForeground,
                                           onTap: () {
                                             Navigator.pop(context);
                                             HapticFeedback.mediumImpact();
@@ -459,6 +468,9 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                           label: 'Aplicar filtro',
                                           isPrimary: true,
                                           accentColor: accentColor,
+                                          textColor: t.textSecondary,
+                                          borderColor: t.borderVisible,
+                                          buttonTextPrimaryColor: t.buttonForeground,
                                           onTap: () {
                                             // Actualizar estado y notificar
                                             setState(() {
@@ -509,8 +521,19 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
       builder: (context, availableBalance, child) {
         return Container(
           decoration: BoxDecoration(
-            color: const Color.fromRGBO(42, 49, 67, 1),
-            borderRadius: BorderRadius.circular(10),
+            color: context.appTheme.cardBackground,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.appTheme.borderSubtle,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -527,15 +550,15 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       Text(
                         'Disponible',
                         style: TextStyle(
-                          color: Colors.grey.shade200,
+                          color: context.appTheme.textSecondary,
                           fontSize: 14,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '${CurrencyHelper.format(availableBalance)}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: context.appTheme.textPrimary,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -550,7 +573,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                             Text(
                               'Balance Contable:',
                               style: TextStyle(
-                                color: Colors.grey.shade300,
+                                color: context.appTheme.textSecondary,
                                 fontSize: 14,
                               ),
                             ),
@@ -560,7 +583,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                               '${CurrencyHelper.format(widget.accountingBalance.abs())}',
                               style: TextStyle(
                                 color: widget.accountingBalance >= 0 ? 
-                                    const Color.fromARGB(255, 255, 255, 255) : Colors.redAccent,
+                                    context.appTheme.textPrimary : Colors.redAccent,
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -574,7 +597,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                           '${widget.accountingBalance < 0 ? "- " : ""}'
                           '${CurrencyHelper.format(widget.accountingBalance.abs())}',
                           style: TextStyle(
-                            color: Colors.grey.shade300,
+                            color: context.appTheme.textSecondary,
                             fontSize: 14,
                           ),
                         ),
@@ -606,13 +629,11 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                               width: 90, // Tamaño real del gráfico circular
                               height: 90, // Tamaño real del gráfico circular
                               child: CircularProgressIndicator(
-                                // Nueva lógica: Comienza en 100% (1.0) y disminuye con los gastos
-                                value: widget.totalIncome > 0 
+                                 value: widget.totalIncome > 0 
                                     ? (widget.totalIncome - widget.totalExpenses) / widget.totalIncome  // Porcentaje restante
                                     : 0,  // Si no hay ingresos, el valor es 0
                                 strokeWidth: 8, // Mantenemos el mismo grosor
-                                strokeCap: StrokeCap.round,
-                                backgroundColor: Colors.grey.shade800.withOpacity(0.1),
+                                backgroundColor: context.appTheme.darkBackground,
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   widget.totalExpenses > widget.totalIncome
                                       ? const Color(0xFFFF7D7D) // Rojo si hay exceso
@@ -631,8 +652,8 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                     widget.totalIncome > 0
                                         ? '${(((widget.totalIncome - widget.totalExpenses) / widget.totalIncome) * 100).round()}%'
                                         : '0%', // Si no hay ingresos, mostrar 0%
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: context.appTheme.textPrimary,
                                       fontSize: 15, // Mantenemos el tamaño de fuente
                                       fontWeight: FontWeight.bold,
                                       shadows: [
@@ -705,40 +726,40 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       ElevatedButton.icon(
                         onPressed: widget.onManageAccounts,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1F2639),
+                          backgroundColor: context.appTheme.primaryBackground,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8.0),
                           ),
                         ),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.account_balance_wallet_outlined,
                           size: 16,
-                          color: Colors.white,
+                          color: context.appTheme.textPrimary,
                         ),
-                        label: const Text(
+                        label: Text(
                           'Gestionar cuentas',
-                          style: TextStyle(fontSize: 14, color: Colors.white),
+                          style: TextStyle(fontSize: 14, color: context.appTheme.textPrimary),
                         ),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
                         onPressed: _showMonthYearSelector,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1F2639),
+                          backgroundColor: context.appTheme.primaryBackground,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8.0),
                           ),
                         ),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.calendar_month,
                           size: 16,
-                          color: Colors.white,
+                          color: context.appTheme.textPrimary,
                         ),
                         label: Text(
                           _selectedMonthYear,
-                          style: const TextStyle(fontSize: 14, color: Colors.white),
+                          style: TextStyle(fontSize: 14, color: context.appTheme.textPrimary),
                         ),
                       ),
                     ],
@@ -755,7 +776,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       padding: const EdgeInsets.all(12.0),
                       margin: const EdgeInsets.only(right: 4.0),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1F2639),
+                        color: context.appTheme.primaryBackground,
                         borderRadius: BorderRadius.circular(8.0),
                       ),
                       child: Column(
@@ -764,15 +785,15 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                           Text(
                             'Total de egresos',
                             style: TextStyle(
-                              color: Colors.grey.shade300,
+                              color: context.appTheme.textSecondary,
                               fontSize: 14,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '${CurrencyHelper.format(widget.totalExpenses)}',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: context.appTheme.textPrimary,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -786,7 +807,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       padding: const EdgeInsets.all(12.0),
                       margin: const EdgeInsets.only(left: 4.0),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1F2639),
+                        color: context.appTheme.primaryBackground,
                         borderRadius: BorderRadius.circular(8.0),
                       ),
                       child: Column(
@@ -795,15 +816,15 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                           Text(
                             'Total de ingresos',
                             style: TextStyle(
-                              color: Colors.grey.shade300,
+                              color: context.appTheme.textSecondary,
                               fontSize: 14,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '${CurrencyHelper.format(widget.totalIncome)}',
-                            style: const TextStyle(
-                              color: Color(0xFF50FA7B),
+                            style: TextStyle(
+                              color: context.appTheme.income,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -828,14 +849,21 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: selectedFilter == 'Todos'
-                          ? const Color(0xFF1F2639)
-                          : const Color.fromRGBO(42, 49, 67, 1),
+                          ? context.appTheme.primaryBackground
+                          : context.appTheme.cardBackground,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.0),
                       ),
                     ),
-                    child: const Text('Todos', style: TextStyle(color: Colors.white)),
+                    child: Text(
+                      'Todos',
+                      style: TextStyle(
+                        color: selectedFilter == 'Todos'
+                            ? context.appTheme.textPrimary
+                            : context.appTheme.textSecondary,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
@@ -847,14 +875,21 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: selectedFilter == 'Gastos'
-                          ? const Color(0xFF1F2639)
-                          : const Color.fromRGBO(42, 49, 67, 1),
+                          ? context.appTheme.primaryBackground
+                          : context.appTheme.cardBackground,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.0),
                       ),
                     ),
-                    child: const Text('Gastos', style: TextStyle(color: Colors.white)),
+                    child: Text(
+                      'Gastos',
+                      style: TextStyle(
+                        color: selectedFilter == 'Gastos'
+                            ? context.appTheme.textPrimary
+                            : context.appTheme.textSecondary,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
@@ -866,14 +901,21 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: selectedFilter == 'Ingresos'
-                          ? const Color(0xFF1F2639)
-                          : const Color.fromRGBO(42, 49, 67, 1),
+                          ? context.appTheme.primaryBackground
+                          : context.appTheme.cardBackground,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.0),
                       ),
                     ),
-                    child: const Text('Ingresos', style: TextStyle(color: Colors.white)),
+                    child: Text(
+                      'Ingresos',
+                      style: TextStyle(
+                        color: selectedFilter == 'Ingresos'
+                            ? context.appTheme.textPrimary
+                            : context.appTheme.textSecondary,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -912,6 +954,7 @@ Widget _buildSectionLabel(String label, IconData icon) {
 Widget _buildDirectionalButton({
   required IconData icon,
   required VoidCallback onTap,
+  required Color color,
 }) {
   return Material(
     color: Colors.transparent,
@@ -926,7 +969,7 @@ Widget _buildDirectionalButton({
         ),
         child: Icon(
           icon,
-          color: Colors.white.withOpacity(0.8),
+          color: color,
           size: 30,
         ),
       ),
@@ -940,6 +983,9 @@ Widget _buildMonthSelector({
   required bool isSelected,
   required Color accentColor,
   required Color cardColor,
+  required Color textColor,
+  required Color borderColor,
+  required Color buttonTextPrimaryColor,
   required VoidCallback onTap,
 }) {
   return AnimatedContainer(
@@ -967,7 +1013,7 @@ Widget _buildMonthSelector({
             border: Border.all(
               color: isSelected 
                 ? accentColor 
-                : Colors.white.withOpacity(0.08),
+                : borderColor,
               width: isSelected ? 1.2 : 0.8,
             ),
             boxShadow: isSelected ? [
@@ -984,8 +1030,8 @@ Widget _buildMonthSelector({
               monthName,
               style: TextStyle(
                 color: isSelected 
-                  ? Colors.white 
-                  : Colors.white.withOpacity(0.7),
+                  ? buttonTextPrimaryColor 
+                  : textColor.withOpacity(0.8),
                 fontSize: 14,
                 fontWeight: isSelected 
                   ? FontWeight.w700
@@ -1007,6 +1053,9 @@ Widget _buildActionButton({
   bool isPrimary = false,
   bool isOutlined = false,
   Color accentColor = Colors.white,
+  required Color textColor,
+  required Color borderColor,
+  required Color buttonTextPrimaryColor,
 }) {
   return Material(
     color: Colors.transparent,
@@ -1027,7 +1076,7 @@ Widget _buildActionButton({
           color: isPrimary ? null : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
           border: isOutlined ? Border.all(
-            color: Colors.white.withOpacity(0.2),
+            color: borderColor,
             width: 1,
           ) : null,
           boxShadow: isPrimary ? [
@@ -1046,7 +1095,7 @@ Widget _buildActionButton({
               Icon(
                 Icons.check_circle_outline_rounded,
                 size: 18,
-                color: Colors.white,
+                color: buttonTextPrimaryColor,
               ),
               
             if (isPrimary)
@@ -1056,8 +1105,8 @@ Widget _buildActionButton({
               label,
               style: TextStyle(
                 color: isPrimary 
-                  ? Colors.white 
-                  : Colors.white.withOpacity(0.75),
+                  ? buttonTextPrimaryColor 
+                  : textColor,
                 fontSize: isPrimary ? 15 : 14,
                 fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
                 letterSpacing: 0.3,

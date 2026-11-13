@@ -16,6 +16,9 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:finazaap/services/ai_chat_service.dart';
+import 'package:finazaap/themes/app_theme_mode.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/core/theme_notifier.dart';
 
 /// Punto de entrada principal de FinazaApp
 /// Inicializa servicios de seguridad, Hive y registra adaptadores
@@ -114,6 +117,9 @@ void main() async {
       AppLogger.warning('Error en servicio de notificaciones: $e');
     }
     
+    // Inicializar preferencia de tema
+    await ThemeNotifier.init();
+
     // Ejecutar la aplicación
     runApp(const FinazaApp());
     
@@ -183,31 +189,25 @@ class FinazaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FinazaApp',
-      debugShowCheckedModeBanner: false,
-      // Configuración de localización
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-         Locale('es', 'ES'), // Español como predeterminado
-         Locale('en', 'US'),
-      ],
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: const Color.fromRGBO(31, 38, 57, 1),
-        scaffoldBackgroundColor: const Color.fromRGBO(31, 38, 57, 1),
-        colorScheme: const ColorScheme.dark(
-          primary: Color.fromRGBO(31, 38, 57, 1),
-          secondary: Color.fromARGB(255, 82, 226, 255),
-        ),
-        useMaterial3: true,
-      ),
-      // Iniciar con pantalla de splash que verifica PIN
-      home: const AuthSplashScreen(),
+    return ValueListenableBuilder<AppThemeMode>(
+      valueListenable: ThemeNotifier.mode,
+      builder: (context, mode, _) {
+        return MaterialApp(
+          title: 'FinazaApp',
+          debugShowCheckedModeBanner: false,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('es', 'ES'),
+            Locale('en', 'US'),
+          ],
+          theme: buildThemeData(mode),
+          home: const AuthSplashScreen(),
+        );
+      },
     );
   }
 }

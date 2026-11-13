@@ -11,6 +11,8 @@ import '../data/model/add_date.dart';
 import 'package:flutter/services.dart';
 import 'package:finazaap/utils/currency_helper.dart'; // Import added
 import 'package:finazaap/utils/app_icons.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/themes/theme.dart';
 
 class AccountItem {
   String title;
@@ -816,14 +818,16 @@ class _StatisticsState extends State<Statistics> {
     // Período seleccionado actualmente (para mostrar detalles)
     String _selectedPeriod = '';
 
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
+
     return Container(
       height: 550, // Altura aumentada para gráfica más detallada
       padding: const EdgeInsets.only(top: 16, right: 0, left: 0, bottom: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: isLight ? context.appTheme.secondaryCardBackground : Colors.white.withOpacity(0.03),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withOpacity(0.08),
+          color: isLight ? context.appTheme.borderSubtle : Colors.white.withOpacity(0.08),
           width: 1,
         ),
       ),
@@ -849,8 +853,8 @@ class _StatisticsState extends State<Statistics> {
                     Expanded(
                       child: Text(
                         title,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: context.appTheme.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.3,
@@ -861,14 +865,15 @@ class _StatisticsState extends State<Statistics> {
                     Tooltip(
                       message: 'Toca en cualquier punto para ver detalles',
                       textStyle:
-                          const TextStyle(color: Colors.white, fontSize: 12),
+                          TextStyle(color: isLight ? Colors.black : Colors.white, fontSize: 12),
                       decoration: BoxDecoration(
-                        color: Colors.black87,
+                        color: isLight ? Colors.white : Colors.black87,
                         borderRadius: BorderRadius.circular(8),
+                        border: isLight ? Border.all(color: context.appTheme.borderSubtle) : null,
                       ),
                       child: Icon(
                         Icons.help_outline,
-                        color: Colors.white.withOpacity(0.6),
+                        color: context.appTheme.textSecondary,
                         size: 20,
                       ),
                     ),
@@ -881,7 +886,7 @@ class _StatisticsState extends State<Statistics> {
                   child: Text(
                     'Visualiza patrones de ${isIncomeSelected ? 'ingresos' : 'gastos'} por ${timeUnit} y detecta tendencias',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: context.appTheme.textSecondary,
                       fontSize: 13,
                       fontStyle: FontStyle.italic,
                     ),
@@ -920,15 +925,15 @@ class _StatisticsState extends State<Statistics> {
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.15),
+                color: isLight ? context.appTheme.darkBackground : Colors.black.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.08),
+                  color: isLight ? context.appTheme.borderSubtle : Colors.white.withOpacity(0.08),
                   width: 1.0,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withOpacity(isLight ? 0.05 : 0.2),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -963,12 +968,12 @@ class _StatisticsState extends State<Statistics> {
 
                       // Ejes X e Y con diseño profesional
                       primaryXAxis: CategoryAxis(
-                        labelStyle: const TextStyle(
-                          color: Colors.white70,
+                        labelStyle: TextStyle(
+                          color: context.appTheme.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
-                        axisLine: AxisLine(width: 0.7, color: Colors.white24),
+                        axisLine: AxisLine(width: 0.7, color: context.appTheme.borderVisible),
                         majorGridLines: MajorGridLines(width: 0),
                         majorTickLines: MajorTickLines(
                           size: 0,
@@ -985,12 +990,12 @@ class _StatisticsState extends State<Statistics> {
                         edgeLabelPlacement: EdgeLabelPlacement.shift,
                       ),
                       primaryYAxis: NumericAxis(
-                        labelStyle: const TextStyle(
-                            color: Colors.white54, fontSize: 11),
+                        labelStyle: TextStyle(
+                            color: context.appTheme.textSecondary, fontSize: 11),
                         axisLine: AxisLine(width: 0),
                         majorGridLines: MajorGridLines(
                           dashArray: <double>[5, 5],
-                          color: Colors.white10,
+                          color: context.appTheme.borderSubtle,
                         ),
                         majorTickLines: MajorTickLines(
                           size: 0,
@@ -1005,9 +1010,9 @@ class _StatisticsState extends State<Statistics> {
                       // Tooltip avanzado con detalles y botón de acción
                       tooltipBehavior: TooltipBehavior(
                         enable: true,
-                        color: const Color(0xFF2A3143),
-                        textStyle: const TextStyle(color: Colors.white),
-                        borderColor: Colors.white24,
+                        color: context.appTheme.cardBackground,
+                        textStyle: TextStyle(color: context.appTheme.textPrimary),
+                        borderColor: context.appTheme.borderVisible,
                         borderWidth: 1,
                         duration: 4000,
                         canShowMarker: true,
@@ -1020,17 +1025,17 @@ class _StatisticsState extends State<Statistics> {
                           return Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2A3143),
+                              color: context.appTheme.cardBackground,
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.4),
+                                  color: Colors.black.withOpacity(isLight ? 0.1 : 0.4),
                                   blurRadius: 10,
                                   offset: const Offset(0, 3),
                                 )
                               ],
                               border:
-                                  Border.all(color: Colors.white10, width: 1),
+                                  Border.all(color: context.appTheme.borderSubtle, width: 1),
                             ),
                             width: 160,
                             height: 160,
@@ -1043,14 +1048,14 @@ class _StatisticsState extends State<Statistics> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
+                                  Text(
                                       isMonthly
                                           ? '$timeUnit ${item.x}'
                                           : item.x,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                                        color: context.appTheme.textPrimary,
                                       ),
                                     ),
                                     Container(
@@ -1071,8 +1076,8 @@ class _StatisticsState extends State<Statistics> {
                                     ),
                                   ],
                                 ),
-                                const Divider(
-                                  color: Colors.white24,
+                                Divider(
+                                  color: context.appTheme.borderSubtle,
                                   height: 16,
                                 ),
 
@@ -1086,14 +1091,14 @@ class _StatisticsState extends State<Statistics> {
                                         color: primaryColor,
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                            color: Colors.white70, width: 1),
+                                            color: Colors.transparent, width: 1),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
                                       isIncomeSelected ? 'Ingreso:' : 'Gasto:',
-                                      style: const TextStyle(
-                                          color: Colors.white70, fontSize: 12),
+                                      style: TextStyle(
+                                          color: context.appTheme.textSecondary, fontSize: 12),
                                     ),
                                   ],
                                 ),
@@ -1115,8 +1120,8 @@ class _StatisticsState extends State<Statistics> {
                                       : 'Por debajo del promedio (${((item.y / avgValue - 1) * 100).toStringAsFixed(0)}%)',
                                   style: TextStyle(
                                     color: item.y > avgValue
-                                        ? Colors.green[200]
-                                        : Colors.orange[200],
+                                        ? (isLight ? Colors.green[700] : Colors.green[200])
+                                        : (isLight ? Colors.orange[800] : Colors.orange[200]),
                                     fontSize: 11,
                                     fontStyle: FontStyle.italic,
                                   ),
@@ -1160,18 +1165,18 @@ class _StatisticsState extends State<Statistics> {
                         // Línea promedio con estilo punteado
                         LineSeries<ChartData, String>(
                           dataSource: [
-                            ChartData(data.first.x, avgValue, Colors.white70,
+                            ChartData(data.first.x, avgValue, isLight ? context.appTheme.textSecondary : Colors.white70,
                                 Icons.bar_chart.codePoint),
-                            ChartData(data.last.x, avgValue, Colors.white70,
+                            ChartData(data.last.x, avgValue, isLight ? context.appTheme.textSecondary : Colors.white70,
                                 Icons.bar_chart.codePoint),
                           ],
                           xValueMapper: (ChartData item, _) => item.x,
                           yValueMapper: (ChartData item, _) => item.y,
-                          color: Colors.white70,
+                          color: isLight ? context.appTheme.textSecondary : Colors.white70,
                           width: 1.5,
                           dashArray: const <double>[3, 3],
                           markerSettings:
-                              MarkerSettings(isVisible: false),
+                              const MarkerSettings(isVisible: false),
                           animationDuration: 500,
                           enableTooltip: false,
                           name: 'Promedio',
@@ -1222,17 +1227,17 @@ class _StatisticsState extends State<Statistics> {
                           // Color diferente según la serie
                           Color itemColor = primaryColor;
                           if (name == 'Promedio') {
-                            itemColor = Colors.white70;
+                            itemColor = isLight ? context.appTheme.textSecondary : Colors.white70;
                           }
 
                           return Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 5),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.3),
+                              color: isLight ? context.appTheme.darkBackground : Colors.black.withOpacity(0.3),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: itemColor.withOpacity(0.3),
+                                color: isLight ? context.appTheme.borderSubtle : itemColor.withOpacity(0.3),
                                 width: 1,
                               ),
                             ),
@@ -1257,7 +1262,7 @@ class _StatisticsState extends State<Statistics> {
                                   name,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.white.withOpacity(0.9),
+                                    color: context.appTheme.textPrimary,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -1287,7 +1292,7 @@ class _StatisticsState extends State<Statistics> {
                         lineType: CrosshairLineType.vertical,
                         lineDashArray: <double>[5, 5],
                         lineWidth: 1,
-                        lineColor: Colors.white54,
+                        lineColor: isLight ? context.appTheme.textSecondary : Colors.white54,
                       ),
                     ),
                   ],
@@ -1404,13 +1409,14 @@ class _StatisticsState extends State<Statistics> {
     required String value,
     required Color color,
   }) {
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: isLight ? context.appTheme.darkBackground : Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: isLight ? context.appTheme.borderSubtle : color.withOpacity(0.3),
           width: 1,
         ),
       ),
@@ -1431,7 +1437,7 @@ class _StatisticsState extends State<Statistics> {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: isLight ? context.appTheme.textSecondary : Colors.white70,
                   fontSize: 12,
                 ),
               ),
@@ -1442,7 +1448,7 @@ class _StatisticsState extends State<Statistics> {
           Text(
             value,
             style: TextStyle(
-              color: color,
+              color: isLight ? AppColors.getReadableColor(color, context) : color,
               fontWeight: FontWeight.bold,
               fontSize: 16,
             ),
@@ -1465,19 +1471,19 @@ class _StatisticsState extends State<Statistics> {
         : 'Año $selectedYear';
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 31, 38, 57),
+      backgroundColor: context.appTheme.primaryBackground,
       appBar: AppBar(
         backgroundColor:
-            const Color.fromRGBO(42, 49, 67, 1), // Color actualizado
+            context.appTheme.cardBackground, // Color actualizado
         elevation: 0,
         centerTitle: true,
         toolbarHeight: 75, // Altura aumentada para acomodar el padding
-        title: const Padding(
-          padding: EdgeInsets.all(10),
+        title: Padding(
+          padding: const EdgeInsets.all(10),
           child: Text(
             'Informes',
             style: TextStyle(
-              color: Colors.white,
+              color: context.appTheme.textPrimary,
               fontSize: 25,
               fontWeight: FontWeight.bold,
             ),
@@ -1501,9 +1507,11 @@ class _StatisticsState extends State<Statistics> {
                       isMonthly = (index == 0);
                       _updateData();
                     },
-                    color: Colors.white,
+                    color: context.appTheme.textSecondary,
                     selectedColor: Colors.white,
-                    fillColor: const Color.fromARGB(255, 37, 96, 74),
+                    fillColor: context.appTheme.accent,
+                    borderColor: context.appTheme.borderSubtle,
+                    selectedBorderColor: context.appTheme.accent,
                     children: const [
                       Padding(
                         padding:
@@ -1522,17 +1530,17 @@ class _StatisticsState extends State<Statistics> {
                   Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_left, color: Colors.white),
+                        icon: Icon(Icons.arrow_left, color: context.appTheme.textPrimary),
                         onPressed: _selectPreviousYear,
                       ),
                       Text(
                         '$selectedYear',
                         style:
-                            const TextStyle(color: Colors.white, fontSize: 16),
+                            TextStyle(color: context.appTheme.textPrimary, fontSize: 16),
                       ),
                       IconButton(
                         icon:
-                            const Icon(Icons.arrow_right, color: Colors.white),
+                            Icon(Icons.arrow_right, color: context.appTheme.textPrimary),
                         onPressed: _selectNextYear,
                       ),
                     ],
@@ -1556,7 +1564,7 @@ class _StatisticsState extends State<Statistics> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
+                          color: context.appTheme.borderVisible,
                           width: 1,
                         ),
                         boxShadow: [
@@ -1570,8 +1578,8 @@ class _StatisticsState extends State<Statistics> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Colors.white.withOpacity(0.1),
-                            Colors.white.withOpacity(0.05),
+                            context.appTheme.darkBackground,
+                            context.appTheme.secondaryCardBackground,
                           ],
                         ),
                       ),
@@ -1601,8 +1609,8 @@ class _StatisticsState extends State<Statistics> {
                                 const SizedBox(width: 8),
                                 Text(
                                   isIncomeSelected ? 'Ingresos' : 'Gastos',
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: context.appTheme.textPrimary,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1610,7 +1618,7 @@ class _StatisticsState extends State<Statistics> {
                                 const SizedBox(width: 8),
                                 Icon(
                                   Icons.swap_vert,
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: context.appTheme.textSecondary,
                                   size: 18,
                                 ),
                               ],
@@ -1629,7 +1637,7 @@ class _StatisticsState extends State<Statistics> {
                 children: [
                   Text(
                     titleDate,
-                    style: const TextStyle(color: Colors.white70, fontSize: 16),
+                    style: TextStyle(color: context.appTheme.textSecondary, fontSize: 16),
                   ),
                 ],
               ),
@@ -1741,7 +1749,7 @@ class _StatisticsState extends State<Statistics> {
           child: Text(
             'Seleccionar mes',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: context.appTheme.textSecondary,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -1752,10 +1760,10 @@ class _StatisticsState extends State<Statistics> {
         Container(
           height: 48,
           decoration: BoxDecoration(
-            color: Color.fromRGBO(42, 49, 67, 1).withOpacity(.8),
+            color: context.appTheme.cardBackground,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withOpacity(0.2),
+              color: context.appTheme.borderSubtle,
               width: 1,
             ),
             boxShadow: [
@@ -1800,7 +1808,9 @@ class _StatisticsState extends State<Statistics> {
                       ),
                       decoration: BoxDecoration(
                         color: selected
-                            ? accentColor.withOpacity(0.2)
+                            ? (Theme.of(context).brightness == Brightness.light
+                                ? accentColor
+                                : accentColor.withOpacity(0.2))
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
@@ -1826,7 +1836,9 @@ class _StatisticsState extends State<Statistics> {
                             Icon(
                               Icons.calendar_month_rounded,
                               size: 14,
-                              color: accentColor,
+                              color: Theme.of(context).brightness == Brightness.light
+                                  ? Colors.white
+                                  : accentColor,
                             ),
                             const SizedBox(width: 6),
                           ],
@@ -1835,22 +1847,12 @@ class _StatisticsState extends State<Statistics> {
                             style: TextStyle(
                               color: selected
                                   ? Colors.white
-                                  : Colors.white.withOpacity(0.8),
+                                  : context.appTheme.textSecondary,
                               fontWeight: selected
                                   ? FontWeight.bold
                                   : FontWeight.normal,
                               fontSize: selected ? 14 : 13.5,
                               letterSpacing: selected ? 0.2 : 0,
-                              // Añadir sombra para mejor legibilidad
-                              shadows: selected
-                                  ? [
-                                      Shadow(
-                                        color: Colors.black.withOpacity(0.8),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 1),
-                                      )
-                                    ]
-                                  : null,
                             ),
                           ),
                         ],
@@ -1871,12 +1873,14 @@ class _StatisticsState extends State<Statistics> {
 
   // ======================= WIDGETS PARA GRÁFICOS =======================
   Widget _buildCard({required String title, required Widget child}) {
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: isLight ? context.appTheme.cardBackground : Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(10),
+        border: isLight ? Border.all(color: context.appTheme.borderSubtle) : null,
       ),
       child: Column(
         children: [
@@ -1885,8 +1889,8 @@ class _StatisticsState extends State<Statistics> {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: context.appTheme.textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1966,7 +1970,7 @@ class _StatisticsState extends State<Statistics> {
                         Text(
                           'TOTAL',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.4),
+                            color: context.appTheme.textSecondary,
                             fontSize: 10,
                             letterSpacing: 2.0,
                             fontWeight: FontWeight.w800,
@@ -1975,8 +1979,8 @@ class _StatisticsState extends State<Statistics> {
                         const SizedBox(height: 4),
                         Text(
                           formattedTotal,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: context.appTheme.textPrimary,
                             fontSize: 28,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'Roboto', // Premium feel
@@ -2062,15 +2066,16 @@ class _StatisticsState extends State<Statistics> {
 
 // Widget mejorado para mostrar mensaje de datos vacíos
   Widget _buildEmptyDataIndicator(String message) {
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
       height: 180,
       alignment: Alignment.center,
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: isLight ? context.appTheme.darkBackground : Colors.white.withOpacity(0.03),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: isLight ? context.appTheme.borderSubtle : Colors.white.withOpacity(0.05),
         ),
       ),
       child: Column(
@@ -2078,14 +2083,14 @@ class _StatisticsState extends State<Statistics> {
         children: [
           Icon(
             Icons.bar_chart_rounded,
-            color: Colors.white.withOpacity(0.3),
+            color: context.appTheme.textHint,
             size: 50,
           ),
           const SizedBox(height: 16),
           Text(
             message,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: context.appTheme.textSecondary,
               fontWeight: FontWeight.w500,
               fontSize: 15,
             ),
@@ -2111,10 +2116,10 @@ class _StatisticsState extends State<Statistics> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
+              color: context.appTheme.secondaryCardBackground,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.white.withOpacity(0.05),
+                color: context.appTheme.borderSubtle,
                 width: 1,
               ),
             ),
@@ -2153,8 +2158,8 @@ class _StatisticsState extends State<Statistics> {
                           Expanded(
                             child: Text(
                               item.x,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: context.appTheme.textPrimary,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 15,
                               ),
@@ -2169,7 +2174,7 @@ class _StatisticsState extends State<Statistics> {
                               child: Text(
                                 '\$${NumberFormat('#,##0').format(item.y)}',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: context.appTheme.textPrimary,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 15,
                                 ),
@@ -2185,7 +2190,7 @@ class _StatisticsState extends State<Statistics> {
                         child: Container(
                           height: 5,
                           width: double.infinity,
-                          color: Colors.white.withOpacity(0.05),
+                          color: context.appTheme.darkBackground,
                           child: Stack(
                             children: [
                               TweenAnimationBuilder<double>(
@@ -2290,7 +2295,7 @@ class _StatisticsState extends State<Statistics> {
         // Añadir tooltip personalizado
         tooltipBehavior: TooltipBehavior(
           enable: true,
-          color: const Color(0xFF2A3143),
+          color: context.appTheme.cardBackground,
           textStyle: const TextStyle(color: Colors.white),
           borderColor: Colors.white24,
           borderWidth: 1,
@@ -2342,6 +2347,7 @@ class _StatisticsState extends State<Statistics> {
 
 // Mejora de _buildDetailCard para una apariencia más premium
   Widget _buildDetailCard() {
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
     final List<ChartData> data =
         isIncomeSelected ? _getIncomeGrouped() : _getExpensesGrouped();
 
@@ -2370,10 +2376,10 @@ class _StatisticsState extends State<Statistics> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.03),
+                color: isLight ? context.appTheme.darkBackground : Colors.white.withOpacity(0.03),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.05),
+                  color: isLight ? context.appTheme.borderSubtle : Colors.white.withOpacity(0.05),
                   width: 1,
                 ),
               ),
@@ -2406,8 +2412,8 @@ class _StatisticsState extends State<Statistics> {
                       children: [
                         Text(
                           item.x,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: context.appTheme.textPrimary,
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
                           ),
@@ -2416,7 +2422,7 @@ class _StatisticsState extends State<Statistics> {
                         Text(
                           '${(item.y / totalAmount * 100).toStringAsFixed(1)}%',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
+                            color: context.appTheme.textSecondary,
                             fontSize: 12,
                           ),
                         ),
@@ -2456,10 +2462,10 @@ class _StatisticsState extends State<Statistics> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const Text(
+                Text(
                   'Total:',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: context.appTheme.textSecondary,
                     fontWeight: FontWeight.w500,
                     fontSize: 14,
                   ),
@@ -2490,6 +2496,7 @@ class _StatisticsState extends State<Statistics> {
   }
 
   void _showCategoryPreview(ChartData chartItem, double totalAmount) {
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
     // Filtrar transacciones para esta categoría específica en el periodo seleccionado
     final categoryTransactions = filteredData.where((t) {
       if (chartItem.x == 'Sin categoría') return t.safeCategory.isEmpty;
@@ -2504,11 +2511,15 @@ class _StatisticsState extends State<Statistics> {
       builder: (context) {
         return Container(
           height: MediaQuery.of(context).size.height * 0.7,
-          decoration: const BoxDecoration(
-            color: Color(0xFF1E2433),
-            borderRadius: BorderRadius.only(
+          decoration: BoxDecoration(
+            color: context.appTheme.secondaryCardBackground,
+            borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(30),
               topRight: Radius.circular(30),
+            ),
+            border: Border.all(
+              color: context.appTheme.borderSubtle,
+              width: 1,
             ),
           ),
           child: Column(
@@ -2519,7 +2530,7 @@ class _StatisticsState extends State<Statistics> {
                 width: 40,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: context.appTheme.textHint.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -2551,8 +2562,8 @@ class _StatisticsState extends State<Statistics> {
                         children: [
                           Text(
                             chartItem.x,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: context.appTheme.textPrimary,
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
                             ),
@@ -2560,7 +2571,7 @@ class _StatisticsState extends State<Statistics> {
                           Text(
                             '${(chartItem.y / totalAmount * 100).toStringAsFixed(1)}% del total',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
+                              color: context.appTheme.textSecondary,
                               fontSize: 14,
                             ),
                           ),
@@ -2572,8 +2583,8 @@ class _StatisticsState extends State<Statistics> {
                       children: [
                         Text(
                           '\$${NumberFormat('#,##0').format(chartItem.y)}',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: context.appTheme.textPrimary,
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
                           ),
@@ -2593,7 +2604,7 @@ class _StatisticsState extends State<Statistics> {
               ),
 
               const SizedBox(height: 24),
-              const Divider(color: Colors.white10, height: 1),
+              Divider(color: context.appTheme.borderSubtle, height: 1),
 
               // Lista de Transacciones
               Expanded(
@@ -2606,9 +2617,11 @@ class _StatisticsState extends State<Statistics> {
                       margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.03),
+                        color: isLight ? context.appTheme.darkBackground : Colors.white.withOpacity(0.03),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        border: Border.all(
+                          color: isLight ? context.appTheme.borderSubtle : Colors.white.withOpacity(0.05),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -2631,8 +2644,8 @@ class _StatisticsState extends State<Statistics> {
                               children: [
                                 Text(
                                   t.safeDetail.isEmpty ? 'Sin descripción' : t.safeDetail,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: context.appTheme.textPrimary,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
                                   ),
@@ -2640,7 +2653,7 @@ class _StatisticsState extends State<Statistics> {
                                 Text(
                                   DateFormat('dd MMM, yyyy').format(t.safeDate),
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.4),
+                                    color: context.appTheme.textSecondary,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -2649,8 +2662,8 @@ class _StatisticsState extends State<Statistics> {
                           ),
                           Text(
                             '\$${NumberFormat('#,##0').format(double.tryParse(t.safeAmount) ?? 0)}',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: context.appTheme.textPrimary,
                               fontWeight: FontWeight.w800,
                               fontSize: 16,
                             ),

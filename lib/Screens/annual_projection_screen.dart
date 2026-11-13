@@ -13,6 +13,7 @@ import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/widgets/show_responsibility_options.dart';
 import 'package:finazaap/widgets/add_responsibility_dialog.dart';
 import 'package:intl/intl.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 class AnnualProjectionScreen extends StatefulWidget {
   const AnnualProjectionScreen({Key? key}) : super(key: key);
@@ -62,9 +63,9 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF222939),
+        backgroundColor: context.appTheme.cardBackground,
         title: const Text('Eliminar Obligación', style: TextStyle(color: Colors.white)),
-        content: Text('¿Estás seguro de que deseas eliminar "${responsibility.safeName}"?', style: const TextStyle(color: Colors.white70)),
+        content: Text('¿Estás seguro de que deseas eliminar "${responsibility.safeName}"?', style: TextStyle(color: context.appTheme.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -135,7 +136,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: AlertDialog(
-                backgroundColor: const Color(0xFF222939),
+                backgroundColor: context.appTheme.cardBackground,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 title: Row(
                   children: [
@@ -151,7 +152,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                     Expanded(
                       child: Text(
                         'Pagar ${responsibility.safeName}',
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: context.appTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -169,11 +170,11 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                           builder: (context, child) {
                             return Theme(
                               data: Theme.of(context).copyWith(
-                                colorScheme: const ColorScheme.dark(
+                                colorScheme: ColorScheme.dark(
                                   primary: Colors.blueAccent,
                                   onPrimary: Colors.white,
-                                  surface: Color(0xFF222939),
-                                  onSurface: Colors.white,
+                                  surface: context.appTheme.cardBackground,
+                                  onSurface: context.appTheme.textPrimary,
                                 ),
                               ),
                               child: child!,
@@ -210,7 +211,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     CurrencyHelper.format(suggestedAmount),
-                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: context.appTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),
@@ -223,14 +224,14 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                     label: Text(
                                       'Sugerido',
                                       style: TextStyle(
-                                        color: isMinimumPayment ? const Color(0xFF1F2639) : Colors.white70,
+                                        color: isMinimumPayment ? context.appTheme.primaryBackground : context.appTheme.textSecondary,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                     selected: isMinimumPayment,
                                     selectedColor: Colors.blueAccent,
-                                    backgroundColor: Colors.white.withOpacity(0.05),
+                                    backgroundColor: context.appTheme.borderSubtle,
                                     onSelected: (val) {
                                       setStateSB(() {
                                         isMinimumPayment = true;
@@ -245,14 +246,14 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                     label: Text(
                                       'Personalizado',
                                       style: TextStyle(
-                                        color: !isMinimumPayment ? const Color(0xFF1F2639) : Colors.white70,
+                                        color: !isMinimumPayment ? context.appTheme.primaryBackground : context.appTheme.textSecondary,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                     selected: !isMinimumPayment,
                                     selectedColor: Colors.blueAccent,
-                                    backgroundColor: Colors.white.withOpacity(0.05),
+                                    backgroundColor: context.appTheme.borderSubtle,
                                     onSelected: (val) {
                                       setStateSB(() {
                                         isMinimumPayment = false;
@@ -265,19 +266,19 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                             const SizedBox(height: 14),
                             Text(
                               'Monto a pagar',
-                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: context.appTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
                             ),
                             const SizedBox(height: 6),
                             TextFormField(
                               controller: amountController,
                               keyboardType: TextInputType.number,
                               enabled: !isMinimumPayment,
-                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: context.appTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
                               inputFormatters: [
                                 ThousandsSeparatorInputFormatter(),
                               ],
                               decoration: InputDecoration(
-                                prefixIcon: const Icon(Icons.attach_money, color: Colors.white70),
+                                prefixIcon: Icon(Icons.attach_money, color: context.appTheme.textSecondary),
                                 filled: true,
                                 fillColor: isMinimumPayment ? Colors.white.withOpacity(0.02) : Colors.black12,
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -286,7 +287,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                             const SizedBox(height: 16),
                             Text(
                               'Cuenta de Pago',
-                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: context.appTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
                             ),
                             const SizedBox(height: 6),
                             Container(
@@ -294,15 +295,15 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.black12,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white.withOpacity(0.05)),
+                                border: Border.all(color: context.appTheme.borderSubtle),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
                                   value: selectedAccountName,
-                                  dropdownColor: const Color(0xFF222939),
+                                  dropdownColor: context.appTheme.cardBackground,
                                   isExpanded: true,
-                                  hint: const Text('Seleccionar cuenta', style: TextStyle(color: Colors.white54, fontSize: 14)),
-                                  icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
+                                  hint: Text('Seleccionar cuenta', style: TextStyle(color: context.appTheme.textHint, fontSize: 14)),
+                                  icon: Icon(Icons.keyboard_arrow_down, color: context.appTheme.textSecondary),
                                   items: accounts.map<DropdownMenuItem<String>>((account) {
                                     return DropdownMenuItem<String>(
                                       value: account['title'],
@@ -314,11 +315,11 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                             color: Color(account['iconColor'] ?? 0xFFFFFFFF),
                                           ),
                                           const SizedBox(width: 8),
-                                          Text(account['title'], style: const TextStyle(color: Colors.white, fontSize: 14)),
+                                          Text(account['title'], style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14)),
                                           const Spacer(),
                                           Text(
                                             CurrencyHelper.formatCompact(double.tryParse(account['balance'].toString()) ?? 0),
-                                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                                           ),
                                         ],
                                       ),
@@ -335,7 +336,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                             const SizedBox(height: 16),
                             Text(
                               'Fecha del Pago',
-                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: context.appTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
                             ),
                             const SizedBox(height: 6),
                             InkWell(
@@ -346,7 +347,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.black12,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                                  border: Border.all(color: context.appTheme.borderSubtle),
                                 ),
                                 child: Row(
                                   children: [
@@ -354,19 +355,19 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                     const SizedBox(width: 8),
                                     Text(
                                       DateFormat('dd/MM/yyyy').format(selectedDate),
-                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                      style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
                                     ),
                                     const Spacer(),
-                                    const Icon(Icons.edit_calendar_rounded, color: Colors.white54, size: 16),
+                                    Icon(Icons.edit_calendar_rounded, color: context.appTheme.textSecondary, size: 16),
                                   ],
                                 ),
                               ),
                             ),
                             const SizedBox(height: 12),
                             SwitchListTile(
-                              title: const Text(
+                              title: Text(
                                 'Marcar obligación completa',
-                                style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                                style: TextStyle(color: context.appTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
                               ),
                               value: markAsPaidComplete,
                               activeColor: Colors.blueAccent,
@@ -387,7 +388,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(dialogContext),
-                    child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+                    child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
                   ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
@@ -463,19 +464,19 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(31, 38, 57, 1),
+      backgroundColor: context.appTheme.primaryBackground,
       appBar: AppBar(
-        backgroundColor: const Color.fromRGBO(42, 49, 67, 1),
+        backgroundColor: context.appTheme.cardBackground,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: context.appTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Proyección Anual',
           style: TextStyle(
-            color: Colors.white,
+            color: context.appTheme.textPrimary,
             fontSize: 22,
             fontWeight: FontWeight.bold,
           ),
@@ -544,7 +545,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                               Text(
                                 'PROYECCIÓN ANUAL TOTAL',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: context.appTheme.textSecondary,
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.8,
@@ -553,8 +554,8 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                               const SizedBox(height: 6),
                               Text(
                                 CurrencyHelper.format(totalAnnual),
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: context.appTheme.textPrimary,
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -564,9 +565,9 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
+                              color: context.appTheme.secondaryCardBackground,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                              border: Border.all(color: context.appTheme.borderVisible, width: 1.5),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
@@ -574,15 +575,15 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                 Text(
                                   'Promedio Mensual',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
+                                    color: context.appTheme.textSecondary,
                                     fontSize: 10,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   CurrencyHelper.format(monthlyAverage),
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: context.appTheme.textPrimary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -594,12 +595,12 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                       ),
                       if (sortedCategories.isNotEmpty) ...[
                         const SizedBox(height: 20),
-                        const Divider(color: Colors.white10, height: 1),
+                        Divider(color: context.appTheme.borderSubtle, height: 1),
                         const SizedBox(height: 16),
                         Text(
                           'Distribución por Categorías',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
+                            color: context.appTheme.textPrimary,
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
@@ -631,7 +632,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                         Text(
                                           cat.toUpperCase(),
                                           style: TextStyle(
-                                            color: Colors.white.withOpacity(0.7),
+                                            color: context.appTheme.textSecondary,
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
                                           ),
@@ -641,7 +642,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                     Text(
                                       '${CurrencyHelper.format(amt)} (${(percentage * 100).toStringAsFixed(0)}%)',
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
+                                        color: context.appTheme.textPrimary,
                                         fontSize: 11.5,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -653,7 +654,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                   borderRadius: BorderRadius.circular(4),
                                   child: LinearProgressIndicator(
                                     value: percentage,
-                                    backgroundColor: Colors.white.withOpacity(0.05),
+                                    backgroundColor: context.appTheme.borderSubtle,
                                     valueColor: AlwaysStoppedAnimation<Color>(color),
                                     minHeight: 5,
                                   ),
@@ -673,10 +674,10 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Obligaciones Anuales',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: context.appTheme.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -684,7 +685,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                       Text(
                         '${sortedResponsibilities.length} total',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
+                          color: context.appTheme.textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -699,11 +700,11 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.calendar_today_outlined, size: 60, color: Colors.white.withOpacity(0.1)),
+                        Icon(Icons.calendar_today_outlined, size: 60, color: context.appTheme.borderSubtle),
                         const SizedBox(height: 12),
                         Text(
                           'No tienes obligaciones registradas',
-                          style: TextStyle(color: Colors.white.withOpacity(0.4)),
+                          style: TextStyle(color: context.appTheme.textHint),
                         ),
                       ],
                     ),
@@ -723,25 +724,18 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color.lerp(const Color(0xFF222939), catColor, 0.12)!,
-                                const Color(0xFF222939),
-                              ],
-                            ),
+                            color: context.appTheme.cardBackground,
                             borderRadius: BorderRadius.circular(22),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
+                                color: Colors.black.withOpacity(0.12),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
                             ],
                             border: Border.all(
-                              color: catColor.withOpacity(0.15),
-                              width: 1,
+                              color: catColor.withOpacity(0.45),
+                              width: 1.5,
                             ),
                           ),
                           child: Material(
@@ -779,8 +773,8 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                         children: [
                                           Text(
                                             r.safeName,
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            style: TextStyle(
+                                              color: context.appTheme.textPrimary,
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -789,7 +783,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                           Text(
                                             '${CurrencyHelper.format(r.safeAmount, showSymbol: true)} / ${r.safeFrequency}',
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.5),
+                                              color: context.appTheme.textSecondary,
                                               fontSize: 12.5,
                                             ),
                                           ),
@@ -801,8 +795,8 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                       children: [
                                         Text(
                                           CurrencyHelper.format(annualCost),
-                                          style: const TextStyle(
-                                            color: Color(0xFF52E2FF),
+                                          style: TextStyle(
+                                            color: context.appTheme.accent,
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
                                           ),
@@ -845,8 +839,8 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
       floatingActionButton: FloatingActionButton(
         heroTag: "annual_projection_fab",
         onPressed: () => _showAddResponsibilityDialog(),
-        backgroundColor: const Color(0xFF52E2FF),
-        child: const Icon(Icons.add_rounded, size: 32, color: Color(0xFF1F2639)),
+        backgroundColor: context.appTheme.accent,
+        child: Icon(Icons.add_rounded, size: 32, color: context.appTheme.primaryBackground),
       ),
     );
   }

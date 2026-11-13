@@ -50,8 +50,9 @@ class EncryptedHiveDataSource {
     _ensureInitialized();
     
     return _transactionsBox!.values.where((transaction) {
-      return transaction.datetime.isAfter(start.subtract(const Duration(days: 1))) &&
-             transaction.datetime.isBefore(end.add(const Duration(days: 1)));
+      final dt = transaction.datetime ?? DateTime.now();
+      return dt.isAfter(start.subtract(const Duration(days: 1))) &&
+             dt.isBefore(end.add(const Duration(days: 1)));
     }).toList();
   }
 
@@ -59,9 +60,10 @@ class EncryptedHiveDataSource {
   List<Add_data> getTransactionsByMonth(int month, int year) {
     _ensureInitialized();
     
-    return _transactionsBox!.values.where((transaction) =>
-      transaction.datetime.month == month && transaction.datetime.year == year
-    ).toList();
+    return _transactionsBox!.values.where((transaction) {
+      final dt = transaction.datetime ?? DateTime.now();
+      return dt.month == month && dt.year == year;
+    }).toList();
   }
 
   /// Obtiene transacciones por tipo (Income, Expenses, Transfer)
@@ -127,9 +129,12 @@ class EncryptedHiveDataSource {
     
     final lowerQuery = query.toLowerCase();
     return _transactionsBox!.values.where((transaction) {
-      return transaction.explain.toLowerCase().contains(lowerQuery) ||
-             transaction.detail.toLowerCase().contains(lowerQuery) ||
-             transaction.name.toLowerCase().contains(lowerQuery);
+      final category = transaction.explain ?? '';
+      final detail = transaction.detail ?? '';
+      final name = transaction.name ?? '';
+      return category.toLowerCase().contains(lowerQuery) ||
+             detail.toLowerCase().contains(lowerQuery) ||
+             name.toLowerCase().contains(lowerQuery);
     }).toList();
   }
 
@@ -144,13 +149,15 @@ class EncryptedHiveDataSource {
     int countTransfers = 0;
 
     for (var transaction in _transactionsBox!.values) {
-      if (transaction.IN == 'Income') {
-        totalIncome += double.tryParse(transaction.amount) ?? 0.0;
+      final type = transaction.IN;
+      final amount = transaction.amount ?? '0.0';
+      if (type == 'Income') {
+        totalIncome += double.tryParse(amount) ?? 0.0;
         countIncome++;
-      } else if (transaction.IN == 'Expenses') {
-        totalExpenses += double.tryParse(transaction.amount) ?? 0.0;
+      } else if (type == 'Expenses') {
+        totalExpenses += double.tryParse(amount) ?? 0.0;
         countExpenses++;
-      } else if (transaction.IN == 'Transfer') {
+      } else if (type == 'Transfer') {
         countTransfers++;
       }
     }
@@ -180,13 +187,13 @@ class EncryptedHiveDataSource {
     
     return _transactionsBox!.values.map((transaction) {
       return {
-        'type': transaction.IN,
-        'amount': transaction.amount,
-        'date': transaction.datetime.toIso8601String(),
-        'detail': transaction.detail,
-        'category': transaction.explain,
-        'account': transaction.name,
-        'iconCode': transaction.iconCode,
+        'type': transaction.IN ?? '',
+        'amount': transaction.amount ?? '0.0',
+        'date': (transaction.datetime ?? DateTime.now()).toIso8601String(),
+        'detail': transaction.detail ?? '',
+        'category': transaction.explain ?? '',
+        'account': transaction.name ?? '',
+        'iconCode': transaction.iconCode ?? 0,
       };
     }).toList();
   }

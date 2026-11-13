@@ -4,6 +4,7 @@ import 'package:finazaap/Screens/add.dart';
 import 'package:finazaap/Screens/add_expense.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'dart:ui';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 class FloatingActionMenuScreen extends StatefulWidget {
   const FloatingActionMenuScreen({Key? key}) : super(key: key);
@@ -86,7 +87,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                       child: Container(
                         color: Color.lerp(
                           Colors.transparent,
-                          const Color(0xFF1F2639).withOpacity(0.9),
+                          context.appTheme.primaryBackground.withOpacity(0.9),
                           _fadeAnimation.value,
                         ),
                       ),
@@ -120,7 +121,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                         width: menuWidth,
                         margin: const EdgeInsets.symmetric(horizontal: 24),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF222939),
+                          color: context.appTheme.secondaryCardBackground,
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             // Sombra principal
@@ -150,12 +151,12 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                             end: Alignment.bottomRight,
                             stops: const [0.0, 1.0],
                             colors: [
-                              const Color(0xFF262D43),
-                              const Color(0xFF1F2538),
+                              context.appTheme.secondaryCardBackground,
+                              context.appTheme.darkBackground,
                             ],
                           ),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.08),
+                            color: context.appTheme.borderSubtle,
                             width: 1,
                           ),
                         ),
@@ -164,21 +165,14 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Encabezado con degradado y efecto 3D
+                              // Encabezado
                               Container(
                                 padding: const EdgeInsets.all(20),
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Colors.white.withOpacity(0.1),
-                                      Colors.white.withOpacity(0.05),
-                                    ],
-                                  ),
+                                  color: context.appTheme.secondaryCardBackground,
                                   border: Border(
                                     bottom: BorderSide(
-                                      color: Colors.white.withOpacity(0.08),
+                                      color: context.appTheme.borderSubtle,
                                       width: 1,
                                     ),
                                   ),
@@ -189,7 +183,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                     Container(
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: const Color.fromARGB(255, 82, 226, 255).withOpacity(0.2),
+                                        color: context.appTheme.accent.withOpacity(0.2),
                                         borderRadius: BorderRadius.circular(12),
                                         boxShadow: [
                                           // Sombra interior
@@ -211,14 +205,14 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                           colors: [
-                                            const Color.fromARGB(255, 82, 226, 255).withOpacity(0.25),
-                                            const Color.fromARGB(255, 82, 226, 255).withOpacity(0.15),
+                                            context.appTheme.accent.withOpacity(0.25),
+                                            context.appTheme.accent.withOpacity(0.15),
                                           ],
                                         ),
                                       ),
-                                      child: const Icon(
+                                      child: Icon(
                                         Icons.add_rounded,
-                                        color: Color.fromARGB(255, 82, 226, 255),
+                                        color: context.appTheme.accent,
                                         size: 22,
                                       ),
                                     ),
@@ -227,26 +221,19 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
+                                        Text(
                                           "Nueva Operación",
                                           style: TextStyle(
-                                            color: Colors.white,
+                                            color: context.appTheme.textPrimary,
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                             letterSpacing: 0.3,
-                                            shadows: [
-                                              Shadow(
-                                                color: Colors.black38,
-                                                offset: Offset(0, 1),
-                                                blurRadius: 2.0,
-                                              ),
-                                            ],
                                           ),
                                         ),
                                         Text(
                                           "Selecciona una opción",
                                           style: TextStyle(
-                                            color: Colors.white.withOpacity(0.5),
+                                            color: context.appTheme.textSecondary,
                                             fontSize: 12,
                                             letterSpacing: 0.2,
                                           ),
@@ -321,10 +308,10 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                               Container(
                                 width: double.infinity,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1A1F2B),
+                                  color: context.appTheme.darkBackground,
                                   border: Border(
                                     top: BorderSide(
-                                      color: Colors.white.withOpacity(0.08),
+                                      color: context.appTheme.borderSubtle,
                                       width: 1,
                                     ),
                                   ),
@@ -348,14 +335,14 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                         children: [
                                           Icon(
                                             Icons.close_rounded,
-                                            color: Colors.white.withOpacity(0.7),
+                                            color: context.appTheme.textSecondary,
                                             size: 20,
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
                                             'Cerrar',
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.7),
+                                              color: context.appTheme.textSecondary,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w500,
                                             ),
@@ -477,7 +464,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
               border: Border.all(
                 color: isHovered
                     ? color.withOpacity(0.3)
-                    : Colors.white.withOpacity(0.08),
+                    : context.appTheme.borderSubtle,
                 width: isHovered ? 1.2 : 1,
               ),
             ),
@@ -533,7 +520,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                     child: AnimatedDefaultTextStyle(
                       duration: const Duration(milliseconds: 200),
                       style: TextStyle(
-                        color: isHovered ? Colors.white : Colors.white,
+                        color: context.appTheme.textPrimary,
                         fontSize: isHovered ? 16.5 : 16,
                         fontWeight: isHovered ? FontWeight.w700 : FontWeight.w600,
                         letterSpacing: isHovered ? 0.2 : 0,

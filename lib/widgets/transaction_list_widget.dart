@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:intl/intl.dart';
@@ -22,14 +23,14 @@ class TransactionListWidget extends StatelessWidget {
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           var history = box.values.toList()[index];
-          return getList(history, index);
+          return getList(context, history, index);
         },
         childCount: box.length,
       ),
     );
   }
 
-  Widget getList(Add_data history, int index) {
+  Widget getList(BuildContext context, Add_data history, int index) {
     return Dismissible(
       key: UniqueKey(),
       background: Container(
@@ -41,12 +42,12 @@ class TransactionListWidget extends StatelessWidget {
       onDismissed: (direction) {
         history.delete();
       },
-      child: _buildTransactionItem(history),
+      child: _buildTransactionItem(context, history),
     );
   }
 
   // Widget para cada transacción
-  Widget _buildTransactionItem(Add_data history) {
+  Widget _buildTransactionItem(BuildContext context, Add_data history) {
     // Detectar si es transferencia
     bool isTransfer = history.safeType == 'Transfer';
     
@@ -65,10 +66,23 @@ class TransactionListWidget extends StatelessWidget {
       categoryDescription = categoryDescription.substring(0, categoryDescription.length - 3);
     }
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      color: const Color(0xFF2A2A3A),
-      elevation: 2,
+      decoration: BoxDecoration(
+        color: context.appTheme.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: context.appTheme.borderSubtle,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -112,10 +126,10 @@ class TransactionListWidget extends StatelessWidget {
                   // Título: Categoría - Descripción
                   Text(
                     categoryDescription,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: context.appTheme.textPrimary,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -127,9 +141,9 @@ class TransactionListWidget extends StatelessWidget {
                     isTransfer 
                         ? (history.explain ?? '')  // "Cuenta origen > Cuenta destino"
                         : history.safeAccount,     // Nombre de la cuenta
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w400,
-                      color: Colors.white70,
+                      color: context.appTheme.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -139,9 +153,9 @@ class TransactionListWidget extends StatelessWidget {
                   // Fecha 
                   Text(
                     '${day[history.safeDate.weekday - 1]}  ${history.safeDate.day}/${history.safeDate.month}/${history.safeDate.year}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w400,
-                      color: Colors.white70,
+                      color: context.appTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -164,10 +178,10 @@ class TransactionListWidget extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                     fontSize: 17,
                     color: isTransfer 
-                        ? Colors.grey // TRANSFERENCIA = GRIS
+                        ? context.appTheme.textSecondary
                         : (history.safeType == 'Income'
-                            ? const Color.fromARGB(255, 167, 226, 169) // INGRESO = VERDE
-                            : const Color.fromARGB(255, 230, 172, 168)), // GASTO = ROJO
+                            ? context.appTheme.income
+                            : context.appTheme.expense),
                   ),
                 ),
                 
@@ -177,15 +191,15 @@ class TransactionListWidget extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.blueAccent.withOpacity(0.2),
+                      color: context.appTheme.accent.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.blueAccent.withOpacity(0.4), width: 0.5),
+                      border: Border.all(color: context.appTheme.accent.withValues(alpha: 0.4), width: 0.5),
                     ),
                     child: Text(
                       '${history.installments} cuotas',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
-                        color: Colors.lightBlueAccent,
+                        color: context.appTheme.accent,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -197,15 +211,15 @@ class TransactionListWidget extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.greenAccent.withOpacity(0.2),
+                      color: context.appTheme.success.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.greenAccent.withOpacity(0.4), width: 0.5),
+                      border: Border.all(color: context.appTheme.success.withValues(alpha: 0.4), width: 0.5),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Sin interés',
                       style: TextStyle(
                         fontSize: 10,
-                        color: Colors.greenAccent,
+                        color: context.appTheme.success,
                         fontWeight: FontWeight.w500,
                       ),
                     ),

@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:disk_space/disk_space.dart';
 import 'package:flutter/services.dart';
 
 const _minFreeStorageGB = 3.5;
@@ -30,7 +29,18 @@ class DeviceCapabilityService {
   static const _channel = MethodChannel(_channelName);
 
   static Future<DeviceCapabilityResult> check() async {
-    final freeMB = await DiskSpace.getFreeDiskSpace ?? 0.0;
+    double freeMB = 0.0;
+    try {
+      if (Platform.isAndroid) {
+        freeMB = await _channel.invokeMethod<double>('getFreeDiskSpace') ?? 0.0;
+      } else {
+        // En iOS u otras plataformas asumimos espacio suficiente para simular
+        freeMB = 10.0 * 1024.0; // 10 GB
+      }
+    } catch (_) {
+      // Fallback
+      freeMB = 5.0 * 1024.0;
+    }
 
     double? ramGB;
     try {
