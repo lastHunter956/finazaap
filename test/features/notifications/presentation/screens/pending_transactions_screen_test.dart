@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
@@ -10,24 +9,121 @@ import 'package:finazaap/features/notifications/presentation/widgets/pending_tra
 import 'package:finazaap/features/notifications/presentation/widgets/suspicious_badge.dart';
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
 
+/// Implementación en memoria de [Box] para pruebas de widgets sin E/S de disco
+/// y compatible con el scheduler síncrono/falso de [FakeAsync].
+class _InMemoryHiveBox implements Box<dynamic> {
+  final Map<dynamic, dynamic> _store = {};
+  bool _isOpen = true;
+
+  @override
+  bool get isOpen => _isOpen;
+
+  @override
+  String get name => 'in_memory_box';
+
+  @override
+  String? get path => null;
+
+  @override
+  Iterable<dynamic> get keys => _store.keys;
+
+  @override
+  Iterable<dynamic> get values => _store.values;
+
+  @override
+  int get length => _store.length;
+
+  @override
+  bool get isEmpty => _store.isEmpty;
+
+  @override
+  bool get isNotEmpty => _store.isNotEmpty;
+
+  @override
+  dynamic get(dynamic key, {dynamic defaultValue}) =>
+      _store.containsKey(key) ? _store[key] : defaultValue;
+
+  @override
+  dynamic getAt(int index) => _store.values.elementAt(index);
+
+  @override
+  Future<void> put(dynamic key, dynamic value) async {
+    _store[key] = value;
+  }
+
+  @override
+  Future<void> putAt(int index, dynamic value) async {
+    final key = _store.keys.elementAt(index);
+    _store[key] = value;
+  }
+
+  @override
+  Future<void> putAll(Map<dynamic, dynamic> entries) async {
+    _store.addAll(entries);
+  }
+
+  @override
+  Future<void> delete(dynamic key) async {
+    _store.remove(key);
+  }
+
+  @override
+  Future<void> deleteAt(int index) async {
+    final key = _store.keys.elementAt(index);
+    _store.remove(key);
+  }
+
+  @override
+  Future<void> deleteAll(Iterable<dynamic> keys) async {
+    for (final key in keys) {
+      _store.remove(key);
+    }
+  }
+
+  @override
+  bool containsKey(dynamic key) => _store.containsKey(key);
+
+  @override
+  Future<int> clear() async {
+    final count = _store.length;
+    _store.clear();
+    return count;
+  }
+
+  @override
+  Map<dynamic, dynamic> toMap() => Map.unmodifiable(_store);
+
+  @override
+  Future<void> close() async {
+    _isOpen = false;
+  }
+
+  @override
+  Future<void> deleteFromDisk() async {
+    _store.clear();
+    _isOpen = false;
+  }
+
+  @override
+  Future<void> flush() async {}
+
+  @override
+  Future<void> compact() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
-  late Directory tempDir;
-  late Box<dynamic> pendingBox;
-  late Box<dynamic> patternsBox;
+  late _InMemoryHiveBox pendingBox;
+  late _InMemoryHiveBox patternsBox;
   late LearnedPatternsService patternsService;
   late MockTransactionExecutionAdapter mockExecutionAdapter;
   late PendingTransactionsNotifier notifier;
 
-  setUpAll(() async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    tempDir = await Directory.systemTemp.createTemp('pending_screen_test_');
-    Hive.init(tempDir.path);
-  });
-
   setUp(() async {
-    final suffix = DateTime.now().microsecondsSinceEpoch;
-    pendingBox = await Hive.openBox<dynamic>('screen_pending_$suffix');
-    patternsBox = await Hive.openBox<dynamic>('screen_patterns_$suffix');
+    pendingBox = _InMemoryHiveBox();
+    patternsBox = _InMemoryHiveBox();
 
     patternsService = LearnedPatternsService(box: patternsBox);
     mockExecutionAdapter = MockTransactionExecutionAdapter();
@@ -41,21 +137,8 @@ void main() {
   });
 
   tearDown(() async {
-    if (pendingBox.isOpen) {
-      await pendingBox.clear();
-      await pendingBox.close();
-    }
-    if (patternsBox.isOpen) {
-      await patternsBox.clear();
-      await patternsBox.close();
-    }
-  });
-
-  tearDownAll(() async {
-    await Hive.close();
-    if (tempDir.existsSync()) {
-      tempDir.deleteSync(recursive: true);
-    }
+    await pendingBox.clear();
+    await patternsBox.clear();
   });
 
   PendingTransactionItem createItem({
@@ -101,6 +184,13 @@ void main() {
       'Bandeja mixta: "Aceptar todo" solo aprueba los 2 de alta confianza, '
       'mantiene baja confianza y sospechosa para revisión manual',
       (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
         // 1. Alta confianza A
         final itemA = createItem(
           id: 'item_a',
@@ -187,10 +277,12 @@ void main() {
         final allPatterns = await patternsService.getAllPatterns();
         expect(allPatterns.length, equals(2));
         final patternKeys = allPatterns.map((p) => p.merchantKey).toList();
-        expect(patternKeys, containsAll(['supermercado exito', 'nomina empresa']));
+        expect(
+            patternKeys, containsAll(['supermercado exito', 'nomina empresa']));
 
         // Feedback al usuario con SnackBar
-        expect(find.textContaining('Se aceptaron 2 transacciones'), findsOneWidget);
+        expect(find.textContaining('Se aceptaron 2 transacciones'),
+            findsOneWidget);
 
         // Pulsa "Corregir" en el ítem de baja confianza ('Cafeteria Central')
         final correctButtons = find.widgetWithText(OutlinedButton, 'Corregir');

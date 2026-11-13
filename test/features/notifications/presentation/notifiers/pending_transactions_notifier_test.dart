@@ -88,7 +88,8 @@ void main() {
     );
   }
 
-  group('PendingTransactionsNotifier - Invariante de Aislamiento de Saldos', () {
+  group('PendingTransactionsNotifier - Invariante de Aislamiento de Saldos',
+      () {
     test(
         'Agregar transacciones a la bandeja no invoca TransactionExecutionPort',
         () async {
@@ -209,7 +210,8 @@ void main() {
 
   group('PendingTransactionsNotifier - Acciones Individuales y Feedback Loop',
       () {
-    test('Confirmar ítem válido ejecuta transacción y actualiza learned_patterns',
+    test(
+        'Confirmar ítem válido ejecuta transacción y actualiza learned_patterns',
         () async {
       final item = createItem(
         id: 'tx_valid',

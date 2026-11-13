@@ -179,7 +179,8 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
                 spacing: 8,
                 children: [
                   _buildTypeChip('gasto', 'Gasto', Icons.arrow_upward_rounded),
-                  _buildTypeChip('ingreso', 'Ingreso', Icons.arrow_downward_rounded),
+                  _buildTypeChip(
+                      'ingreso', 'Ingreso', Icons.arrow_downward_rounded),
                   _buildTypeChip(
                     'transferencia-propia',
                     'Transferencia',
@@ -192,7 +193,8 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
               // Campo de Monto
               TextFormField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 style: TextStyle(color: AppColors.textPrimary),
                 decoration: _inputDecoration('Monto (${widget.item.moneda})'),
                 validator: (val) {
@@ -282,13 +284,13 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
 
   Widget _buildTypeChip(String value, String label, IconData icon) {
     final isSelected = _classification == value;
-    final color = isSelected ? AppColors.accent : AppColors.textSecondary;
 
     return ChoiceChip(
       avatar: Icon(
         icon,
         size: 14,
-        color: isSelected ? AppColors.primaryBackground : AppColors.textSecondary,
+        color:
+            isSelected ? AppColors.primaryBackground : AppColors.textSecondary,
       ),
       label: Text(label),
       selected: isSelected,
@@ -349,19 +351,19 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
       fillColor: AppColors.darkBackground,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: AppColors.borderSubtle),
+        borderSide: BorderSide(color: AppColors.borderSubtle),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: AppColors.accent, width: 1.5),
+        borderSide: BorderSide(color: AppColors.accent, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: AppColors.error),
+        borderSide: BorderSide(color: AppColors.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: AppColors.error, width: 1.5),
+        borderSide: BorderSide(color: AppColors.error, width: 1.5),
       ),
     );
   }

@@ -107,8 +107,7 @@ void main() {
         comercio:
             parseResult is ParsedTransaction ? parseResult.comercio : null,
         monto: parseResult is ParsedTransaction ? parseResult.monto : null,
-        moneda:
-            parseResult is ParsedTransaction ? parseResult.moneda : 'COP',
+        moneda: parseResult is ParsedTransaction ? parseResult.moneda : 'COP',
         fecha: event.timestamp,
         classification: classification.classification,
         moneoType: classification.moneoType,
@@ -151,7 +150,8 @@ void main() {
     }
   });
 
-  group('Flujo de Integración End-to-End: Ingesta -> Parseo -> Clasificación -> Bandeja',
+  group(
+      'Flujo de Integración End-to-End: Ingesta -> Parseo -> Clasificación -> Bandeja',
       () {
     test(
         'Pipeline procesa compras e ingresos legítimos, bloquea phishing, '
@@ -282,22 +282,22 @@ void main() {
       expect(mockExecutionAdapter.executionCount, equals(2));
 
       // Descartar el ítem sospechoso
-      final discardSuccess =
-          await notifier.discardItem('event_phishing_alert');
+      final discardSuccess = await notifier.discardItem('event_phishing_alert');
       expect(discardSuccess, isTrue);
       expect(notifier.count, equals(0));
 
       // Verificación final del Feedback Loop (learned_patterns):
       // Se aprendió el patrón de Exito Laureles
-      final learnedExito =
-          await patternsService.findPattern('Exito Laureles');
+      final learnedExito = await patternsService.findPattern('Exito Laureles');
       expect(learnedExito, isNotNull);
       expect(learnedExito!.confirmations, equals(1));
 
       // No se guardó ningún patrón para el SMS de phishing
       final allPatterns = await patternsService.getAllPatterns();
       expect(
-        allPatterns.any((p) => p.merchantKey.contains('davivienda') || p.merchantKey.contains('seguridad')),
+        allPatterns.any((p) =>
+            p.merchantKey.contains('davivienda') ||
+            p.merchantKey.contains('seguridad')),
         isFalse,
       );
     });

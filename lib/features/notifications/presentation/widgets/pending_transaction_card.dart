@@ -170,8 +170,8 @@ class PendingTransactionCard extends StatelessWidget {
                   onPressed: onDiscard,
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.textSecondary,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   child: const Text('Descartar'),
                 ),
@@ -181,8 +181,8 @@ class PendingTransactionCard extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.accent,
                     side: BorderSide(color: AppColors.accent),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -198,8 +198,8 @@ class PendingTransactionCard extends StatelessWidget {
                     disabledBackgroundColor:
                         AppColors.borderSubtle.withValues(alpha: 0.3),
                     disabledForegroundColor: AppColors.textHint,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -244,7 +244,8 @@ class PendingTransactionCard extends StatelessWidget {
       final dest = item.destinationAccount ?? 'Destino no asignado';
       return '$origin → $dest';
     }
-    return item.accountName ?? (isSuspicious ? 'Sin cuenta' : 'Pendiente cuenta');
+    return item.accountName ??
+        (isSuspicious ? 'Sin cuenta' : 'Pendiente cuenta');
   }
 
   String _formatDate(DateTime dt) {
