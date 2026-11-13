@@ -1,0 +1,39 @@
+{
+  "proteccion-archivos-criticos": {
+    "PreToolUse": [
+      {
+        "matcher": "write_file|edit_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/check_protected_files.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "analisis-post-edicion": {
+    "PostToolUse": [
+      {
+        "matcher": "write_file|edit_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/post_edit_analyze.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  },
+  "pruebas-antes-de-terminar": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "./hooks/pre_stop_test.sh",
+        "timeout": 120
+      }
+    ]
+  }
+}

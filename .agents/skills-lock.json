@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "skills": {
+    "prompt-engineer": {
+      "source": "Agentic-Assets/Agent-Skills",
+      "sourceType": "github",
+      "skillPath": "skills/prompt-engineer/SKILL.md",
+      "computedHash": "4edf75207afcadc15a36565fe69e3fabb3f9945172378476a2f40fdace5f6c3b"
+    }
+  }
+}
