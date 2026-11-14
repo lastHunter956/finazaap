@@ -20,6 +20,7 @@ class MainContainer extends StatefulWidget {
 class _MainContainerState extends State<MainContainer>
     with WidgetsBindingObserver {
   int _currentIndex = 0;
+  final Set<int> _loadedTabs = {0};
 
   @override
   void initState() {
@@ -43,6 +44,7 @@ class _MainContainerState extends State<MainContainer>
   void _onTabTapped(int index) {
     setState(() {
       _currentIndex = index;
+      _loadedTabs.add(index);
     });
   }
 
@@ -50,10 +52,16 @@ class _MainContainerState extends State<MainContainer>
   Widget build(BuildContext context) {
     final List<Widget> screens = [
       const Home(),
-      const ResponsibilitiesScreen(), // Nueva pantalla de responsabilidades
-      CategoriesScreen(activeIndex: _currentIndex),
-      const Statistics(),
-      const SettingsScreen(),
+      _loadedTabs.contains(1)
+          ? const ResponsibilitiesScreen()
+          : const SizedBox.shrink(),
+      _loadedTabs.contains(2)
+          ? CategoriesScreen(activeIndex: _currentIndex)
+          : const SizedBox.shrink(),
+      _loadedTabs.contains(3) ? const Statistics() : const SizedBox.shrink(),
+      _loadedTabs.contains(4)
+          ? const SettingsScreen()
+          : const SizedBox.shrink(),
     ];
 
     final isDiurno = context.isDiurno;

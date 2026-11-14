@@ -30,107 +30,57 @@ void main() async {
   try {
     AppLogger.start('Iniciando FinazaApp');
 
-    // Inicializar SharedPreferences (singleton cacheado)
-    await PrefsManager.init();
+    // Inicialización paralela mínima para primer frame (Prefs, fechas y Hive)
+    await Future.wait([
+      PrefsManager.init(),
+      initializeDateFormatting('es_ES', null),
+      Hive.initFlutter(),
+    ]);
 
-    // Inicializar formateo de fechas para español
-    await initializeDateFormatting('es_ES', null);
-    
-    // Inicializar Flutter Gemma (motor de IA on-device)
-    // IMPORTANTE: webStorageMode solo existe en Web. En Android/iOS se omite.
-    try {
-      if (kIsWeb) {
-        await FlutterGemma.initialize(
-          inferenceEngines: const [MediaPipeEngine(), LiteRtLmEngine()],
-          webStorageMode: WebStorageMode.streaming,
-          maxDownloadRetries: 5,
-        );
-      } else {
-        // En Android/iOS solo necesitamos LiteRtLmEngine (soporta .litertlm nativo via FFI)
-        await FlutterGemma.initialize(
-          inferenceEngines: const [LiteRtLmEngine()],
-          maxDownloadRetries: 3,
-        );
-      }
-      AppLogger.success('FlutterGemma inicializado correctamente para ${kIsWeb ? "Web" : "nativo"}');
-    } catch (e) {
-      AppLogger.warning('Error inicializando FlutterGemma (continuando sin IA): $e');
-      AiChatService.initError = e.toString();
-    }
-    
     // 1. Inicializar Hive (CRÍTICO)
-    // Esto es lo más importante, si falla, la app no funciona
     try {
-      await Hive.initFlutter();
-      
-      // Registrar el adapter de Add_data generado por Hive
       if (!Hive.isAdapterRegistered(1)) {
         Hive.registerAdapter(AdddataAdapter());
       }
-      
-      // Registrar el adapter de Responsibility
       if (!Hive.isAdapterRegistered(2)) {
         Hive.registerAdapter(ResponsibilityAdapter());
       }
-      
-      // Abrir las cajas principales de datos
-      await Hive.openBox<Add_data>('data');
-      await Hive.openBox('transactions_v2');
-      await Hive.openBox('accounts');
-      await Hive.openBox('accounts_v2');
-      
+
+      await Future.wait([
+        Hive.openBox<Add_data>('data'),
+        Hive.openBox('transactions_v2'),
+        Hive.openBox('accounts'),
+        Hive.openBox('accounts_v2'),
+      ]);
+
       AppLogger.success('Hive inicializado correctamente');
     } catch (e) {
       AppLogger.error('CRITICAL: Fallo al inicializar Hive', error: e);
       throw Exception('Fallo crítico de base de datos: $e');
     }
-    
-    // 1.5. Inicializar Currency Helper (Fallo recuperable)
-    try {
-      await CurrencyHelper.loadCurrency();
-      AppLogger.success('CurrencyHelper inicializado');
-    } catch (e) {
-      AppLogger.warning('Error cargando divisa (usando default): $e');
-    }
-    
-    // 2. Inicializar Seguridad (Fallo recuperable)
-    try {
-      // Inicializar servicio de encriptación
-      final encryptionService = EncryptionService();
-      await encryptionService.initialize();
-      AppLogger.success('EncryptionService inicializado');
-      
-    } catch (e) {
-      AppLogger.warning('Error en servicios de seguridad (continuando app): $e');
-    }
-    
-    // 3. Inicializar Notificaciones (Fallo recuperable)
-    try {
-      final notificationService = NotificationService();
-      await notificationService.init();
-      
-      // Si están habilitadas, programar notificaciones
-      if (await notificationService.isEnabled()) {
-        await notificationService.scheduleAllNotifications();
-      }
-      AppLogger.success('NotificationService inicializado');
-    } catch (e) {
-      AppLogger.warning('Error en servicio de notificaciones: $e');
-    }
 
-    // 3.5. Inicializar pipeline real de notificaciones bancarias (Fallo recuperable)
-    try {
-      await NotificationPipelineService.instance.initialize();
-      AppLogger.success('NotificationPipelineService inicializado');
-    } catch (e) {
-      AppLogger.warning('Error en pipeline de notificaciones bancarias: $e');
-    }
-    
-    // Inicializar preferencia de tema
-    await ThemeNotifier.init();
+    // 1.5. Inicializar CurrencyHelper, Tema y Seguridad en paralelo (fallos recuperables)
+    await Future.wait([
+      CurrencyHelper.loadCurrency().then((_) {
+        AppLogger.success('CurrencyHelper inicializado');
+      }).catchError((e) {
+        AppLogger.warning('Error cargando divisa (usando default): $e');
+      }),
+      EncryptionService().initialize().then((_) {
+        AppLogger.success('EncryptionService inicializado');
+      }).catchError((e) {
+        AppLogger.warning('Error en servicios de seguridad (continuando app): $e');
+      }),
+      ThemeNotifier.init(),
+    ]);
 
-    // Ejecutar la aplicación
+    // Ejecutar la aplicación inmediatamente tras inicializar estado esencial
     runApp(const FinazaApp());
+
+    // Diferir inicializaciones no críticas para el primer frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeDeferredServices();
+    });
     
   } catch (e, stackTrace) {
     AppLogger.error('ERROR FATAL al iniciar la aplicación', error: e, stackTrace: stackTrace);
@@ -189,6 +139,46 @@ void main() async {
         ),
       ),
     ));
+  }
+}
+
+/// Inicializa servicios secundarios después del primer frame.
+Future<void> _initializeDeferredServices() async {
+  try {
+    if (kIsWeb) {
+      await FlutterGemma.initialize(
+        inferenceEngines: const [MediaPipeEngine(), LiteRtLmEngine()],
+        webStorageMode: WebStorageMode.streaming,
+        maxDownloadRetries: 5,
+      );
+    } else {
+      await FlutterGemma.initialize(
+        inferenceEngines: const [LiteRtLmEngine()],
+        maxDownloadRetries: 3,
+      );
+    }
+    AppLogger.success('FlutterGemma inicializado correctamente para ${kIsWeb ? "Web" : "nativo"}');
+  } catch (e) {
+    AppLogger.warning('Error inicializando FlutterGemma (continuando sin IA): $e');
+    AiChatService.initError = e.toString();
+  }
+
+  try {
+    final notificationService = NotificationService();
+    await notificationService.init();
+    if (await notificationService.isEnabled()) {
+      await notificationService.scheduleAllNotifications();
+    }
+    AppLogger.success('NotificationService inicializado');
+  } catch (e) {
+    AppLogger.warning('Error en servicio de notificaciones: $e');
+  }
+
+  try {
+    await NotificationPipelineService.instance.initialize();
+    AppLogger.success('NotificationPipelineService inicializado');
+  } catch (e) {
+    AppLogger.warning('Error en pipeline de notificaciones bancarias: $e');
   }
 }
 
