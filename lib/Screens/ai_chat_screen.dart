@@ -27,6 +27,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   late TabController _tabController;
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _goalsController = TextEditingController();
+  final TextEditingController _modelUrlController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final AiChatService _chatService = AiChatService();
   bool _isLoading = false;
@@ -77,6 +78,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     _messageController.removeListener(_onInputChanged);
     _messageController.dispose();
     _goalsController.dispose();
+    _modelUrlController.dispose();
     _scrollController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -590,7 +592,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                 Expanded(
                   child: Text(
                     _chatService.isDownloading
-                        ? 'Descargando modelo Gemma AI (2.5 GB)...'
+                        ? 'Descargando modelo Gemma AI (${(_chatService.downloadProgress * 100).clamp(0, 100).toStringAsFixed(0)}%)...'
                         : 'Cargando motor de IA...',
                     style: GoogleFonts.outfit(
                       color: t.textPrimary,
@@ -601,6 +603,20 @@ class _AiChatScreenState extends State<AiChatScreen>
                 ),
               ],
             ),
+            if (_chatService.isDownloading) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: _chatService.downloadProgress > 0
+                      ? _chatService.downloadProgress
+                      : null,
+                  minHeight: 5,
+                  backgroundColor: t.darkBackground,
+                  valueColor: AlwaysStoppedAnimation<Color>(t.accent),
+                ),
+              ),
+            ],
             const SizedBox(height: 6),
             Text(
               'Este proceso puede tomar varios minutos según tu conexión. El modelo se guarda para usos futuros.',
@@ -662,7 +678,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   /// Widget para configurar la URL del modelo en Android/iOS.
   Widget _buildModelUrlSetup() {
     final t = context.appTheme;
-    final urlController = TextEditingController();
+    final urlController = _modelUrlController;
     final cap = _chatService.deviceCapability;
 
     return Column(
@@ -2821,7 +2837,9 @@ class _AiChatScreenState extends State<AiChatScreen>
             const SizedBox(width: 8),
             GestureDetector(
               key: const Key('ai_chat_send_button'),
-              onTap: _isLoading ? null : _handleSend,
+              onTap: (_isLoading || _chatService.isGenerating)
+                  ? () => _chatService.cancelGeneration()
+                  : _handleSend,
               child: MoneoPressableScale(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
@@ -2829,9 +2847,11 @@ class _AiChatScreenState extends State<AiChatScreen>
                   height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _isInputEmpty
-                        ? t.darkBackground
-                        : (isDiurno ? t.accent : t.buttonBackground),
+                    color: (_isLoading || _chatService.isGenerating)
+                        ? t.error
+                        : _isInputEmpty
+                            ? t.darkBackground
+                            : (isDiurno ? t.accent : t.buttonBackground),
                     boxShadow: !_isInputEmpty && isDiurno
                         ? const [
                             BoxShadow(
@@ -2843,8 +2863,14 @@ class _AiChatScreenState extends State<AiChatScreen>
                         : null,
                   ),
                   child: Icon(
-                    Icons.arrow_upward_rounded,
-                    color: _isInputEmpty ? t.textHint : t.buttonForeground,
+                    (_isLoading || _chatService.isGenerating)
+                        ? Icons.stop_rounded
+                        : Icons.arrow_upward_rounded,
+                    color: (_isLoading || _chatService.isGenerating)
+                        ? Colors.white
+                        : _isInputEmpty
+                            ? t.textHint
+                            : t.buttonForeground,
                     size: 20,
                   ),
                 ),

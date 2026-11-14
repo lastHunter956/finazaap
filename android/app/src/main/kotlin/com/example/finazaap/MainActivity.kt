@@ -40,6 +40,17 @@ class MainActivity : FlutterFragmentActivity() {
                     val memInfo = ActivityManager.MemoryInfo()
                     am.getMemoryInfo(memInfo)
                     result.success(memInfo.totalMem)
+                } else if (call.method == "getDeviceMemoryInfo") {
+                    val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                    val memInfo = ActivityManager.MemoryInfo()
+                    am.getMemoryInfo(memInfo)
+                    result.success(
+                        mapOf(
+                            "totalMem" to memInfo.totalMem,
+                            "availMem" to memInfo.availMem,
+                            "lowMemory" to memInfo.lowMemory
+                        )
+                    )
                 } else if (call.method == "getFreeDiskSpace") {
                     try {
                         val stat = StatFs(Environment.getDataDirectory().path)
