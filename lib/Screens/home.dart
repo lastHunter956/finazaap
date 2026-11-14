@@ -258,7 +258,8 @@ class _HomeState extends State<Home> {
       for (final accountJson in accountsData) {
         final Map<String, dynamic> data = json.decode(accountJson);
         final bool includeInTotal = data['includeInTotal'] ?? true;
-        if (includeInTotal) {
+        final bool isCreditCard = data['subtitle'] == 'Tarjeta de Crédito';
+        if (includeInTotal && !isCreditCard) {
           final raw = data['balance'];
           double balance;
           if (raw is String) {

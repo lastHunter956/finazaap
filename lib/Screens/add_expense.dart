@@ -201,6 +201,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           if (widget.isEditing && widget.transaction != null && widget.transaction!.responsibilityId == r.safeId) {
             return true;
           }
+          if (r.safeCategory == 'tarjeta') {
+            return false;
+          }
           return !r.isPaidInMonth(currentMonth, currentYear);
         }).toList();
         
@@ -537,21 +540,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
               const SizedBox(height: 8),
               
-              CheckboxListTile(
-                title: Text(
-                  'Marcar obligación como pagada completa',
-                  style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
+              Material(
+                color: Colors.transparent,
+                child: CheckboxListTile(
+                  title: Text(
+                    'Marcar obligación como pagada completa',
+                    style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                  value: _markAsPaidComplete,
+                  activeColor: primaryColor,
+                  checkColor: Colors.white,
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  onChanged: (val) {
+                    setState(() {
+                      _markAsPaidComplete = val ?? true;
+                    });
+                  },
                 ),
-                value: _markAsPaidComplete,
-                activeColor: primaryColor,
-                checkColor: Colors.white,
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                onChanged: (val) {
-                  setState(() {
-                    _markAsPaidComplete = val ?? true;
-                  });
-                },
               ),
             ],
           ],
