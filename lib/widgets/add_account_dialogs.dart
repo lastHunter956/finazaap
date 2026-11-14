@@ -517,28 +517,34 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                               child: Material(
                                 type: MaterialType.transparency,
                                 child: SwitchListTile(
-                                value: includeInTotal,
+                                value: isCreditCard ? false : includeInTotal,
                                 activeColor: iconColor,
                                 title: Text(
                                   'Incluir en saldo total',
                                   style: TextStyle(
-                                    color: context.appTheme.textPrimary,
+                                    color: isCreditCard
+                                        ? context.appTheme.textSecondary
+                                        : context.appTheme.textPrimary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 subtitle: Text(
-                                  'Forma parte del saldo global',
+                                  isCreditCard
+                                      ? 'Excluida: el cupo de TC no es dinero propio'
+                                      : 'Forma parte del saldo global',
                                   style: TextStyle(
                                     color: context.appTheme.textSecondary,
                                     fontSize: 12,
                                   ),
                                 ),
-                                onChanged: (bool value) {
-                                  setState(() {
-                                    includeInTotal = value;
-                                  });
-                                },
+                                onChanged: isCreditCard
+                                    ? null
+                                    : (bool value) {
+                                        setState(() {
+                                          includeInTotal = value;
+                                        });
+                                      },
                                 secondary: Icon(
                                   Icons.visibility_outlined,
                                   color: iconColor.withOpacity(0.8),

@@ -159,4 +159,117 @@ void main() {
       expect((edited as AccountItem).balance, equals('98765432.15'));
     },
   );
+
+  testWidgets(
+    'AddAccountDialog deshabilita Incluir en saldo total y explica exclusión al elegir Tarjeta de Crédito',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      AccountItem? created;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            extensions: [AppTheme.forMode(AppThemeMode.defaultDark)],
+          ),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  created = await showAddAccountDialog(context);
+                },
+                child: const Text('Crear TC'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Crear TC'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(DropdownButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tarjeta de Crédito').last);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Excluida: el cupo de TC no es dinero propio'),
+        findsOneWidget,
+      );
+      final switchTile = tester.widget<SwitchListTile>(
+        find.byType(SwitchListTile),
+      );
+      expect(switchTile.value, isFalse);
+      expect(switchTile.onChanged, isNull);
+
+      await tester.enterText(find.byType(TextField).at(0), 'Visa Test');
+      await tester.enterText(find.byType(TextField).at(1), '5000');
+      await tester.ensureVisible(find.text('Crear Cuenta'));
+      await tester.tap(find.text('Crear Cuenta'));
+      await tester.pumpAndSettle();
+
+      expect(created, isNotNull);
+      expect(created!.subtitle, equals('Tarjeta de Crédito'));
+      expect(created!.includeInTotal, isFalse);
+    },
+  );
+
+  testWidgets(
+    'EditAccountDialog deshabilita Incluir en saldo total y explica exclusión para Tarjeta de Crédito',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      dynamic edited;
+      final existingCard = AccountItem(
+        id: 'tc_edit_1',
+        icon: Icons.credit_card,
+        title: 'Mastercard Test',
+        subtitle: 'Tarjeta de Crédito',
+        balance: '0.00',
+        creditLimit: '3000.00',
+        includeInTotal: true,
+        iconColor: Colors.orange,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            extensions: [AppTheme.forMode(AppThemeMode.defaultDark)],
+          ),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  edited = await showEditAccountDialog(context, existingCard);
+                },
+                child: const Text('Editar TC'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Editar TC'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Excluida: el cupo de TC no es dinero propio'),
+        findsOneWidget,
+      );
+      final switchTile = tester.widget<SwitchListTile>(
+        find.byType(SwitchListTile),
+      );
+      expect(switchTile.value, isFalse);
+      expect(switchTile.onChanged, isNull);
+
+      await tester.ensureVisible(find.text('Guardar Cambios'));
+      await tester.tap(find.text('Guardar Cambios'));
+      await tester.pumpAndSettle();
+
+      expect(edited, isA<AccountItem>());
+      expect((edited as AccountItem).includeInTotal, isFalse);
+    },
+  );
 }

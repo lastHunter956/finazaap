@@ -485,15 +485,30 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                           child: Material(
                             type: MaterialType.transparency,
                             child: SwitchListTile(
-                            value: includeInTotal,
-                            onChanged: (v) => setState(() => includeInTotal = v),
+                            value: isCreditCard ? false : includeInTotal,
+                            onChanged: isCreditCard
+                                ? null
+                                : (v) => setState(() => includeInTotal = v),
                             activeColor: iconColor,
-                            title: Text('Incluir en saldo total', style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14)),
+                            title: Text(
+                              'Incluir en saldo total',
+                              style: TextStyle(
+                                color: isCreditCard
+                                    ? context.appTheme.textSecondary
+                                    : context.appTheme.textPrimary,
+                                fontSize: 14,
+                              ),
+                            ),
                             subtitle: Text(
-                              includeInTotal ? 'Suma al total general' : 'No afecta al total',
+                              isCreditCard
+                                  ? 'Excluida: el cupo de TC no es dinero propio'
+                                  : (includeInTotal ? 'Suma al total general' : 'No afecta al total'),
                               style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                             ),
-                            secondary: Icon(includeInTotal ? Icons.visibility : Icons.visibility_off, color: includeInTotal ? iconColor : Colors.white.withOpacity(0.3)),
+                            secondary: Icon(
+                              (!isCreditCard && includeInTotal) ? Icons.visibility : Icons.visibility_off,
+                              color: (!isCreditCard && includeInTotal) ? iconColor : Colors.white.withOpacity(0.3),
+                            ),
                           ),
                           ),
                         ),
