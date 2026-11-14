@@ -43,8 +43,9 @@ class FlutterSecureEncryptionKeyStore implements EncryptionKeyStore {
 ///   payload (`[IV (12 B) | ciphertext + authTag]`) codificado en Base64.
 /// - Cajas Hive (`getHiveCipher` / `openEncryptedBox`): usan `HiveAesCipher`
 ///   con la clave maestra de 32 bytes. `HiveAesCipher` NO es equivalente a
-///   AES-GCM: Hive implementa cifrado por frame con **AES-256-CBC + PKCS7**
-///   e integridad **HMAC-SHA256**.
+///   AES-GCM: Hive 2.2.3 implementa cifrado por frame con **AES-256-CBC + PKCS7**
+///   (IV aleatorio de 16 B por frame) y verificación CRC32 en el formato binario,
+///   **sin autenticación criptográfica (HMAC)** sobre los frames de caja.
 class EncryptionService {
   static const String masterKeyStorageKey = 'master_key';
   static const int _ivLengthBytes = 12;
@@ -166,7 +167,7 @@ class EncryptionService {
     return jsonDecode(jsonString) as Map<String, dynamic>;
   }
 
-  /// Retorna el cifrador `HiveAesCipher` (AES-256-CBC + PKCS7 + HMAC-SHA256)
+  /// Retorna el cifrador `HiveAesCipher` (AES-256-CBC + PKCS7, sin HMAC en Hive 2.2.3)
   /// respaldado por la clave maestra de 32 bytes.
   HiveAesCipher getHiveCipher() {
     if (!_isInitialized || _key == null) {

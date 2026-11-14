@@ -30,9 +30,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   // Nota arquitectónica verificada en T3.1:
-  // `EncryptionService.encryptData` usa AES-256-GCM (IV aleatorio de 12 B
-  // prefijado al payload) mientras `HiveAesCipher` usa AES-256-CBC + PKCS7
-  // con HMAC-SHA256 por frame. No son equivalentes y protegen capas distintas.
+  // `EncryptionService.encryptData` usa AES-256-GCM autenticado (IV aleatorio de 12 B
+  // prefijado al payload) mientras `HiveAesCipher` (hive 2.2.3) usa AES-256-CBC + PKCS7
+  // sin HMAC-SHA256 (solo CRC32 en formato Hive). No son equivalentes y protegen capas distintas.
 
   late Directory tempDir;
   late _InMemoryEncryptionKeyStore keyStore;
