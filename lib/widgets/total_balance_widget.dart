@@ -10,6 +10,11 @@ import 'package:finazaap/themes/app_theme_data.dart';
 class TotalBalanceWidget extends StatefulWidget {
   // ========= Valores dinámicos =========
   final ValueNotifier<double> availableBalanceNotifier; // Notificador de saldo disponible
+  final ValueNotifier<Map<String, double>>? availableBalancesByCurrencyNotifier;
+  final Map<String, double>? availableBalancesByCurrency;
+  final Map<String, double>? accountingBalancesByCurrency;
+  final Map<String, double>? expensesByCurrency;
+  final Map<String, double>? incomeByCurrency;
   final double accountingBalance;  // Balance contable (puede ser negativo)
   final double totalExpenses;      // Total de egresos
   final double totalIncome;        // Total de ingresos
@@ -36,6 +41,11 @@ class TotalBalanceWidget extends StatefulWidget {
     required this.onShowAll,
     required this.onShowExpenses,
     required this.onShowIncome,
+    this.availableBalancesByCurrencyNotifier,
+    this.availableBalancesByCurrency,
+    this.accountingBalancesByCurrency,
+    this.expensesByCurrency,
+    this.incomeByCurrency,
     this.onDateSelected,  // <-- Nueva propiedad
     this.selectedMonthYear = 'Diciembre 2025',
   }) : super(key: key);
@@ -499,6 +509,53 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
     );
   }
 
+  Widget _buildMultiCurrencyAmountColumn(
+    Map<String, double>? byCurrency,
+    double fallbackAmount,
+    TextStyle style, {
+    bool useSignPrefix = false,
+    double? fontSizeOverride,
+  }) {
+    final effectiveStyle = fontSizeOverride != null
+        ? style.copyWith(fontSize: fontSizeOverride)
+        : style;
+
+    if (byCurrency != null && byCurrency.isNotEmpty) {
+      final totals = MultiCurrencyTotals(initial: byCurrency);
+      if (totals.isMultiCurrency) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: totals.currencies.map((code) {
+            final value = totals.totalFor(code);
+            final formatted = CurrencyHelper.formatFor(
+              useSignPrefix ? value.abs() : value,
+              code,
+            );
+            final text = useSignPrefix && value < 0
+                ? '- $formatted $code'
+                : '$formatted $code';
+            return Text(text, style: effectiveStyle);
+          }).toList(growable: false),
+        );
+      }
+
+      final singleCode = totals.currencies.first;
+      final singleVal = totals.totalFor(singleCode);
+      final formatted = CurrencyHelper.formatFor(
+        useSignPrefix ? singleVal.abs() : singleVal,
+        singleCode,
+      );
+      final text = useSignPrefix && singleVal < 0 ? '- $formatted' : formatted;
+      return Text(text, style: effectiveStyle);
+    }
+
+    final formatted = CurrencyHelper.format(
+      useSignPrefix ? fallbackAmount.abs() : fallbackAmount,
+    );
+    final text = useSignPrefix && fallbackAmount < 0 ? '- $formatted' : formatted;
+    return Text(text, style: effectiveStyle);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Formateador de moneda
@@ -508,9 +565,17 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
     final double total = widget.totalIncome + widget.totalExpenses;
     double ratio = total > 0 ? widget.totalIncome / total : 0;
 
-    return ValueListenableBuilder<double>(
-      valueListenable: widget.availableBalanceNotifier,
-      builder: (context, availableBalance, child) {
+    final Listenable balanceListenable =
+        widget.availableBalancesByCurrencyNotifier ??
+            widget.availableBalanceNotifier;
+
+    return AnimatedBuilder(
+      animation: balanceListenable,
+      builder: (context, child) {
+        final double availableBalance = widget.availableBalanceNotifier.value;
+        final Map<String, double>? availableByCurrency =
+            widget.availableBalancesByCurrencyNotifier?.value ??
+                widget.availableBalancesByCurrency;
         final bool isDark = Theme.of(context).brightness == Brightness.dark;
         final bool isDiurno = context.isDiurno;
         final Color ringStatusColor = widget.totalExpenses > widget.totalIncome
@@ -588,18 +653,46 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '${CurrencyHelper.format(availableBalance)}',
-                        style: TextStyle(
+                      _buildMultiCurrencyAmountColumn(
+                        availableByCurrency,
+                        availableBalance,
+                        TextStyle(
                           color: context.appTheme.textPrimary,
-                          fontSize: 20,
+                          fontSize: (availableByCurrency != null &&
+                                  availableByCurrency.length > 1)
+                              ? 16
+                              : 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      
+                      if (widget.accountingBalancesByCurrency != null &&
+                          widget.accountingBalancesByCurrency!.length > 1)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Balance Contable:',
+                              style: TextStyle(
+                                color: context.appTheme.textSecondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            _buildMultiCurrencyAmountColumn(
+                              widget.accountingBalancesByCurrency,
+                              widget.accountingBalance,
+                              TextStyle(
+                                color: context.appTheme.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              useSignPrefix: true,
+                            ),
+                          ],
+                        )
                       // Si el valor absoluto es mayor a 9,999, mostrar en dos líneas
-                      if (widget.accountingBalance.abs() > 9999)
+                      else if (widget.accountingBalance.abs() > 9999)
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -865,11 +958,15 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            '${CurrencyHelper.format(widget.totalExpenses)}',
-                            style: TextStyle(
+                          _buildMultiCurrencyAmountColumn(
+                            widget.expensesByCurrency,
+                            widget.totalExpenses,
+                            TextStyle(
                               color: context.appTheme.textPrimary,
-                              fontSize: 16,
+                              fontSize: (widget.expensesByCurrency != null &&
+                                      widget.expensesByCurrency!.length > 1)
+                                  ? 14
+                                  : 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -901,11 +998,15 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            '${CurrencyHelper.format(widget.totalIncome)}',
-                            style: TextStyle(
+                          _buildMultiCurrencyAmountColumn(
+                            widget.incomeByCurrency,
+                            widget.totalIncome,
+                            TextStyle(
                               color: context.appTheme.income,
-                              fontSize: 16,
+                              fontSize: (widget.incomeByCurrency != null &&
+                                      widget.incomeByCurrency!.length > 1)
+                                  ? 14
+                                  : 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

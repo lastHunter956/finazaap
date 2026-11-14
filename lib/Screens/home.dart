@@ -60,6 +60,8 @@ class _HomeState extends State<Home> {
   // Notificador de saldo disponible
   final ValueNotifier<double> availableBalanceNotifier =
       ValueNotifier<double>(0.0);
+  final ValueNotifier<Map<String, double>> availableBalancesByCurrencyNotifier =
+      ValueNotifier<Map<String, double>>({});
 
   // Agregar estas variables para almacenar el filtro de fecha
   int _selectedMonth = DateTime.now().month;
@@ -124,6 +126,7 @@ class _HomeState extends State<Home> {
     if (_widgetSubscription != null) _widgetSubscription!.cancel();
     _boxListenable.removeListener(_boxListener);
     availableBalanceNotifier.dispose();
+    availableBalancesByCurrencyNotifier.dispose();
     super.dispose();
   }
 
@@ -255,7 +258,7 @@ class _HomeState extends State<Home> {
     final List<String>? accountsData = prefs.getStringList('accounts');
 
     if (accountsData != null) {
-      double totalBalance = 0.0;
+      final MultiCurrencyTotals totals = MultiCurrencyTotals();
       for (final accountJson in accountsData) {
         final Map<String, dynamic> data = json.decode(accountJson);
         final bool includeInTotal = data['includeInTotal'] ?? true;
@@ -272,10 +275,12 @@ class _HomeState extends State<Home> {
           } else {
             balance = 0.0;
           }
-          totalBalance += balance;
+          final String? accountCurrency = data['currencyCode']?.toString();
+          totals.add(accountCurrency, balance);
         }
       }
-      availableBalanceNotifier.value = totalBalance;
+      availableBalancesByCurrencyNotifier.value = totals.byCurrency;
+      availableBalanceNotifier.value = totals.totalFor(CurrencyHelper.currencyCode);
       _widgetRefreshTimer?.cancel();
       _widgetRefreshTimer = Timer(const Duration(milliseconds: 500), () {
         WidgetService.refreshWidgetFromData();
@@ -568,6 +573,8 @@ class _HomeState extends State<Home> {
                           horizontal: 16, vertical: 10),
                       child: TotalBalanceWidget(
                         availableBalanceNotifier: availableBalanceNotifier,
+                        availableBalancesByCurrencyNotifier:
+                            availableBalancesByCurrencyNotifier,
                         accountingBalance: accountingBalance(), // Usar el nuevo método que excluye transferencias
                         totalExpenses: expenses(),
                         totalIncome: income(),
