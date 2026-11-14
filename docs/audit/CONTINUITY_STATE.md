@@ -1,8 +1,8 @@
 # Punto de Continuidad (`docs/audit/CONTINUITY_STATE.md`)
 
-> **Fecha:** 2026-11-14 (Cierre de lote autónomo Wave 1 + T3.4 + Ola 4 `T4.1`–`T4.3`)  
+> **Fecha:** 2026-11-14 (Cierre de Lote A + Lote E `T2.1`/`T2.2` compatible)  
 > **Estado de cuota:** No consultable desde herramientas (no se inventa valor numérico).  
-> **Rama / HEAD real:** `agent/ui/t1-3c-daily-transactions-delete` @ `db75c35` (base `05379fa` + `fcbb7d6` + `bd9da6e` + `2de9a61` + `aac8c93` + `c43a3ea` + `55b5757` + `82322c8` + `561f0fd` + `38b6992` + `db75c35`).  
+> **Rama / HEAD real:** `agent/ui/t1-3c-daily-transactions-delete` @ `498bd39` (base `05379fa` + Wave 1/Ola 4 hasta `db75c35` + `e46b2c6` + `b7f4da7` + `e428c80` + `498bd39`).  
 > **Git status:** Limpio tras commit documental.  
 > **Agentes / Tareas activas:** `0` subagentes activos; contenedor `finazaap-flutter` activo montando `/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap -> /app`.
 
@@ -118,3 +118,18 @@
   4. Decisión de precisión monetaria / `currencyCode` por cuenta (`AccountItem`, `Responsibility.isAmountCovered`).
   5. Revisión humana para `merge` a `main`, `git push` y `adb install`.
 - **Siguiente tarea elegible sin permisos pendientes:** Limpieza menor de `T1.3c` (`L1.6`/`L1.7` código muerto en `add`/`add_expense`/`transfer`/`home`) si se autoriza nueva iteración, o cierre para revisión humana.
+
+---
+
+## 7. Estado Actualizado tras Lote A y Lote E (`498bd39`)
+- **Decisión D1 aplicada:** Gemma 4 E2B instruct, ejecución local móvil vía LiteRT-LM y artefacto `.litertlm` (`ModelType.gemma4`, `ModelFileType.litertlm`), sin actualizar SDK/plugin/motor (`flutter_gemma: 1.0.2` ya incluye `ModelType.gemma4`, `ModelFileType.litertlm`, `openChat(...)`, `stopGeneration()` y `.withProgress(...)`).
+- **Commits ejecutados:**
+  - `b7f4da7` — **Lote A (`L1.6`/`L1.7`):** eliminación de helpers muertos (`_revertTransfer`, `_updateAccountBalance`, `_updateAccountBalanceAfterDeletion`, `_showDeleteConfirmation`, `_revertPreviousTransaction`, `_saveAccountsToPrefs`, `_revertPreviousTransfer`) e imports sin uso en `home.dart`, `add.dart`, `add_expense.dart` y `transfer.dart`.
+  - `e428c80` — **Lote E (`T2.1`):** `lib/services/ai_chat_service.dart` (sesión persistente reutilizada sin `createChat` por turno, una generación activa con `cancelGeneration()`, `maxTokens: 2048`, `ModelType.gemma4`, `isThinking: false`, `maxOutputTokens: 320`, streaming con throttle ~60 ms, `.withProgress(...)`, `_generateInternalSummary()` determinista, `AiChatSessionAdapter`/`testSessionCreator`), `lib/features/notifications/services/gemma_classifier_adapter.dart` (`openChat(modelType: ModelType.gemma4, isThinking: false)` + cierre seguro en `finally`) y `test/audit/t2_1_ai_chat_service_test.dart` (`3/3` + `test/ai_chat_service_test.dart` = `6/6`).
+  - `498bd39` — **Lote E (`T2.2` parte compatible):** `android/app/src/main/kotlin/com/example/finazaap/MainActivity.kt` (`getDeviceMemoryInfo` con `totalMem`, `availMem`, `lowMemory`), `lib/services/device_capability_service.dart` (`availRAMGB`, `lowMemory`, `hasEnoughAvailableRAM` con `_minAvailRAMGB = 2.0` y fallback a `getTotalRam`), `lib/Screens/ai_chat_screen.dart` (`_modelUrlController` en estado con `dispose()`, porcentaje + `LinearProgressIndicator` durante descarga en `_buildEngineStatusBanner()`, botón de cancelar `cancelGeneration()` en `_buildInputBar()`) y `test/audit/t2_2_gemma_ui_and_capability_test.dart` (`5/5` + `test/widgets/ui_layout_and_navigation_test.dart` = `11/11`).
+- **Bloqueos concretos pendientes (sin permiso o fuera de alcance actual):**
+  1. **Lote B (`T0.3` + `T3.3`):** requiere autorización explícita para actualizar Kotlin/Gradle (`1.9.22` -> `2.0.0`) y editar `android/app/src/main/AndroidManifest.xml` (protegido; conservar `INTERNET` si es necesario para descarga explícita del modelo).
+  2. **Lote C (`T3.1` + `T3.2`):** requiere autorización explícita sobre `lib/core/security/*` y migración de cifrado Hive (`data`/`responsibilities`), excluyendo todo acceso o migración de datos reales.
+  3. **Lote D (`currencyCode`):** requiere definición/aprobación de precisión monetaria y `currencyCode` por cuenta/obligación.
+  4. **Validación física de `T2.2`:** descarga real de `.litertlm`, medición de RAM disponible, velocidad (`tokens/s`) y calidad de inferencia en dispositivo físico no ejecutadas (solo pruebas unitarias/widget con mocks sintéticos).
+  5. **Integración final:** revisión humana, `merge` a `main`, `git push` y `adb install`.

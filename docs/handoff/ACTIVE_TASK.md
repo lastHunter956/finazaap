@@ -1,13 +1,14 @@
 # Tarea Activa (`docs/handoff/ACTIVE_TASK.md`)
 
-> **Rama actual:** `agent/ui/t1-3c-daily-transactions-delete` @ `db75c35`  
-> **Estado:** **Lote Wave 1 (`L1.1`, `T1.3c`, `T1.4`) + `T3.4` + Ola 4 (`T4.1`, `T4.2`, `T4.3`) completado**. Ver detalle y cola de permisos en `docs/audit/CONTINUITY_STATE.md` (Sección 6).
+> **Rama actual:** `agent/ui/t1-3c-daily-transactions-delete` @ `498bd39`  
+> **Estado:** **Lote A (`L1.6`/`L1.7`) + Lote E (`T2.1` y parte compatible de `T2.2` con `D1` = Gemma 4 E2B instruct `.litertlm`) completados**. Pendientes permisos de `Lote B` (`T0.3`, `T3.3`, `AndroidManifest.xml`), `Lote C` (`T3.1`, `T3.2`, `lib/core/security/*`), `Lote D` (`currencyCode`/precisión por cuenta), y validación física de descarga/inferencia (`T2.2`) y `merge`/`push`/`adb install`. Ver detalle en `docs/audit/CONTINUITY_STATE.md` (Sección 6 y 7).
 
 ## Primera Tarea Ejecutable (Siguiente Sesión)
 1. [x] Estabilizar `test/audit/t1_3c_ui_deletion_test.dart` y corregir `L1.1` en `lib/Screens/daily_transactions.dart` delegando `_deleteTransaction` a `TransactionService.deleteTransaction(transaction)` (`fcbb7d6`, endurecido en `561f0fd`).
 2. [x] Completar `T1.3c` (`L1.3`, `L1.8`, `L2.1`, `L2.2`, `L3.1`, `L5.1`), `T1.4`, `T3.4` y `T4.1` (`bd9da6e`, `2de9a61`, `aac8c93`, `c43a3ea`, `82322c8`, `561f0fd`).
 3. [x] Completar `T4.2` y `T4.3` (`38b6992`, `db75c35`) con pruebas funcionales/estructurales en Docker.
-4. [ ] Resolver autorizaciones/decisiones pendientes (`T0.3`, `T3.1`/`T3.2`, `D1`, `currencyCode`) o revisión humana para `merge` a `main`.
+4. [x] Completar Lote A (`b7f4da7`, limpieza de código muerto `L1.6`/`L1.7`) y Lote E (`e428c80` `T2.1` + `498bd39` `T2.2` compatible con `flutter_gemma: 1.0.2` y `D1`: Gemma 4 E2B instruct vía LiteRT-LM `.litertlm`).
+5. [ ] Resolver permisos pendientes de `Lote B` (`T0.3` Kotlin/Gradle, `T3.3` `AndroidManifest.xml`), `Lote C` (`T3.1`/`T3.2` cifrado `lib/core/security/*`), `Lote D` (`currencyCode`), validación física en dispositivo (`T2.2` descarga/RAM/inferencia) y revisión humana para `merge` a `main`.
 
 ## Objetivo
 Entregar la propuesta visual completa en `integration/ui-temas-y-asistente`: tratamiento Apple HIG / Liquid Glass y física `SpringSimulation` exclusivos de `Diurno` (solo en capa funcional y controles de transición), corrección WCAG AA/AAA en `Día` y `Nocturno` (Dracula), preservación de `Default`, resolución dinámica de solapamientos barra inferior / botón `+` / listas, conversaciones editoriales y `Perfil Cognitivo` coherente en `AiChatScreen`, y encabezados unificados `MoneoHeaderBar` en todas las pantallas del proyecto.
