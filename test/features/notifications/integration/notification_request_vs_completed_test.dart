@@ -151,6 +151,7 @@ void main() {
       ({
         NotificationPipelineService pipeline,
         _SyntheticNotificationSource source,
+        MockTransactionExecutionAdapter executionPort,
         Box<dynamic> dedupBox,
         Box<dynamic> pendingBox,
         Box<dynamic> executedBox,
@@ -185,6 +186,7 @@ void main() {
     );
 
     final source = _SyntheticNotificationSource();
+    final executionPort = MockTransactionExecutionAdapter();
     final dedupBox = await Hive.openBox<dynamic>('repro_dedup_$suffix');
     final pendingBox = await Hive.openBox<dynamic>('repro_pending_$suffix');
     final executedBox = await Hive.openBox<dynamic>('repro_executed_$suffix');
@@ -194,7 +196,7 @@ void main() {
       boxEncryption: encryption,
       whitelistService: whitelist,
       source: source,
-      executionPort: MockTransactionExecutionAdapter(),
+      executionPort: executionPort,
       dedupBox: dedupBox,
       pendingBox: pendingBox,
       executedBox: executedBox,
@@ -206,6 +208,7 @@ void main() {
     return (
       pipeline: pipeline,
       source: source,
+      executionPort: executionPort,
       dedupBox: dedupBox,
       pendingBox: pendingBox,
       executedBox: executedBox,
@@ -243,6 +246,10 @@ void main() {
             'La solicitud previa ("Tienes un pago... Completa tu pago") no debe duplicar la operación aprobada como un segundo movimiento.',
       );
       expect(items.single.rawText, contains('Pago aprobado'));
+      expect(items.single.requiresReview, isTrue);
+      expect(items.single.autoProcessable, isFalse);
+      expect(items.single.destinationAccount, isNull);
+      expect(env.executionPort.executionCount, 0);
     },
   );
 
@@ -417,6 +424,38 @@ void main() {
       final parsed = parseResult as ParsedTransaction;
       expect(parsed.tipo, equals('gasto'));
       expect(parsed.monto, closeTo(225881.0, 0.01));
+    },
+  );
+
+  test(
+    'Caso 7: pago aprobado con cuenta/destino ambiguos llega a Pendientes como propuesta corregible sin alterar saldos ni auto-ejecutarse',
+    () async {
+      final env = await createIsolatedPipeline('case7');
+      addTearDown(() async {
+        await env.source.dispose();
+        await env.dedupBox.close();
+        await env.pendingBox.close();
+        await env.executedBox.close();
+        await env.patternsBox.close();
+      });
+
+      await env.pipeline.setAutoAcceptFutureEnabled(true);
+
+      env.source.emit(
+        _NotificationRequestVsApprovedFixture.approvedNuPayment(),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await env.pipeline.flushPendingProcessing();
+
+      final items = env.pipeline.pendingNotifier.items;
+      expect(items.length, 1);
+      final item = items.single;
+      expect(item.rawText, contains('Pago aprobado'));
+      expect(item.requiresReview, isTrue);
+      expect(item.autoProcessable, isFalse);
+      expect(item.destinationAccount, isNull);
+      expect(env.executionPort.executionCount, 0);
     },
   );
 }

@@ -161,7 +161,7 @@
 ---
 
 ### E. Caso Sintético de Notificaciones (`test/features/notifications/integration/notification_request_vs_completed_test.dart`)
-- **N1 (`RESUELTO` con prueba de regresión en `test/`, `6/6` pasan):**
+- **N1 (`RESUELTO` con prueba de regresión en `test/`, `7/7` pasan):**
   - **Evidencia:** `notification_parser.dart:33-53,111-120`, `transaction_classifier.dart:52-104,359-456,576-700`, `notification_pipeline_service.dart:302-308`.
   - **Alcance implementado:**
     1. Solicitud/recordatorio de pago pendiente (`"Tienes un pago... Completa tu pago"`) se descarta como movimiento no consumado (`UnparseableNotification` / `payment_request_pending`), conservando pagos aprobados reales incluso si incluyen texto sobre próximos pagos.
