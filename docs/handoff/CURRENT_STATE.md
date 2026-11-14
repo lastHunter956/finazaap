@@ -1,15 +1,19 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-13 (política corregida para exigir validación humana antes del merge a `main`; merge previo de Sprint 1/2 ya ejecutado en `main` sin `git push`)  
+> **Última actualización:** 2026-11-14 (Fase 1 de `ui-temas-y-asistente` completada en `integration/ui-temas-y-asistente`; pendiente de validación visual del usuario antes de Fase 2 y sin merge a `main`)  
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `main` (única rama local en el repositorio tras el merge previo de Sprint 1, Sprint 2, hooks de seguridad y handoff, ejecutado antes de corregir la política).
-- **Estado frente a remoto:** `main` está adelantada respecto a `origin/main` (`34` commits incluyendo la actualización documental de la política corregida; **no se ha hecho `git push`**).
-- **Tag de seguridad pre-merge (rollback):** `pre-sprint-2-main` -> `2369699`.
+- **Rama actual:** `integration/ui-temas-y-asistente` (consolidada desde `agent/ui/fase-1-tokens-contraste`, commit `35d9200`; **sin merge a `main`** hasta validación visual del usuario).
+- **Estado de `main`:** `main` permanece en `165c1c1` (adelantada `34` commits respecto a `origin/main`, sin `git push`). Tag de seguridad previo: `pre-sprint-2-main` -> `2369699`.
+- **Fase 1 (`ui-temas-y-asistente`) completada y en espera de validación visual:**
+  - `lib/themes/app_theme_data.dart`: tokens de contraste WCAG 2.1 AA/AAA aplicados a `_diurno` (`#EEF2F8` / `#FFFFFF` / `#0B132B` / `#0062CC`) y `_dia` (`#F4EFE6` / `#FFFDF9` / `#1C1917` / `#0F766E`); paleta oficial Dracula aplicada a `_nocturno` (`#282A36` / `#313442` / `#44475A` / `#F8F8F2` / `#6272A4` / `#BD93F9` / `#8BE9FD` / `#50FA7B` / `#FFB86C` / `#FF5555`, más `AppTheme.draculaPink = #FF79C6`); `_defaultDark` intacto sin modificaciones; `onSecondary`/`onError` adaptativos en `buildThemeData`.
+  - Colores hardcodeados corregidos sin añadir glass/blur ni cambiar estructura en `lib/widgets/total_balance_widget.dart`, `lib/widgets/custom_pill_bottom_nav_bar.dart`, `lib/Screens/settings_screen.dart` y `lib/Screens/statistics.dart`.
+  - Artefactos Spec Kit en `.specify/ui-temas-y-asistente/{spec.md,plan.md,tasks.md}` y suite `test/themes/app_theme_contrast_test.dart`.
+  - **Pendiente tras validación visual de Fase 1:** Fase 2 (rediseño de `AiChatScreen`) y Fase 3 (Liquid Glass moderado en `Diurno` solo para barra inferior y composer del chat).
 - **Worktrees activos:** únicamente el worktree principal (`/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap`). Los 4 worktrees huérfanos de subagentes de Sprint 1 y las ramas auxiliares/integración previas ya fueron eliminados; sin worktrees huérfanos en Antigravity.
 - **Commit de configuración de hooks y `.gitignore`:** `b45b31a` (`chore(security): configure fail-closed hooks, SessionStart handoff and gitignore rules`).
 - **Política vigente para el futuro (`AGENTS.md` y `docs/handoff/DECISIONS.md`):**
@@ -25,8 +29,10 @@
   - UX: `SettingsScreen` refresca estado/diagnóstico al volver de Ajustes (`resumed`), guía exención de batería y resincroniza al restablecer; `Home` muestra botón AppBar con badge y banner directo a pendientes; `CustomPillBottomNavBar` muestra punto indicador en Ajustes.
   - APK debug instalado y probado por el usuario en `R5CY21GE9YY` (`/tmp/finazaap_debug_build/build/app/outputs/flutter-apk/app-debug.apk`): `SHA-256: 662cc1f50d848a79b54a88634aecc575fa1a2064961a7158d24f62ea3df885bf`, firma Android Debug `SHA-256: 1103fe225bd22694fb0ffc2e3d94ecd1cbb8f5a27712167b1eccab3a1f679e61`, `applicationId: com.example.finazaap`, `versionCode: 1`, `versionName: 1.0.0`.
 - **Ramas observadas en el repositorio:**
-  - `main` (única rama; contiene todo Sprint 1, Sprint 2, hooks de seguridad, handoff y la política corregida con validación humana; adelantada `34` commits respecto a `origin/main`, sin `push`)
-- **Docker (`flutter-env` / `finazaap-flutter`):** Contenedor activo. Validación obligatoria en `main` tras el merge (`dart analyze lib/features/notifications/ test/features/notifications/` sin issues y `flutter test -j 1 test/` 94/94 pasaron). Validación E2E de hooks en conversación limpia `524dbf94-a0d3-4c0a-87e4-c34c214650f4` completada con éxito.
+  - `main` (`165c1c1`, adelantada `34` commits respecto a `origin/main`, sin `push`)
+  - `agent/ui/fase-1-tokens-contraste` (rama de trabajo de Fase 1)
+  - `integration/ui-temas-y-asistente` (rama de integración activa; **permanece hasta validación visual del usuario**, prohibido eliminar o fusionar a `main` antes)
+- **Docker (`flutter-env` / `finazaap-flutter`):** Contenedor activo. Validación de Fase 1 en Docker: `dart analyze lib/themes/ test/themes/` con 0 issues, `dart analyze` global sin errores (solo warnings/infos preexistentes en archivos heredados) y `flutter test -j 1` **99/99 pasaron** (incluyendo 5 pruebas nuevas de contraste/Dracula).
 
 ---
 
