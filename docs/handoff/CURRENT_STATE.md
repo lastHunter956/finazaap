@@ -1,13 +1,13 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-14 (Validación visual de `ui-temas-y-asistente` aprobada por el usuario; merge `--ff-only` a `main`, re-verificación en `main` y preparación de APK debug para prueba en dispositivo físico)  
+> **Última actualización:** 2026-11-14 (Traspaso de ejecución autónoma desde `agent/ui/t1-3c-daily-transactions-delete` @ `05379fa`; ver detalle operativo de Ola 1 y continuidad en `docs/audit/CONTINUITY_STATE.md`)  
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `main` (tras validación visual del usuario sobre `integration/ui-temas-y-asistente`, consolidando Fases 1–4 y ajustes visuales finales `af1fbf5` mediante merge `--ff-only`; **sin `git push`**). Tag de seguridad previo: `pre-sprint-2-main` -> `2369699`.
+- **Rama actual:** `agent/ui/t1-3c-daily-transactions-delete` (desde `05379fa`, rama con todas las correcciones acumuladas de Ola 1: `agent/ui/t1-1-account-item-dedup` @ `05379fa`; **sin `git push` ni `merge` a `main`**). `main` permanece en `bab211f`. Tag de seguridad previo: `pre-sprint-2-main` -> `2369699`.
 - **Integración `ui-temas-y-asistente` aprobada y fusionada en `main`:**
   - `lib/themes/app_theme_data.dart`: contraste WCAG 2.1 AA (`>=4.5:1`) y AAA (`>=7.0:1`) verificado sobre las **3 superficies** (`primaryBackground`, `cardBackground`, `darkBackground`) en `_diurno`, `_dia` y `_nocturno` (Dracula oficial); `_defaultDark` 100% intacto sin modificaciones; re-exporta `lib/widgets/liquid_glass_surface.dart`.
   - **Navegación, FAB `+`, Scroll Clearance y Movimiento (`Diurno`)**: `lib/widgets/liquid_glass_surface.dart` (`MoneoLayoutMetrics`, `MoneoNavBarScope`, `MoneoSpringMotion` con `SpringSimulation(mass: 1.0, stiffness: 380.0, damping: 30.0)`, `MoneoPressableScale`, `LiquidGlassSurface`), `MainContainer` (`effectiveBottomClearance`), `CustomPillBottomNavBar` (cápsula proporcional con continuidad `SpringSimulation` en `Diurno`), `FloatingActionMenu` (`t.buttonBackground`/`t.buttonForeground` con contraste AA) y `TotalBalanceCard` (`MoneoPressableScale` discreto en segmentos `Diurno`).

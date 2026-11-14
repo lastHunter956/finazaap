@@ -1,8 +1,13 @@
 # Tarea Activa (`docs/handoff/ACTIVE_TASK.md`)
 
-> **Rama actual:** `main` (`integration/ui-temas-y-asistente` aprobada visualmente, fusionada con `--ff-only` y retirada tras pasar pruebas en `main`)  
-> **Ramas consolidadas y retiradas:** `integration/ui-temas-y-asistente`, `agent/ui/fase-1-tokens-contraste`, `agent/ui/nav-and-fab-layout`, `agent/ui/chat-and-cognitive-profile`, `agent/ui/screens-headers-and-scroll-padding`  
-> **Estado:** **UI aprobada y fusionada en `main`** — preparando APK debug desde `main` para verificación en teléfono físico (requiere aprobación explícita antes de `adb install` y `git push`).
+> **Rama actual:** `agent/ui/t1-3c-daily-transactions-delete` (desde `05379fa`)  
+> **Rama/commit con correcciones acumuladas:** `agent/ui/t1-1-account-item-dedup` @ `05379fa`  
+> **Cambios sin commit:** `?? test/audit/t1_3c_ui_deletion_test.dart` (`lib/` sin modificar)  
+> **Estado:** **Pausada para traspaso a nuevo chat** — reproducción de `L1.1` iniciada; falta estabilizar el test widget (`pumpAndSettle`) y aplicar la corrección en `lib/Screens/daily_transactions.dart`. Ver detalle completo en `docs/audit/CONTINUITY_STATE.md` (Sección 6).
+
+## Primera Tarea Ejecutable
+1. [ ] Estabilizar `test/audit/t1_3c_ui_deletion_test.dart` y corregir `L1.1` en `lib/Screens/daily_transactions.dart` delegando `_deleteTransaction` a `TransactionService.deleteTransaction(transaction)`.
+2. [ ] Validar con `dart analyze` y `flutter test --no-pub -j 1` en Docker (`finazaap-flutter`), sin tocar archivos protegidos ni hacer `push`/`merge` a `main`.
 
 ## Objetivo
 Entregar la propuesta visual completa en `integration/ui-temas-y-asistente`: tratamiento Apple HIG / Liquid Glass y física `SpringSimulation` exclusivos de `Diurno` (solo en capa funcional y controles de transición), corrección WCAG AA/AAA en `Día` y `Nocturno` (Dracula), preservación de `Default`, resolución dinámica de solapamientos barra inferior / botón `+` / listas, conversaciones editoriales y `Perfil Cognitivo` coherente en `AiChatScreen`, y encabezados unificados `MoneoHeaderBar` en todas las pantallas del proyecto.
