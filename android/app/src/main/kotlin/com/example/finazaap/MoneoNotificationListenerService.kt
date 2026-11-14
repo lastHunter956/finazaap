@@ -4,13 +4,21 @@ import android.app.Notification
 import android.content.ComponentName
 import android.content.Context
 import android.os.Build
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Base64
 import androidx.core.app.NotificationManagerCompat
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.lang.ref.WeakReference
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 /**
  * Servicio nativo Android para captura selectiva y offline de notificaciones bancarias.
@@ -29,6 +37,12 @@ class MoneoNotificationListenerService : NotificationListenerService() {
         const val KEY_CAPTURE_ENABLED = "capture_enabled"
         const val KEY_ALLOWED_PACKAGES = "allowed_packages"
         private const val QUEUE_FILE_NAME = "moneo_notif_queue.json"
+        private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
+        private const val QUEUE_KEY_ALIAS = "moneo_notif_queue_aes_key_v1"
+        private const val AES_GCM_TRANSFORMATION = "AES/GCM/NoPadding"
+        private const val ENCRYPTED_QUEUE_PREFIX = "ENCv1:"
+        private const val GCM_IV_LENGTH_BYTES = 12
+        private const val GCM_TAG_LENGTH_BITS = 128
         private const val MAX_QUEUE_SIZE = 200
         private const val MAX_ITEM_AGE_MS = 7L * 24 * 60 * 60 * 1000
 
@@ -261,12 +275,66 @@ class MoneoNotificationListenerService : NotificationListenerService() {
             }
         }
 
+        private fun getOrCreateQueueSecretKey(): SecretKey? {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null
+            val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
+            val existing = keyStore.getKey(QUEUE_KEY_ALIAS, null) as? SecretKey
+            if (existing != null) return existing
+
+            val keyGenerator = KeyGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_AES,
+                KEYSTORE_PROVIDER
+            )
+            val spec = KeyGenParameterSpec.Builder(
+                QUEUE_KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .setRandomizedEncryptionRequired(true)
+                .build()
+            keyGenerator.init(spec)
+            return keyGenerator.generateKey()
+        }
+
+        private fun encryptQueuePayload(plainJson: String): String {
+            val secretKey = getOrCreateQueueSecretKey() ?: return plainJson
+            val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+            val iv = cipher.iv
+            val cipherBytes = cipher.doFinal(plainJson.toByteArray(Charsets.UTF_8))
+            val combined = ByteArray(iv.size + cipherBytes.size)
+            System.arraycopy(iv, 0, combined, 0, iv.size)
+            System.arraycopy(cipherBytes, 0, combined, iv.size, cipherBytes.size)
+            return ENCRYPTED_QUEUE_PREFIX + Base64.encodeToString(combined, Base64.NO_WRAP)
+        }
+
+        private fun decryptQueuePayload(rawContent: String): String? {
+            if (!rawContent.startsWith(ENCRYPTED_QUEUE_PREFIX)) {
+                // Compatibilidad de lectura para cola legada en claro previa a la migración.
+                return rawContent
+            }
+            val secretKey = getOrCreateQueueSecretKey() ?: return null
+            val encoded = rawContent.substring(ENCRYPTED_QUEUE_PREFIX.length)
+            val combined = Base64.decode(encoded, Base64.NO_WRAP)
+            if (combined.size <= GCM_IV_LENGTH_BYTES) return null
+
+            val iv = combined.copyOfRange(0, GCM_IV_LENGTH_BYTES)
+            val cipherBytes = combined.copyOfRange(GCM_IV_LENGTH_BYTES, combined.size)
+            val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv))
+            return String(cipher.doFinal(cipherBytes), Charsets.UTF_8)
+        }
+
         private fun readQueueArrayLocked(context: Context): JSONArray {
             val file = File(context.filesDir, QUEUE_FILE_NAME)
             if (!file.exists()) return JSONArray()
             return try {
-                val content = file.readText(Charsets.UTF_8)
-                if (content.isBlank()) JSONArray() else JSONArray(content)
+                val rawContent = file.readText(Charsets.UTF_8)
+                if (rawContent.isBlank()) return JSONArray()
+                val jsonText = decryptQueuePayload(rawContent) ?: return JSONArray()
+                if (jsonText.isBlank()) JSONArray() else JSONArray(jsonText)
             } catch (_: Exception) {
                 JSONArray()
             }
@@ -275,9 +343,10 @@ class MoneoNotificationListenerService : NotificationListenerService() {
         private fun writeQueueArrayLocked(context: Context, array: JSONArray) {
             val file = File(context.filesDir, QUEUE_FILE_NAME)
             val tmpFile = File(context.filesDir, "$QUEUE_FILE_NAME.tmp")
-            tmpFile.writeText(array.toString(), Charsets.UTF_8)
+            val payload = encryptQueuePayload(array.toString())
+            tmpFile.writeText(payload, Charsets.UTF_8)
             if (!tmpFile.renameTo(file)) {
-                file.writeText(array.toString(), Charsets.UTF_8)
+                file.writeText(payload, Charsets.UTF_8)
                 tmpFile.delete()
             }
         }

@@ -75,9 +75,12 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
   }
 
   Future<void> _checkSecurity() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
-    await Future.delayed(const Duration(milliseconds: 100)); 
-    
+    await Future.wait([
+      Future.delayed(const Duration(milliseconds: 1600)),
+      _pinProvider.ensureInitialized(),
+    ]);
+    if (!mounted) return;
+
     if (_pinProvider.isPinEnabled) {
        setState(() {
          _statusMessage = 'Verificando seguridad...';
