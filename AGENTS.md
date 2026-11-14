@@ -20,13 +20,18 @@ Moneo (`finazaap`) es una aplicación de finanzas personales en Flutter/Dart, **
 ## 1. Reglas Operativas Esenciales
 
 - **Docker obligatorio:** Flutter, Dart, `build_runner` y pruebas se ejecutan **solo en Docker** (`docker-compose exec flutter-env ...` / `docker exec finazaap-flutter ...`). No instalar herramientas en el host macOS.
-- **Git, ramas y política de integración autónoma:**
-  - Prohibido hacer commits directos en `main`. Cada agente trabaja en `agent/<nombre>/<tarea>` y, si hay paralelismo, en su propio `git worktree`. No crear ramas nuevas sin necesidad; el handoff vive en `docs/handoff/`, no en ramas paralelas.
-  - Al terminar, consolida en `integration/<feature>` si hace falta coordinación; si el trabajo es lineal, puede integrar directamente a `main`.
-  - Ejecuta en Docker `dart analyze` y `flutter test -j 1`.
-  - Si análisis y pruebas pasan, haz merge local a `main` con `--ff-only` cuando sea posible (si no, merge normal con mensaje claro) y vuelve a ejecutar análisis y pruebas en `main`.
-  - Si pasan, elimina automáticamente: ramas `agent/*` ya contenidas en `main`, ramas `subagent-*` ya contenidas en `main`, ramas `integration/*` ya fusionadas en `main` (`git branch -d`), y worktrees limpios (`git status --porcelain` vacío) y sin procesos activos (`git worktree remove "<wt>"` entrecomillado por espacios en `/Volumes/ADATA SD620/...` + `git worktree prune`).
-  - Actualiza `docs/handoff/CURRENT_STATE.md` y `docs/handoff/ACTIVE_TASK.md`. No conserves ramas ni worktrees de tareas terminadas.
+- **Git, ramas y modelo de trabajo con validación humana:**
+  - Prohibido hacer commits directos en `main`. `main` debe permanecer estable y protegida.
+  - Cada chat/agente trabaja en `agent/<nombre>/<tarea>` y, si hay paralelismo, en su propio `git worktree`. No crear ramas nuevas sin necesidad; el handoff vive en `docs/handoff/`, no en ramas paralelas.
+  - Al terminar, el agente consolida su trabajo en **UNA** rama de integración por funcionalidad o sprint: `integration/<funcionalidad-o-sprint>`. No debe existir una rama de integración por cada chat.
+  - La rama de integración recibe las pruebas automatizadas en Docker: `dart analyze` y `flutter test -j 1`.
+  - **La rama de integración PERMANECE** hasta que el usuario valide la funcionalidad en la aplicación.
+  - **REGLA CRÍTICA:** No elimines una rama de integración antes de que el usuario haya validado la funcionalidad en la aplicación, salvo que el usuario lo ordene explícitamente.
+  - Solo después de esa validación humana se hace merge de la rama de integración a `main` (`--ff-only` cuando sea posible; si no, merge normal con mensaje claro).
+  - Después del merge a `main`:
+    - Ejecuta de nuevo análisis y pruebas en `main`.
+    - Si pasan, elimina automáticamente: la rama de integración ya fusionada (`git branch -d`), ramas `agent/*` ya contenidas, ramas `subagent-*` ya contenidas, y worktrees limpios (`git status --porcelain` vacío) y sin procesos activos (`git worktree remove "<wt>"` entrecomillado por espacios en `/Volumes/ADATA SD620/...` + `git worktree prune`).
+  - Actualiza `docs/handoff/CURRENT_STATE.md` y `docs/handoff/ACTIVE_TASK.md`. No conserves ramas ni worktrees de tareas ya validadas y fusionadas en `main`.
 - **Permite solo con aprobación explícita:**
   - `git push`.
   - `adb install` / `flutter install` (mostrando antes: commit, ruta y SHA-256 del APK, dispositivo, `applicationId`, `versionCode`, `versionName`, firma/certificado y confirmación de preservación de datos).

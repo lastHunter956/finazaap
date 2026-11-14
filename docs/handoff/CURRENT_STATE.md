@@ -1,20 +1,23 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-13 (todo el trabajo consolidado en `main`; política de integración autónoma aplicada; sin `git push`)  
+> **Última actualización:** 2026-11-13 (política corregida para exigir validación humana antes del merge a `main`; merge previo de Sprint 1/2 ya ejecutado en `main` sin `git push`)  
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `main` (única rama local en el repositorio tras consolidar Sprint 1, Sprint 2, hooks de seguridad, handoff y la política de integración autónoma).
-- **Estado frente a remoto:** `main` está adelantada respecto a `origin/main` (`33` commits totales —`8+` commits— incluyendo la historia de Sprint 1, Sprint 2, seguridad y documentación). **No se ha hecho `git push`.**
-- **Tag de seguridad pre-merge:** `pre-sprint-2-main` -> `2369699`.
-- **Worktrees activos:** únicamente el worktree principal (`/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap`). Los 4 worktrees huérfanos de subagentes de Sprint 1 y las 14 ramas auxiliares/integración fueron eliminados de forma segura tras comprobar `git merge-base --is-ancestor` y estado limpio; sin worktrees huérfanos en Antigravity.
+- **Rama actual:** `main` (única rama local en el repositorio tras el merge previo de Sprint 1, Sprint 2, hooks de seguridad y handoff, ejecutado antes de corregir la política).
+- **Estado frente a remoto:** `main` está adelantada respecto a `origin/main` (`34` commits incluyendo la actualización documental de la política corregida; **no se ha hecho `git push`**).
+- **Tag de seguridad pre-merge (rollback):** `pre-sprint-2-main` -> `2369699`.
+- **Worktrees activos:** únicamente el worktree principal (`/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap`). Los 4 worktrees huérfanos de subagentes de Sprint 1 y las ramas auxiliares/integración previas ya fueron eliminados; sin worktrees huérfanos en Antigravity.
 - **Commit de configuración de hooks y `.gitignore`:** `b45b31a` (`chore(security): configure fail-closed hooks, SessionStart handoff and gitignore rules`).
-- **Política aplicada:** Política de Integración Autónoma activa en `AGENTS.md` y `docs/handoff/DECISIONS.md` (merge local automático a `main` y limpieza de ramas/worktrees tras análisis y pruebas verdes en Docker; `git push`, instalaciones/comandos destructivos en teléfono, secretos, migraciones destructivas y acciones irreversibles externas requieren aprobación explícita).
-- **Estado de integración de notificaciones reales (Sprint 2):** **Implementada y validada parcialmente por el usuario en dispositivo físico (`Samsung SM_S721B`, serial `R5CY21GE9YY`).**
-  - **Validado realmente en teléfono:** **Transferencia real** (notificación capturada e ingresada a la bandeja de pendientes, confirmada por el usuario, y saldo actualizado correctamente una sola vez).
+- **Política vigente para el futuro (`AGENTS.md` y `docs/handoff/DECISIONS.md`):**
+  - Cada chat/agente trabaja en `agent/<nombre>/<tarea>` (con su propio `git worktree` si hay paralelismo) y consolida en **UNA** sola rama de integración por funcionalidad o sprint (`integration/<funcionalidad-o-sprint>`).
+  - La rama de integración recibe `dart analyze` y `flutter test -j 1` en Docker y **permanece hasta que el usuario valide la funcionalidad en la aplicación** (prohibido eliminarla antes salvo orden explícita).
+  - Solo tras la validación humana se hace merge a `main`, se re-ejecutan análisis y pruebas en `main`, y entonces se eliminan la rama de integración, las ramas `agent/*` y `subagent-*` contenidas y los worktrees limpios. `git push` e instalación en el teléfono requieren aprobación explícita.
+- **Estado de integración de notificaciones reales (Sprint 2):** **El merge a `main` ya ocurrió, pero la integración NO está completamente validada — validada solo parcialmente en dispositivo físico (`Samsung SM_S721B`, serial `R5CY21GE9YY`).**
+  - **Validado realmente en teléfono:** **Únicamente transferencia real** (notificación capturada e ingresada a la bandeja de pendientes, confirmada por el usuario, y saldo actualizado correctamente una sola vez).
   - **Validación ampliada pendiente para una sesión futura (no completada; no declarar validada toda la integración):** gastos reales, ingresos reales, transferencia entre cuentas propias, notificaciones duplicadas/actualizadas, confirmación repetida/reinicio, descarte sin mutación contable, apps no seleccionadas, notificaciones ambiguas, URLs no accionables y recuperación ante *force stop*/reinicio.
 - **Mejoras implementadas en `agent/notifications/ux-y-optimizacion` (`2d803ae`):**
   - Nativo Android: `MoneoNotificationListenerService.kt` (`isListenerConnected`, `ensureServiceBound`/`requestRebind`, TTL de 7 días y tope de 200 eventos en `moneo_notif_queue.json`) y `MainActivity.kt` (`getListenerDiagnostics`, `openBatteryOptimizationSettings`, caché de apps instaladas con TTL de 5 min).
@@ -22,7 +25,7 @@
   - UX: `SettingsScreen` refresca estado/diagnóstico al volver de Ajustes (`resumed`), guía exención de batería y resincroniza al restablecer; `Home` muestra botón AppBar con badge y banner directo a pendientes; `CustomPillBottomNavBar` muestra punto indicador en Ajustes.
   - APK debug instalado y probado por el usuario en `R5CY21GE9YY` (`/tmp/finazaap_debug_build/build/app/outputs/flutter-apk/app-debug.apk`): `SHA-256: 662cc1f50d848a79b54a88634aecc575fa1a2064961a7158d24f62ea3df885bf`, firma Android Debug `SHA-256: 1103fe225bd22694fb0ffc2e3d94ecd1cbb8f5a27712167b1eccab3a1f679e61`, `applicationId: com.example.finazaap`, `versionCode: 1`, `versionName: 1.0.0`.
 - **Ramas observadas en el repositorio:**
-  - `main` (única rama; contiene todo Sprint 1, Sprint 2, hooks de seguridad, handoff y política de integración autónoma; adelantada `33` commits respecto a `origin/main`, sin `push`)
+  - `main` (única rama; contiene todo Sprint 1, Sprint 2, hooks de seguridad, handoff y la política corregida con validación humana; adelantada `34` commits respecto a `origin/main`, sin `push`)
 - **Docker (`flutter-env` / `finazaap-flutter`):** Contenedor activo. Validación obligatoria en `main` tras el merge (`dart analyze lib/features/notifications/ test/features/notifications/` sin issues y `flutter test -j 1 test/` 94/94 pasaron). Validación E2E de hooks en conversación limpia `524dbf94-a0d3-4c0a-87e4-c34c214650f4` completada con éxito.
 
 ---
@@ -63,5 +66,5 @@
 ## 4. Próximos Pasos Pendientes
 
 - **Validación manual ampliada en sesión futura** sobre dispositivo físico (`R5CY21GE9YY`), junto con otras mejoras pendientes: gastos reales, ingresos reales, transferencia entre cuentas propias, duplicados/actualizaciones, confirmación repetida/reinicio, descarte sin mutación contable, apps no seleccionadas, notificaciones ambiguas, URLs no accionables y recuperación ante *force stop* / reapertura.
-- **Decisión explícita del usuario para `git push`** cuando desee publicar `main` hacia `origin/main` (actualmente `main` está adelantada `33` commits locales).
+- **Decisión explícita del usuario para `git push`** cuando desee publicar `main` hacia `origin/main` (actualmente `main` está adelantada `34` commits locales).
 - Ejecución E2E Maestro en emulador/dispositivo físico (`.maestro/sprint_1_notificaciones.yaml`), actualmente pendiente de dispositivo/JRE.
