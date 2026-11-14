@@ -104,6 +104,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   List<AccountItem> accountItems = [];
+  final Map<String, String?> _accountCurrencies = {};
   bool _hideBalance = false; // Variable para controlar la visibilidad del saldo
   String _currentSortMode = 'custom'; // 'balanceAsc', 'balanceDesc', 'creation', 'title', 'custom'
   bool _isReorderMode = false; // Para modo de reordenamiento personalizado
@@ -134,9 +135,16 @@ class _MyHomePageState extends State<MyHomePage> {
     List<String>? accountsData = prefs.getStringList('accounts');
     if (accountsData != null) {
       setState(() {
-        accountItems = accountsData
-            .map((item) => AccountItem.fromJson(json.decode(item)))
-            .toList();
+        _accountCurrencies.clear();
+        accountItems = accountsData.map((raw) {
+          final Map<String, dynamic> decoded =
+              json.decode(raw) as Map<String, dynamic>;
+          final AccountItem parsed = AccountItem.fromJson(decoded);
+          final String? code = decoded['currencyCode']?.toString();
+          _accountCurrencies[parsed.id] = code;
+          _accountCurrencies[parsed.title] = code;
+          return parsed;
+        }).toList();
       });
       _updateTotalBalance(); // Esta llamada es crucial
     } else {
@@ -269,15 +277,21 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  MultiCurrencyTotals _calculateTotalBalancesByCurrency() {
+    final totals = MultiCurrencyTotals();
+    for (final item in accountItems) {
+      if (item.includeInTotal && item.subtitle != 'Tarjeta de Crédito') {
+        final String? code =
+            _accountCurrencies[item.id] ?? _accountCurrencies[item.title];
+        totals.add(code, double.tryParse(item.balance) ?? 0.0);
+      }
+    }
+    return totals;
+  }
+
   double _calculateTotalBalance() {
-    return accountItems.fold<double>(
-      0.0,
-      (sum, item) =>
-          sum +
-          (item.includeInTotal && item.subtitle != 'Tarjeta de Crédito'
-              ? (double.tryParse(item.balance) ?? 0.0)
-              : 0.0),
-    );
+    return _calculateTotalBalancesByCurrency()
+        .totalFor(CurrencyHelper.currencyCode);
   }
 
   // Calcula el saldo total y llama al callback correspondiente
@@ -474,16 +488,50 @@ class _MyHomePageState extends State<MyHomePage> {
           SizedBox(height: 5),
           Row(
             children: [
-              // Texto formateado con el formato de moneda
-              Text(
-                _hideBalance
-                    ? '******** \$'
-                    : '${CurrencyHelper.format(totalBalance)}',
-                style: TextStyle(
-                  fontSize: AppSizes.fontTitle,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
+              // Texto formateado con el formato de moneda (separado por moneda si hay múltiples)
+              Builder(
+                builder: (context) {
+                  if (_hideBalance) {
+                    return Text(
+                      '******** \$',
+                      style: TextStyle(
+                        fontSize: AppSizes.fontTitle,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    );
+                  }
+                  final totals = _calculateTotalBalancesByCurrency();
+                  if (totals.isMultiCurrency) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: totals
+                          .formatLines()
+                          .map(
+                            (line) => Text(
+                              line,
+                              style: TextStyle(
+                                fontSize: AppSizes.fontXLarge,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                    );
+                  }
+                  final singleCode = totals.currencies.isNotEmpty
+                      ? totals.currencies.first
+                      : null;
+                  return Text(
+                    CurrencyHelper.formatFor(totalBalance, singleCode),
+                    style: TextStyle(
+                      fontSize: AppSizes.fontTitle,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  );
+                },
               ),
               SizedBox(width: AppSizes.paddingLarge),
               // Botón de ojo para mostrar/ocultar
