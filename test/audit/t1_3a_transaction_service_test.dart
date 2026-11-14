@@ -243,4 +243,74 @@ void main() {
     expect(double.parse(decoded[1]['balance'].toString()), closeTo(500000.0, 0.01));
     expect(prefs.getDouble('available_balance'), closeTo(1500000.0, 0.01));
   });
+
+  test('Guardia contra doble eliminación secuencial en deleteTransaction', () async {
+    final prefs = await PrefsManager.instance;
+    await prefs.setStringList('accounts', [
+      json.encode({
+        'title': 'Ahorros',
+        'subtitle': 'Cuenta de Ahorros',
+        'balance': '1000000',
+        'includeInTotal': true,
+      }),
+    ]);
+
+    final now = DateTime(2026, 11, 10);
+    final ok = await TransactionService.processTransaction(
+      type: 'Expenses',
+      amount: 150000,
+      accountName: 'Ahorros',
+      isNewTransaction: true,
+      recordInHive: false,
+      targetMonth: now.month,
+      targetYear: now.year,
+    );
+    expect(ok, isTrue);
+    expect(prefs.getDouble('available_balance'), closeTo(850000.0, 0.01));
+
+    final dataBox = Hive.box<Add_data>('data');
+    final tx = Add_data('Expenses', '150000', now, 'Compra', 'Alimentos', 'Ahorros');
+    await dataBox.add(tx);
+
+    expect(await TransactionService.deleteTransaction(tx), isTrue);
+    expect(await TransactionService.deleteTransaction(tx), isFalse);
+    expect(prefs.getDouble('available_balance'), closeTo(1000000.0, 0.01));
+  });
+
+  test('Guardia contra doble eliminación concurrente en deleteTransaction', () async {
+    final prefs = await PrefsManager.instance;
+    await prefs.setStringList('accounts', [
+      json.encode({
+        'title': 'Ahorros',
+        'subtitle': 'Cuenta de Ahorros',
+        'balance': '1000000',
+        'includeInTotal': true,
+      }),
+    ]);
+
+    final now = DateTime(2026, 11, 10);
+    final ok = await TransactionService.processTransaction(
+      type: 'Expenses',
+      amount: 200000,
+      accountName: 'Ahorros',
+      isNewTransaction: true,
+      recordInHive: false,
+      targetMonth: now.month,
+      targetYear: now.year,
+    );
+    expect(ok, isTrue);
+    expect(prefs.getDouble('available_balance'), closeTo(800000.0, 0.01));
+
+    final dataBox = Hive.box<Add_data>('data');
+    final tx = Add_data('Expenses', '200000', now, 'Compra', 'Servicios', 'Ahorros');
+    await dataBox.add(tx);
+
+    final results = await Future.wait([
+      TransactionService.deleteTransaction(tx),
+      TransactionService.deleteTransaction(tx),
+    ]);
+    expect(results.where((r) => r).length, 1);
+    expect(results.where((r) => !r).length, 1);
+    expect(prefs.getDouble('available_balance'), closeTo(1000000.0, 0.01));
+  });
 }

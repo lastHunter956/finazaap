@@ -416,9 +416,27 @@ class TransactionService {
     }
   }
   
+  static final Set<Object> _deletingTransactionLocks = <Object>{};
+
   // Método para eliminar una transacción y actualizar saldos
   static Future<bool> deleteTransaction(Add_data transaction) async {
+    if (!transaction.isInBox) {
+      return false;
+    }
+
+    final boxKey = transaction.key;
+    final lockKey = boxKey != null
+        ? '${transaction.box?.name ?? 'data'}:$boxKey'
+        : identityHashCode(transaction);
+    if (!_deletingTransactionLocks.add(lockKey)) {
+      return false;
+    }
+
     try {
+      if (!transaction.isInBox) {
+        return false;
+      }
+
       // Obtener cuentas actuales
       final prefs = await PrefsManager.instance;
       List<String>? accountsData = prefs.getStringList('accounts');
@@ -473,14 +491,17 @@ class TransactionService {
     } catch (e) {
       AppLogger.error('Error al eliminar transacción', error: e);
       return false;
+    } finally {
+      _deletingTransactionLocks.remove(lockKey);
     }
   }
 
   // Método para actualizar transacciones cuando se edita una cuenta
   static Future<void> updateTransactionsAfterAccountEdit(String oldAccountName, AccountItem newAccount) async {
     try {
-      // Crear un nuevo box para asegurar que no hay problemas de caché
-      final box = await Hive.openBox<Add_data>('data');
+      final box = Hive.isBoxOpen('data')
+          ? Hive.box<Add_data>('data')
+          : await Hive.openBox<Add_data>('data');
       
       AppLogger.debug('🔄 Iniciando actualización de transacciones: $oldAccountName → ${newAccount.title}');
       int updated = 0;
@@ -563,7 +584,9 @@ class TransactionService {
       
       // Obtener datos frescos
       final prefs = await PrefsManager.instance;
-      final box = await Hive.openBox<Add_data>('data');
+      final box = Hive.isBoxOpen('data')
+          ? Hive.box<Add_data>('data')
+          : await Hive.openBox<Add_data>('data');
       List<String>? accountsData = prefs.getStringList('accounts');
       
       if (accountsData == null) {
@@ -586,7 +609,9 @@ class TransactionService {
   static Future<void> verifyDatabaseIntegrity() async {
     try {
       AppLogger.info('🔍 Verificando integridad de la base de datos...');
-      final box = await Hive.openBox<Add_data>('data');
+      final box = Hive.isBoxOpen('data')
+          ? Hive.box<Add_data>('data')
+          : await Hive.openBox<Add_data>('data');
       final prefs = await PrefsManager.instance;
       List<String>? accountsData = prefs.getStringList('accounts');
       
