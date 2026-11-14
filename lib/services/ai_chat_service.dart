@@ -49,6 +49,44 @@ class ChatMessage {
       );
 }
 
+/// Contrato ligero para abstraer una sesión de chat Gemma (real o sintética en pruebas).
+abstract class AiChatSessionAdapter {
+  Future<void> addUserMessage(String text);
+  Stream<String> generateResponseStream();
+  Future<void> stopGeneration();
+  Future<void> close();
+}
+
+class _FlutterGemmaSessionAdapter implements AiChatSessionAdapter {
+  final InferenceChat _chat;
+
+  _FlutterGemmaSessionAdapter(this._chat);
+
+  @override
+  Future<void> addUserMessage(String text) async {
+    await _chat.addQueryChunk(Message.text(text: text, isUser: true));
+  }
+
+  @override
+  Stream<String> generateResponseStream() async* {
+    await for (final response in _chat.generateChatResponseAsync()) {
+      if (response is TextResponse && response.token.isNotEmpty) {
+        yield response.token;
+      }
+    }
+  }
+
+  @override
+  Future<void> stopGeneration() async {
+    await _chat.stopGeneration();
+  }
+
+  @override
+  Future<void> close() async {
+    await _chat.session.close();
+  }
+}
+
 /// AiChatService — Gestiona el modelo Gemma y el historial de chat.
 ///
 /// ARQUITECTURA DE DESCARGA DEL MODELO:
@@ -79,11 +117,15 @@ class AiChatService extends ChangeNotifier {
   String _chatSummary = '';
   int _lastSummaryCount = 0;
   bool _isGenerating = false;
+  bool _generationCancelled = false;
   Completer<void>? _initCompleter;
   double _downloadProgress = 0.0;
   bool _isDownloading = false;
   bool _checkingDeviceSpecs = false;
   DeviceCapabilityResult? _deviceCapability;
+
+  @visibleForTesting
+  Future<AiChatSessionAdapter> Function(String systemInstruction)? testSessionCreator;
 
   static const _defaultModelUrl =
       'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
@@ -101,9 +143,11 @@ class AiChatService extends ChangeNotifier {
   // Instancia del modelo Gemma con la API moderna de flutter_gemma 1.0+
   InferenceModel? _gemmaModel;
   InferenceChat? _gemmaChat;
+  AiChatSessionAdapter? _sessionAdapter;
 
   // Getters
   List<ChatMessage> get messages => _messages;
+  bool get isGenerating => _isGenerating;
   bool get useLocalSimulator => _useLocalSimulator;
   bool get gemmaInitialized => _gemmaInitialized;
   bool get gemmaInitializing => _gemmaInitializing;
@@ -217,7 +261,7 @@ class AiChatService extends ChangeNotifier {
       bool modelAlreadyInstalled = false;
       try {
         _gemmaModel = await FlutterGemma.getActiveModel(
-          maxTokens: 1024,
+          maxTokens: 2048,
           preferredBackend: PreferredBackend.gpu,
         );
         modelAlreadyInstalled = true;
@@ -246,7 +290,7 @@ class AiChatService extends ChangeNotifier {
           }
           
           await FlutterGemma.installModel(
-            modelType: ModelType.gemmaIt,
+            modelType: ModelType.gemma4,
             fileType: ModelFileType.litertlm,
           ).fromNetwork(absoluteUrl).install();
         } else {
@@ -289,7 +333,7 @@ class AiChatService extends ChangeNotifier {
             AppLogger.info('Android/iOS: El modelo ya está instalado localmente, activándolo...');
             // Al estar ya instalado, install() se ejecuta instantáneamente sin descargar
             await FlutterGemma.installModel(
-              modelType: ModelType.gemmaIt,
+              modelType: ModelType.gemma4,
               fileType: ModelFileType.litertlm,
             ).fromNetwork(resolvedUrl).install();
           } else {
@@ -299,9 +343,15 @@ class AiChatService extends ChangeNotifier {
             notifyListeners();
 
             await FlutterGemma.installModel(
-              modelType: ModelType.gemmaIt,
+              modelType: ModelType.gemma4,
               fileType: ModelFileType.litertlm,
-            ).fromNetwork(resolvedUrl).install();
+            )
+                .fromNetwork(resolvedUrl)
+                .withProgress((progress) {
+                  _downloadProgress = (progress / 100.0).clamp(0.0, 1.0);
+                  notifyListeners();
+                })
+                .install();
             
             _isDownloading = false;
           }
@@ -310,7 +360,7 @@ class AiChatService extends ChangeNotifier {
         // Cargar el modelo recién instalado/activado
         AppLogger.info('Cargando modelo activo en memoria...');
         _gemmaModel = await FlutterGemma.getActiveModel(
-          maxTokens: 1024,
+          maxTokens: 2048,
           preferredBackend: PreferredBackend.gpu,
         );
       }
@@ -321,8 +371,11 @@ class AiChatService extends ChangeNotifier {
       
       _gemmaChat = await _gemmaModel!.createChat(
         systemInstruction: systemPrompt,
-        maxOutputTokens: 512,
+        modelType: ModelType.gemma4,
+        isThinking: false,
+        maxOutputTokens: 320,
       );
+      _sessionAdapter = _FlutterGemmaSessionAdapter(_gemmaChat!);
       
       _gemmaInitialized = true;
       _useLocalSimulator = false;
@@ -428,13 +481,29 @@ class AiChatService extends ChangeNotifier {
     await prefs.setInt('ai_last_summary_count', 0);
     
     // Recrear la sesión de chat si Gemma está activo
-    if (_gemmaInitialized && _gemmaModel != null) {
+    try {
+      await _sessionAdapter?.close();
+    } catch (_) {}
+    _sessionAdapter = null;
+    _gemmaChat = null;
+
+    if (testSessionCreator != null) {
+      try {
+        final state = await getFinancialState();
+        _sessionAdapter = await testSessionCreator!(_buildSystemPrompt(state));
+      } catch (e) {
+        AppLogger.warning('Error recreando sesión de chat de prueba: $e');
+      }
+    } else if (_gemmaInitialized && _gemmaModel != null) {
       try {
         final state = await getFinancialState();
         _gemmaChat = await _gemmaModel!.createChat(
           systemInstruction: _buildSystemPrompt(state),
-          maxOutputTokens: 512,
+          modelType: ModelType.gemma4,
+          isThinking: false,
+          maxOutputTokens: 320,
         );
+        _sessionAdapter = _FlutterGemmaSessionAdapter(_gemmaChat!);
       } catch (e) {
         AppLogger.warning('Error recreando sesión de chat: $e');
       }
@@ -609,11 +678,38 @@ class AiChatService extends ChangeNotifier {
     };
   }
 
+  /// Cancela la generación activa de Gemma si está en curso.
+  Future<void> cancelGeneration() async {
+    if (!_isGenerating) return;
+    _generationCancelled = true;
+    try {
+      await _sessionAdapter?.stopGeneration();
+    } catch (e) {
+      AppLogger.warning('Error deteniendo generación Gemma: $e');
+    }
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  Future<void> resetGemmaSessionForTests() async {
+    try {
+      await _sessionAdapter?.close();
+    } catch (_) {}
+    _sessionAdapter = null;
+    _gemmaChat = null;
+    _gemmaInitialized = false;
+    _isGenerating = false;
+    _generationCancelled = false;
+  }
+
   // --- ENVIAR MENSAJE Y PROCESAR RESPUESTA ---
   Future<void> sendMessage(String userMessage) async {
     if (userMessage.trim().isEmpty || _isGenerating) return;
 
     _isGenerating = true;
+    _generationCancelled = false;
+
+    try {
 
     // 1. Agregar mensaje del usuario a la lista
     final userChat = ChatMessage(role: 'user', content: userMessage, timestamp: DateTime.now());
@@ -714,37 +810,30 @@ class AiChatService extends ChangeNotifier {
           '*   **Cuenta**: ${tx['account']} ${tx['accountInferred'] == true ? "*(sugerida)*" : ""}\n\n'
           'Confirma si los datos son correctos usando las tarjetas de abajo para guardarla, editarla o rechazarla.';
     } else if (!_useLocalSimulator) {
-      if (!_gemmaInitialized || _gemmaChat == null) {
+      if (testSessionCreator != null) {
+        if (_sessionAdapter == null) {
+          final systemPrompt = _buildSystemPrompt(financialState);
+          _sessionAdapter = await testSessionCreator!(systemPrompt);
+        }
+        _gemmaInitialized = true;
+      } else if (!_gemmaInitialized || _sessionAdapter == null) {
         AppLogger.info('Gemma no inicializado, intentando cargar sobre la marcha...');
         await _tryLoadGemmaModel();
-      }
-
-      if (_gemmaInitialized && _gemmaChat != null) {
-        // --- RESPUESTA REAL USANDO GEMMA ON-DEVICE ---
-        try {
-          // Recrear la sesión con el contexto fresco y resumen
-          final state = await getFinancialState();
-          final systemPrompt = _buildSystemPrompt(state);
-          
+        if (_gemmaInitialized && _gemmaModel != null && _sessionAdapter == null) {
+          final systemPrompt = _buildSystemPrompt(financialState);
           _gemmaChat = await _gemmaModel!.createChat(
             systemInstruction: systemPrompt,
-            maxOutputTokens: 512,
+            modelType: ModelType.gemma4,
+            isThinking: false,
+            maxOutputTokens: 320,
           );
-          
-          // Alimentar los últimos 7 mensajes del historial
-          // (el octavo mensaje es el que vamos a enviar ahora)
-          final int startIndex = (_messages.length - 8).clamp(0, _messages.length);
-          final int endIndex = _messages.length - 1; // Excluir el mensaje recién añadido
-          
-          for (int i = startIndex; i < endIndex; i++) {
-            final msg = _messages[i];
-            await _gemmaChat!.addQueryChunk(Message.text(
-              text: msg.content,
-              isUser: msg.role == 'user',
-            ));
-          }
+          _sessionAdapter = _FlutterGemmaSessionAdapter(_gemmaChat!);
+        }
+      }
 
-          // Construir el prompt enriquecido con contexto financiero y datos de las herramientas
+      if (_gemmaInitialized && _sessionAdapter != null) {
+        // --- RESPUESTA REAL USANDO SESIÓN PERSISTENTE + STREAMING GEMMA ---
+        try {
           String enrichedPrompt = userMessage;
           
           if (purchaseAnalysis != null) {
@@ -767,26 +856,63 @@ class AiChatService extends ChangeNotifier {
             enrichedPrompt += '\n\n$queryCtx';
           }
           
-          // Enviar mensaje al modelo usando la API moderna
-          await _gemmaChat!.addQueryChunk(Message.text(
-            text: enrichedPrompt,
-            isUser: true,
-          ));
-          
-          // Obtener respuesta generada
-          final response = await _gemmaChat!.generateChatResponse();
-          if (response is TextResponse) {
-            responseText = response.token.isNotEmpty ? response.token : 'No pude generar una respuesta en este momento. Intenta de nuevo.';
-          } else if (response is ThinkingResponse) {
-            responseText = response.content.isNotEmpty ? response.content : 'No pude generar una respuesta en este momento. Intenta de nuevo.';
-          } else {
-            responseText = response.toString();
+          await _sessionAdapter!.addUserMessage(enrichedPrompt);
+
+          final modelIndex = _messages.length;
+          _messages.add(
+            ChatMessage(
+              role: 'model',
+              content: '',
+              timestamp: DateTime.now(),
+              categorySuggestions: suggestedCategories,
+              transactionSuggestions: suggestedTransactions,
+            ),
+          );
+          notifyListeners();
+
+          final buffer = StringBuffer();
+          final stopwatch = Stopwatch()..start();
+
+          await for (final token in _sessionAdapter!.generateResponseStream()) {
+            if (_generationCancelled) break;
+            buffer.write(token);
+            if (stopwatch.elapsedMilliseconds >= 60) {
+              _messages[modelIndex] = ChatMessage(
+                role: 'model',
+                content: buffer.toString(),
+                timestamp: _messages[modelIndex].timestamp,
+                categorySuggestions: suggestedCategories,
+                transactionSuggestions: suggestedTransactions,
+              );
+              notifyListeners();
+              stopwatch.reset();
+            }
           }
-          
+
+          if (buffer.isNotEmpty) {
+            responseText = buffer.toString();
+          } else if (_generationCancelled) {
+            responseText = '*(Generación cancelada.)*';
+          } else {
+            responseText = 'No pude generar una respuesta en este momento. Intenta de nuevo.';
+          }
+
+          _messages[modelIndex] = ChatMessage(
+            role: 'model',
+            content: responseText,
+            timestamp: _messages[modelIndex].timestamp,
+            categorySuggestions: suggestedCategories,
+            transactionSuggestions: suggestedTransactions,
+          );
+          await _saveHistory();
+          return;
         } catch (e) {
           AppLogger.error('Error en inferencia Gemma (replegando a simulador)', error: e);
           responseText = '*(Nota: Ocurrió un error con Gemma IA. El simulador financiero respondió por seguridad.)*\n\n';
           responseText += await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis);
+          if (_messages.isNotEmpty && _messages.last.role == 'model' && _messages.last.content.isEmpty) {
+            _messages.removeLast();
+          }
         }
       } else {
         // No está inicializado — dar respuesta de error con instrucciones claras
@@ -829,9 +955,12 @@ class AiChatService extends ChangeNotifier {
       transactionSuggestions: suggestedTransactions,
     );
     _messages.add(modelChat);
-    _isGenerating = false;
-    notifyListeners();
     await _saveHistory();
+    } finally {
+      _isGenerating = false;
+      _generationCancelled = false;
+      notifyListeners();
+    }
   }
 
   /// Genera una respuesta usando el motor de reglas financieras local (simulador) con acceso a base de datos
@@ -1645,44 +1774,8 @@ class AiChatService extends ChangeNotifier {
     
     final messagesToSummarize = _messages.sublist(_lastSummaryCount, endIndex);
     if (messagesToSummarize.isEmpty) return;
-    
-    String promptText = 'Resume de manera extremadamente concisa (máximo 2 líneas) los puntos clave, decisiones y datos financieros discutidos en este historial de chat anterior:\n\n';
-    if (_chatSummary.isNotEmpty) {
-      promptText += 'Resumen de conversaciones anteriores: $_chatSummary\n\n';
-    }
-    
-    for (var msg in messagesToSummarize) {
-      final roleLabel = msg.role == 'user' ? 'Usuario' : 'Asesor';
-      promptText += '- $roleLabel: ${msg.content}\n';
-    }
-    
-    String newSummary = '';
-    
-    if (!_useLocalSimulator && _gemmaInitialized && _gemmaModel != null) {
-      try {
-        AppLogger.info('Generando resumen de chat con Gemma...');
-        final summaryChat = await _gemmaModel!.createChat(
-          systemInstruction: 'Eres un asistente de resumen. Tu único trabajo es resumir conversaciones de chat de forma muy concisa en español (máximo 2 frases). Conserva montos de dinero, metas y consejos clave. No saludes ni agregues introducciones.',
-          maxOutputTokens: 120,
-        );
-        await summaryChat.addQueryChunk(Message.text(text: promptText, isUser: true));
-        final response = await summaryChat.generateChatResponse();
-        
-        if (response is TextResponse) {
-          newSummary = response.token.trim();
-        } else if (response is ThinkingResponse) {
-          newSummary = response.content.trim();
-        } else {
-          newSummary = response.toString().trim();
-        }
-        AppLogger.success('Resumen generado exitosamente por Gemma: $newSummary');
-      } catch (e) {
-        AppLogger.warning('Error generando resumen con Gemma, usando fallback: $e');
-        newSummary = _generateFallbackSummary(messagesToSummarize);
-      }
-    } else {
-      newSummary = _generateFallbackSummary(messagesToSummarize);
-    }
+
+    final String newSummary = _generateFallbackSummary(messagesToSummarize);
     
     if (newSummary.isNotEmpty) {
       _chatSummary = newSummary;

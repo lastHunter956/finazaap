@@ -60,11 +60,14 @@ class DefaultGemmaInferenceClient implements GemmaInferenceClient {
 
   @override
   Future<String?> generateResponse(String prompt) async {
+    InferenceChat? chat;
     try {
       final loaded = await isModelLoaded();
       if (!loaded || _model == null) return null;
 
-      final chat = await _model!.createChat(
+      chat = await _model!.openChat(
+        modelType: ModelType.gemma4,
+        isThinking: false,
         systemInstruction:
             'Eres un clasificador contable offline para finanzas personales. '
             'Responde UNICAMENTE con un objeto JSON valido.',
@@ -81,6 +84,10 @@ class DefaultGemmaInferenceClient implements GemmaInferenceClient {
       }
     } catch (_) {
       return null;
+    } finally {
+      try {
+        await chat?.session.close();
+      } catch (_) {}
     }
   }
 }
