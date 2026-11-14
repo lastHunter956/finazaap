@@ -520,24 +520,61 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
       valueListenable: widget.availableBalanceNotifier,
       builder: (context, availableBalance, child) {
         final bool isDark = Theme.of(context).brightness == Brightness.dark;
+        final bool isDiurno = context.isDiurno;
         final Color ringStatusColor = widget.totalExpenses > widget.totalIncome
             ? context.appTheme.expense
             : context.appTheme.income;
         return Container(
           decoration: BoxDecoration(
-            color: context.appTheme.cardBackground,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: context.appTheme.borderSubtle,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            color: isDiurno ? null : context.appTheme.cardBackground,
+            gradient: isDiurno
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFFFFFFF),
+                      Color(0xFFF6F9FE),
+                    ],
+                  )
+                : null,
+            borderRadius: BorderRadius.circular(isDiurno ? 22 : 16),
+            border: isDiurno
+                ? GradientBoxBorder(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white,
+                        context.appTheme.borderSubtle,
+                      ],
+                    ),
+                    width: 1.3,
+                  )
+                : Border.all(
+                    color: context.appTheme.borderSubtle,
+                    width: 1,
+                  ),
+            boxShadow: isDiurno
+                ? const [
+                    BoxShadow(
+                      color: Color(0x120B132B),
+                      blurRadius: 20,
+                      offset: Offset(0, 8),
+                      spreadRadius: -4,
+                    ),
+                    BoxShadow(
+                      color: Color(0x0A0062CC),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -586,8 +623,9 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                               '${widget.accountingBalance < 0 ? "- " : ""}'
                               '${CurrencyHelper.format(widget.accountingBalance.abs())}',
                               style: TextStyle(
-                                color: widget.accountingBalance >= 0 ? 
-                                    context.appTheme.textPrimary : Colors.redAccent,
+                                color: widget.accountingBalance >= 0
+                                    ? context.appTheme.textPrimary
+                                    : context.appTheme.expense,
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -726,7 +764,9 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       ElevatedButton.icon(
                         onPressed: widget.onManageAccounts,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: context.appTheme.primaryBackground,
+                          backgroundColor: isDiurno
+                              ? context.appTheme.secondaryCardBackground
+                              : context.appTheme.primaryBackground,
                           elevation: 0,
                           side: BorderSide(
                             color: context.appTheme.borderSubtle,
@@ -734,24 +774,32 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
+                            borderRadius: BorderRadius.circular(isDiurno ? 12.0 : 8.0),
                           ),
                         ),
                         icon: Icon(
                           Icons.account_balance_wallet_outlined,
                           size: 16,
-                          color: context.appTheme.textPrimary,
+                          color: isDiurno
+                              ? context.appTheme.accent
+                              : context.appTheme.textPrimary,
                         ),
                         label: Text(
                           'Gestionar cuentas',
-                          style: TextStyle(fontSize: 14, color: context.appTheme.textPrimary),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isDiurno ? FontWeight.w600 : FontWeight.normal,
+                            color: context.appTheme.textPrimary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
                         onPressed: _showMonthYearSelector,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: context.appTheme.primaryBackground,
+                          backgroundColor: isDiurno
+                              ? context.appTheme.secondaryCardBackground
+                              : context.appTheme.primaryBackground,
                           elevation: 0,
                           side: BorderSide(
                             color: context.appTheme.borderSubtle,
@@ -759,17 +807,23 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
+                            borderRadius: BorderRadius.circular(isDiurno ? 12.0 : 8.0),
                           ),
                         ),
                         icon: Icon(
                           Icons.calendar_month,
                           size: 16,
-                          color: context.appTheme.textPrimary,
+                          color: isDiurno
+                              ? context.appTheme.accent
+                              : context.appTheme.textPrimary,
                         ),
                         label: Text(
                           _selectedMonthYear,
-                          style: TextStyle(fontSize: 14, color: context.appTheme.textPrimary),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isDiurno ? FontWeight.w600 : FontWeight.normal,
+                            color: context.appTheme.textPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -786,8 +840,13 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       padding: const EdgeInsets.all(12.0),
                       margin: const EdgeInsets.only(right: 4.0),
                       decoration: BoxDecoration(
-                        color: context.appTheme.primaryBackground,
-                        borderRadius: BorderRadius.circular(8.0),
+                        color: isDiurno
+                            ? context.appTheme.secondaryCardBackground
+                            : context.appTheme.primaryBackground,
+                        borderRadius: BorderRadius.circular(isDiurno ? 14.0 : 8.0),
+                        border: isDiurno
+                            ? Border.all(color: context.appTheme.borderSubtle)
+                            : null,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -817,8 +876,13 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       padding: const EdgeInsets.all(12.0),
                       margin: const EdgeInsets.only(left: 4.0),
                       decoration: BoxDecoration(
-                        color: context.appTheme.primaryBackground,
-                        borderRadius: BorderRadius.circular(8.0),
+                        color: isDiurno
+                            ? context.appTheme.secondaryCardBackground
+                            : context.appTheme.primaryBackground,
+                        borderRadius: BorderRadius.circular(isDiurno ? 14.0 : 8.0),
+                        border: isDiurno
+                            ? Border.all(color: context.appTheme.borderSubtle)
+                            : null,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -848,112 +912,187 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
               const SizedBox(height: 16),
 
               // FILA DE PESTAÑAS: Todos, Gastos, Ingresos
-              Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        selectedFilter = 'Todos';
-                      });
-                      widget.onShowAll();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: selectedFilter == 'Todos'
-                          ? context.appTheme.primaryBackground
-                          : context.appTheme.cardBackground,
-                      elevation: 0,
-                      side: BorderSide(
-                        color: selectedFilter == 'Todos'
-                            ? context.appTheme.accent
-                            : context.appTheme.borderSubtle,
-                        width: selectedFilter == 'Todos' ? 1.5 : 1,
+              if (isDiurno)
+                _buildDiurnoSegmentedFilters(context)
+              else
+                Row(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          selectedFilter = 'Todos';
+                        });
+                        widget.onShowAll();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: selectedFilter == 'Todos'
+                            ? context.appTheme.primaryBackground
+                            : context.appTheme.cardBackground,
+                        elevation: 0,
+                        side: BorderSide(
+                          color: selectedFilter == 'Todos'
+                              ? context.appTheme.accent
+                              : context.appTheme.borderSubtle,
+                          width: selectedFilter == 'Todos' ? 1.5 : 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                    ),
-                    child: Text(
-                      'Todos',
-                      style: TextStyle(
-                        color: selectedFilter == 'Todos'
-                            ? context.appTheme.textPrimary
-                            : context.appTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        selectedFilter = 'Gastos';
-                      });
-                      widget.onShowExpenses();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: selectedFilter == 'Gastos'
-                          ? context.appTheme.primaryBackground
-                          : context.appTheme.cardBackground,
-                      elevation: 0,
-                      side: BorderSide(
-                        color: selectedFilter == 'Gastos'
-                            ? context.appTheme.accent
-                            : context.appTheme.borderSubtle,
-                        width: selectedFilter == 'Gastos' ? 1.5 : 1,
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
+                      child: Text(
+                        'Todos',
+                        style: TextStyle(
+                          color: selectedFilter == 'Todos'
+                              ? context.appTheme.textPrimary
+                              : context.appTheme.textSecondary,
+                        ),
                       ),
                     ),
-                    child: Text(
-                      'Gastos',
-                      style: TextStyle(
-                        color: selectedFilter == 'Gastos'
-                            ? context.appTheme.textPrimary
-                            : context.appTheme.textSecondary,
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          selectedFilter = 'Gastos';
+                        });
+                        widget.onShowExpenses();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: selectedFilter == 'Gastos'
+                            ? context.appTheme.primaryBackground
+                            : context.appTheme.cardBackground,
+                        elevation: 0,
+                        side: BorderSide(
+                          color: selectedFilter == 'Gastos'
+                              ? context.appTheme.accent
+                              : context.appTheme.borderSubtle,
+                          width: selectedFilter == 'Gastos' ? 1.5 : 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                      ),
+                      child: Text(
+                        'Gastos',
+                        style: TextStyle(
+                          color: selectedFilter == 'Gastos'
+                              ? context.appTheme.textPrimary
+                              : context.appTheme.textSecondary,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        selectedFilter = 'Ingresos';
-                      });
-                      widget.onShowIncome();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: selectedFilter == 'Ingresos'
-                          ? context.appTheme.primaryBackground
-                          : context.appTheme.cardBackground,
-                      elevation: 0,
-                      side: BorderSide(
-                        color: selectedFilter == 'Ingresos'
-                            ? context.appTheme.accent
-                            : context.appTheme.borderSubtle,
-                        width: selectedFilter == 'Ingresos' ? 1.5 : 1,
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          selectedFilter = 'Ingresos';
+                        });
+                        widget.onShowIncome();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: selectedFilter == 'Ingresos'
+                            ? context.appTheme.primaryBackground
+                            : context.appTheme.cardBackground,
+                        elevation: 0,
+                        side: BorderSide(
+                          color: selectedFilter == 'Ingresos'
+                              ? context.appTheme.accent
+                              : context.appTheme.borderSubtle,
+                          width: selectedFilter == 'Ingresos' ? 1.5 : 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
+                      child: Text(
+                        'Ingresos',
+                        style: TextStyle(
+                          color: selectedFilter == 'Ingresos'
+                              ? context.appTheme.textPrimary
+                              : context.appTheme.textSecondary,
+                        ),
                       ),
                     ),
-                    child: Text(
-                      'Ingresos',
-                      style: TextStyle(
-                        color: selectedFilter == 'Ingresos'
-                            ? context.appTheme.textPrimary
-                            : context.appTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDiurnoSegmentedFilters(BuildContext context) {
+    final segments = [
+      ('Todos', widget.onShowAll),
+      ('Gastos', widget.onShowExpenses),
+      ('Ingresos', widget.onShowIncome),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: context.appTheme.darkBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: context.appTheme.borderSubtle, width: 1),
+      ),
+      child: Row(
+        children: segments.map((entry) {
+          final label = entry.$1;
+          final callback = entry.$2;
+          final isSelected = selectedFilter == label;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  selectedFilter = label;
+                });
+                callback();
+              },
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? context.appTheme.cardBackground
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  border: isSelected
+                      ? Border.all(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          width: 1,
+                        )
+                      : null,
+                  boxShadow: isSelected
+                      ? const [
+                          BoxShadow(
+                            color: Color(0x140B132B),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isSelected
+                        ? context.appTheme.textPrimary
+                        : context.appTheme.textSecondary,
+                    fontSize: 13.5,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }

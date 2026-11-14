@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:gradient_borders/gradient_borders.dart';
 import 'package:finazaap/themes/app_theme_mode.dart';
 
 import 'package:finazaap/core/theme_notifier.dart';
@@ -161,28 +163,29 @@ class AppTheme extends ThemeExtension<AppTheme> {
     filledButtons: false,
   );
 
-  /// Rosa oficial de Dracula para indicadores complementarios.
+  /// Rosa y comentario oficiales de Dracula para indicadores y biseles.
   static const Color draculaPink = Color(0xFFFF79C6);
+  static const Color draculaComment = Color(0xFF6272A4);
 
   static const AppTheme _diurno = AppTheme(
-    primaryBackground: Color(0xFFEEF2F8),       // Cool Alabaster Canvas (separa claramente de tarjetas blancas)
+    primaryBackground: Color(0xFFEEF2F8),       // Cool Alabaster Canvas (separa claramente de tarjetas)
     cardBackground: Color(0xFFFFFFFF),          // Pure White Surface
     darkBackground: Color(0xFFE2E8F2),          // Soft Frost Well (inputs, barras internas)
     secondaryCardBackground: Color(0xFFF7F9FC), // Elevated Cool Surface
-    textPrimary: Color(0xFF0B132B),             // Deep Ink (AAA)
-    textSecondary: Color(0xFF334155),           // Slate 700 (AAA)
-    textHint: Color(0xFF52637A),                // Slate 600 (AA)
+    textPrimary: Color(0xFF0B132B),             // Deep Ink (AAA en 3 superficies)
+    textSecondary: Color(0xFF334155),           // Slate 700 (AAA en 3 superficies)
+    textHint: Color(0xFF52637A),                // Slate 600 (AA en 3 superficies)
     borderSubtle: Color(0xFFD5DFEE),            // Cool Hairline
     borderVisible: Color(0xFF8496B0),           // Active Control Border
-    accent: Color(0xFF0062CC),                  // Apple Accessible System Blue (AA)
-    secondaryAccent: Color(0xFF4F46E5),         // Indigo 600 (AA)
-    income: Color(0xFF047857),                  // Emerald 700 (AA)
-    expense: Color(0xFFBE123C),                 // Crimson 700 (AA)
-    success: Color(0xFF047857),                 // Emerald 700
-    warning: Color(0xFFB45309),                 // Amber 700 (AA)
+    accent: Color(0xFF0062CC),                  // Apple Accessible System Blue (AA en 3 superficies)
+    secondaryAccent: Color(0xFF4F46E5),         // Indigo 600 (AA en 3 superficies)
+    income: Color(0xFF046B4D),                  // Emerald 800 (AA en 3 superficies)
+    expense: Color(0xFFBE123C),                 // Crimson 700 (AA en 3 superficies)
+    success: Color(0xFF046B4D),                 // Emerald 800
+    warning: Color(0xFF92400E),                 // Amber 800 (AA en 3 superficies)
     error: Color(0xFFBE123C),                   // Crimson 700
     buttonBackground: Color(0xFF0062CC),
-    buttonForeground: Colors.white,             // AA vs buttonBackground
+    buttonForeground: Colors.white,             // AA vs buttonBackground (5.80:1)
     buttonShadow: [
       BoxShadow(
         color: Color(0x1F0062CC),
@@ -195,23 +198,23 @@ class AppTheme extends ThemeExtension<AppTheme> {
 
   static const AppTheme _nocturno = AppTheme(
     primaryBackground: Color(0xFF282A36),       // Dracula Background oficial
-    cardBackground: Color(0xFF313442),          // Dracula Elevated Card Surface
-    darkBackground: Color(0xFF1E1F29),          // Dracula Deep Well (inputs)
-    secondaryCardBackground: Color(0xFF44475A), // Dracula Selection / Elevated
-    textPrimary: Color(0xFFF8F8F2),             // Dracula Foreground oficial (AAA)
-    textSecondary: Color(0xFFB4BCCF),           // Eje Dracula secundario (AA/AAA)
-    textHint: Color(0xFF6272A4),                // Dracula Comment oficial
+    cardBackground: Color(0xFF21222C),          // Dracula ANSI Black / Panel (garantiza AA >=4.5 con #FF5555)
+    darkBackground: Color(0xFF191A21),          // Dracula Deep Well oficial (inputs)
+    secondaryCardBackground: Color(0xFF44475A), // Dracula Selection / Elevated oficial
+    textPrimary: Color(0xFFF8F8F2),             // Dracula Foreground oficial (AAA en 3 superficies)
+    textSecondary: Color(0xFFC6CEE0),           // Gris azulado Dracula legible (AAA en 3 superficies)
+    textHint: Color(0xFF909EC7),                // Dracula Comment aclarado para legibilidad AA (>=5.36:1)
     borderSubtle: Color(0xFF44475A),            // Dracula Selection oficial
-    borderVisible: Color(0xFF6272A4),           // Dracula Comment oficial
-    accent: Color(0xFFBD93F9),                  // Dracula Purple oficial (AA)
-    secondaryAccent: Color(0xFF8BE9FD),         // Dracula Cyan oficial (AAA)
-    income: Color(0xFF50FA7B),                  // Dracula Green oficial (acento/indicador)
-    expense: Color(0xFFFF5555),                 // Dracula Red oficial
+    borderVisible: Color(0xFF6272A4),           // Dracula Comment oficial (bordes y divisores)
+    accent: Color(0xFFBD93F9),                  // Dracula Purple oficial (AA en 3 superficies)
+    secondaryAccent: Color(0xFF8BE9FD),         // Dracula Cyan oficial (AAA en 3 superficies)
+    income: Color(0xFF50FA7B),                  // Dracula Green oficial (acento/indicador/montos)
+    expense: Color(0xFFFF5555),                 // Dracula Red oficial (AA en 3 superficies: 4.53–5.52:1)
     success: Color(0xFF50FA7B),                 // Dracula Green oficial
-    warning: Color(0xFFFFB86C),                 // Dracula Orange oficial (AAA)
+    warning: Color(0xFFFFB86C),                 // Dracula Orange oficial (AAA en 3 superficies)
     error: Color(0xFFFF5555),                   // Dracula Red oficial
     buttonBackground: Color(0xFFBD93F9),        // Dracula Purple oficial
-    buttonForeground: Color(0xFF282A36),        // Dracula Background (AA vs purple)
+    buttonForeground: Color(0xFF282A36),        // Dracula Background (AA 5.90:1 vs purple)
     buttonShadow: [],
     filledButtons: true,
   );
@@ -221,23 +224,23 @@ class AppTheme extends ThemeExtension<AppTheme> {
     cardBackground: Color(0xFFFFFDF9),          // Warm Ivory White
     darkBackground: Color(0xFFE6DFD3),          // Warm Sand Well
     secondaryCardBackground: Color(0xFFFAF6F0), // Soft Linen Surface
-    textPrimary: Color(0xFF1C1917),             // Stone 900 / Warm Obsidian (AAA)
-    textSecondary: Color(0xFF44403C),           // Stone 700 / Warm Charcoal (AAA)
-    textHint: Color(0xFF68625D),                // Stone 600 (AA)
+    textPrimary: Color(0xFF1C1917),             // Stone 900 / Warm Obsidian (AAA en 3 superficies)
+    textSecondary: Color(0xFF44403C),           // Stone 700 / Warm Charcoal (AAA en 3 superficies)
+    textHint: Color(0xFF68625D),                // Stone 600 (AA en 3 superficies)
     borderSubtle: Color(0xFFDAD2C4),            // Warm Stone Hairline
     borderVisible: Color(0xFF968E83),           // Warm Taupe Active Border
-    accent: Color(0xFF0F766E),                  // Deep Ocean Teal 700 (AA)
-    secondaryAccent: Color(0xFFB45309),         // Warm Copper Amber 700 (AA)
-    income: Color(0xFF15803D),                  // Green 700 (AA)
-    expense: Color(0xFFB91C1C),                 // Red 700 (AA)
-    success: Color(0xFF15803D),                 // Green 700
-    warning: Color(0xFFB45309),                 // Amber 700 (AA)
+    accent: Color(0xFF0E665F),                  // Deep Ocean Teal 800 (AA en 3 superficies)
+    secondaryAccent: Color(0xFF92400E),         // Warm Copper Amber 800 (AA en 3 superficies)
+    income: Color(0xFF146C34),                  // Green 800 (AA en 3 superficies)
+    expense: Color(0xFFB91C1C),                 // Red 700 (AA en 3 superficies)
+    success: Color(0xFF146C34),                 // Green 800
+    warning: Color(0xFF92400E),                 // Amber 800 (AA en 3 superficies)
     error: Color(0xFFB91C1C),                   // Red 700
-    buttonBackground: Color(0xFF0F766E),
-    buttonForeground: Colors.white,             // AA vs buttonBackground
+    buttonBackground: Color(0xFF0E665F),
+    buttonForeground: Colors.white,             // AA 6.81:1 vs buttonBackground
     buttonShadow: [
       BoxShadow(
-        color: Color(0x1F0F766E),
+        color: Color(0x1F0E665F),
         blurRadius: 10,
         offset: Offset(0, 4),
       ),
@@ -336,4 +339,176 @@ ThemeData buildThemeData(AppThemeMode mode) {
 /// Extensión de BuildContext para acceso ergonómico al tema.
 extension AppThemeExt on BuildContext {
   AppTheme get appTheme => Theme.of(this).extension<AppTheme>()!;
+
+  /// Indica si el tema resuelto corresponde a `Diurno`, único tema con Liquid Glass.
+  bool get isDiurno =>
+      Theme.of(this).brightness == Brightness.light &&
+      appTheme.primaryBackground == const Color(0xFFEEF2F8);
+
+  /// Indica si el tema resuelto corresponde a `Default` (identidad original).
+  bool get isDefaultDark =>
+      Theme.of(this).brightness == Brightness.dark &&
+      appTheme.primaryBackground == const Color(0xFF1F2639);
+}
+
+/// Superficie funcional flotante inspirada en Apple HIG (Liquid Glass) exclusivamente
+/// para el tema `Diurno`, con respaldo escarchado opaco para accesibilidad y renderizado
+/// sólido estándar en `Día`, `Nocturno` y `Default`.
+///
+/// Solo debe envolver elementos funcionales pequeños/fijos (navegación, cabeceras
+/// flotantes o composer); nunca tarjetas de contenido, listas ni gráficas.
+class LiquidGlassSurface extends StatelessWidget {
+  final Widget child;
+  final BorderRadius borderRadius;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final double blurSigma;
+  final double? height;
+  final Color? fallbackColor;
+  final Color? fallbackBorderColor;
+  final double fallbackBorderWidth;
+  final List<BoxShadow>? fallbackBoxShadow;
+
+  const LiquidGlassSurface({
+    super.key,
+    required this.child,
+    required this.borderRadius,
+    this.padding,
+    this.margin,
+    this.blurSigma = 22.0,
+    this.height,
+    this.fallbackColor,
+    this.fallbackBorderColor,
+    this.fallbackBorderWidth = 1.0,
+    this.fallbackBoxShadow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.appTheme;
+
+    if (!context.isDiurno) {
+      return Container(
+        height: height,
+        margin: margin,
+        padding: padding,
+        decoration: BoxDecoration(
+          color: fallbackColor ?? t.cardBackground,
+          borderRadius: borderRadius,
+          border: Border.all(
+            color: fallbackBorderColor ?? t.borderSubtle,
+            width: fallbackBorderWidth,
+          ),
+          boxShadow: fallbackBoxShadow,
+        ),
+        child: child,
+      );
+    }
+
+    final mq = MediaQuery.maybeOf(context);
+    final reduceEffects = mq != null &&
+        (mq.accessibleNavigation || mq.highContrast || mq.disableAnimations);
+
+    const shadows = [
+      BoxShadow(
+        color: Color(0x140B132B),
+        blurRadius: 24,
+        offset: Offset(0, 10),
+        spreadRadius: -4,
+      ),
+      BoxShadow(
+        color: Color(0x120062CC),
+        blurRadius: 8,
+        offset: Offset(0, 2),
+      ),
+    ];
+
+    if (reduceEffects) {
+      return Container(
+        height: height,
+        margin: margin,
+        padding: padding,
+        decoration: BoxDecoration(
+          color: const Color(0xF5FFFFFF),
+          borderRadius: borderRadius,
+          border: Border.all(
+            color: t.borderVisible,
+            width: 1.4,
+          ),
+          boxShadow: shadows,
+        ),
+        child: child,
+      );
+    }
+
+    return Container(
+      height: height,
+      margin: margin,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        boxShadow: shadows,
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+          child: Stack(
+            fit: StackFit.passthrough,
+            children: [
+              Container(
+                padding: padding,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xD9FFFFFF), // Blanco frío 85%
+                      Color(0xBFFFFFFF), // Translucidez central 75%
+                      Color(0xCCEEF4FF), // Tinte glacial azul 80%
+                    ],
+                    stops: [0.0, 0.55, 1.0],
+                  ),
+                  borderRadius: borderRadius,
+                  border: GradientBoxBorder(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.96),
+                        const Color(0xB3BFD2EE),
+                        const Color(0x738FA6C9),
+                      ],
+                      stops: const [0.0, 0.45, 1.0],
+                    ),
+                    width: 1.25,
+                  ),
+                ),
+                child: child,
+              ),
+              Positioned(
+                top: 1.0,
+                left: 18,
+                right: 18,
+                child: IgnorePointer(
+                  child: Container(
+                    height: 1.2,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(1),
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withValues(alpha: 0.0),
+                          Colors.white.withValues(alpha: 0.92),
+                          Colors.white.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

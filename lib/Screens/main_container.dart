@@ -56,6 +56,7 @@ class _MainContainerState extends State<MainContainer>
 
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
+      extendBody: context.isDiurno,
       body: IndexedStack(
         index: _currentIndex,
         children: screens,

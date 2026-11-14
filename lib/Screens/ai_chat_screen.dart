@@ -1,21 +1,20 @@
-import 'dart:ui';
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gradient_borders/gradient_borders.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:finazaap/data/category_service.dart';
+import 'package:finazaap/data/model/add_date.dart';
+import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/services/ai_chat_service.dart';
 import 'package:finazaap/services/device_capability_service.dart';
 import 'package:finazaap/themes/app_colors.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
-import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
-import 'package:finazaap/data/model/add_date.dart';
-import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/utils/currency_helper.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({Key? key}) : super(key: key);
@@ -24,7 +23,8 @@ class AiChatScreen extends StatefulWidget {
   State<AiChatScreen> createState() => _AiChatScreenState();
 }
 
-class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderStateMixin {
+class _AiChatScreenState extends State<AiChatScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _goalsController = TextEditingController();
@@ -34,26 +34,38 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   bool _isInputEmpty = true;
   Map<String, dynamic>? _financialState;
 
-  // Predefined Icons and Colors for suggested category editing
   final List<IconData> _availableIcons = AppIcons.allIcons;
-  final List<Color> _availableColors = [
-    Colors.redAccent, Colors.pinkAccent, Colors.purpleAccent, Colors.deepPurpleAccent,
-    Colors.indigoAccent, Colors.blueAccent, Colors.lightBlueAccent, Colors.cyanAccent,
-    Colors.tealAccent, Colors.greenAccent, Colors.lightGreenAccent, Colors.limeAccent,
-    Colors.yellowAccent, Colors.amberAccent, Colors.orangeAccent, Colors.deepOrangeAccent,
-    Colors.blueGrey, Colors.grey,
+  final List<Color> _availableColors = const [
+    Colors.redAccent,
+    Colors.pinkAccent,
+    Colors.purpleAccent,
+    Colors.deepPurpleAccent,
+    Colors.indigoAccent,
+    Colors.blueAccent,
+    Colors.lightBlueAccent,
+    Colors.cyanAccent,
+    Colors.tealAccent,
+    Colors.greenAccent,
+    Colors.lightGreenAccent,
+    Colors.limeAccent,
+    Colors.yellowAccent,
+    Colors.amberAccent,
+    Colors.orangeAccent,
+    Colors.deepOrangeAccent,
+    Colors.blueGrey,
+    Colors.grey,
   ];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    
     _chatService.addListener(_onServiceUpdate);
     _messageController.addListener(_onInputChanged);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _chatService.initialize();
+      if (!mounted) return;
       _goalsController.text = _chatService.userGoals;
       await _loadFinancialState();
       _scrollToBottom();
@@ -72,18 +84,17 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   }
 
   void _onServiceUpdate() {
-    if (mounted) {
-      setState(() {});
-      _loadFinancialState();
-      _scrollToBottom();
-    }
+    if (!mounted) return;
+    setState(() {});
+    _loadFinancialState();
+    _scrollToBottom();
   }
 
   void _onInputChanged() {
-    final text = _messageController.text.trim();
-    if (mounted) {
+    final isEmpty = _messageController.text.trim().isEmpty;
+    if (mounted && isEmpty != _isInputEmpty) {
       setState(() {
-        _isInputEmpty = text.isEmpty;
+        _isInputEmpty = isEmpty;
       });
     }
   }
@@ -96,21 +107,45 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           _financialState = state;
         });
       }
-    } catch (e) {
+    } catch (_) {
       // Omitir errores menores de base de datos en UI
     }
   }
 
   void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      });
-    }
+    if (!_scrollController.hasClients) return;
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  void _showFeedbackSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    final t = context.appTheme;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.outfit(
+            color: isError ? t.error : t.textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        backgroundColor: t.cardBackground,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: isError ? t.error.withValues(alpha: 0.5) : t.borderSubtle,
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _handleSend() async {
@@ -135,145 +170,58 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
 
   Future<void> _saveGoals() async {
     final text = _goalsController.text.trim();
-    if (text.isNotEmpty) {
-      await _chatService.updateUserGoals(text);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Metas financieras actualizadas en memoria.',
-            style: GoogleFonts.outfit(color: AppColors.textPrimary, fontWeight: FontWeight.w500),
-          ),
-          backgroundColor: AppColors.cardBackground,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    }
+    if (text.isEmpty) return;
+    await _chatService.updateUserGoals(text);
+    _showFeedbackSnackBar('Metas financieras actualizadas en memoria.');
   }
 
   Color _getCategoryColor(String category) {
+    final t = context.appTheme;
     switch (category.toLowerCase()) {
       case 'comida':
       case 'alimentos':
       case 'restaurantes':
-        return const Color(0xFFFFB74D); // Naranja
+        return t.warning;
       case 'transporte':
       case 'gasolina':
       case 'viajes':
-        return const Color(0xFF64B5F6); // Azul
+        return t.accent;
       case 'servicios':
       case 'luz':
       case 'agua':
       case 'internet':
-        return const Color(0xFF81C784); // Verde
+        return t.income;
       case 'entretenimiento':
       case 'ocio':
       case 'cine':
       case 'suscripciones':
-        return const Color(0xFFBA68C8); // Púrpura
+        return t.secondaryAccent;
       case 'compras':
       case 'ropa':
       case 'regalos':
-        return const Color(0xFFF06292); // Rosa
+        return t.expense;
       case 'salud':
       case 'medicina':
-        return const Color(0xFF4DB6AC); // Turquesa
+        return t.success;
       case 'educación':
       case 'libros':
-        return const Color(0xFFFFD54F); // Amarillo
+        return t.accent;
       default:
-        return AppColors.accent; // Cyan predeterminado
+        return t.accent;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = context.appTheme;
     return Scaffold(
-      backgroundColor: AppColors.primaryBackground,
+      backgroundColor: t.primaryBackground,
       appBar: null,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            // 1. HEADER (Igual que en Home/Categorías)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              decoration: BoxDecoration(
-                color: context.appTheme.cardBackground,
-                border: Border(
-                  bottom: BorderSide(
-                    color: context.appTheme.borderSubtle,
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned(
-                    left: 0,
-                    child: IconButton(
-                      icon: Icon(Icons.arrow_back_ios_rounded, color: context.appTheme.textPrimary, size: 22),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                  Text(
-                    'Asistente Financiero',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      color: context.appTheme.textPrimary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // 2. TABS ESTILO PREMIUM (Igual que en Categorías)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-              child: Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: context.appTheme.darkBackground,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: context.appTheme.borderSubtle,
-                    width: 1,
-                  ),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    color: context.appTheme.accent,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: context.appTheme.accent.withValues(alpha: 0.4),
-                        blurRadius: 15,
-                        offset: const Offset(0, 0),
-                      ),
-                    ],
-                  ),
-                  indicatorPadding: const EdgeInsets.all(4),
-                  labelColor: context.appTheme.buttonForeground,
-                  unselectedLabelColor: context.appTheme.textSecondary,
-                  labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  tabs: const [
-                    Tab(text: 'Consultas'),
-                    Tab(text: 'Perfil Cognitivo'),
-                  ],
-                  dividerColor: Colors.transparent,
-                  splashFactory: NoSplash.splashFactory,
-                  overlayColor: MaterialStateProperty.all(Colors.transparent),
-                ),
-              ),
-            ),
-
-            // 3. VISTAS
+            _buildUnifiedHeader(context),
             Expanded(
               child: TabBarView(
                 controller: _tabController,
@@ -289,178 +237,248 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildChatTab() {
-    return Column(
-      children: [
-        _buildEngineSelector(),
-        Expanded(
-          child: _chatService.messages.isEmpty
-              ? _buildEmptyChat()
-              : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  itemCount: _chatService.messages.length,
-                  itemBuilder: (context, index) {
-                    final message = _chatService.messages[index];
-                    return _buildChatBubble(message);
-                  },
-                ),
-        ),
-        if (_isLoading) _buildTypingIndicator(),
-        _buildInputBar(),
-      ],
-    );
-  }
-
-  Widget _buildEngineSelector() {
+  Widget _buildUnifiedHeader(BuildContext context) {
+    final t = context.appTheme;
+    final isDiurno = context.isDiurno;
     final isGemma = !_chatService.useLocalSimulator;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground.withOpacity(0.3),
-        border: Border(bottom: BorderSide(color: AppColors.borderSubtle)),
+
+    final Color statusColor;
+    final String statusLabel;
+    if (!isGemma) {
+      statusColor = t.accent;
+      statusLabel = 'Simulador local offline';
+    } else if (_chatService.gemmaInitialized) {
+      statusColor = t.success;
+      statusLabel = 'Gemma IA activo';
+    } else if (_chatService.gemmaInitializing || _chatService.isDownloading) {
+      statusColor = t.warning;
+      statusLabel = _chatService.isDownloading
+          ? 'Descargando Gemma IA...'
+          : 'Cargando motor Gemma...';
+    } else if (_chatService.isCheckingDeviceSpecs) {
+      statusColor = t.accent;
+      statusLabel = 'Verificando dispositivo...';
+    } else {
+      statusColor = t.warning;
+      statusLabel = 'Requiere configurar modelo';
+    }
+
+    return LiquidGlassSurface(
+      margin: EdgeInsets.fromLTRB(
+        isDiurno ? 12 : 10,
+        isDiurno ? 8 : 6,
+        isDiurno ? 12 : 10,
+        4,
       ),
+      padding: const EdgeInsets.fromLTRB(8, 8, 10, 10),
+      borderRadius: BorderRadius.circular(isDiurno ? 24 : 18),
+      blurSigma: 22.0,
+      fallbackColor: t.cardBackground,
+      fallbackBorderColor: t.borderSubtle,
+      fallbackBoxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(
+            alpha: Theme.of(context).brightness == Brightness.light ? 0.06 : 0.22,
+          ),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Icon(Icons.psychology_outlined, color: AppColors.accent.withOpacity(0.8), size: 18),
-              const SizedBox(width: 8),
-              Text(
-                'Motor de Inteligencia:',
-                style: GoogleFonts.outfit(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: t.textPrimary,
+                    size: 18,
+                  ),
+                  tooltip: 'Volver',
+                  onPressed: () => Navigator.pop(context),
                 ),
               ),
-              const Spacer(),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.darkBackground,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                padding: const EdgeInsets.all(2),
-                child: Row(
+              const SizedBox(width: 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildEngineTab('Simulador', !isGemma, () {
-                      _chatService.setSimulatorMode(true);
-                    }),
-                    _buildEngineTab('Gemma IA', isGemma, () {
-                      _chatService.setSimulatorMode(false);
-                    }),
+                    Text(
+                      'Asistente Financiero',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        color: t.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            statusLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              color: t.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
+              const SizedBox(width: 6),
+              _buildEngineSegmentedControl(context, isGemma),
             ],
           ),
-          if (isGemma && !_chatService.gemmaInitialized) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.darkBackground.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderSubtle),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_chatService.gemmaInitializing || _chatService.isDownloading) ...[
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _chatService.isDownloading 
-                                ? 'Descargando modelo Gemma AI (2.5 GB)...' 
-                                : 'Cargando motor de IA...',
-                            style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Este proceso puede tomar varios minutos según tu conexión. El modelo se guarda para usos futuros.',
-                      style: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 10),
-                    ),
-                  ] else if (_chatService.isCheckingDeviceSpecs) ...[
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Verificando compatibilidad del dispositivo...',
-                            style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else if (!kIsWeb && _chatService.gemmaError != null &&
-                      (_chatService.gemmaError!.contains('URL') ||
-                       _chatService.gemmaError!.contains('INCOMPATIBLE'))) ...[
-                    _buildModelUrlSetup(),
-                  ] else ...[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _chatService.gemmaError != null
-                                ? 'Error al inicializar Gemma IA:\n${_chatService.gemmaError}'
-                                : !kIsWeb 
-                                    ? 'Configura la URL de descarga del modelo para continuar.'
-                                    : 'Error: No se encontró el modelo gemma.litertlm.',
-                            style: GoogleFonts.outfit(color: AppColors.error, fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (!kIsWeb) ...[
-                      const SizedBox(height: 10),
-                      _buildModelUrlSetup(),
-                    ],
-                  ],
-                ],
-              ),
+          const SizedBox(height: 8),
+          Container(
+            height: 36,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: isDiurno
+                  ? t.darkBackground.withValues(alpha: 0.72)
+                  : t.darkBackground,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: t.borderSubtle, width: 1),
             ),
-          ]
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(
+                color: isDiurno ? t.cardBackground : t.buttonBackground,
+                borderRadius: BorderRadius.circular(15),
+                border: isDiurno
+                    ? Border.all(color: Colors.white.withValues(alpha: 0.9))
+                    : null,
+                boxShadow: isDiurno
+                    ? const [
+                        BoxShadow(
+                          color: Color(0x140B132B),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelColor: isDiurno ? t.textPrimary : t.buttonForeground,
+              unselectedLabelColor: t.textSecondary,
+              labelStyle: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold,
+                fontSize: 12.5,
+              ),
+              unselectedLabelStyle: GoogleFonts.outfit(
+                fontWeight: FontWeight.w500,
+                fontSize: 12.5,
+              ),
+              tabs: const [
+                Tab(text: 'Consultas'),
+                Tab(text: 'Perfil Cognitivo'),
+              ],
+              dividerColor: Colors.transparent,
+              splashFactory: NoSplash.splashFactory,
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildEngineTab(String text, bool isSelected, VoidCallback onTap) {
+  Widget _buildEngineSegmentedControl(BuildContext context, bool isGemma) {
+    final t = context.appTheme;
+    final isDiurno = context.isDiurno;
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: isDiurno
+            ? t.darkBackground.withValues(alpha: 0.75)
+            : t.darkBackground,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: t.borderSubtle),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildEngineTab(
+            label: 'Simulador',
+            isSelected: !isGemma,
+            onTap: () => _chatService.setSimulatorMode(true),
+          ),
+          _buildEngineTab(
+            label: 'Gemma IA',
+            isSelected: isGemma,
+            onTap: () => _chatService.setSimulatorMode(false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEngineTab({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final t = context.appTheme;
+    final isDiurno = context.isDiurno;
+
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accent : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          color: !isSelected
+              ? Colors.transparent
+              : isDiurno
+                  ? t.cardBackground
+                  : t.buttonBackground,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: isSelected && isDiurno
+              ? const [
+                  BoxShadow(
+                    color: Color(0x140B132B),
+                    blurRadius: 6,
+                    offset: Offset(0, 1),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
-          text,
+          label,
           style: GoogleFonts.outfit(
-            color: isSelected ? AppColors.darkBackground : AppColors.textSecondary,
-            fontSize: 11,
+            color: !isSelected
+                ? t.textSecondary
+                : isDiurno
+                    ? t.accent
+                    : t.buttonForeground,
+            fontSize: 10.5,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
           ),
         ),
@@ -468,9 +486,149 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
     );
   }
 
-  /// Widget para configurar la URL del modelo en Android/iOS
-  /// Aparece cuando el usuario activa Gemma IA pero no hay modelo instalado.
+  Widget _buildChatTab() {
+    final isGemma = !_chatService.useLocalSimulator;
+    final showEngineBanner = isGemma && !_chatService.gemmaInitialized;
+    final messages = _chatService.messages;
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: messages.isEmpty
+              ? _buildEmptyChat(includeEngineBanner: showEngineBanner)
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 96),
+                  itemCount:
+                      messages.length + (showEngineBanner ? 1 : 0) + (_isLoading ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    var offsetIndex = index;
+                    if (showEngineBanner) {
+                      if (offsetIndex == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildEngineStatusBanner(),
+                        );
+                      }
+                      offsetIndex -= 1;
+                    }
+                    if (_isLoading && offsetIndex == messages.length) {
+                      return _buildTypingIndicator();
+                    }
+                    return _buildChatBubble(messages[offsetIndex]);
+                  },
+                ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _buildInputBar(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEngineStatusBanner() {
+    final t = context.appTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: t.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_chatService.gemmaInitializing || _chatService.isDownloading) ...[
+            Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: t.accent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _chatService.isDownloading
+                        ? 'Descargando modelo Gemma AI (2.5 GB)...'
+                        : 'Cargando motor de IA...',
+                    style: GoogleFonts.outfit(
+                      color: t.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Este proceso puede tomar varios minutos según tu conexión. El modelo se guarda para usos futuros.',
+              style: GoogleFonts.outfit(color: t.textHint, fontSize: 10.5),
+            ),
+          ] else if (_chatService.isCheckingDeviceSpecs) ...[
+            Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: t.accent,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Verificando compatibilidad del dispositivo...',
+                    style: GoogleFonts.outfit(color: t.textPrimary, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (!kIsWeb &&
+              _chatService.gemmaError != null &&
+              (_chatService.gemmaError!.contains('URL') ||
+                  _chatService.gemmaError!.contains('INCOMPATIBLE'))) ...[
+            _buildModelUrlSetup(),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.error_outline_rounded, color: t.error, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _chatService.gemmaError != null
+                        ? 'Error al inicializar Gemma IA:\n${_chatService.gemmaError}'
+                        : !kIsWeb
+                            ? 'Configura la URL de descarga del modelo para continuar.'
+                            : 'Error: No se encontró el modelo gemma.litertlm.',
+                    style: GoogleFonts.outfit(color: t.error, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            if (!kIsWeb) ...[
+              const SizedBox(height: 10),
+              _buildModelUrlSetup(),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Widget para configurar la URL del modelo en Android/iOS.
   Widget _buildModelUrlSetup() {
+    final t = context.appTheme;
     final urlController = TextEditingController();
     final cap = _chatService.deviceCapability;
 
@@ -483,7 +641,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
         ],
         Row(
           children: [
-            Icon(Icons.download_rounded, color: AppColors.accent, size: 16),
+            Icon(Icons.download_rounded, color: t.accent, size: 16),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -491,7 +649,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                     ? 'Prueba con un modelo más ligero'
                     : 'Configura la descarga del modelo Gemma AI',
                 style: GoogleFonts.outfit(
-                  color: AppColors.textPrimary,
+                  color: t.textPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -503,7 +661,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
         Text(
           'El modelo se descarga una sola vez y se guarda en tu dispositivo. '
           'Ingresa la URL de descarga directa del archivo .litertlm:',
-          style: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 10),
+          style: GoogleFonts.outfit(color: t.textHint, fontSize: 10.5),
         ),
         const SizedBox(height: 10),
         Row(
@@ -511,25 +669,26 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
             Expanded(
               child: TextField(
                 controller: urlController,
-                style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 11),
+                style: GoogleFonts.outfit(color: t.textPrimary, fontSize: 11.5),
                 decoration: InputDecoration(
                   hintText: 'https://ejemplo.com/gemma.litertlm',
-                  hintStyle: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 11),
+                  hintStyle: GoogleFonts.outfit(color: t.textHint, fontSize: 11),
                   filled: true,
-                  fillColor: AppColors.darkBackground,
+                  fillColor: t.darkBackground,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.borderSubtle),
+                    borderSide: BorderSide(color: t.borderSubtle),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.borderSubtle),
+                    borderSide: BorderSide(color: t.borderSubtle),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.accent, width: 1.5),
+                    borderSide: BorderSide(color: t.accent, width: 1.5),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   isDense: true,
                 ),
                 keyboardType: TextInputType.url,
@@ -541,40 +700,30 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                 final url = urlController.text.trim();
                 if (url.isNotEmpty && url.startsWith('http')) {
                   _chatService.setModelUrl(url);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Iniciando descarga del modelo...',
-                        style: GoogleFonts.outfit(color: AppColors.textPrimary),
-                      ),
-                      backgroundColor: AppColors.cardBackground,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  );
+                  _showFeedbackSnackBar('Iniciando descarga del modelo...');
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Por favor ingresa una URL válida (http...)',
-                        style: GoogleFonts.outfit(color: AppColors.error),
-                      ),
-                      backgroundColor: AppColors.cardBackground,
-                      behavior: SnackBarBehavior.floating,
-                    ),
+                  _showFeedbackSnackBar(
+                    'Por favor ingresa una URL válida (http...)',
+                    isError: true,
                   );
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: AppColors.darkBackground,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                backgroundColor: t.buttonBackground,
+                foregroundColor: t.buttonForeground,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 elevation: 0,
               ),
               child: Text(
                 'Descargar',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 11),
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11.5,
+                ),
               ),
             ),
           ],
@@ -583,20 +732,23 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppColors.accent.withOpacity(0.07),
+            color: t.accent.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.accent.withOpacity(0.2)),
+            border: Border.all(color: t.accent.withValues(alpha: 0.25)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline_rounded, color: AppColors.accent, size: 13),
+              Icon(Icons.info_outline_rounded, color: t.accent, size: 14),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Mientras tanto, el Simulador Financiero está completamente funcional '
                   'y puede responder todas tus consultas financieras sin necesidad del modelo de IA.',
-                  style: GoogleFonts.outfit(color: AppColors.accent, fontSize: 9.5),
+                  style: GoogleFonts.outfit(
+                    color: t.textSecondary,
+                    fontSize: 10,
+                  ),
                 ),
               ),
             ],
@@ -607,25 +759,26 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   }
 
   Widget _buildIncompatibilityBanner(DeviceCapabilityResult cap) {
+    final t = context.appTheme;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.08),
+        color: t.error.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+        border: Border.all(color: t.error.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 16),
+              Icon(Icons.warning_amber_rounded, color: t.warning, size: 16),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Tu dispositivo no tiene los recursos suficientes',
                   style: GoogleFonts.outfit(
-                    color: AppColors.warning,
+                    color: t.warning,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -635,21 +788,20 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           ),
           const SizedBox(height: 6),
           _specRow(
-            Icons.storage_rounded,
             'Almacenamiento libre',
             '${cap.freeStorageGB.toStringAsFixed(1)} GB',
             cap.hasEnoughStorage,
             '≥ 3.5 GB',
           ),
           _specRow(
-            Icons.memory_rounded,
             'RAM total',
-            cap.totalRAMGB != null ? '${cap.totalRAMGB!.toStringAsFixed(1)} GB' : 'desconocida',
+            cap.totalRAMGB != null
+                ? '${cap.totalRAMGB!.toStringAsFixed(1)} GB'
+                : 'desconocida',
             cap.hasEnoughRAM,
             '≥ 4 GB',
           ),
           _specRow(
-            Icons.developer_board_rounded,
             'Procesador',
             cap.isArm64 ? 'ARM64' : 'No ARM64',
             cap.hasCompatProcessor,
@@ -658,15 +810,16 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           const SizedBox(height: 6),
           Text(
             'Aun así, puedes intentarlo ingresando la URL de un modelo más ligero abajo.',
-            style: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 9.5),
+            style: GoogleFonts.outfit(color: t.textHint, fontSize: 10),
           ),
         ],
       ),
     );
   }
 
-  Widget _specRow(IconData icon, String label, String value, bool ok, String req) {
-    final color = ok ? AppColors.success : AppColors.error;
+  Widget _specRow(String label, String value, bool ok, String req) {
+    final t = context.appTheme;
+    final color = ok ? t.success : t.error;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -680,7 +833,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           Expanded(
             child: Text(
               '$label: $value  (mín. $req)',
-              style: GoogleFonts.outfit(color: color, fontSize: 10),
+              style: GoogleFonts.outfit(color: color, fontSize: 10.5),
             ),
           ),
         ],
@@ -688,70 +841,89 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildEmptyChat() {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Dynamic Insight Dashboard
-            _buildEmptyChatDashboard(),
-            const SizedBox(height: 24),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
+  Widget _buildEmptyChat({required bool includeEngineBanner}) {
+    final t = context.appTheme;
+    final sampleAmount = CurrencyHelper.format(700);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 340;
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            compact ? 10 : 16,
+            16,
+            96,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (includeEngineBanner) ...[
+                _buildEngineStatusBanner(),
+                const SizedBox(height: 14),
+              ],
+              _buildEmptyChatDashboard(),
+              SizedBox(height: compact ? 14 : 20),
+              Text(
                 'Preguntas Recomendadas',
                 style: GoogleFonts.outfit(
-                  color: AppColors.textPrimary,
+                  color: t.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _buildQuerySuggestion(
-              title: '¿Debería comprar algo?',
-              subtitle: 'ej: ¿Debería comprar una laptop por 700 dólares?',
-              icon: Icons.shopping_bag_outlined,
-              text: '¿Debería comprar una laptop de 700 dólares?',
-            ),
-            _buildQuerySuggestion(
-              title: 'Presupuesto y Ahorros',
-              subtitle: 'Analiza tus gastos, metas y tasa de ahorro del mes',
-              icon: Icons.analytics_outlined,
-              text: '¿Cómo va mi presupuesto y ahorro mensual?',
-            ),
-            _buildQuerySuggestion(
-              title: 'Mis Cuentas y Saldos',
-              subtitle: 'Consulta el dinero acumulado en todas tus cuentas',
-              icon: Icons.wallet_outlined,
-              text: '¿Cuáles son mis cuentas y saldos?',
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(height: 10),
+              _buildQuerySuggestion(
+                title: '¿Debería comprar algo?',
+                subtitle: 'ej: ¿Puedo comprar algo de $sampleAmount sin afectar mis metas?',
+                icon: Icons.shopping_bag_outlined,
+                text: '¿Debería comprar algo por $sampleAmount?',
+              ),
+              _buildQuerySuggestion(
+                title: 'Presupuesto y Ahorros',
+                subtitle: 'Analiza tus gastos, metas y tasa de ahorro del mes',
+                icon: Icons.analytics_outlined,
+                text: '¿Cómo va mi presupuesto y ahorro mensual?',
+              ),
+              _buildQuerySuggestion(
+                title: 'Mis Cuentas y Saldos',
+                subtitle: 'Consulta el dinero acumulado en todas tus cuentas',
+                icon: Icons.account_balance_wallet_outlined,
+                text: '¿Cuáles son mis cuentas y saldos?',
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
+  double _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0.0;
+  }
+
   Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+    final t = context.appTheme;
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
         decoration: BoxDecoration(
-          color: AppColors.darkBackground.withOpacity(0.6),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.borderSubtle),
+          color: t.secondaryCardBackground,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: t.borderSubtle),
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 20),
+            Icon(icon, color: color, size: 19),
             const SizedBox(height: 6),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.outfit(
-                color: AppColors.textHint,
-                fontSize: 10,
+                color: t.textSecondary,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
@@ -762,7 +934,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
               child: Text(
                 value,
                 style: GoogleFonts.outfit(
-                  color: AppColors.textPrimary,
+                  color: t.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                 ),
@@ -775,55 +947,43 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   }
 
   Widget _buildEmptyChatDashboard() {
-    final balance = _financialState?['availableBalance']?.toStringAsFixed(2) ?? '0.00';
-    final income = _financialState?['monthlyIncome']?.toStringAsFixed(2) ?? '0.00';
-    final expenses = _financialState?['monthlyExpenses']?.toStringAsFixed(2) ?? '0.00';
-    
+    final t = context.appTheme;
+    final balance = CurrencyHelper.format(_asDouble(_financialState?['availableBalance']));
+    final income = CurrencyHelper.format(_asDouble(_financialState?['monthlyIncome']));
+    final expenses = CurrencyHelper.format(_asDouble(_financialState?['monthlyExpenses']));
+
     final ratioStatus = _chatService.ratioStatus;
-    
-    Color healthColor;
-    IconData healthIcon;
-    String healthText;
-    
-    switch (ratioStatus) {
-      case 'excellent':
-        healthColor = AppColors.success;
-        healthIcon = Icons.check_circle_outline_rounded;
-        healthText = 'Salud Financiera Excelente. Buen margen para ahorrar e invertir.';
-        break;
-      case 'moderate':
-        healthColor = AppColors.warning;
-        healthIcon = Icons.info_outline_rounded;
-        healthText = 'Ahorro moderado. Se sugiere vigilar los gastos hormiga.';
-        break;
-      case 'deficit':
-        healthColor = AppColors.error;
-        healthIcon = Icons.warning_amber_rounded;
-        healthText = 'Déficit Financiero. Estás gastando más de lo que ingresas.';
-        break;
-      default:
-        healthColor = AppColors.accent;
-        healthIcon = Icons.insights_rounded;
-        healthText = 'Ingresa transacciones para evaluar tu salud financiera.';
-    }
+    final (Color healthColor, IconData healthIcon, String healthText) =
+        switch (ratioStatus) {
+      'excellent' => (
+          t.success,
+          Icons.check_circle_outline_rounded,
+          'Salud Financiera Excelente. Buen margen para ahorrar e invertir.',
+        ),
+      'moderate' => (
+          t.warning,
+          Icons.info_outline_rounded,
+          'Ahorro moderado. Se sugiere vigilar los gastos hormiga.',
+        ),
+      'deficit' => (
+          t.error,
+          Icons.warning_amber_rounded,
+          'Déficit Financiero. Estás gastando más de lo que ingresas.',
+        ),
+      _ => (
+          t.accent,
+          Icons.insights_rounded,
+          'Ingresa transacciones para evaluar tu salud financiera.',
+        ),
+    };
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(24),
-        border: GradientBoxBorder(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.accent,
-              Colors.transparent,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          width: 1.2,
-        ),
+        color: t.cardBackground,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: t.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -831,42 +991,64 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.accent.withOpacity(0.1),
+                  color: t.accent.withValues(alpha: 0.12),
                 ),
-                child: Icon(Icons.auto_awesome_rounded, color: AppColors.accent, size: 18),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Insights de Inteligencia Artificial',
-                style: GoogleFonts.outfit(
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                child: Icon(
+                  Icons.auto_awesome_rounded,
+                  color: t.accent,
+                  size: 17,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatCard('Saldo Disponible', '\$$balance', Icons.account_balance_wallet_rounded, AppColors.accent),
               const SizedBox(width: 8),
-              _buildStatCard('Ingresos Mes', '\$$income', Icons.trending_up_rounded, AppColors.income),
-              const SizedBox(width: 8),
-              _buildStatCard('Gastos Mes', '\$$expenses', Icons.trending_down_rounded, AppColors.expense),
+              Expanded(
+                child: Text(
+                  'Resumen Financiero para IA',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: t.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
+          Row(
+            children: [
+              _buildStatCard(
+                'Disponible',
+                balance,
+                Icons.account_balance_wallet_rounded,
+                t.accent,
+              ),
+              const SizedBox(width: 8),
+              _buildStatCard(
+                'Ingresos Mes',
+                income,
+                Icons.trending_up_rounded,
+                t.income,
+              ),
+              const SizedBox(width: 8),
+              _buildStatCard(
+                'Gastos Mes',
+                expenses,
+                Icons.trending_down_rounded,
+                t.expense,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: healthColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: healthColor.withOpacity(0.2)),
+              color: healthColor.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: healthColor.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -876,8 +1058,8 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                   child: Text(
                     healthText,
                     style: GoogleFonts.outfit(
-                      color: AppColors.textPrimary,
-                      fontSize: 11,
+                      color: t.textPrimary,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -896,10 +1078,12 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
     required IconData icon,
     required String text,
   }) {
+    final t = context.appTheme;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       child: Material(
-        color: Colors.transparent,
+        color: t.cardBackground,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: () {
             _messageController.text = text;
@@ -907,23 +1091,22 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.cardBackground.withOpacity(0.3),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderSubtle),
+              border: Border.all(color: t.borderSubtle),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.1),
+                    color: t.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: AppColors.accent, size: 20),
+                  child: Icon(icon, color: t.accent, size: 19),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -931,8 +1114,8 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       Text(
                         title,
                         style: GoogleFonts.outfit(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
+                          color: t.textPrimary,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -940,17 +1123,18 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       Text(
                         subtitle,
                         style: GoogleFonts.outfit(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
+                          color: t.textSecondary,
+                          fontSize: 11.5,
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 6),
                 Icon(
                   Icons.arrow_forward_ios_rounded,
-                  color: AppColors.textHint,
-                  size: 14,
+                  color: t.textHint,
+                  size: 13,
                 ),
               ],
             ),
@@ -961,197 +1145,177 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   }
 
   Widget _buildChatBubble(ChatMessage message) {
+    final t = context.appTheme;
+    final isDiurno = context.isDiurno;
     final isUser = message.role == 'user';
-    final hasSuggestions = !isUser && message.categorySuggestions != null && message.categorySuggestions!.isNotEmpty;
-    final hasTxSuggestions = !isUser && message.transactionSuggestions != null && message.transactionSuggestions!.isNotEmpty;
+    final hasSuggestions = !isUser &&
+        message.categorySuggestions != null &&
+        message.categorySuggestions!.isNotEmpty;
+    final hasTxSuggestions = !isUser &&
+        message.transactionSuggestions != null &&
+        message.transactionSuggestions!.isNotEmpty;
+
+    final maxBubbleWidth = math.min(
+      MediaQuery.sizeOf(context).width * 0.78,
+      520.0,
+    );
+    final timeStr = DateFormat('HH:mm').format(message.timestamp);
+
+    final Color userTextColor = t.buttonForeground;
+    final Color aiBodyTextColor = t.textPrimary;
+    final BorderRadius bubbleRadius = BorderRadius.only(
+      topLeft: const Radius.circular(18),
+      topRight: const Radius.circular(18),
+      bottomLeft: Radius.circular(isUser ? 18 : 6),
+      bottomRight: Radius.circular(isUser ? 6 : 18),
+    );
 
     final bubbleWidget = Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
             Container(
+              width: 28,
+              height: 28,
+              margin: const EdgeInsets.only(bottom: 6),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.accent.withOpacity(0.2), width: 1),
-              ),
-              child: CircleAvatar(
-                backgroundColor: AppColors.cardBackground,
-                radius: 13,
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  color: AppColors.accent,
-                  size: 13,
+                color: t.cardBackground,
+                border: Border.all(
+                  color: t.borderSubtle,
+                  width: 1,
                 ),
+              ),
+              child: Icon(
+                Icons.auto_awesome_rounded,
+                color: t.accent,
+                size: 14,
               ),
             ),
             const SizedBox(width: 8),
           ],
           Flexible(
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.76),
-              decoration: BoxDecoration(
-                gradient: isUser
-                    ? const LinearGradient(
-                        colors: [
-                          Color(0xFF3B82F6),
-                          Color(0xFF1D4ED8),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: !isUser ? AppColors.cardBackground.withOpacity(0.7) : null,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18),
-                  topRight: const Radius.circular(18),
-                  bottomLeft: Radius.circular(isUser ? 18 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 18),
-                ),
-                border: !isUser 
-                    ? const GradientBoxBorder(
-                        gradient: LinearGradient(
-                          colors: [
-                            Color(0xFF52E2FF),
-                            Colors.transparent,
-                          ],
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: isUser && isDiurno
+                      ? const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                        ),
-                        width: 1.0,
-                      )
-                    : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ],
-              ),
-              child: Stack(
-                children: [
-                  if (!isUser)
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'AI',
-                          style: GoogleFonts.outfit(
-                            color: AppColors.accent,
-                            fontSize: 7.5,
-                            fontWeight: FontWeight.bold,
+                          colors: [
+                            Color(0xFF0066D6),
+                            Color(0xFF004FA8),
+                          ],
+                        )
+                      : null,
+                  color: !isUser
+                      ? t.cardBackground
+                      : (isDiurno ? null : t.buttonBackground),
+                  borderRadius: bubbleRadius,
+                  border: isUser
+                      ? (isDiurno
+                          ? Border.all(
+                              color: Colors.white.withValues(alpha: 0.35),
+                              width: 1,
+                            )
+                          : null)
+                      : (isDiurno
+                          ? GradientBoxBorder(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white,
+                                  t.borderSubtle,
+                                ],
+                              ),
+                              width: 1.1,
+                            )
+                          : Border.all(color: t.borderSubtle, width: 1)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isUser && isDiurno
+                          ? const Color(0x220062CC)
+                          : Colors.black.withValues(
+                              alpha: Theme.of(context).brightness == Brightness.light
+                                  ? 0.06
+                                  : 0.16,
+                            ),
+                      blurRadius: isDiurno ? 12 : 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment:
+                      isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  children: [
+                    if (!isUser) ...[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Asistente',
+                            style: GoogleFonts.outfit(
+                              color: t.accent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                            ),
                           ),
+                          const SizedBox(width: 8),
+                          Text(
+                            timeStr,
+                            style: GoogleFonts.outfit(
+                              color: t.textHint,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                    ],
+                    if (isUser ||
+                        !RegExp(r'[*_`#\[\]\n-]').hasMatch(message.content))
+                      Text(
+                        message.content,
+                        style: GoogleFonts.outfit(
+                          color: isUser ? userTextColor : aiBodyTextColor,
+                          fontSize: 14,
+                          height: 1.45,
+                        ),
+                      )
+                    else
+                      MarkdownBody(
+                        data: message.content,
+                        fitContent: true,
+                        shrinkWrap: true,
+                        styleSheet: _buildMarkdownStyle(
+                          isUser: isUser,
+                          userTextColor: userTextColor,
+                          aiBodyTextColor: aiBodyTextColor,
+                          t: t,
                         ),
                       ),
-                    ),
-                  Padding(
-                    padding: EdgeInsets.only(top: !isUser ? 6 : 0, right: !isUser ? 16 : 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        MarkdownBody(
-                          data: message.content,
-                          styleSheet: MarkdownStyleSheet(
-                            p: GoogleFonts.outfit(
-                              color: isUser ? Colors.white : AppColors.textPrimary,
-                              fontSize: 14,
-                              height: 1.45,
-                            ),
-                            strong: GoogleFonts.outfit(
-                              color: isUser ? Colors.white : AppColors.accent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                            listBullet: GoogleFonts.outfit(
-                              color: isUser ? Colors.white70 : AppColors.accent,
-                              fontSize: 14,
-                            ),
-                            h1: GoogleFonts.outfit(
-                              color: isUser ? Colors.white : AppColors.accent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              height: 1.5,
-                            ),
-                            h2: GoogleFonts.outfit(
-                              color: isUser ? Colors.white : AppColors.accent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              height: 1.4,
-                            ),
-                            h3: GoogleFonts.outfit(
-                              color: isUser ? Colors.white : AppColors.textPrimary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                            blockquote: GoogleFonts.outfit(
-                              color: isUser ? Colors.white.withOpacity(0.8) : AppColors.textSecondary,
-                              fontSize: 13,
-                              height: 1.4,
-                            ),
-                            blockquoteDecoration: BoxDecoration(
-                              color: isUser 
-                                  ? Colors.black.withOpacity(0.15)
-                                  : AppColors.darkBackground.withOpacity(0.4),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border(
-                                left: BorderSide(
-                                  color: isUser ? Colors.white70 : AppColors.accent, 
-                                  width: 3.5,
-                                ),
-                              ),
-                            ),
-                            blockquotePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            code: GoogleFonts.jetBrainsMono(
-                              color: isUser ? Colors.white : AppColors.accent,
-                              backgroundColor: isUser 
-                                  ? Colors.black.withOpacity(0.2)
-                                  : AppColors.darkBackground,
-                              fontSize: 12,
-                            ),
-                            codeblockDecoration: BoxDecoration(
-                              color: isUser 
-                                  ? Colors.black.withOpacity(0.2)
-                                  : AppColors.darkBackground,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isUser 
-                                    ? Colors.white.withOpacity(0.1)
-                                    : AppColors.borderSubtle,
-                              ),
-                            ),
-                            codeblockPadding: const EdgeInsets.all(10),
-                          ),
+                    if (isUser) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        timeStr,
+                        style: GoogleFonts.outfit(
+                          color: userTextColor.withValues(alpha: 0.78),
+                          fontSize: 10,
                         ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Spacer(),
-                            Text(
-                              DateFormat('HH:mm').format(message.timestamp),
-                              style: GoogleFonts.outfit(
-                                color: isUser ? Colors.white.withOpacity(0.65) : AppColors.textHint,
-                                fontSize: 9,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1160,27 +1324,135 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
     );
 
     if (hasSuggestions || hasTxSuggestions) {
+      final msgIdx = _chatService.messages.indexOf(message);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           bubbleWidget,
           if (hasSuggestions)
-            _buildCategorySuggestionsList(message, _chatService.messages.indexOf(message)),
+            _buildCategorySuggestionsList(message, msgIdx),
           if (hasTxSuggestions)
-            _buildTransactionSuggestionsList(message, _chatService.messages.indexOf(message)),
+            _buildTransactionSuggestionsList(message, msgIdx),
         ],
       );
     }
     return bubbleWidget;
   }
 
-  Widget _buildCategorySuggestionsList(ChatMessage message, int messageIndex) {
-    final suggestions = message.categorySuggestions!;
-    
+  MarkdownStyleSheet _buildMarkdownStyle({
+    required bool isUser,
+    required Color userTextColor,
+    required Color aiBodyTextColor,
+    required AppTheme t,
+  }) {
+    final baseColor = isUser ? userTextColor : aiBodyTextColor;
+    final strongColor = isUser ? userTextColor : t.accent;
+    final codeBg = isUser
+        ? t.buttonForeground.withValues(alpha: 0.14)
+        : t.darkBackground;
+
+    return MarkdownStyleSheet(
+      p: GoogleFonts.outfit(
+        color: baseColor,
+        fontSize: 14,
+        height: 1.45,
+      ),
+      strong: GoogleFonts.outfit(
+        color: strongColor,
+        fontWeight: FontWeight.bold,
+        fontSize: 14,
+      ),
+      listBullet: GoogleFonts.outfit(
+        color: strongColor,
+        fontSize: 14,
+      ),
+      h1: GoogleFonts.outfit(
+        color: strongColor,
+        fontWeight: FontWeight.bold,
+        fontSize: 17,
+        height: 1.4,
+      ),
+      h2: GoogleFonts.outfit(
+        color: strongColor,
+        fontWeight: FontWeight.bold,
+        fontSize: 15.5,
+        height: 1.35,
+      ),
+      h3: GoogleFonts.outfit(
+        color: baseColor,
+        fontWeight: FontWeight.bold,
+        fontSize: 14.5,
+      ),
+      blockquote: GoogleFonts.outfit(
+        color: isUser ? userTextColor.withValues(alpha: 0.88) : t.textSecondary,
+        fontSize: 13,
+        height: 1.4,
+      ),
+      blockquoteDecoration: BoxDecoration(
+        color: isUser
+            ? t.buttonForeground.withValues(alpha: 0.12)
+            : t.darkBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border(
+          left: BorderSide(
+            color: strongColor,
+            width: 3,
+          ),
+        ),
+      ),
+      blockquotePadding:
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      code: GoogleFonts.jetBrainsMono(
+        color: strongColor,
+        backgroundColor: codeBg,
+        fontSize: 12,
+      ),
+      codeblockDecoration: BoxDecoration(
+        color: codeBg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isUser ? userTextColor.withValues(alpha: 0.22) : t.borderSubtle,
+        ),
+      ),
+      codeblockPadding: const EdgeInsets.all(10),
+    );
+  }
+
+  Widget _buildSuggestionShell({
+    required Widget child,
+    double width = 185,
+  }) {
+    final t = context.appTheme;
     return Container(
-      margin: const EdgeInsets.only(left: 34, top: 4, bottom: 12),
-      height: 145,
+      width: width,
+      margin: const EdgeInsets.only(right: 10, top: 4, bottom: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: t.cardBackground,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: t.borderSubtle, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: Theme.of(context).brightness == Brightness.light ? 0.06 : 0.16,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildCategorySuggestionsList(ChatMessage message, int messageIndex) {
+    final t = context.appTheme;
+    final suggestions = message.categorySuggestions!;
+
+    return Container(
+      margin: const EdgeInsets.only(left: 36, top: 4, bottom: 10),
+      height: 148,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: suggestions.length,
@@ -1189,140 +1461,230 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
           final String name = sug['name'] ?? '';
           final String type = sug['type'] ?? 'Expenses';
           final int iconCode = sug['icon'] ?? Icons.category.codePoint;
-          final int colorValue = sug['color'] ?? Colors.blueAccent.value;
-          
+          final int colorValue = sug['color'] ?? t.accent.toARGB32();
+
           final iconData = AppIcons.getIcon(iconCode);
-          final categoryColor = Color(colorValue);
-          
-          return Container(
-            width: 175,
-            margin: const EdgeInsets.only(right: 12, bottom: 4, top: 4),
-            decoration: BoxDecoration(
-              color: AppColors.cardBackground.withOpacity(0.85),
-              borderRadius: BorderRadius.circular(20),
-              border: GradientBoxBorder(
-                gradient: LinearGradient(
-                  colors: [
-                    categoryColor.withOpacity(0.4),
-                    Colors.white.withOpacity(0.08),
+          final categoryColor =
+              AppColors.getReadableColor(Color(colorValue), context);
+          final typeColor = type == 'Income' ? t.income : t.expense;
+
+          return _buildSuggestionShell(
+            width: 178,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: categoryColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: categoryColor.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Icon(iconData, color: categoryColor, size: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        type == 'Income' ? 'INGRESO' : 'GASTO',
+                        style: GoogleFonts.outfit(
+                          color: typeColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
                   ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
                 ),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: t.textPrimary,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                BoxShadow(
-                  color: categoryColor.withOpacity(0.08),
-                  blurRadius: 10,
-                  spreadRadius: -2,
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildSuggestionAction(
+                      icon: Icons.close_rounded,
+                      color: t.error,
+                      tooltip: 'Rechazar',
+                      onTap: () async {
+                        await _chatService.removeCategorySuggestion(
+                            messageIndex, name);
+                      },
+                    ),
+                    _buildSuggestionAction(
+                      icon: Icons.edit_rounded,
+                      color: t.accent,
+                      tooltip: 'Editar',
+                      onTap: () {
+                        _showEditSuggestedCategoryDialog(
+                          messageIndex: messageIndex,
+                          type: type,
+                          name: name,
+                          iconCode: iconCode,
+                          colorValue: colorValue,
+                        );
+                      },
+                    ),
+                    _buildSuggestionAction(
+                      icon: Icons.check_rounded,
+                      color: t.success,
+                      tooltip: 'Aceptar',
+                      onTap: () async {
+                        await _chatService.acceptCategorySuggestion(
+                            messageIndex, sug);
+                        _showFeedbackSnackBar(
+                          'Categoría "$name" guardada exitosamente.',
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Icono & Tipo
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: categoryColor.withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: categoryColor.withOpacity(0.3), width: 1),
-                        ),
-                        child: Icon(iconData, color: categoryColor, size: 16),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTransactionSuggestionsList(
+      ChatMessage message, int messageIndex) {
+    final t = context.appTheme;
+    final suggestions = message.transactionSuggestions!;
+
+    return Container(
+      margin: const EdgeInsets.only(left: 36, top: 4, bottom: 10),
+      height: 158,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: suggestions.length,
+        itemBuilder: (context, index) {
+          final tx = suggestions[index];
+          final String type = tx['type'] ?? 'Expenses';
+          final double amount = _asDouble(tx['amount']);
+          final String category = tx['category'] ?? 'Otros';
+          final String detail = tx['detail'] ?? '';
+          final String dateStr = tx['date'] ?? '';
+          final String account = tx['account'] ?? 'Efectivo';
+
+          final accentColor = type == 'Income' ? t.income : t.expense;
+
+          return _buildSuggestionShell(
+            width: 198,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          type == 'Income' ? 'INGRESO' : 'GASTO',
-                          style: GoogleFonts.outfit(
-                            color: type == 'Income' ? AppColors.income : AppColors.expense,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  // Nombre sugerido
-                  Expanded(
-                    child: Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        color: AppColors.textPrimary,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.bold,
+                      child: Icon(
+                        type == 'Income'
+                            ? Icons.arrow_upward_rounded
+                            : Icons.arrow_downward_rounded,
+                        color: accentColor,
+                        size: 13,
                       ),
                     ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        CurrencyHelper.format(amount),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          color: t.textPrimary,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: t.textPrimary,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 8),
-                  // Acciones (Aceptar, Editar, Rechazar)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Rechazar
-                      _buildSuggestionAction(
-                        icon: Icons.close_rounded,
-                        color: AppColors.error,
-                        tooltip: 'Rechazar',
-                        onTap: () async {
-                          await _chatService.removeCategorySuggestion(messageIndex, name);
-                        },
-                      ),
-                      // Editar
-                      _buildSuggestionAction(
-                        icon: Icons.edit_rounded,
-                        color: AppColors.accent,
-                        tooltip: 'Editar',
-                        onTap: () {
-                          _showEditSuggestedCategoryDialog(
-                            messageIndex: messageIndex,
-                            type: type,
-                            name: name,
-                            iconCode: iconCode,
-                            colorValue: colorValue,
-                          );
-                        },
-                      ),
-                      // Aceptar
-                      _buildSuggestionAction(
-                        icon: Icons.check_rounded,
-                        color: AppColors.success,
-                        tooltip: 'Aceptar',
-                        onTap: () async {
-                          await _chatService.acceptCategorySuggestion(messageIndex, sug);
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Categoría "$name" guardada exitosamente.',
-                                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w500),
-                              ),
-                              backgroundColor: Colors.green.shade800,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$category • $account',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: t.textSecondary,
+                    fontSize: 10.5,
                   ),
-                ],
-              ),
+                ),
+                const Spacer(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildSuggestionAction(
+                      icon: Icons.close_rounded,
+                      color: t.error,
+                      tooltip: 'Rechazar',
+                      onTap: () async {
+                        await _chatService.removeTransactionSuggestion(
+                            messageIndex, detail);
+                      },
+                    ),
+                    _buildSuggestionAction(
+                      icon: Icons.edit_rounded,
+                      color: t.accent,
+                      tooltip: 'Editar',
+                      onTap: () {
+                        _showEditSuggestedTransactionDialog(
+                          messageIndex: messageIndex,
+                          type: type,
+                          detail: detail,
+                          amount: amount,
+                          category: category,
+                          dateStr: dateStr,
+                          account: account,
+                        );
+                      },
+                    ),
+                    _buildSuggestionAction(
+                      icon: Icons.check_rounded,
+                      color: t.success,
+                      tooltip: 'Aceptar',
+                      onTap: () async {
+                        await _chatService.acceptTransactionSuggestion(
+                            messageIndex, tx);
+                        _showFeedbackSnackBar(
+                          'Transacción registrada exitosamente.',
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
           );
         },
@@ -1336,19 +1698,22 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
     required String tooltip,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withOpacity(0.15), width: 1),
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: color.withValues(alpha: 0.28)),
+            ),
+            child: Icon(icon, color: color, size: 15),
           ),
-          child: Icon(icon, color: color, size: 14),
         ),
       ),
     );
@@ -1361,564 +1726,357 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
     required int iconCode,
     required int colorValue,
   }) {
-    final TextEditingController _nameController = TextEditingController(text: name);
-    IconData _selectedIcon = AppIcons.getIcon(iconCode);
-    Color _selectedColor = Color(colorValue);
-
-    final Color cardColor = const Color(0xFF222939);
+    final nameController = TextEditingController(text: name);
+    var selectedIcon = AppIcons.getIcon(iconCode);
+    var selectedColor = Color(colorValue);
+    final t = context.appTheme;
 
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: "Categoría Sugerida",
-      barrierColor: Colors.black.withOpacity(0.75),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation1, animation2) => Container(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curvedAnimation = CurvedAnimation(parent: animation, curve: Curves.easeOutQuart);
-        
+      barrierLabel: 'Categoría Sugerida',
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (dialogCtx, animation, _, __) {
+        final curved =
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+
         return ScaleTransition(
-          scale: Tween<double>(begin: 0.9, end: 1.0).animate(curvedAnimation),
+          scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
           child: FadeTransition(
             opacity: animation,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Dialog(
-                backgroundColor: Colors.transparent,
-                insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                child: StatefulBuilder(
-                  builder: (context, setDialogState) {
-                    return Container(
-                      width: double.infinity,
-                      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 560),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            cardColor,
-                            Color.lerp(cardColor, _selectedColor.withOpacity(0.15), 0.3) ?? cardColor,
-                          ],
+            child: Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: StatefulBuilder(
+                builder: (context, setDialogState) {
+                  final readableSelected =
+                      AppColors.getReadableColor(selectedColor, context);
+                  return Container(
+                    width: double.infinity,
+                    constraints:
+                        const BoxConstraints(maxWidth: 400, maxHeight: 560),
+                    decoration: BoxDecoration(
+                      color: t.cardBackground,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: t.borderSubtle),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
                         ),
-                        borderRadius: BorderRadius.circular(28),
-                        border: GradientBoxBorder(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white.withOpacity(0.15),
-                              _selectedColor.withOpacity(0.3),
-                              Colors.white.withOpacity(0.05),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: readableSelected.withValues(alpha: 0.08),
+                            border: Border(
+                              bottom: BorderSide(color: t.borderSubtle),
+                            ),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(24),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: selectedColor,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Icon(
+                                  selectedIcon,
+                                  color: Colors.white,
+                                  size: 26,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Editar Sugerencia',
+                                      style: GoogleFonts.outfit(
+                                        color: t.textPrimary,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      type == 'Income'
+                                          ? 'Categoría de Ingreso'
+                                          : 'Categoría de Egreso',
+                                      style: GoogleFonts.outfit(
+                                        color: t.textSecondary,
+                                        fontSize: 12.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
-                          width: 1.2,
                         ),
-                        boxShadow: [
-                           BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: -5),
-                           BoxShadow(color: _selectedColor.withOpacity(0.2), blurRadius: 15, spreadRadius: -2),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Cabecera estilizada
-                          Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  _selectedColor.withOpacity(0.18),
-                                  _selectedColor.withOpacity(0.05),
-                                ],
-                              ),
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Colors.white.withOpacity(0.08),
-                                  width: 1,
-                                ),
-                              ),
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                            ),
-                            child: Row(
+                        Flexible(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  width: 58,
-                                  height: 58,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        _selectedColor.withOpacity(0.22),
-                                        _selectedColor.withOpacity(0.13),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.4),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 6),
-                                        spreadRadius: -2,
-                                      ),
-                                    ],
-                                    border: Border.all(
-                                      color: _selectedColor.withOpacity(0.35),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    _selectedIcon,
-                                    color: Colors.white,
-                                    size: 28,
+                                Text(
+                                  'Nombre de Categoría',
+                                  style: GoogleFonts.outfit(
+                                    color: t.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const SizedBox(width: 18),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Editar Sugerencia',
-                                        style: GoogleFonts.outfit(
-                                          color: Colors.white,
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.3,
-                                        ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: nameController,
+                                  maxLength: 25,
+                                  style: GoogleFonts.outfit(
+                                    color: t.textPrimary,
+                                    fontSize: 15,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Ej. Supermercado, Salario...',
+                                    hintStyle: GoogleFonts.outfit(
+                                      color: t.textHint,
+                                    ),
+                                    filled: true,
+                                    fillColor: t.darkBackground,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide:
+                                          BorderSide(color: t.borderSubtle),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide:
+                                          BorderSide(color: t.borderSubtle),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: BorderSide(
+                                        color: readableSelected,
+                                        width: 1.5,
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        type == 'Income' ? 'Categoría de Ingreso' : 'Categoría de Egreso',
-                                        style: GoogleFonts.outfit(
-                                          color: Colors.white70,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
+                                    counterText: '',
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          // Contenido
-                          Flexible(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Nombre
-                                  Text(
-                                    'Nombre de Categoría',
-                                    style: GoogleFonts.outfit(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                const SizedBox(height: 18),
+                                Text(
+                                  'Color distintivo',
+                                  style: GoogleFonts.outfit(
+                                    color: t.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  const SizedBox(height: 8),
-                                  TextField(
-                                    controller: _nameController,
-                                    maxLength: 25,
-                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 16),
-                                    decoration: InputDecoration(
-                                      hintText: 'Ej. Supermercado, Salario...',
-                                      hintStyle: GoogleFonts.outfit(color: Colors.white30),
-                                      filled: true,
-                                      fillColor: Colors.black26,
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        borderSide: BorderSide(color: _selectedColor, width: 1.5),
-                                      ),
-                                      counterText: '',
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  // Color
-                                  Text(
-                                    'Color distintivo',
-                                    style: GoogleFonts.outfit(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  SizedBox(
-                                    height: 52,
-                                    child: ListView.builder(
-                                      scrollDirection: Axis.horizontal,
-                                      itemCount: _availableColors.length,
-                                      itemBuilder: (context, index) {
-                                        final color = _availableColors[index];
-                                        final isSelected = color.value == _selectedColor.value;
-                                        return GestureDetector(
-                                          onTap: () {
-                                            setDialogState(() {
-                                              _selectedColor = color;
-                                            });
-                                          },
-                                          child: Container(
-                                            width: 42,
-                                            margin: const EdgeInsets.only(right: 10, top: 4, bottom: 4),
-                                            decoration: BoxDecoration(
-                                              color: color,
-                                              shape: BoxShape.circle,
-                                              border: isSelected
-                                                  ? Border.all(color: Colors.white, width: 3)
-                                                  : null,
-                                              boxShadow: isSelected
-                                                  ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 8, spreadRadius: 1)]
-                                                  : null,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  // Icono
-                                  Text(
-                                    'Ícono representativo',
-                                    style: GoogleFonts.outfit(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  GridView.builder(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 6,
-                                      crossAxisSpacing: 10,
-                                      mainAxisSpacing: 10,
-                                    ),
-                                    itemCount: _availableIcons.length,
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  height: 48,
+                                  child: ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: _availableColors.length,
                                     itemBuilder: (context, index) {
-                                      final icon = _availableIcons[index];
-                                      final isSelected = icon.codePoint == _selectedIcon.codePoint;
+                                      final color = _availableColors[index];
+                                      final isSelected =
+                                          color.toARGB32() == selectedColor.toARGB32();
                                       return GestureDetector(
                                         onTap: () {
                                           setDialogState(() {
-                                            _selectedIcon = icon;
+                                            selectedColor = color;
                                           });
                                         },
                                         child: Container(
-                                          decoration: BoxDecoration(
-                                            color: isSelected 
-                                                ? _selectedColor.withOpacity(0.2) 
-                                                : Colors.black26,
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: isSelected 
-                                                  ? _selectedColor 
-                                                  : Colors.white.withOpacity(0.08),
-                                              width: isSelected ? 1.5 : 1,
-                                            ),
+                                          width: 38,
+                                          margin: const EdgeInsets.only(
+                                            right: 10,
+                                            top: 4,
+                                            bottom: 4,
                                           ),
-                                          child: Icon(
-                                            icon,
-                                            color: isSelected ? Colors.white : Colors.white54,
-                                            size: 20,
+                                          decoration: BoxDecoration(
+                                            color: color,
+                                            shape: BoxShape.circle,
+                                            border: isSelected
+                                                ? Border.all(
+                                                    color: t.textPrimary,
+                                                    width: 2.5,
+                                                  )
+                                                : null,
                                           ),
                                         ),
                                       );
                                     },
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          // Acciones
-                          Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                top: BorderSide(
-                                  color: Colors.white.withOpacity(0.08),
-                                  width: 1,
                                 ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.white70,
-                                      side: BorderSide(color: Colors.white.withOpacity(0.12)),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                    ),
-                                    onPressed: () => Navigator.pop(context),
-                                    child: Text('Cancelar', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 18),
+                                Text(
+                                  'Ícono representativo',
+                                  style: GoogleFonts.outfit(
+                                    color: t.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: _selectedColor.withOpacity(0.3),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: _selectedColor,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                        elevation: 0,
-                                      ),
-                                      onPressed: () async {
-                                        final enteredName = _nameController.text.trim();
-                                        if (enteredName.isEmpty) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Por favor, ingresa un nombre para la categoría.',
-                                                style: GoogleFonts.outfit(color: Colors.white),
-                                              ),
-                                              backgroundColor: Colors.redAccent,
-                                            ),
-                                          );
-                                          return;
-                                        }
-
-                                        // Guardar categoría en base de datos
-                                        await CategoryService.addCategoryWithMetadata(
-                                          type,
-                                          enteredName,
-                                          _selectedIcon.codePoint,
-                                          _selectedColor.value,
-                                        );
-
-                                        // Remover de sugerencias originales
-                                        await _chatService.removeCategorySuggestion(messageIndex, name);
-
-                                        if (!mounted) return;
-                                        Navigator.pop(context);
-
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Categoría "$enteredName" guardada exitosamente.',
-                                              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w500),
-                                            ),
-                                            backgroundColor: Colors.green.shade800,
-                                            behavior: SnackBarBehavior.floating,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                          ),
-                                        );
+                                const SizedBox(height: 8),
+                                GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 6,
+                                    crossAxisSpacing: 8,
+                                    mainAxisSpacing: 8,
+                                  ),
+                                  itemCount: _availableIcons.length,
+                                  itemBuilder: (context, index) {
+                                    final icon = _availableIcons[index];
+                                    final isSelected =
+                                        icon.codePoint == selectedIcon.codePoint;
+                                    return GestureDetector(
+                                      onTap: () {
+                                        setDialogState(() {
+                                          selectedIcon = icon;
+                                        });
                                       },
-                                      child: Text(
-                                        'Guardar',
-                                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? readableSelected.withValues(alpha: 0.16)
+                                              : t.darkBackground,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? readableSelected
+                                                : t.borderSubtle,
+                                            width: isSelected ? 1.5 : 1,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          icon,
+                                          color: isSelected
+                                              ? readableSelected
+                                              : t.textSecondary,
+                                          size: 20,
+                                        ),
                                       ),
-                                    ),
-                                  ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: t.borderSubtle),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: t.textSecondary,
+                                    side: BorderSide(color: t.borderVisible),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 13),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  onPressed: () => Navigator.pop(dialogCtx),
+                                  child: Text(
+                                    'Cancelar',
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: t.buttonBackground,
+                                    foregroundColor: t.buttonForeground,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 13),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  onPressed: () async {
+                                    final enteredName =
+                                        nameController.text.trim();
+                                    if (enteredName.isEmpty) {
+                                      _showFeedbackSnackBar(
+                                        'Por favor, ingresa un nombre para la categoría.',
+                                        isError: true,
+                                      );
+                                      return;
+                                    }
+
+                                    await CategoryService
+                                        .addCategoryWithMetadata(
+                                      type,
+                                      enteredName,
+                                      selectedIcon.codePoint,
+                                      selectedColor.toARGB32(),
+                                    );
+                                    await _chatService.removeCategorySuggestion(
+                                        messageIndex, name);
+
+                                    if (!mounted) return;
+                                    Navigator.pop(dialogCtx);
+                                    _showFeedbackSnackBar(
+                                      'Categoría "$enteredName" guardada exitosamente.',
+                                    );
+                                  },
+                                  child: Text(
+                                    'Guardar',
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildTransactionSuggestionsList(ChatMessage message, int messageIndex) {
-    final suggestions = message.transactionSuggestions!;
-    
-    return Container(
-      margin: const EdgeInsets.only(left: 34, top: 4, bottom: 12),
-      height: 155,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: suggestions.length,
-        itemBuilder: (context, index) {
-          final tx = suggestions[index];
-          final String type = tx['type'] ?? 'Expenses';
-          final double amount = tx['amount'] ?? 0.0;
-          final String category = tx['category'] ?? 'Otros';
-          final String detail = tx['detail'] ?? '';
-          final String dateStr = tx['date'] ?? '';
-          final String account = tx['account'] ?? 'Efectivo';
-          
-          final accentColor = type == 'Income' ? AppColors.income : AppColors.expense;
-          
-          return Container(
-            width: 195,
-            margin: const EdgeInsets.only(right: 12, bottom: 4, top: 4),
-            decoration: BoxDecoration(
-              color: AppColors.cardBackground.withOpacity(0.85),
-              borderRadius: BorderRadius.circular(20),
-              border: GradientBoxBorder(
-                gradient: LinearGradient(
-                  colors: [
-                    accentColor.withOpacity(0.4),
-                    Colors.white.withOpacity(0.08),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: accentColor.withOpacity(0.08),
-                  blurRadius: 10,
-                  spreadRadius: -2,
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Tipo & Monto
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: accentColor.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          type == 'Income' ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                          color: accentColor,
-                          size: 12,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          CurrencyHelper.format(amount),
-                          style: GoogleFonts.outfit(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  // Detalle
-                  Text(
-                    detail,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: AppColors.textPrimary,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  // Cuenta y Categoría
-                  Text(
-                    '$category • $account',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: AppColors.textSecondary,
-                      fontSize: 10,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Acciones (Aceptar, Editar, Rechazar)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Rechazar
-                      _buildSuggestionAction(
-                        icon: Icons.close_rounded,
-                        color: AppColors.error,
-                        tooltip: 'Rechazar',
-                        onTap: () async {
-                          await _chatService.removeTransactionSuggestion(messageIndex, detail);
-                        },
-                      ),
-                      // Editar
-                      _buildSuggestionAction(
-                        icon: Icons.edit_rounded,
-                        color: AppColors.accent,
-                        tooltip: 'Editar',
-                        onTap: () {
-                          _showEditSuggestedTransactionDialog(
-                            messageIndex: messageIndex,
-                            type: type,
-                            detail: detail,
-                            amount: amount,
-                            category: category,
-                            dateStr: dateStr,
-                            account: account,
-                          );
-                        },
-                      ),
-                      // Aceptar
-                      _buildSuggestionAction(
-                        icon: Icons.check_rounded,
-                        color: AppColors.success,
-                        tooltip: 'Aceptar',
-                        onTap: () async {
-                          await _chatService.acceptTransactionSuggestion(messageIndex, tx);
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Transacción registrada exitosamente.',
-                                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w500),
-                              ),
-                              backgroundColor: Colors.green.shade800,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 
@@ -1936,462 +2094,565 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
         ? List<Map<String, dynamic>>.from(_financialState!['accounts'])
         : <Map<String, dynamic>>[];
 
-    final TextEditingController _detailController = TextEditingController(text: detail);
-    final TextEditingController _amountController = TextEditingController(text: CurrencyHelper.format(amount, showSymbol: false));
-    
-    DateTime _selectedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
-    String _selectedCategory = category;
-    String _selectedAccount = account;
+    final detailController = TextEditingController(text: detail);
+    final amountController = TextEditingController(
+      text: CurrencyHelper.format(amount, showSymbol: false),
+    );
 
-    if (accounts.isNotEmpty && !accounts.any((a) => a['title'] == _selectedAccount)) {
-      _selectedAccount = accounts.first['title'];
-    }
-    if (categories.isNotEmpty && !categories.any((c) => c['text'] == _selectedCategory)) {
-      _selectedCategory = categories.first['text'];
-    }
+    var selectedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
+    var selectedCategory = category;
+    var selectedAccount = account;
 
-    final Color cardColor = const Color(0xFF222939);
-    final Color accentColor = type == 'Income' ? Colors.greenAccent : Colors.redAccent;
+    if (accounts.isNotEmpty &&
+        !accounts.any((a) => a['title'] == selectedAccount)) {
+      selectedAccount = accounts.first['title'];
+    }
+    if (categories.isNotEmpty &&
+        !categories.any((c) => c['text'] == selectedCategory)) {
+      selectedCategory = categories.first['text'];
+    }
 
     if (!mounted) return;
+    final t = context.appTheme;
+    final accentColor = type == 'Income' ? t.income : t.expense;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: "Editar Transacción Sugerida",
-      barrierColor: Colors.black.withOpacity(0.75),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation1, animation2) => Container(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curvedAnimation = CurvedAnimation(parent: animation, curve: Curves.easeOutQuart);
-        
+      barrierLabel: 'Editar Transacción Sugerida',
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (dialogCtx, animation, _, __) {
+        final curved =
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+
         return ScaleTransition(
-          scale: Tween<double>(begin: 0.9, end: 1.0).animate(curvedAnimation),
+          scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
           child: FadeTransition(
             opacity: animation,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Dialog(
-                backgroundColor: Colors.transparent,
-                insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                child: StatefulBuilder(
-                  builder: (context, setDialogState) {
-                    return Container(
-                      width: double.infinity,
-                      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 600),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            cardColor,
-                            Color.lerp(cardColor, accentColor.withOpacity(0.12), 0.3) ?? cardColor,
-                          ],
+            child: Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: StatefulBuilder(
+                builder: (context, setDialogState) {
+                  return Container(
+                    width: double.infinity,
+                    constraints:
+                        const BoxConstraints(maxWidth: 400, maxHeight: 600),
+                    decoration: BoxDecoration(
+                      color: t.cardBackground,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: t.borderSubtle),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
                         ),
-                        borderRadius: BorderRadius.circular(28),
-                        border: GradientBoxBorder(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white.withOpacity(0.15),
-                              accentColor.withOpacity(0.3),
-                              Colors.white.withOpacity(0.05),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: accentColor.withValues(alpha: 0.08),
+                            border: Border(
+                              bottom: BorderSide(color: t.borderSubtle),
+                            ),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(24),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 46,
+                                height: 46,
+                                decoration: BoxDecoration(
+                                  color: accentColor.withValues(alpha: 0.14),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: accentColor.withValues(alpha: 0.35),
+                                    width: 1.4,
+                                  ),
+                                ),
+                                child: Icon(
+                                  type == 'Income'
+                                      ? Icons.trending_up_rounded
+                                      : Icons.trending_down_rounded,
+                                  color: accentColor,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Editar Registro',
+                                      style: GoogleFonts.outfit(
+                                        color: t.textPrimary,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      type == 'Income'
+                                          ? 'Sugerencia de Ingreso'
+                                          : 'Sugerencia de Gasto',
+                                      style: GoogleFonts.outfit(
+                                        color: t.textSecondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
-                          width: 1.2,
                         ),
-                        boxShadow: [
-                           BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: -5),
-                           BoxShadow(color: accentColor.withOpacity(0.15), blurRadius: 15, spreadRadius: -2),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
+                        Flexible(
+                          child: SingleChildScrollView(
                             padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  accentColor.withOpacity(0.15),
-                                  accentColor.withOpacity(0.03),
-                                ],
-                              ),
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Colors.white.withOpacity(0.08),
-                                  width: 1,
-                                ),
-                              ),
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                            ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: accentColor.withOpacity(0.15),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
-                                  ),
-                                  child: Icon(
-                                    type == 'Income' ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                                    color: accentColor,
-                                    size: 24,
+                                Text(
+                                  'Descripción / Detalle',
+                                  style: GoogleFonts.outfit(
+                                    color: t.textSecondary,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Editar Registro',
-                                        style: GoogleFonts.outfit(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        type == 'Income' ? 'Sugerencia de Ingreso' : 'Sugerencia de Gasto',
-                                        style: GoogleFonts.outfit(
-                                          color: Colors.white60,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: detailController,
+                                  maxLength: 35,
+                                  style: GoogleFonts.outfit(
+                                    color: t.textPrimary,
+                                    fontSize: 14,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Ej. Almuerzo con amigos',
+                                    hintStyle: GoogleFonts.outfit(
+                                      color: t.textHint,
+                                    ),
+                                    filled: true,
+                                    fillColor: t.darkBackground,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 10,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide:
+                                          BorderSide(color: t.borderSubtle),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide:
+                                          BorderSide(color: t.borderSubtle),
+                                    ),
+                                    counterText: '',
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          Flexible(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Descripción / Detalle',
-                                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                const SizedBox(height: 14),
+                                Text(
+                                  'Monto',
+                                  style: GoogleFonts.outfit(
+                                    color: t.textSecondary,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  const SizedBox(height: 6),
-                                  TextField(
-                                    controller: _detailController,
-                                    maxLength: 35,
-                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
-                                    decoration: InputDecoration(
-                                      hintText: 'Ej. Almuerzo con amigos',
-                                      hintStyle: GoogleFonts.outfit(color: Colors.white24),
-                                      filled: true,
-                                      fillColor: Colors.black12,
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                                      counterText: '',
+                                ),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: amountController,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    ThousandsSeparatorInputFormatter(),
+                                  ],
+                                  style: GoogleFonts.outfit(
+                                    color: t.textPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  decoration: InputDecoration(
+                                    prefixText: '${CurrencyHelper.currencySymbol} ',
+                                    prefixStyle: GoogleFonts.outfit(
+                                      color: accentColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    filled: true,
+                                    fillColor: t.darkBackground,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 10,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide:
+                                          BorderSide(color: t.borderSubtle),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide:
+                                          BorderSide(color: t.borderSubtle),
                                     ),
                                   ),
-                                  const SizedBox(height: 14),
-                                  Text(
-                                    'Monto',
-                                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  TextField(
-                                    controller: _amountController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      ThousandsSeparatorInputFormatter(),
-                                    ],
-                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                                    decoration: InputDecoration(
-                                      prefixText: '\$ ',
-                                      prefixStyle: GoogleFonts.outfit(color: accentColor),
-                                      filled: true,
-                                      fillColor: Colors.black12,
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Cuenta',
-                                              style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                                              decoration: BoxDecoration(
-                                                color: Colors.black12,
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: DropdownButtonHideUnderline(
-                                                child: DropdownButton<String>(
-                                                  value: _selectedAccount,
-                                                  dropdownColor: cardColor,
-                                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                                                  isExpanded: true,
-                                                  items: accounts.map((acc) {
-                                                    return DropdownMenuItem<String>(
-                                                      value: acc['title'],
-                                                      child: Text(acc['title']),
-                                                    );
-                                                  }).toList(),
-                                                  onChanged: (val) {
-                                                    if (val != null) {
-                                                      setDialogState(() {
-                                                        _selectedAccount = val;
-                                                      });
-                                                    }
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Categoría',
-                                              style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                                              decoration: BoxDecoration(
-                                                color: Colors.black12,
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: DropdownButtonHideUnderline(
-                                                child: DropdownButton<String>(
-                                                  value: _selectedCategory,
-                                                  dropdownColor: cardColor,
-                                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                                                  isExpanded: true,
-                                                  items: categories.map((cat) {
-                                                    return DropdownMenuItem<String>(
-                                                      value: cat['text'],
-                                                      child: Text(cat['text']),
-                                                    );
-                                                  }).toList(),
-                                                  onChanged: (val) {
-                                                    if (val != null) {
-                                                      setDialogState(() {
-                                                        _selectedCategory = val;
-                                                      });
-                                                    }
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'Fecha',
-                                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  InkWell(
-                                    onTap: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: _selectedDate,
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime(2030),
-                                        builder: (context, child) {
-                                          return Theme(
-                                            data: Theme.of(context).copyWith(
-                                              colorScheme: ColorScheme.dark(
-                                                primary: accentColor,
-                                                onPrimary: Colors.black,
-                                                surface: cardColor,
-                                                onSurface: Colors.white,
-                                              ),
-                                              dialogBackgroundColor: cardColor,
-                                            ),
-                                            child: child!,
-                                          );
-                                        },
-                                      );
-                                      if (picked != null) {
-                                        setDialogState(() {
-                                          _selectedDate = picked;
-                                        });
-                                      }
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black12,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                ),
+                                const SizedBox(height: 14),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            DateFormat('dd/MM/yyyy').format(_selectedDate),
-                                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                            'Cuenta',
+                                            style: GoogleFonts.outfit(
+                                              color: t.textSecondary,
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                          Icon(Icons.calendar_today_rounded, color: accentColor, size: 16),
+                                          const SizedBox(height: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12),
+                                            decoration: BoxDecoration(
+                                              color: t.darkBackground,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                  color: t.borderSubtle),
+                                            ),
+                                            child: DropdownButtonHideUnderline(
+                                              child: DropdownButton<String>(
+                                                value: accounts.any((a) =>
+                                                        a['title'] ==
+                                                        selectedAccount)
+                                                    ? selectedAccount
+                                                    : null,
+                                                dropdownColor: t.cardBackground,
+                                                style: GoogleFonts.outfit(
+                                                  color: t.textPrimary,
+                                                  fontSize: 13,
+                                                ),
+                                                isExpanded: true,
+                                                items: accounts.map((acc) {
+                                                  return DropdownMenuItem<String>(
+                                                    value: acc['title'],
+                                                    child: Text(
+                                                      acc['title'],
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                                onChanged: (val) {
+                                                  if (val != null) {
+                                                    setDialogState(() {
+                                                      selectedAccount = val;
+                                                    });
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                top: BorderSide(
-                                  color: Colors.white.withOpacity(0.08),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.white70,
-                                      side: BorderSide(color: Colors.white.withOpacity(0.12)),
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Categoría',
+                                            style: GoogleFonts.outfit(
+                                              color: t.textSecondary,
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12),
+                                            decoration: BoxDecoration(
+                                              color: t.darkBackground,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                  color: t.borderSubtle),
+                                            ),
+                                            child: DropdownButtonHideUnderline(
+                                              child: DropdownButton<String>(
+                                                value: categories.any((c) =>
+                                                        c['text'] ==
+                                                        selectedCategory)
+                                                    ? selectedCategory
+                                                    : null,
+                                                dropdownColor: t.cardBackground,
+                                                style: GoogleFonts.outfit(
+                                                  color: t.textPrimary,
+                                                  fontSize: 13,
+                                                ),
+                                                isExpanded: true,
+                                                items: categories.map((cat) {
+                                                  return DropdownMenuItem<String>(
+                                                    value: cat['text'],
+                                                    child: Text(
+                                                      cat['text'],
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                                onChanged: (val) {
+                                                  if (val != null) {
+                                                    setDialogState(() {
+                                                      selectedCategory = val;
+                                                    });
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    onPressed: () => Navigator.pop(context),
-                                    child: Text('Cancelar', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13)),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                Text(
+                                  'Fecha',
+                                  style: GoogleFonts.outfit(
+                                    color: t.textSecondary,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
+                                const SizedBox(height: 6),
+                                InkWell(
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: selectedDate,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2030),
+                                      builder: (context, child) {
+                                        return Theme(
+                                          data: Theme.of(context).copyWith(
+                                            colorScheme: isDark
+                                                ? ColorScheme.dark(
+                                                    primary: t.accent,
+                                                    onPrimary: t.buttonForeground,
+                                                    surface: t.cardBackground,
+                                                    onSurface: t.textPrimary,
+                                                  )
+                                                : ColorScheme.light(
+                                                    primary: t.accent,
+                                                    onPrimary: t.buttonForeground,
+                                                    surface: t.cardBackground,
+                                                    onSurface: t.textPrimary,
+                                                  ),
+                                          ),
+                                          child: child!,
+                                        );
+                                      },
+                                    );
+                                    if (picked != null) {
+                                      setDialogState(() {
+                                        selectedDate = picked;
+                                      });
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(12),
                                   child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
                                     decoration: BoxDecoration(
+                                      color: t.darkBackground,
                                       borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: accentColor.withOpacity(0.3),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 3),
+                                      border: Border.all(color: t.borderSubtle),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          DateFormat('dd/MM/yyyy')
+                                              .format(selectedDate),
+                                          style: GoogleFonts.outfit(
+                                            color: t.textPrimary,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.calendar_today_rounded,
+                                          color: t.accent,
+                                          size: 16,
                                         ),
                                       ],
-                                    ),
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: accentColor,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                        elevation: 0,
-                                      ),
-                                      onPressed: () async {
-                                        final finalDetail = _detailController.text.trim();
-                                        final finalAmt = double.tryParse(CurrencyHelper.cleanAmountString(_amountController.text.trim())) ?? 0.0;
-                                        
-                                        if (finalDetail.isEmpty) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Ingresa una descripción', style: GoogleFonts.outfit())),
-                                          );
-                                          return;
-                                        }
-                                        if (finalAmt <= 0) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Ingresa un monto válido', style: GoogleFonts.outfit())),
-                                          );
-                                          return;
-                                        }
-
-                                        int iconCode = Icons.receipt_long_rounded.codePoint;
-                                        for (var cat in categories) {
-                                          if (cat['text'] == _selectedCategory) {
-                                            iconCode = cat['icon'] ?? iconCode;
-                                            break;
-                                          }
-                                        }
-
-                                        final success = await TransactionService.processTransaction(
-                                          type: type,
-                                          amount: finalAmt,
-                                          accountName: _selectedAccount,
-                                          isNewTransaction: true,
-                                          recordInHive: false,
-                                        );
-                                        
-                                        if (success) {
-                                          final box = Hive.isBoxOpen('data')
-                                              ? Hive.box<Add_data>('data')
-                                              : await Hive.openBox<Add_data>('data');
-                                          final transaction = Add_data(
-                                            type,
-                                            finalAmt.toString(),
-                                            _selectedDate,
-                                            finalDetail,
-                                            _selectedCategory,
-                                            _selectedAccount,
-                                            iconCode,
-                                            '1',
-                                            true,
-                                          );
-                                          await box.add(transaction);
-                                          
-                                          await _chatService.removeTransactionSuggestion(messageIndex, detail);
-                                          
-                                          if (!mounted) return;
-                                          Navigator.pop(context);
-                                          
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Transacción guardada exitosamente.',
-                                                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w500),
-                                              ),
-                                              backgroundColor: Colors.green.shade800,
-                                              behavior: SnackBarBehavior.floating,
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                            ),
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Error al procesar el saldo de la cuenta', style: GoogleFonts.outfit()), backgroundColor: Colors.redAccent),
-                                          );
-                                        }
-                                      },
-                                      child: Text(
-                                        'Guardar',
-                                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                                      ),
                                     ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: t.borderSubtle),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: t.textSecondary,
+                                    side: BorderSide(color: t.borderVisible),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: () => Navigator.pop(dialogCtx),
+                                  child: Text(
+                                    'Cancelar',
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: t.buttonBackground,
+                                    foregroundColor: t.buttonForeground,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  onPressed: () async {
+                                    final finalDetail =
+                                        detailController.text.trim();
+                                    final finalAmt = double.tryParse(
+                                          CurrencyHelper.cleanAmountString(
+                                            amountController.text.trim(),
+                                          ),
+                                        ) ??
+                                        0.0;
+
+                                    if (finalDetail.isEmpty) {
+                                      _showFeedbackSnackBar(
+                                        'Ingresa una descripción',
+                                        isError: true,
+                                      );
+                                      return;
+                                    }
+                                    if (finalAmt <= 0) {
+                                      _showFeedbackSnackBar(
+                                        'Ingresa un monto válido',
+                                        isError: true,
+                                      );
+                                      return;
+                                    }
+
+                                    var iconCode =
+                                        Icons.receipt_long_rounded.codePoint;
+                                    for (final cat in categories) {
+                                      if (cat['text'] == selectedCategory) {
+                                        iconCode = cat['icon'] ?? iconCode;
+                                        break;
+                                      }
+                                    }
+
+                                    final success =
+                                        await TransactionService
+                                            .processTransaction(
+                                      type: type,
+                                      amount: finalAmt,
+                                      accountName: selectedAccount,
+                                      isNewTransaction: true,
+                                      recordInHive: false,
+                                    );
+
+                                    if (success) {
+                                      final box = Hive.isBoxOpen('data')
+                                          ? Hive.box<Add_data>('data')
+                                          : await Hive.openBox<Add_data>(
+                                              'data');
+                                      final transaction = Add_data(
+                                        type,
+                                        finalAmt.toString(),
+                                        selectedDate,
+                                        finalDetail,
+                                        selectedCategory,
+                                        selectedAccount,
+                                        iconCode,
+                                        '1',
+                                        true,
+                                      );
+                                      await box.add(transaction);
+                                      await _chatService
+                                          .removeTransactionSuggestion(
+                                        messageIndex,
+                                        detail,
+                                      );
+
+                                      if (!mounted) return;
+                                      Navigator.pop(dialogCtx);
+                                      _showFeedbackSnackBar(
+                                        'Transacción guardada exitosamente.',
+                                      );
+                                    } else {
+                                      _showFeedbackSnackBar(
+                                        'Error al procesar el saldo de la cuenta',
+                                        isError: true,
+                                      );
+                                    }
+                                  },
+                                  child: Text(
+                                    'Guardar',
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -2401,19 +2662,23 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   }
 
   Widget _buildTypingIndicator() {
+    final t = context.appTheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
       child: Row(
         children: [
           Container(
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.accent.withOpacity(0.2), width: 1),
+              color: t.cardBackground,
+              border: Border.all(color: t.borderSubtle),
             ),
-            child: CircleAvatar(
-              backgroundColor: AppColors.cardBackground,
-              radius: 12,
-              child: Icon(Icons.auto_awesome, color: AppColors.accent, size: 12),
+            child: Icon(
+              Icons.auto_awesome_rounded,
+              color: t.accent,
+              size: 14,
             ),
           ),
           const SizedBox(width: 8),
@@ -2424,71 +2689,91 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   }
 
   Widget _buildInputBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        border: Border(top: BorderSide(color: AppColors.borderSubtle)),
-        boxShadow: [
+    final t = context.appTheme;
+    final isDiurno = context.isDiurno;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
+    return SafeArea(
+      top: false,
+      child: LiquidGlassSurface(
+        margin: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+        padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+        borderRadius: BorderRadius.circular(28),
+        blurSigma: 22.0,
+        fallbackColor: t.cardBackground,
+        fallbackBorderColor:
+            _isInputEmpty ? t.borderSubtle : t.accent.withValues(alpha: 0.65),
+        fallbackBorderWidth: _isInputEmpty ? 1.0 : 1.3,
+        fallbackBoxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 12,
-            offset: const Offset(0, -3),
-          )
+            color: Colors.black.withValues(alpha: isLight ? 0.08 : 0.26),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
         ],
-      ),
-      child: SafeArea(
-        top: false,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.darkBackground,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: _isInputEmpty ? AppColors.borderSubtle : AppColors.accent.withOpacity(0.4),
-                  ),
+              child: TextField(
+                key: const Key('ai_chat_input_field'),
+                controller: _messageController,
+                minLines: 1,
+                maxLines: 4,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                style: GoogleFonts.outfit(
+                  color: t.textPrimary,
+                  fontSize: 14.5,
                 ),
-                child: TextField(
-                  controller: _messageController,
-                  maxLines: null,
-                  style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: 'Pregunta sobre tus finanzas...',
-                    hintStyle: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 14),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                    border: InputBorder.none,
+                decoration: InputDecoration(
+                  hintText: 'Pregunta sobre tus finanzas...',
+                  hintStyle: GoogleFonts.outfit(
+                    color: isDiurno ? t.textSecondary : t.textHint,
+                    fontSize: 14,
                   ),
+                  filled: false,
+                  isCollapsed: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 10,
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             GestureDetector(
-              onTap: _handleSend,
+              key: const Key('ai_chat_send_button'),
+              onTap: _isLoading ? null : _handleSend,
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(12),
+                duration: const Duration(milliseconds: 180),
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _isInputEmpty ? AppColors.borderSubtle : AppColors.accent,
-                  boxShadow: _isInputEmpty 
-                      ? null 
-                      : [
+                  color: _isInputEmpty
+                      ? t.darkBackground
+                      : (isDiurno ? t.accent : t.buttonBackground),
+                  boxShadow: !_isInputEmpty && isDiurno
+                      ? const [
                           BoxShadow(
-                            color: AppColors.accent.withOpacity(0.4),
+                            color: Color(0x330062CC),
                             blurRadius: 10,
-                            spreadRadius: 1,
-                          )
-                        ],
+                            offset: Offset(0, 3),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Icon(
-                  Icons.send_rounded,
-                  color: _isInputEmpty ? AppColors.textHint : AppColors.darkBackground,
+                  Icons.arrow_upward_rounded,
+                  color: _isInputEmpty ? t.textHint : t.buttonForeground,
                   size: 20,
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -2496,77 +2781,20 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   }
 
   Widget _buildProfileTab() {
+    final t = context.appTheme;
     final categoryExpenses = _chatService.getCategoryExpenses();
-    final double totalExpenses = categoryExpenses.values.fold(0.0, (sum, val) => sum + val);
+    final totalExpenses =
+        categoryExpenses.values.fold(0.0, (sum, val) => sum + val);
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       children: [
-        // Salud Financiera Banner Card
         _buildHealthBannerCard(),
-        const SizedBox(height: 16),
-
-        // Key stats metric dashboard
+        const SizedBox(height: 14),
         _buildMetricsDashboard(),
-        const SizedBox(height: 16),
-
-        // Categories graph card
+        const SizedBox(height: 14),
         if (categoryExpenses.isNotEmpty) ...[
-          Card(
-            color: AppColors.cardBackground,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(color: AppColors.borderSubtle),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.secondaryAccent.withOpacity(0.1),
-                        ),
-                        child: Icon(Icons.pie_chart_outline_rounded, color: AppColors.secondaryAccent, size: 20),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Gastos por Categoría (Mes actual)',
-                        style: GoogleFonts.outfit(
-                          color: AppColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 24, color: Colors.white10),
-                  ...categoryExpenses.entries.map((entry) {
-                    final percent = totalExpenses > 0 ? (entry.value / totalExpenses) : 0.0;
-                    return _buildCategoryProgressBar(entry.key, entry.value, percent);
-                  }).toList(),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-        
-        // Metas de Ahorro Card
-        Card(
-          color: AppColors.cardBackground,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: AppColors.borderSubtle),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
+          _buildSectionCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2576,118 +2804,181 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: const Color(0xFF2ECC71).withOpacity(0.1),
+                        color: t.secondaryAccent.withValues(alpha: 0.14),
                       ),
-                      child: const Icon(Icons.flag_rounded, color: Color(0xFF2ECC71), size: 20),
+                      child: Icon(
+                        Icons.pie_chart_outline_rounded,
+                        color: t.secondaryAccent,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 10),
-                    Text(
-                      'Tus Metas Financieras',
-                      style: GoogleFonts.outfit(
-                        color: AppColors.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Text(
+                        'Gastos por Categoría (Mes actual)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          color: t.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'El bot de IA evaluará la conveniencia de tus consumos basándose en estas metas:',
-                  style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.darkBackground,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.borderSubtle),
-                  ),
-                  child: TextField(
-                    controller: _goalsController,
-                    maxLines: 2,
-                    style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Ej. Ahorrar para una laptop, reducir comidas fuera de casa...',
-                      hintStyle: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 13),
-                      contentPadding: const EdgeInsets.all(12),
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2ECC71),
-                    foregroundColor: AppColors.darkBackground,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    minimumSize: const Size(double.infinity, 42),
-                  ),
-                  onPressed: _saveGoals,
-                  child: Text(
-                    'Guardar Metas',
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ),
+                Divider(height: 22, color: t.borderSubtle),
+                ...categoryExpenses.entries.map((entry) {
+                  final percent =
+                      totalExpenses > 0 ? (entry.value / totalExpenses) : 0.0;
+                  return _buildCategoryProgressBar(
+                    entry.key,
+                    entry.value,
+                    percent,
+                  );
+                }),
               ],
             ),
           ),
+          const SizedBox(height: 14),
+        ],
+        _buildSectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: t.success.withValues(alpha: 0.14),
+                    ),
+                    child: Icon(Icons.flag_rounded, color: t.success, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Tus Metas Financieras',
+                      style: GoogleFonts.outfit(
+                        color: t.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'El asistente evaluará la conveniencia de tus consumos basándose en estas metas:',
+                style: GoogleFonts.outfit(color: t.textSecondary, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _goalsController,
+                maxLines: 2,
+                style: GoogleFonts.outfit(color: t.textPrimary, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText:
+                      'Ej. Ahorrar para una laptop, reducir comidas fuera de casa...',
+                  hintStyle: GoogleFonts.outfit(color: t.textHint, fontSize: 13),
+                  filled: true,
+                  fillColor: t.darkBackground,
+                  contentPadding: const EdgeInsets.all(12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: t.borderSubtle),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: t.borderSubtle),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: t.accent, width: 1.5),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: t.buttonBackground,
+                  foregroundColor: t.buttonForeground,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  minimumSize: const Size(double.infinity, 42),
+                ),
+                onPressed: _saveGoals,
+                child: Text(
+                  'Guardar Metas',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
-
-        // Reporte textual completo de aprendizaje (Acordeón desplegable)
+        const SizedBox(height: 14),
         Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: Card(
-            color: AppColors.cardBackground,
+            color: t.cardBackground,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              side: BorderSide(color: AppColors.borderSubtle),
+              side: BorderSide(color: t.borderSubtle),
             ),
             child: ExpansionTile(
               leading: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.accent.withOpacity(0.1),
+                  color: t.accent.withValues(alpha: 0.14),
                 ),
-                child: Icon(Icons.description_outlined, color: AppColors.accent, size: 20),
+                child: Icon(
+                  Icons.description_outlined,
+                  color: t.accent,
+                  size: 20,
+                ),
               ),
               title: Text(
                 'Reporte Analítico Detallado (Markdown)',
                 style: GoogleFonts.outfit(
-                  color: AppColors.textPrimary,
+                  color: t.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              iconColor: AppColors.accent,
-              collapsedIconColor: AppColors.textHint,
+              iconColor: t.accent,
+              collapsedIconColor: t.textHint,
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
               children: [
-                const Divider(height: 12, color: Colors.white10),
+                Divider(height: 12, color: t.borderSubtle),
                 const SizedBox(height: 8),
                 MarkdownBody(
                   data: _chatService.userNotes,
                   styleSheet: MarkdownStyleSheet(
                     p: GoogleFonts.outfit(
-                      color: AppColors.textSecondary,
+                      color: t.textSecondary,
                       fontSize: 13,
                       height: 1.5,
                     ),
                     strong: GoogleFonts.outfit(
-                      color: AppColors.accent,
+                      color: t.accent,
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
                     listBullet: GoogleFonts.outfit(
-                      color: AppColors.accent,
+                      color: t.accent,
                       fontSize: 13,
                     ),
                     h3: GoogleFonts.outfit(
-                      color: AppColors.accent,
+                      color: t.accent,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -2697,40 +2988,67 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
             ),
           ),
         ),
-        const SizedBox(height: 24),
-        
-        // Reset action button
+        const SizedBox(height: 20),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            side: BorderSide(color: AppColors.error),
-            foregroundColor: AppColors.error,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            side: BorderSide(color: t.error),
+            foregroundColor: t.error,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
             minimumSize: const Size(double.infinity, 46),
           ),
           icon: const Icon(Icons.delete_sweep_rounded, size: 18),
-          label: Text('Reiniciar Conversación y Memoria', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600)),
+          label: Text(
+            'Reiniciar Conversación y Memoria',
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           onPressed: () {
             showDialog(
               context: context,
-              builder: (context) => AlertDialog(
-                backgroundColor: AppColors.cardBackground,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                title: Text('¿Reiniciar todo?', style: GoogleFonts.outfit(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+              builder: (dialogCtx) => AlertDialog(
+                backgroundColor: t.cardBackground,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: t.borderSubtle),
+                ),
+                title: Text(
+                  '¿Reiniciar todo?',
+                  style: GoogleFonts.outfit(
+                    color: t.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 content: Text(
-                  'Se borrará todo el historial del chat y el bot comenzará de cero.',
-                  style: GoogleFonts.outfit(color: AppColors.textSecondary),
+                  'Se borrará todo el historial del chat y el asistente comenzará de cero.',
+                  style: GoogleFonts.outfit(color: t.textSecondary),
                 ),
                 actions: [
                   TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text('Cancelar', style: GoogleFonts.outfit(color: AppColors.textHint, fontWeight: FontWeight.bold)),
+                    onPressed: () => Navigator.pop(dialogCtx),
+                    child: Text(
+                      'Cancelar',
+                      style: GoogleFonts.outfit(
+                        color: t.textSecondary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   TextButton(
                     onPressed: () async {
-                      Navigator.pop(context);
+                      Navigator.pop(dialogCtx);
                       await _chatService.clearHistory();
                     },
-                    child: Text('Sí, Reiniciar', style: GoogleFonts.outfit(color: AppColors.error, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'Sí, Reiniciar',
+                      style: GoogleFonts.outfit(
+                        color: t.error,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -2741,42 +3059,57 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
     );
   }
 
+  Widget _buildSectionCard({required Widget child}) {
+    final t = context.appTheme;
+    return Card(
+      color: t.cardBackground,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: t.borderSubtle),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: child,
+      ),
+    );
+  }
+
   Widget _buildHealthBannerCard() {
+    final t = context.appTheme;
     final status = _chatService.ratioStatus;
     final message = _chatService.ratioMessageText;
-    
-    Color color;
-    IconData icon;
-    String statusTitle;
-    
-    switch (status) {
-      case 'excellent':
-        color = AppColors.success;
-        icon = Icons.emoji_emotions_outlined;
-        statusTitle = 'Salud Financiera Óptima';
-        break;
-      case 'moderate':
-        color = AppColors.warning;
-        icon = Icons.sentiment_satisfied_alt_outlined;
-        statusTitle = 'Ahorro Moderado';
-        break;
-      case 'deficit':
-        color = AppColors.error;
-        icon = Icons.sentiment_very_dissatisfied_outlined;
-        statusTitle = 'Alerta de Déficit';
-        break;
-      default:
-        color = AppColors.accent;
-        icon = Icons.hourglass_empty_rounded;
-        statusTitle = 'Sin Diagnóstico';
-    }
+
+    final (Color color, IconData icon, String statusTitle) = switch (status) {
+      'excellent' => (
+          t.success,
+          Icons.emoji_emotions_outlined,
+          'Salud Financiera Óptima',
+        ),
+      'moderate' => (
+          t.warning,
+          Icons.sentiment_satisfied_alt_outlined,
+          'Ahorro Moderado',
+        ),
+      'deficit' => (
+          t.error,
+          Icons.sentiment_very_dissatisfied_outlined,
+          'Alerta de Déficit',
+        ),
+      _ => (
+          t.accent,
+          Icons.hourglass_empty_rounded,
+          'Sin Diagnóstico',
+        ),
+    };
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: t.cardBackground,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: t.borderSubtle),
       ),
       child: Stack(
         children: [
@@ -2786,22 +3119,22 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
             child: Icon(
               icon,
               size: 90,
-              color: color.withOpacity(0.05),
+              color: color.withValues(alpha: 0.06),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(18),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: color.withOpacity(0.1),
+                    color: color.withValues(alpha: 0.12),
                   ),
-                  child: Icon(icon, color: color, size: 28),
+                  child: Icon(icon, color: color, size: 26),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2809,16 +3142,18 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                       Text(
                         statusTitle,
                         style: GoogleFonts.outfit(
-                          color: AppColors.textPrimary,
-                          fontSize: 16,
+                          color: t.textPrimary,
+                          fontSize: 15.5,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        message.isEmpty ? 'Analizando tus datos en tiempo real.' : message,
+                        message.isEmpty
+                            ? 'Analizando tus datos en tiempo real.'
+                            : message,
                         style: GoogleFonts.outfit(
-                          color: AppColors.textSecondary,
+                          color: t.textSecondary,
                           fontSize: 12,
                           height: 1.4,
                         ),
@@ -2835,10 +3170,11 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   }
 
   Widget _buildMetricsDashboard() {
+    final t = context.appTheme;
     final topCat = _chatService.topCategory;
-    final topCatAmt = _chatService.topCategoryAmount.toStringAsFixed(2);
+    final topCatAmt = CurrencyHelper.format(_chatService.topCategoryAmount);
     final maxExpItem = _chatService.maxExpenseItem;
-    final maxExpAmt = _chatService.maxExpense.toStringAsFixed(2);
+    final maxExpAmt = CurrencyHelper.format(_chatService.maxExpense);
     final txCount = _chatService.expenseCount.toString();
     final savingsRatio = _chatService.savingsRatio.toStringAsFixed(1);
 
@@ -2851,35 +3187,37 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
               value: '$savingsRatio%',
               subtitle: 'Porcentaje de ingresos netos',
               icon: Icons.donut_large_rounded,
-              color: AppColors.accent,
+              color: t.accent,
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             _buildMetricCard(
               title: 'Gasto Mayoritario',
-              value: topCat.length > 12 ? '${topCat.substring(0, 10)}...' : topCat,
-              subtitle: '\$$topCatAmt COP este mes',
+              value: topCat.length > 14 ? '${topCat.substring(0, 12)}...' : topCat,
+              subtitle: '$topCatAmt este mes',
               icon: Icons.pie_chart_rounded,
-              color: AppColors.secondaryAccent,
+              color: t.secondaryAccent,
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         Row(
           children: [
             _buildMetricCard(
               title: 'Mayor Transacción',
-              value: maxExpItem.length > 12 ? '${maxExpItem.substring(0, 10)}...' : maxExpItem,
-              subtitle: '\$$maxExpAmt COP registrados',
+              value: maxExpItem.length > 14
+                  ? '${maxExpItem.substring(0, 12)}...'
+                  : (maxExpItem.isEmpty ? 'Ninguna' : maxExpItem),
+              subtitle: '$maxExpAmt registrados',
               icon: Icons.trending_up_rounded,
-              color: AppColors.expense,
+              color: t.expense,
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             _buildMetricCard(
               title: 'Total Transacciones',
               value: '$txCount egresos',
               subtitle: 'En tu historial registrado',
               icon: Icons.receipt_long_rounded,
-              color: Colors.amber,
+              color: t.warning,
             ),
           ],
         ),
@@ -2894,46 +3232,55 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
     required IconData icon,
     required Color color,
   }) {
+    final t = context.appTheme;
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.borderSubtle),
+          color: t.cardBackground,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: t.borderSubtle),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(
-                    color: AppColors.textHint,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: t.textSecondary,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                Icon(icon, color: color.withOpacity(0.8), size: 18),
+                const SizedBox(width: 4),
+                Icon(icon, color: color, size: 17),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
               value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.outfit(
-                color: AppColors.textPrimary,
-                fontSize: 16,
+                color: t.textPrimary,
+                fontSize: 15.5,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.outfit(
-                color: AppColors.textSecondary,
-                fontSize: 10,
+                color: t.textSecondary,
+                fontSize: 10.5,
               ),
             ),
           ],
@@ -2942,48 +3289,51 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildCategoryProgressBar(String category, double amount, double percent) {
+  Widget _buildCategoryProgressBar(
+      String category, double amount, double percent) {
+    final t = context.appTheme;
     final categoryColor = _getCategoryColor(category);
+    final formattedAmount = CurrencyHelper.format(amount);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: categoryColor,
-                      boxShadow: [
-                        BoxShadow(
-                          color: categoryColor.withOpacity(0.4),
-                          blurRadius: 4,
-                          spreadRadius: 1,
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: categoryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        category,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          color: t.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    category,
-                    style: GoogleFonts.outfit(
-                      color: AppColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
-                '\$${amount.toStringAsFixed(2)} USD (${(percent * 100).toStringAsFixed(0)}%)',
+                '$formattedAmount (${(percent * 100).toStringAsFixed(0)}%)',
                 style: GoogleFonts.outfit(
-                  color: AppColors.textSecondary,
+                  color: t.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -2995,9 +3345,9 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
             height: 8,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: AppColors.darkBackground,
+              color: t.darkBackground,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppColors.borderSubtle),
+              border: Border.all(color: t.borderSubtle),
             ),
             child: Align(
               alignment: Alignment.centerLeft,
@@ -3008,17 +3358,10 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
                     borderRadius: BorderRadius.circular(4),
                     gradient: LinearGradient(
                       colors: [
-                        categoryColor.withOpacity(0.6),
+                        categoryColor.withValues(alpha: 0.72),
                         categoryColor,
                       ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: categoryColor.withOpacity(0.3),
-                        blurRadius: 4,
-                        spreadRadius: 1,
-                      ),
-                    ],
                   ),
                 ),
               ),
@@ -3030,7 +3373,7 @@ class _AiChatScreenState extends State<AiChatScreen> with SingleTickerProviderSt
   }
 }
 
-// --- WIDGET AUXILIAR: INDICADOR DE ESCRITURA ANIMADO (3 PUNTOS REBOTANDO) ---
+/// Indicador animado de escritura del asistente (3 puntos).
 class BouncingDotsIndicator extends StatefulWidget {
   const BouncingDotsIndicator({Key? key}) : super(key: key);
 
@@ -3038,7 +3381,8 @@ class BouncingDotsIndicator extends StatefulWidget {
   State<BouncingDotsIndicator> createState() => _BouncingDotsIndicatorState();
 }
 
-class _BouncingDotsIndicatorState extends State<BouncingDotsIndicator> with SingleTickerProviderStateMixin {
+class _BouncingDotsIndicatorState extends State<BouncingDotsIndicator>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -3058,12 +3402,13 @@ class _BouncingDotsIndicatorState extends State<BouncingDotsIndicator> with Sing
 
   @override
   Widget build(BuildContext context) {
+    final t = context.appTheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: t.cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: t.borderSubtle),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3074,7 +3419,7 @@ class _BouncingDotsIndicatorState extends State<BouncingDotsIndicator> with Sing
               final delay = index * 0.2;
               final wave = math.sin((_controller.value * 2 * math.pi) - delay);
               final offset = (wave * 4.0).clamp(-4.0, 0.0);
-              
+
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 transform: Matrix4.translationValues(0, offset, 0),
@@ -3082,7 +3427,7 @@ class _BouncingDotsIndicatorState extends State<BouncingDotsIndicator> with Sing
                 height: 6,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.accent,
+                  color: t.accent,
                 ),
               );
             },

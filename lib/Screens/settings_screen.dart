@@ -1,10 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:finazaap/providers/pin_provider.dart';
 import 'package:finazaap/Screens/pin_code_screen.dart';
 import 'package:finazaap/services/notification_service.dart';
 import 'package:finazaap/services/data_management_service.dart';
-import 'package:finazaap/features/notifications/adapters/simulated_notification_source.dart';
 import 'package:finazaap/features/notifications/domain/ports/notification_source_port.dart';
 import 'package:finazaap/features/notifications/presentation/screens/pending_transactions_screen.dart';
 import 'package:finazaap/features/notifications/services/bank_whitelist_service.dart';
@@ -962,44 +960,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                         onTap: _confirmWipeNotificationData,
                       ),
 
-                      if (kDebugMode) ...[
-                        Divider(height: 1, color: context.appTheme.borderSubtle),
-                        ListTile(
-                          key: const Key('settings_notifications_demo_tile'),
-                          leading: Icon(
-                            Icons.inbox_outlined,
-                            color: context.appTheme.accent,
-                          ),
-                          title: Text(
-                            'Bandeja de Notificaciones (Demo Dev)',
-                            style: TextStyle(color: context.appTheme.textPrimary),
-                          ),
-                          subtitle: Text(
-                            'Revisión visual con datos simulados sin alterar saldos',
-                            style: TextStyle(
-                              color: context.appTheme.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          trailing: Icon(
-                            Icons.chevron_right,
-                            color: context.appTheme.textSecondary,
-                          ),
-                          onTap: () async {
-                            final demoNotifier =
-                                await createDemoPendingNotifier();
-                            if (!context.mounted) return;
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PendingTransactionsScreen.demo(
-                                  notifier: demoNotifier,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-
                       // Opciones de configuración (solo si está habilitado)
                       if (_notificationsEnabled) ...[
                         Divider(height: 1, color: context.appTheme.borderSubtle),
@@ -1463,22 +1423,37 @@ class _SettingsScreenState extends State<SettingsScreen>
       AppThemeMode.automatico => Icons.brightness_auto_rounded,
     };
 
+    final isDiurno = context.isDiurno;
+
     return GestureDetector(
       onTap: () => ThemeNotifier.setMode(mode),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(
-          color: isSelected
-              ? context.appTheme.accent.withValues(alpha: 0.12)
-              : context.appTheme.cardBackground,
-          borderRadius: BorderRadius.circular(12),
+          color: isDiurno && isSelected
+              ? const Color(0xFFF0F6FF)
+              : isSelected
+                  ? context.appTheme.accent.withValues(alpha: 0.12)
+                  : context.appTheme.cardBackground,
+          borderRadius: BorderRadius.circular(isDiurno ? 16 : 12),
           border: Border.all(
             color: isSelected
                 ? context.appTheme.accent
                 : context.appTheme.borderSubtle,
             width: isSelected ? 2 : 1,
           ),
+          boxShadow: isDiurno
+              ? [
+                  BoxShadow(
+                    color: isSelected
+                        ? context.appTheme.accent.withValues(alpha: 0.16)
+                        : const Color(0x0A0B132B),
+                    blurRadius: isSelected ? 12 : 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

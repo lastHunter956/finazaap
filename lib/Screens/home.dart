@@ -33,6 +33,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:finazaap/Screens/ai_chat_screen.dart';
 import 'package:finazaap/services/widget_service.dart';
 import 'dart:async'; // Necesario para StreamSubscription
+import 'package:gradient_borders/gradient_borders.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 import 'package:finazaap/features/notifications/presentation/screens/pending_transactions_screen.dart';
@@ -316,9 +317,19 @@ class _HomeState extends State<Home> {
         backgroundColor: context.appTheme.primaryBackground,
         appBar: AppBar(
           backgroundColor: context.appTheme.cardBackground,
+          surfaceTintColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
           toolbarHeight: 75,
+          bottom: context.isDiurno
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(1),
+                  child: Container(
+                    height: 1,
+                    color: context.appTheme.borderSubtle,
+                  ),
+                )
+              : null,
           title: Text(
             'Transacciones',
             style: TextStyle(
@@ -409,17 +420,40 @@ class _HomeState extends State<Home> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: context.appTheme.accent.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: context.appTheme.accent.withOpacity(0.4),
-                      width: 1.5,
-                    ),
+                    color: context.isDiurno
+                        ? null
+                        : context.appTheme.accent.withValues(alpha: 0.12),
+                    gradient: context.isDiurno
+                        ? const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFFFFFFF), Color(0xFFEAF2FF)],
+                          )
+                        : null,
+                    borderRadius: BorderRadius.circular(context.isDiurno ? 14 : 12),
+                    border: context.isDiurno
+                        ? GradientBoxBorder(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white,
+                                context.appTheme.accent.withValues(alpha: 0.45),
+                              ],
+                            ),
+                            width: 1.4,
+                          )
+                        : Border.all(
+                            color: context.appTheme.accent.withValues(alpha: 0.4),
+                            width: 1.5,
+                          ),
                     boxShadow: [
                       BoxShadow(
-                        color: context.appTheme.accent.withOpacity(0.15),
-                        blurRadius: 10,
-                        spreadRadius: 1,
+                        color: context.appTheme.accent
+                            .withValues(alpha: context.isDiurno ? 0.18 : 0.15),
+                        blurRadius: context.isDiurno ? 12 : 10,
+                        offset: context.isDiurno ? const Offset(0, 3) : Offset.zero,
+                        spreadRadius: context.isDiurno ? 0 : 1,
                       ),
                     ],
                   ),
@@ -779,17 +813,25 @@ class _HomeState extends State<Home> {
             Container(
               decoration: BoxDecoration(
                 color: context.appTheme.cardBackground, // Color aplicado al contenedor principal
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(context.isDiurno ? 18 : 16),
+                border: context.isDefaultDark
+                    ? null
+                    : Border.all(
+                        color: context.appTheme.borderSubtle,
+                        width: 1,
+                      ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                    color: Colors.black.withValues(
+                      alpha: Theme.of(context).brightness == Brightness.light ? 0.06 : 0.1,
+                    ),
+                    blurRadius: context.isDiurno ? 12 : 4,
+                    offset: Offset(0, context.isDiurno ? 4 : 2),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(context.isDiurno ? 18 : 16),
                 child: Column(
                   children: [
                     // Lista de transacciones del día
@@ -802,10 +844,12 @@ class _HomeState extends State<Home> {
                           _buildTransactionItem(transaction),
                           // Mostrar divisor solo si no es la última transacción
                           if (index < transactions.length - 1)
-                            const Divider(
-                              color: Colors.grey,
-                              height: 1, 
-                              thickness: 0.2,
+                            Divider(
+                              color: context.isDefaultDark
+                                  ? Colors.grey
+                                  : context.appTheme.borderSubtle,
+                              height: 1,
+                              thickness: context.isDefaultDark ? 0.2 : 0.8,
                               indent: 60, // Indentación para que el divisor empiece después del icono
                               endIndent: 10,
                             ),
@@ -836,21 +880,23 @@ class _HomeState extends State<Home> {
                   _updateAvailableBalance();
                 });
               },
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(context.isDiurno ? 18 : 16),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                 decoration: BoxDecoration(
                   color: context.appTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(context.isDiurno ? 18 : 16),
                   border: Border.all(
                     color: context.appTheme.borderSubtle,
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+                      color: Colors.black.withValues(
+                        alpha: Theme.of(context).brightness == Brightness.light ? 0.06 : 0.1,
+                      ),
+                      blurRadius: context.isDiurno ? 12 : 4,
+                      offset: Offset(0, context.isDiurno ? 4 : 2),
                     ),
                   ],
                 ),
@@ -862,12 +908,17 @@ class _HomeState extends State<Home> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
+                            color: (context.isDefaultDark
+                                    ? Colors.green
+                                    : context.appTheme.income)
+                                .withValues(alpha: 0.12),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.arrow_downward_rounded, // Ingreso (entrada)
-                            color: Colors.green,
+                            color: context.isDefaultDark
+                                ? Colors.green
+                                : context.appTheme.income,
                             size: 18,
                           ),
                         ),
@@ -913,12 +964,17 @@ class _HomeState extends State<Home> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.redAccent.withOpacity(0.1),
+                            color: (context.isDefaultDark
+                                    ? Colors.redAccent
+                                    : context.appTheme.expense)
+                                .withValues(alpha: 0.12),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.arrow_upward_rounded, // Gasto (salida)
-                            color: Colors.redAccent,
+                            color: context.isDefaultDark
+                                ? Colors.redAccent
+                                : context.appTheme.expense,
                             size: 18,
                           ),
                         ),
@@ -1083,16 +1139,27 @@ class _HomeState extends State<Home> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.blueAccent.withOpacity(0.2),
+                        color: (context.isDefaultDark
+                                ? Colors.blueAccent
+                                : context.appTheme.accent)
+                            .withValues(alpha: context.isDefaultDark ? 0.2 : 0.12),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.blueAccent.withOpacity(0.4), width: 0.5),
+                        border: Border.all(
+                          color: (context.isDefaultDark
+                                  ? Colors.blueAccent
+                                  : context.appTheme.accent)
+                              .withValues(alpha: 0.4),
+                          width: 0.5,
+                        ),
                       ),
                       child: Text(
                         '${history.installments} cuotas',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
-                          color: Colors.lightBlueAccent,
-                          fontWeight: FontWeight.w500,
+                          color: context.isDefaultDark
+                              ? Colors.lightBlueAccent
+                              : context.appTheme.accent,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -1103,16 +1170,27 @@ class _HomeState extends State<Home> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.greenAccent.withOpacity(0.2),
+                        color: (context.isDefaultDark
+                                ? Colors.greenAccent
+                                : context.appTheme.income)
+                            .withValues(alpha: context.isDefaultDark ? 0.2 : 0.12),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.greenAccent.withOpacity(0.4), width: 0.5),
+                        border: Border.all(
+                          color: (context.isDefaultDark
+                                  ? Colors.greenAccent
+                                  : context.appTheme.income)
+                              .withValues(alpha: 0.4),
+                          width: 0.5,
+                        ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Sin interés',
                         style: TextStyle(
                           fontSize: 10,
-                          color: Colors.greenAccent,
-                          fontWeight: FontWeight.w500,
+                          color: context.isDefaultDark
+                              ? Colors.greenAccent
+                              : context.appTheme.textPrimary,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),

@@ -1,19 +1,21 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-14 (Fase 1 de `ui-temas-y-asistente` completada en `integration/ui-temas-y-asistente`; pendiente de validación visual del usuario antes de Fase 2 y sin merge a `main`)  
+> **Última actualización:** 2026-11-14 (Integración completa de `ui-temas-y-asistente` — Fases 1, 2 y 3 unificadas en `integration/ui-temas-y-asistente`; pendiente de validación visual del usuario en navegador y **sin merge a `main`**)  
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `integration/ui-temas-y-asistente` (consolidada desde `agent/ui/fase-1-tokens-contraste`, commit `35d9200`; **sin merge a `main`** hasta validación visual del usuario).
+- **Rama actual:** `integration/ui-temas-y-asistente` (consolidada desde `agent/ui/fase-1-tokens-contraste`; **sin merge a `main`** hasta validación visual del usuario).
 - **Estado de `main`:** `main` permanece en `165c1c1` (adelantada `34` commits respecto a `origin/main`, sin `git push`). Tag de seguridad previo: `pre-sprint-2-main` -> `2369699`.
-- **Fase 1 (`ui-temas-y-asistente`) completada y en espera de validación visual:**
-  - `lib/themes/app_theme_data.dart`: tokens de contraste WCAG 2.1 AA/AAA aplicados a `_diurno` (`#EEF2F8` / `#FFFFFF` / `#0B132B` / `#0062CC`) y `_dia` (`#F4EFE6` / `#FFFDF9` / `#1C1917` / `#0F766E`); paleta oficial Dracula aplicada a `_nocturno` (`#282A36` / `#313442` / `#44475A` / `#F8F8F2` / `#6272A4` / `#BD93F9` / `#8BE9FD` / `#50FA7B` / `#FFB86C` / `#FF5555`, más `AppTheme.draculaPink = #FF79C6`); `_defaultDark` intacto sin modificaciones; `onSecondary`/`onError` adaptativos en `buildThemeData`.
-  - Colores hardcodeados corregidos sin añadir glass/blur ni cambiar estructura en `lib/widgets/total_balance_widget.dart`, `lib/widgets/custom_pill_bottom_nav_bar.dart`, `lib/Screens/settings_screen.dart` y `lib/Screens/statistics.dart`.
-  - Artefactos Spec Kit en `.specify/ui-temas-y-asistente/{spec.md,plan.md,tasks.md}` y suite `test/themes/app_theme_contrast_test.dart`.
-  - **Pendiente tras validación visual de Fase 1:** Fase 2 (rediseño de `AiChatScreen`) y Fase 3 (Liquid Glass moderado en `Diurno` solo para barra inferior y composer del chat).
+- **Integración `ui-temas-y-asistente` lista para validación visual en navegador (Fases 1 + 2 + 3):**
+  - `lib/themes/app_theme_data.dart`: contraste WCAG 2.1 AA (`>=4.5:1`) y AAA (`>=7.0:1`) verificado sobre las **3 superficies** (`primaryBackground`, `cardBackground`, `darkBackground`) en `_diurno` (`#EEF2F8` / `#FFFFFF` / `#E2E8F2`, `accent: #0062CC`, `income: #046B4D`, `warning: #92400E`), `_dia` (`#F4EFE6` / `#FFFDF9` / `#E6DFD3`, `accent: #0E665F`, `secondaryAccent`/`warning: #92400E`, `income: #146C34`) y `_nocturno` (Dracula oficial `#282A36` / `#21222C` / `#191A21` / `#44475A`, `textSecondary: #C6CEE0`, `textHint: #909EC7`, `AppTheme.draculaComment = #6272A4`, `AppTheme.draculaPink = #FF79C6`); `_defaultDark` 100% intacto sin modificaciones; `LiquidGlassSurface`, `isDiurno` e `isDefaultDark` con respaldo escarchado opaco automático cuando `accessibleNavigation`, `highContrast` o `disableAnimations` están activos.
+  - Tratamiento Apple HIG / Liquid Glass **exclusivo de `Diurno`:** aplicado solo en la capa funcional (`CustomPillBottomNavBar` con lente activa Liquid Glass y `extendBody: true` en `MainContainer`, cabecera unificada y composer flotante en `AiChatScreen`; `Home` y `TotalBalanceCard` usan superficies sólidas sin blur sobre contenido/listas/gráficas).
+  - Rediseño integral de `lib/Screens/ai_chat_screen.dart` para los 4 temas: cabecera única compacta + selector `Simulador`/`Gemma IA` + pestañas, burbujas con ancho orgánico (bug de `Spacer()` corregido), banner de estado dentro del flujo scrolleable, composer cápsula flotante con `TextField` sin borde heredado, sugerencias y diálogos tematizados con `CurrencyHelper`.
+  - Eliminación del acceso `"Bandeja de Notificaciones (Demo Dev)"` (`settings_notifications_demo_tile`) en `lib/Screens/settings_screen.dart`.
+  - Artefactos Spec Kit en `.specify/ui-temas-y-asistente/{spec.md,plan.md,tasks.md}` y suite `test/themes/app_theme_contrast_test.dart` (incluye pruebas de contraste AA/AAA en 3 superficies, exclusividad/accesibilidad de `LiquidGlassSurface` y pruebas widget de `AiChatScreen` en 360x640, teclado abierto, textos largos y ancho orgánico).
+  - **Validación en Docker (`finazaap-flutter`):** `dart analyze lib/themes/ test/themes/` con `No issues found!`, `dart analyze --no-fatal-warnings` sobre pantallas/widgets editados con 0 errores y `flutter test -j 1` **102/102 pasaron**. Servidor web debug activo en puerto local `8080`.
 - **Worktrees activos:** únicamente el worktree principal (`/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap`). Los 4 worktrees huérfanos de subagentes de Sprint 1 y las ramas auxiliares/integración previas ya fueron eliminados; sin worktrees huérfanos en Antigravity.
 - **Commit de configuración de hooks y `.gitignore`:** `b45b31a` (`chore(security): configure fail-closed hooks, SessionStart handoff and gitignore rules`).
 - **Política vigente para el futuro (`AGENTS.md` y `docs/handoff/DECISIONS.md`):**
@@ -32,7 +34,7 @@
   - `main` (`165c1c1`, adelantada `34` commits respecto a `origin/main`, sin `push`)
   - `agent/ui/fase-1-tokens-contraste` (rama de trabajo de Fase 1)
   - `integration/ui-temas-y-asistente` (rama de integración activa; **permanece hasta validación visual del usuario**, prohibido eliminar o fusionar a `main` antes)
-- **Docker (`flutter-env` / `finazaap-flutter`):** Contenedor activo. Validación de Fase 1 en Docker: `dart analyze lib/themes/ test/themes/` con 0 issues, `dart analyze` global sin errores (solo warnings/infos preexistentes en archivos heredados) y `flutter test -j 1` **99/99 pasaron** (incluyendo 5 pruebas nuevas de contraste/Dracula).
+- **Docker (`flutter-env` / `finazaap-flutter`):** Contenedor activo. Validación completa en Docker: `dart analyze lib/themes/ test/themes/` con `No issues found!`, `dart analyze --no-fatal-warnings` sobre archivos modificados con 0 errores (solo warnings/infos preexistentes en `home.dart`/`total_balance_widget.dart`) y `flutter test -j 1` **102/102 pasaron** (incluyendo 8 pruebas en `test/themes/app_theme_contrast_test.dart`).
 
 ---
 

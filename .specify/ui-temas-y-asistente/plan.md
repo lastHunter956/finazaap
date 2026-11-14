@@ -1,55 +1,56 @@
-# Plan Técnico — Fase 1: Tokens y Contraste
+# Plan Técnico Completo — Temas (`Diurno Liquid Glass`, `Día`, `Nocturno Dracula`) y Asistente Financiero
 
 > **Módulo:** `ui-temas-y-asistente`
-> **Alcance de este plan:** Fase 1 (Tokens, Contraste WCAG 2.1 y eliminación de colores hardcodeados críticos sin cambiar estructura ni añadir blur/glass).
+> **Alcance:** Tokens AA/AAA estrictos, material Liquid Glass exclusivo para `Diurno` fundamentado en Apple HIG, retiro de `"Bandeja de Notificaciones (Demo Dev)"`, y rediseño integral de `AiChatScreen` en los 4 temas.
 
 ---
 
-## 1. Arquitectura de Tokens en `lib/themes/app_theme_data.dart`
+## 1. Arquitectura de Tokens y Material Liquid Glass (`lib/themes/app_theme_data.dart`)
 
-1. **`_defaultDark`:** Sin cambios (verificado bit a bit).
-2. **`_diurno` (Cool Alabaster / Apple Light solid base):**
-   - `primaryBackground`: `0xFFEEF2F8` (separa claramente tarjetas blancas del lienzo).
-   - `cardBackground`: `0xFFFFFFFF`.
-   - `secondaryCardBackground`: `0xFFF7F9FC`.
-   - `darkBackground`: `0xFFE2E8F2` (wells/inputs).
-   - `textPrimary`: `0xFF0B132B` (AAA), `textSecondary`: `0xFF334155` (AAA), `textHint`: `0xFF52637A` (AA).
-   - `accent`: `0xFF0062CC`, `secondaryAccent`: `0xFF4F46E5`, `income`/`success`: `0xFF047857`, `warning`: `0xFFB45309`, `expense`/`error`: `0xFFBE123C`.
-   - `buttonBackground`: `0xFF0062CC`, `buttonForeground`: `Colors.white`, `filledButtons: true`.
-3. **`_dia` (Warm Pearl / Stone Quartz, sin amarillo saturado ni morado/violeta):**
-   - `primaryBackground`: `0xFFF4EFE6`, `cardBackground`: `0xFFFFFDF9`, `secondaryCardBackground`: `0xFFFAF6F0`, `darkBackground`: `0xFFE6DFD3`.
-   - `textPrimary`: `0xFF1C1917` (AAA), `textSecondary`: `0xFF44403C` (AAA), `textHint`: `0xFF68625D` (AA).
-   - `accent`: `0xFF0F766E`, `secondaryAccent`: `0xFFB45309`, `income`/`success`: `0xFF15803D`, `warning`: `0xFFB45309`, `expense`/`error`: `0xFFB91C1C`.
-   - `buttonBackground`: `0xFF0F766E`, `buttonForeground`: `Colors.white`, `filledButtons: true`.
-4. **`_nocturno` (Paleta Oficial Dracula):**
-   - `primaryBackground`: `0xFF282A36`, `cardBackground`: `0xFF313442`, `secondaryCardBackground`: `0xFF44475A`, `darkBackground`: `0xFF1E1F29`.
-   - `textPrimary`: `0xFFF8F8F2`, `textSecondary`: `0xFFB4BCCF`, `textHint`: `0xFF6272A4`.
-   - `borderSubtle`: `0xFF44475A`, `borderVisible`: `0xFF6272A4`.
-   - `accent`: `0xFFBD93F9`, `secondaryAccent`: `0xFF8BE9FD`, `income`/`success`: `0xFF50FA7B`, `warning`: `0xFFFFB86C`, `expense`/`error`: `0xFFFF5555`.
-   - Constante adicional en `AppTheme`: `static const Color draculaPink = Color(0xFFFF79C6);`.
-   - `buttonBackground`: `0xFFBD93F9`, `buttonForeground`: `0xFF282A36`, `filledButtons: true`.
-5. **`buildThemeData()`:**
-   - Calcular `onSecondary` adaptativo según luminancia de `secondaryAccent` para que en `Nocturno` (`#8BE9FD`) tenga texto oscuro `#282A36` y contraste AAA.
+1. **Ajustes estrictos de contraste (`>= 4.5:1` en las 3 superficies base):**
+   - `_diurno`: `income: Color(0xFF046B4D)`, `success: Color(0xFF046B4D)`, `warning: Color(0xFF92400E)`.
+   - `_dia`: `accent: Color(0xFF0E665F)`, `buttonBackground: Color(0xFF0E665F)`, `secondaryAccent: Color(0xFF92400E)`, `warning: Color(0xFF92400E)`, `income: Color(0xFF146C34)`, `success: Color(0xFF146C34)`.
+   - `_nocturno`: `cardBackground: Color(0xFF21222C)` (Dracula ANSI Black), `darkBackground: Color(0xFF191A21)`, `textSecondary: Color(0xFFC6CEE0)`, `textHint: Color(0xFF909EC7)`, manteniendo `draculaComment = Color(0xFF6272A4)` para bordes/separadores y `draculaPink = Color(0xFFFF79C6)`.
+   - `_defaultDark`: 100% sin cambios.
+2. **`AppThemeExt` + `LiquidGlassSurface` (en `lib/themes/app_theme_data.dart`, respetando `no-new-files-by-default`):**
+   - `bool get isDiurno` detecta `ThemeNotifier.activeMode == AppThemeMode.diurno` (y si un test inyecta `ThemeData` con extensión `_diurno`, también compara por identidad/paleta de extensión cuando corresponda).
+   - `LiquidGlassSurface` encapsula el renderizado condicional:
+     - En `Día`, `Nocturno`, `Default`: superficie sólida con `borderSubtle`, sin `BackdropFilter`.
+     - En `Diurno` con accesibilidad activa (`accessibleNavigation`, `highContrast`, `disableAnimations`): respaldo escarchado opaco `Color(0xF5FFFFFF)` con borde `#8496B0`, sin `BackdropFilter`.
+     - En `Diurno` estándar: `ClipRRect` + `BackdropFilter(sigma: blurSigma)` + tinte traslúcido frío + bisel especular `GradientBoxBorder` + reflejo cenital superior de `1px` + sombra ambiental bicapa.
 
 ---
 
-## 2. Ajustes de Colores Hardcodeados en Widgets (Fase 1)
+## 2. Superficies y Controles Apple en `Diurno`
 
-1. `lib/widgets/total_balance_widget.dart`:
-   - Reemplazar `#50FA7B` y `#FF7D7D` hardcodeados del anillo por `context.appTheme.income` y `context.appTheme.expense`.
-   - Evitar verde `#50FA7B` (y texto de acento de baja legibilidad en texto pequeño) en la etiqueta de `9.5px` (`EXCEDIDO`/`COMPLETO`/`RESTANTE`) en temas oscuros usando `context.appTheme.textPrimary`, y retirar sombras negras en modo claro.
-   - Agregar borde sutil y `elevation: 0` en los botones `Gestionar cuentas`, selector de fecha y filtros `Todos`/`Gastos`/`Ingresos` para que sean distinguibles en `Diurno` y `Día`.
-   - Eliminar `Colors.white` fijo en `_buildSectionLabel`.
-2. `lib/Screens/settings_screen.dart`:
-   - Reemplazar `Colors.white` y `Colors.white70` en los diálogos `_importData` y `_confirmDeleteAllData` por `context.appTheme.textPrimary` y `context.appTheme.textSecondary`.
-3. `lib/Screens/statistics.dart`:
-   - Reemplazar `Colors.white70`, `Colors.white54`, `Colors.white10`, `Colors.white` y `Colors.white24` en `_buildBarChart` por tokens de `context.appTheme`.
-4. `lib/widgets/custom_pill_bottom_nav_bar.dart`:
-   - Agregar borde `borderSubtle` y suavizar la sombra en modo claro (`alpha: 0.08`) sin añadir blur ni glass (diferido a Fase 3).
+1. `lib/Screens/main_container.dart`: `extendBody: context.isDiurno` para permitir el paso real de contenido debajo de `CustomPillBottomNavBar`.
+2. `lib/widgets/custom_pill_bottom_nav_bar.dart`: en `Diurno`, envuelve la cápsula en `LiquidGlassSurface` y renderiza el ítem seleccionado como lente activa de cristal especular; en los demás temas conserva su apariencia sólida.
+3. `lib/Screens/home.dart`:
+   - En `Diurno`, `AppBar` perlado con divisor inferior especular y botón de Asistente Financiero en cápsula con bisel blanco/azul; elimina colores hardcodeados (`Colors.green`, `Colors.redAccent`, `Colors.lightBlueAccent`, `Colors.greenAccent`) que rompían el contraste en temas claros en `_buildDateSection` y `_buildTransactionItem`.
+4. `lib/widgets/total_balance_widget.dart`:
+   - En `Diurno`, tarjeta sólida con gradiente cenital sutil y borde especular (sin blur, por ser capa de contenido), botones en cápsula elevada y filtros `Todos`/`Gastos`/`Ingresos` dentro de un **Segmented Pill Track** estilo Apple (`#E2E8F2` + píldora activa blanca elevada); en los demás temas conserva el layout estándar.
+   - Corregir color hardcodeado `Colors.redAccent` en balance contable negativo usando `context.appTheme.expense`.
 
 ---
 
-## 3. Verificación
+## 3. Retiro de Demo Dev en Ajustes (`lib/Screens/settings_screen.dart`)
 
-- `test/themes/app_theme_contrast_test.dart` validará las constantes exactas de `Default` y `Nocturno` Dracula, y verificará ratios WCAG 2.1 en los 4 temas.
-- `docker-compose exec -T flutter-env dart analyze` y `docker-compose exec -T flutter-env flutter test -j 1`.
+- Remover `settings_notifications_demo_tile` (`"Bandeja de Notificaciones (Demo Dev)"`) y sus imports huérfanos (`foundation`, `simulated_notification_source`).
+- Dar acabado táctil Apple al selector de temas en `Diurno`.
+
+---
+
+## 4. Rediseño Integral del Asistente Financiero (`lib/Screens/ai_chat_screen.dart`)
+
+1. Migrar al 100% de `AppColors.*` / hexadecimales hardcodeados a `context.appTheme`.
+2. Unificar cabecera (`Asistente Financiero` + selector `Simulador`/`Gemma IA` + tabs `Consultas`/`Perfil Cognitivo`) flotando con `LiquidGlassSurface` en `Diurno` y sólido en el resto.
+3. Corregir bug del `Spacer()` en `_buildChatBubble`, aplicando ancho orgánico (`IntrinsicWidth` + `ConstrainedBox`), bordes limpios sin neón (`t.borderSubtle`) y burbuja de usuario tematizada con contraste AA/AAA.
+4. Composer flotante (`LiquidGlassSurface` en `Diurno`, sólido en el resto) con `TextField` expansible de 1 a 4 líneas, `SafeArea` y ajuste seguro ante teclado abierto (`viewInsets`) en pantallas móviles (`360x640`).
+5. Unificar moneda con `CurrencyHelper.format(...)` en tablero inicial, métricas y barras de categoría, y tematizar tarjetas de sugerencias y diálogos de edición.
+
+---
+
+## 5. Verificación
+
+- `test/themes/app_theme_contrast_test.dart`: contrastes exactos AA (`>= 4.5:1`) en las 3 superficies, exclusividad de `BackdropFilter` en `Diurno`, y pruebas de `AiChatScreen` en los 4 temas a `360x640` con teclado abierto, textos largos y ancho orgánico de burbujas.
+- Ejecución completa en Docker (`dart analyze` + `flutter test -j 1`) y despliegue en servidor web debug (`8080`) sobre `integration/ui-temas-y-asistente`.
