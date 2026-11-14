@@ -20,8 +20,20 @@ Moneo (`finazaap`) es una aplicación de finanzas personales en Flutter/Dart, **
 ## 1. Reglas Operativas Esenciales
 
 - **Docker obligatorio:** Flutter, Dart, `build_runner` y pruebas se ejecutan **solo en Docker** (`docker-compose exec flutter-env ...` / `docker exec finazaap-flutter ...`). No instalar herramientas en el host macOS.
-- **Git y ramas:** Prohibido hacer commits o merges directos en `main`. Toda tarea de agente va en rama `agent/<nombre>/<tarea>` (con `git worktree` si hay trabajo paralelo). No hacer merge a `main` sin aprobación explícita.
-- **Dispositivo físico / Teléfono:** Prohibido desinstalar la app, borrar datos o forzar cierre (`adb uninstall`, `pm clear`, `am force-stop`, `adb install -d`). Cualquier `adb install` / `flutter install` requiere aprobación explícita mostrando antes: commit, ruta y hash SHA-256 del APK, dispositivo, `applicationId`, `versionCode`, `versionName`, firma/certificado y confirmación de preservación de datos.
+- **Git, ramas y política de integración autónoma:**
+  - Prohibido hacer commits directos en `main`. Cada agente trabaja en `agent/<nombre>/<tarea>` y, si hay paralelismo, en su propio `git worktree`. No crear ramas nuevas sin necesidad; el handoff vive en `docs/handoff/`, no en ramas paralelas.
+  - Al terminar, consolida en `integration/<feature>` si hace falta coordinación; si el trabajo es lineal, puede integrar directamente a `main`.
+  - Ejecuta en Docker `dart analyze` y `flutter test -j 1`.
+  - Si análisis y pruebas pasan, haz merge local a `main` con `--ff-only` cuando sea posible (si no, merge normal con mensaje claro) y vuelve a ejecutar análisis y pruebas en `main`.
+  - Si pasan, elimina automáticamente: ramas `agent/*` ya contenidas en `main`, ramas `subagent-*` ya contenidas en `main`, ramas `integration/*` ya fusionadas en `main` (`git branch -d`), y worktrees limpios (`git status --porcelain` vacío) y sin procesos activos (`git worktree remove "<wt>"` entrecomillado por espacios en `/Volumes/ADATA SD620/...` + `git worktree prune`).
+  - Actualiza `docs/handoff/CURRENT_STATE.md` y `docs/handoff/ACTIVE_TASK.md`. No conserves ramas ni worktrees de tareas terminadas.
+- **Permite solo con aprobación explícita:**
+  - `git push`.
+  - `adb install` / `flutter install` (mostrando antes: commit, ruta y SHA-256 del APK, dispositivo, `applicationId`, `versionCode`, `versionName`, firma/certificado y confirmación de preservación de datos).
+  - `adb uninstall`, `pm clear`, `am force-stop`, `adb install -d` (downgrade) — estrictamente prohibidos sin autorización explícita.
+  - Acceso o envío de secretos, claves, credenciales o datos financieros.
+  - Migraciones destructivas de datos.
+  - Cualquier acción irreversible fuera del repositorio local (y cambios sobre los Archivos Protegidos de la sección 3).
 - **Honestidad técnica:** Distinguir explícitamente entre implementación **real**, **demo** y **stub**.
 - **Privacidad y seguridad de notificaciones:**
   - No leer ni persistir notificaciones de apps no seleccionadas por el usuario.

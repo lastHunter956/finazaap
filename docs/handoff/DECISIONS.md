@@ -11,9 +11,15 @@
 - **Política de red:** No se bloquean globalmente `curl`/`wget`/`nc`/`scp`/`rsync`; se deniega la exfiltración de secretos, notificaciones o datos financieros y se pide `force_ask` cuando una petición de red mencione términos/rutas sensibles.
 - **Política de teléfono/ADB:** `deny` estricto para `adb uninstall`, `pm clear`, `am force-stop`, `adb install -d` (downgrade) y borrado de datos; `force_ask` para `adb install` / `flutter install` exigiendo mostrar antes commit, ruta y SHA-256 del APK, dispositivo, `applicationId`, `versionCode`, `versionName`, firma/certificado y confirmación de preservación de datos.
 
-## 3. Flujo de Desarrollo, Git y Archivos Protegidos
+## 3. Flujo de Desarrollo, Git y Política de Integración Autónoma
 - **Flujo obligatorio:** `spec` → `plan` → `tasks` → `implement` → `test` (ver `.agents/rules/flujo-desarrollo.md`).
-- **Ramas Git:** Prohibido hacer commits o merges directos en `main`. El trabajo de agentes vive en ramas `agent/<nombre>/<tarea>` (con `git worktree` en paralelo). `git push`, `git merge` y `git rebase` requieren `force_ask`.
+- **Política de integración autónoma y ciclo de vida de ramas/worktrees:**
+  - Cada agente trabaja en `agent/<nombre>/<tarea>` y, si hay paralelismo, en su propio `git worktree`. El handoff vive en `docs/handoff/`, nunca en ramas paralelas.
+  - Al terminar, se consolida en `integration/<feature>` si requiere coordinación o directamente en `main` si el trabajo es lineal.
+  - Antes del merge se ejecutan en Docker `dart analyze` y `flutter test -j 1`. Con resultados verdes, el merge local a `main` (`--ff-only` si es posible, o merge normal con mensaje claro) y la re-validación en `main` son automáticos.
+  - Tras pasar análisis y pruebas en `main`, se eliminan automáticamente (`git branch -d` verificando `git merge-base --is-ancestor`, nunca `-D` sin motivo) las ramas `agent/*`, `subagent-*` e `integration/*` ya contenidas en `main`, junto con los worktrees limpios (`git status --porcelain` vacío) y sin procesos activos (`git worktree remove "<wt>"` + `git worktree prune`).
+  - Nota técnica macOS/Antigravity: cuando la ruta del repo contiene espacios (`/Volumes/ADATA SD620/...`), el cleanup automático interno `backend_git.go` puede fallar al cerrar subagentes; el agente debe completar `git worktree remove "<wt>"` con ruta entrecomillada.
+- **Operaciones permitidas solo con aprobación explícita:** `git push`; `adb install` / `flutter install`; `adb uninstall` / `pm clear` / `force-stop` / `downgrade`; acceso o envío de secretos, claves, credenciales o datos financieros; migraciones destructivas de datos; archivos protegidos; y cualquier acción irreversible fuera del repositorio local.
 - **Archivos protegidos:** `lib/data/transaction_service.dart`, `lib/data/credit_card_calculator.dart`, `lib/data/model/*.g.dart`, `android/app/build.gradle`, `android/app/src/main/AndroidManifest.xml` y `lib/core/security/*` requieren aprobación explícita del usuario.
 
 ## 4. Privacidad y Anti-Fraude en Notificaciones
