@@ -431,7 +431,52 @@ void main() {
       final balances = await readAccountBalances();
       expect(balances['Visa'], 2000000.0);
       expect(CreditCardCalculator.calculateTotalDebt('Visa'), 0.0);
+      expect(CreditCardCalculator.calculateMonthlyPayment('Visa', date.month, date.year), 0.0);
+      final resp = Hive.box<Responsibility>('responsibilities').values.firstWhere((r) => r.safeName == 'Visa');
+      expect(resp.cardBalance, 0.0);
+      expect(resp.installmentPlans, isEmpty);
       expect(Hive.box<Add_data>('data').length, 0);
+      await cleanupWidgetTree(tester);
+    });
+
+    testWidgets('segundo intento sobre transacción ya eliminada no produce doble reversión', (tester) async {
+      setMobileViewport(tester);
+      final date = DateTime(2026, 5, 10, 16, 0);
+      late Add_data tx;
+      await tester.runAsync(() async {
+        await TransactionService.processTransaction(
+          type: 'Expenses',
+          amount: 80000,
+          accountName: 'Ahorros',
+        );
+        tx = Add_data(
+          'Expenses',
+          '80000',
+          date,
+          'Transporte',
+          'Movilidad',
+          'Ahorros',
+          Icons.directions_bus.codePoint,
+        );
+        await Hive.box<Add_data>('data').add(tx);
+      });
+
+      await tester.pumpWidget(wrapWithApp(DailyTransactionsScreen(
+        dateString: '10/05/2026',
+        transactions: Hive.box<Add_data>('data').values.toList(),
+        dailyIncome: 0,
+        dailyExpense: 80000,
+      )));
+      await tester.pumpAndSettle();
+
+      await deleteViaDailyTransactionsUI(
+        tester,
+        find.text('Movilidad - Transporte'),
+      );
+
+      expect(tx.isInBox, isFalse);
+      final balancesAfterFirst = await readAccountBalances();
+      expect(balancesAfterFirst['Ahorros'], 1000000.0);
       await cleanupWidgetTree(tester);
     });
   });

@@ -77,7 +77,8 @@ void main() async {
     // Ejecutar la aplicación inmediatamente tras inicializar estado esencial
     runApp(const FinazaApp());
 
-    // Diferir inicializaciones no críticas para el primer frame
+    // Diferir inicializaciones no críticas para el primer frame, exponiendo hook para acceso temprano al chat
+    AiChatService.ensureGemmaInitialized = _ensureGemmaInitialized;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeDeferredServices();
     });
@@ -142,26 +143,35 @@ void main() async {
   }
 }
 
+Future<void>? _gemmaInitFuture;
+
+/// Garantiza una sola inicialización de FlutterGemma incluso si el chat se abre antes del post-frame.
+Future<void> _ensureGemmaInitialized() {
+  return _gemmaInitFuture ??= () async {
+    try {
+      if (kIsWeb) {
+        await FlutterGemma.initialize(
+          inferenceEngines: const [MediaPipeEngine(), LiteRtLmEngine()],
+          webStorageMode: WebStorageMode.streaming,
+          maxDownloadRetries: 5,
+        );
+      } else {
+        await FlutterGemma.initialize(
+          inferenceEngines: const [LiteRtLmEngine()],
+          maxDownloadRetries: 3,
+        );
+      }
+      AppLogger.success('FlutterGemma inicializado correctamente para ${kIsWeb ? "Web" : "nativo"}');
+    } catch (e) {
+      AppLogger.warning('Error inicializando FlutterGemma (continuando sin IA): $e');
+      AiChatService.initError = e.toString();
+    }
+  }();
+}
+
 /// Inicializa servicios secundarios después del primer frame.
 Future<void> _initializeDeferredServices() async {
-  try {
-    if (kIsWeb) {
-      await FlutterGemma.initialize(
-        inferenceEngines: const [MediaPipeEngine(), LiteRtLmEngine()],
-        webStorageMode: WebStorageMode.streaming,
-        maxDownloadRetries: 5,
-      );
-    } else {
-      await FlutterGemma.initialize(
-        inferenceEngines: const [LiteRtLmEngine()],
-        maxDownloadRetries: 3,
-      );
-    }
-    AppLogger.success('FlutterGemma inicializado correctamente para ${kIsWeb ? "Web" : "nativo"}');
-  } catch (e) {
-    AppLogger.warning('Error inicializando FlutterGemma (continuando sin IA): $e');
-    AiChatService.initError = e.toString();
-  }
+  await _ensureGemmaInitialized();
 
   try {
     final notificationService = NotificationService();

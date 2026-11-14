@@ -320,6 +320,8 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
   }
 
   Future<void> _deleteTransaction(Add_data transaction) async {
+    if (!transaction.isInBox) return;
+
     final deleted = await TransactionService.deleteTransaction(transaction);
     if (!mounted) return;
 

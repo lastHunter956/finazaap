@@ -60,6 +60,7 @@ class ChatMessage {
 /// - Fallback siempre disponible: Simulador financiero basado en reglas (funciona sin IA).
 class AiChatService extends ChangeNotifier {
   static String? initError;
+  static Future<void> Function()? ensureGemmaInitialized;
   static final AiChatService _instance = AiChatService._internal();
 
   factory AiChatService() => _instance;
@@ -194,6 +195,10 @@ class AiChatService extends ChangeNotifier {
     _initCompleter = Completer<void>();
     _gemmaError = null;
     notifyListeners();
+
+    if (ensureGemmaInitialized != null) {
+      await ensureGemmaInitialized!();
+    }
 
     if (initError != null) {
       _gemmaError = 'Error de inicialización del motor de IA: $initError';
