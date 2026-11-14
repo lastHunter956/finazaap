@@ -2268,8 +2268,8 @@ class _StatisticsState extends State<Statistics> {
 
         // Ejes con mejor estilo
         primaryXAxis: CategoryAxis(
-          labelStyle: const TextStyle(
-            color: Colors.white70,
+          labelStyle: TextStyle(
+            color: context.appTheme.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
@@ -2281,11 +2281,11 @@ class _StatisticsState extends State<Statistics> {
           labelIntersectAction: AxisLabelIntersectAction.multipleRows,
         ),
         primaryYAxis: NumericAxis(
-          labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
+          labelStyle: TextStyle(color: context.appTheme.textHint, fontSize: 11),
           axisLine: AxisLine(width: 0),
           majorGridLines: MajorGridLines(
             dashArray: <double>[5, 5],
-            color: Colors.white10,
+            color: context.appTheme.borderSubtle,
           ),
           majorTickLines: MajorTickLines(size: 0),
           numberFormat: NumberFormat.compact(),
@@ -2296,8 +2296,8 @@ class _StatisticsState extends State<Statistics> {
         tooltipBehavior: TooltipBehavior(
           enable: true,
           color: context.appTheme.cardBackground,
-          textStyle: const TextStyle(color: Colors.white),
-          borderColor: Colors.white24,
+          textStyle: TextStyle(color: context.appTheme.textPrimary),
+          borderColor: context.appTheme.borderVisible,
           borderWidth: 1,
           format: 'point.x: \${point.y}',
         ),
@@ -2312,7 +2312,7 @@ class _StatisticsState extends State<Statistics> {
             dataLabelSettings: DataLabelSettings(
               isVisible: true,
               textStyle: TextStyle(
-                color: Colors.white.withOpacity(0.9),
+                color: context.appTheme.textPrimary.withValues(alpha: 0.9),
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),

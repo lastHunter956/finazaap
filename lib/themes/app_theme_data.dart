@@ -161,77 +161,85 @@ class AppTheme extends ThemeExtension<AppTheme> {
     filledButtons: false,
   );
 
+  /// Rosa oficial de Dracula para indicadores complementarios.
+  static const Color draculaPink = Color(0xFFFF79C6);
+
   static const AppTheme _diurno = AppTheme(
-    primaryBackground: Color(0xFFF8FAFC),
-    cardBackground: Colors.white,
-    darkBackground: Color(0xFFE2E8F0),
-    secondaryCardBackground: Color(0xFFF1F5F9),
-    textPrimary: Color(0xFF0F172A),   // Slate 900 for absolute contrast
-    textSecondary: Color(0xFF334155), // Slate 700
-    textHint: Color(0xFF64748B),      // Slate 500
-    borderSubtle: Color(0xFFE2E8F0),
-    borderVisible: Color(0xFF94A3B8),
-    accent: Color(0xFF2563EB),        // Electric blue
-    secondaryAccent: Color(0xFF1D4ED8),
-    income: Color(0xFF16A34A),
-    expense: Color(0xFFDC2626),
-    success: Color(0xFF16A34A),
-    warning: Color(0xFFD97706),
-    error: Color(0xFFDC2626),
-    buttonBackground: Color(0xFF2563EB),
-    buttonForeground: Colors.white,
-    buttonShadow: [],
-    filledButtons: false,
+    primaryBackground: Color(0xFFEEF2F8),       // Cool Alabaster Canvas (separa claramente de tarjetas blancas)
+    cardBackground: Color(0xFFFFFFFF),          // Pure White Surface
+    darkBackground: Color(0xFFE2E8F2),          // Soft Frost Well (inputs, barras internas)
+    secondaryCardBackground: Color(0xFFF7F9FC), // Elevated Cool Surface
+    textPrimary: Color(0xFF0B132B),             // Deep Ink (AAA)
+    textSecondary: Color(0xFF334155),           // Slate 700 (AAA)
+    textHint: Color(0xFF52637A),                // Slate 600 (AA)
+    borderSubtle: Color(0xFFD5DFEE),            // Cool Hairline
+    borderVisible: Color(0xFF8496B0),           // Active Control Border
+    accent: Color(0xFF0062CC),                  // Apple Accessible System Blue (AA)
+    secondaryAccent: Color(0xFF4F46E5),         // Indigo 600 (AA)
+    income: Color(0xFF047857),                  // Emerald 700 (AA)
+    expense: Color(0xFFBE123C),                 // Crimson 700 (AA)
+    success: Color(0xFF047857),                 // Emerald 700
+    warning: Color(0xFFB45309),                 // Amber 700 (AA)
+    error: Color(0xFFBE123C),                   // Crimson 700
+    buttonBackground: Color(0xFF0062CC),
+    buttonForeground: Colors.white,             // AA vs buttonBackground
+    buttonShadow: [
+      BoxShadow(
+        color: Color(0x1F0062CC),
+        blurRadius: 10,
+        offset: Offset(0, 4),
+      ),
+    ],
+    filledButtons: true,
   );
 
   static const AppTheme _nocturno = AppTheme(
-    primaryBackground: Color(0xFF000000),      // Pure Pitch Black
-    cardBackground: Color(0xFF121212),         // Dark Charcoal
-    darkBackground: Color(0xFF070707),
-    secondaryCardBackground: Color(0xFF1E1E1E),
-    textPrimary: Colors.white,                 // Pure White
-    textSecondary: Color(0xFFE2E8F0),          // Opaque off-white
-    textHint: Color(0xFF94A3B8),               // Slate 400
-    borderSubtle: Color(0xFF2D2D2D),
-    borderVisible: Color(0xFF4D4D4D),
-    accent: Color(0xFF00E5FF),                 // Neon Cyan
-    secondaryAccent: Color(0xFF00B0FF),
-    income: Color(0xFF00E676),
-    expense: Color(0xFFFF1744),
-    success: Color(0xFF00E676),
-    warning: Color(0xFFFFEA00),
-    error: Color(0xFFFF1744),
-    buttonBackground: Color(0xFF00E5FF),
-    buttonForeground: Color(0xFF000000),
+    primaryBackground: Color(0xFF282A36),       // Dracula Background oficial
+    cardBackground: Color(0xFF313442),          // Dracula Elevated Card Surface
+    darkBackground: Color(0xFF1E1F29),          // Dracula Deep Well (inputs)
+    secondaryCardBackground: Color(0xFF44475A), // Dracula Selection / Elevated
+    textPrimary: Color(0xFFF8F8F2),             // Dracula Foreground oficial (AAA)
+    textSecondary: Color(0xFFB4BCCF),           // Eje Dracula secundario (AA/AAA)
+    textHint: Color(0xFF6272A4),                // Dracula Comment oficial
+    borderSubtle: Color(0xFF44475A),            // Dracula Selection oficial
+    borderVisible: Color(0xFF6272A4),           // Dracula Comment oficial
+    accent: Color(0xFFBD93F9),                  // Dracula Purple oficial (AA)
+    secondaryAccent: Color(0xFF8BE9FD),         // Dracula Cyan oficial (AAA)
+    income: Color(0xFF50FA7B),                  // Dracula Green oficial (acento/indicador)
+    expense: Color(0xFFFF5555),                 // Dracula Red oficial
+    success: Color(0xFF50FA7B),                 // Dracula Green oficial
+    warning: Color(0xFFFFB86C),                 // Dracula Orange oficial (AAA)
+    error: Color(0xFFFF5555),                   // Dracula Red oficial
+    buttonBackground: Color(0xFFBD93F9),        // Dracula Purple oficial
+    buttonForeground: Color(0xFF282A36),        // Dracula Background (AA vs purple)
     buttonShadow: [],
     filledButtons: true,
   );
 
-  static final AppTheme _dia = AppTheme(
-    primaryBackground: const Color(0xFFFFFDF5), // Creamy white
-    cardBackground: Colors.white,
-    darkBackground: const Color(0xFFFEF3C7),
-    secondaryCardBackground: const Color(0xFFFFFBEB),
-    textPrimary: const Color(0xFF1E1B4B),      // Ultra-dark Indigo 950
-    textSecondary: const Color(0xFF312E81),    // Indigo 900
-    textHint: const Color(0xFF4F46E5),         // Indigo 600
-    borderSubtle: const Color(0xFFE2E8F0),
-    borderVisible: const Color(0xFF6366F1),
-    accent: const Color(0xFFD97706),           // Deep rich amber
-    secondaryAccent: const Color(0xFFB45309),
-    income: const Color(0xFF16A34A),
-    expense: const Color(0xFFDC2626),
-    success: const Color(0xFF16A34A),
-    warning: const Color(0xFFD97706),
-    error: const Color(0xFFDC2626),
-    buttonBackground: const Color(0xFFD97706),
-    buttonForeground: Colors.white,
+  static const AppTheme _dia = AppTheme(
+    primaryBackground: Color(0xFFF4EFE6),       // Warm Alabaster / Stone Pearl
+    cardBackground: Color(0xFFFFFDF9),          // Warm Ivory White
+    darkBackground: Color(0xFFE6DFD3),          // Warm Sand Well
+    secondaryCardBackground: Color(0xFFFAF6F0), // Soft Linen Surface
+    textPrimary: Color(0xFF1C1917),             // Stone 900 / Warm Obsidian (AAA)
+    textSecondary: Color(0xFF44403C),           // Stone 700 / Warm Charcoal (AAA)
+    textHint: Color(0xFF68625D),                // Stone 600 (AA)
+    borderSubtle: Color(0xFFDAD2C4),            // Warm Stone Hairline
+    borderVisible: Color(0xFF968E83),           // Warm Taupe Active Border
+    accent: Color(0xFF0F766E),                  // Deep Ocean Teal 700 (AA)
+    secondaryAccent: Color(0xFFB45309),         // Warm Copper Amber 700 (AA)
+    income: Color(0xFF15803D),                  // Green 700 (AA)
+    expense: Color(0xFFB91C1C),                 // Red 700 (AA)
+    success: Color(0xFF15803D),                 // Green 700
+    warning: Color(0xFFB45309),                 // Amber 700 (AA)
+    error: Color(0xFFB91C1C),                   // Red 700
+    buttonBackground: Color(0xFF0F766E),
+    buttonForeground: Colors.white,             // AA vs buttonBackground
     buttonShadow: [
       BoxShadow(
-        color: Color(0x59D97706),
-        blurRadius: 12,
+        color: Color(0x1F0F766E),
+        blurRadius: 10,
         offset: Offset(0, 4),
-        spreadRadius: 1,
       ),
     ],
     filledButtons: true,
@@ -264,9 +272,13 @@ ThemeData buildThemeData(AppThemeMode mode) {
       primary: t.accent,
       onPrimary: t.buttonForeground,
       secondary: t.secondaryAccent,
-      onSecondary: Colors.white,
+      onSecondary: t.secondaryAccent.computeLuminance() > 0.4
+          ? const Color(0xFF282A36)
+          : Colors.white,
       error: t.error,
-      onError: Colors.white,
+      onError: t.error.computeLuminance() > 0.25
+          ? const Color(0xFF282A36)
+          : Colors.white,
       surface: t.cardBackground,
       onSurface: t.textPrimary,
     ),

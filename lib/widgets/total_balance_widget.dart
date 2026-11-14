@@ -519,6 +519,10 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
     return ValueListenableBuilder<double>(
       valueListenable: widget.availableBalanceNotifier,
       builder: (context, availableBalance, child) {
+        final bool isDark = Theme.of(context).brightness == Brightness.dark;
+        final Color ringStatusColor = widget.totalExpenses > widget.totalIncome
+            ? context.appTheme.expense
+            : context.appTheme.income;
         return Container(
           decoration: BoxDecoration(
             color: context.appTheme.cardBackground,
@@ -635,9 +639,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                 strokeWidth: 8, // Mantenemos el mismo grosor
                                 backgroundColor: context.appTheme.darkBackground,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  widget.totalExpenses > widget.totalIncome
-                                      ? const Color(0xFFFF7D7D) // Rojo si hay exceso
-                                      : const Color(0xFF50FA7B)  // Verde si hay ahorro
+                                  ringStatusColor,
                                 ),
                               ),
                             ),
@@ -656,13 +658,15 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                       color: context.appTheme.textPrimary,
                                       fontSize: 15, // Mantenemos el tamaño de fuente
                                       fontWeight: FontWeight.bold,
-                                      shadows: [
-                                        Shadow(
-                                          offset: Offset(0, 1),
-                                          blurRadius: 2.0,
-                                          color: Color.fromARGB(100, 0, 0, 0),
-                                        ),
-                                      ],
+                                      shadows: isDark
+                                          ? const [
+                                              Shadow(
+                                                offset: Offset(0, 1),
+                                                blurRadius: 2.0,
+                                                color: Color.fromARGB(100, 0, 0, 0),
+                                              ),
+                                            ]
+                                          : null,
                                     ),
                                   ),
                                   
@@ -671,15 +675,11 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                     margin: const EdgeInsets.only(top: 2),
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: widget.totalExpenses > widget.totalIncome
-                                          ? const Color(0xFFFF7D7D).withOpacity(0.2)
-                                          : const Color(0xFF50FA7B).withOpacity(0.2),
+                                      color: ringStatusColor.withValues(alpha: isDark ? 0.18 : 0.08),
                                       borderRadius: BorderRadius.circular(4),
                                       border: Border.all(
-                                        color: widget.totalExpenses > widget.totalIncome
-                                            ? const Color(0xFFFF7D7D).withOpacity(0.5)
-                                            : const Color(0xFF50FA7B).withOpacity(0.5),
-                                        width: 0.1,
+                                        color: ringStatusColor.withValues(alpha: 0.55),
+                                        width: 0.6,
                                       ),
                                     ),
                                     child: Text(
@@ -689,19 +689,19 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                               ? 'COMPLETO'  // Si no hay gastos, está completo
                                               : 'RESTANTE', // Si hay gastos pero no exceden, muestra "RESTANTE"
                                       style: TextStyle(
-                                        color: widget.totalExpenses > widget.totalIncome
-                                            ? const Color(0xFFFF7D7D)
-                                            : const Color(0xFF50FA7B),
+                                        color: isDark ? context.appTheme.textPrimary : ringStatusColor,
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.w900,
                                         letterSpacing: 0.1,
-                                        shadows: [
-                                          Shadow(
-                                            offset: const Offset(0, 1),
-                                            blurRadius: 1.0,
-                                            color: Colors.black.withOpacity(0.3),
-                                          ),
-                                        ],
+                                        shadows: isDark
+                                            ? [
+                                                Shadow(
+                                                  offset: const Offset(0, 1),
+                                                  blurRadius: 1.0,
+                                                  color: Colors.black.withValues(alpha: 0.3),
+                                                ),
+                                              ]
+                                            : null,
                                       ),
                                     ),
                                   ),
@@ -727,6 +727,11 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                         onPressed: widget.onManageAccounts,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: context.appTheme.primaryBackground,
+                          elevation: 0,
+                          side: BorderSide(
+                            color: context.appTheme.borderSubtle,
+                            width: 1,
+                          ),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8.0),
@@ -747,6 +752,11 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                         onPressed: _showMonthYearSelector,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: context.appTheme.primaryBackground,
+                          elevation: 0,
+                          side: BorderSide(
+                            color: context.appTheme.borderSubtle,
+                            width: 1,
+                          ),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8.0),
@@ -851,6 +861,13 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       backgroundColor: selectedFilter == 'Todos'
                           ? context.appTheme.primaryBackground
                           : context.appTheme.cardBackground,
+                      elevation: 0,
+                      side: BorderSide(
+                        color: selectedFilter == 'Todos'
+                            ? context.appTheme.accent
+                            : context.appTheme.borderSubtle,
+                        width: selectedFilter == 'Todos' ? 1.5 : 1,
+                      ),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.0),
@@ -877,6 +894,13 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       backgroundColor: selectedFilter == 'Gastos'
                           ? context.appTheme.primaryBackground
                           : context.appTheme.cardBackground,
+                      elevation: 0,
+                      side: BorderSide(
+                        color: selectedFilter == 'Gastos'
+                            ? context.appTheme.accent
+                            : context.appTheme.borderSubtle,
+                        width: selectedFilter == 'Gastos' ? 1.5 : 1,
+                      ),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.0),
@@ -903,6 +927,13 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                       backgroundColor: selectedFilter == 'Ingresos'
                           ? context.appTheme.primaryBackground
                           : context.appTheme.cardBackground,
+                      elevation: 0,
+                      side: BorderSide(
+                        color: selectedFilter == 'Ingresos'
+                            ? context.appTheme.accent
+                            : context.appTheme.borderSubtle,
+                        width: selectedFilter == 'Ingresos' ? 1.5 : 1,
+                      ),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.0),
@@ -929,24 +960,29 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
 
 // Método para construir etiquetas de sección
 Widget _buildSectionLabel(String label, IconData icon) {
-  return Row(
-    children: [
-      Icon(
-        icon,
-        size: 16,
-        color: Colors.white.withOpacity(0.8),
-      ),
-      SizedBox(width: 8),
-      Text(
-        label,
-        style: TextStyle(
-          color: Colors.white.withOpacity(0.85),
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.2,
-        ),
-      ),
-    ],
+  return Builder(
+    builder: (context) {
+      final labelColor = context.appTheme.textPrimary.withValues(alpha: 0.85);
+      return Row(
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: labelColor,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: labelColor,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 

@@ -24,16 +24,22 @@ class CustomPillBottomNavBar extends StatelessWidget {
       NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, label: 'Ajustes'), 
     ];
 
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10, left: 10, right: 10, top: 10),
       height: 60, // Altura del contenedor total
       decoration: BoxDecoration(
         color: context.appTheme.cardBackground,
         borderRadius: BorderRadius.circular(35), // Pill shape extremo
+        border: Border.all(
+          color: context.appTheme.borderSubtle,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 15,
+            color: Colors.black.withValues(alpha: isLight ? 0.08 : 0.3),
+            blurRadius: isLight ? 18 : 15,
             offset: const Offset(0, 5),
           ),
         ],

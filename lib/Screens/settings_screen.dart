@@ -1270,22 +1270,31 @@ class _SettingsScreenState extends State<SettingsScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: context.appTheme.cardBackground,
-        title: const Text('Importar datos', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        title: Text(
+          'Importar datos',
+          style: TextStyle(color: context.appTheme.textPrimary),
+        ),
+        content: Text(
           '⚠️ Los datos importados se agregarán a los existentes.\n\n'
           'Selecciona un archivo .json de respaldo de Moneo.\n\n'
           '¿Deseas continuar?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: context.appTheme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: context.appTheme.textSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Seleccionar archivo', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.appTheme.accent,
+              foregroundColor: context.appTheme.buttonForeground,
+            ),
+            child: const Text('Seleccionar archivo'),
           ),
         ],
       ),
@@ -1323,26 +1332,32 @@ class _SettingsScreenState extends State<SettingsScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: context.appTheme.cardBackground,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
-            SizedBox(width: 10),
-            Text('¡Precaución!', style: TextStyle(color: Colors.red)),
+            Icon(Icons.warning_amber_rounded, color: context.appTheme.error, size: 28),
+            const SizedBox(width: 10),
+            Text('¡Precaución!', style: TextStyle(color: context.appTheme.error)),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Esta acción eliminará TODOS los datos:\n\n• Transacciones\n• Cuentas\n• Responsabilidades\n• Categorías\n\nEsta acción NO se puede deshacer.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: context.appTheme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: context.appTheme.textSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Continuar', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.appTheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            child: const Text('Continuar'),
           ),
         ],
       ),
@@ -1355,20 +1370,29 @@ class _SettingsScreenState extends State<SettingsScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: context.appTheme.cardBackground,
-        title: const Text('Confirmación final', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        title: Text(
+          'Confirmación final',
+          style: TextStyle(color: context.appTheme.textPrimary),
+        ),
+        content: Text(
           '¿Estás COMPLETAMENTE seguro?\n\nEscribe "ELIMINAR" para confirmar.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: context.appTheme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: context.appTheme.textSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('ELIMINAR TODO', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.appTheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            child: const Text('ELIMINAR TODO'),
           ),
         ],
       ),
