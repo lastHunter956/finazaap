@@ -3,14 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'dart:convert';
-import 'package:intl/intl.dart'; // Para formatear números
 import 'package:hive/hive.dart'; // Importar Hive
 import 'package:finazaap/data/model/add_date.dart'; // Importar modelo Add_data
-import 'package:finazaap/data/account_utils.dart';
 import 'package:finazaap/data/transaction_service.dart';
-import 'package:finazaap/utils/app_icons.dart';
-// Añadir en la parte superior del archivo
-import 'package:finazaap/widgets/bottomnavigationbar.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/core/utils/app_logger.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
@@ -205,22 +200,6 @@ Future<void> _saveTransfer() async {
   }
 }
 
-  // Método para guardar las cuentas actualizadas
-  Future<void> _saveAccountsToPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Serializar los objetos AccountItem a JSON
-    List<String> accountsData =
-        _accountItems.map((item) => json.encode(item.toJson())).toList();
-    
-    // Guardar en SharedPreferences
-    await prefs.setStringList('accounts', accountsData);
-    
-    // Imprimir para debug
-    AppLogger.info('Cuentas actualizadas exitosamente. Nuevos saldos: ' +
-        _accountItems.map((a) => "${a.title}: ${a.balance}").join(', '));
-  }
-
   // Reemplazar el código con error (alrededor de la línea 286)
 Future<void> _loadAccountsFromPrefs() async {
   final prefs = await SharedPreferences.getInstance();
@@ -267,38 +246,6 @@ Future<void> _loadAccountsFromPrefs() async {
     }
   }
 }
-
-  Future<void> _updateAccountBalance(String accountName, double amount, bool add) async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? accountsData = prefs.getStringList('accounts');
-    
-    if (accountsData != null) {
-      List<AccountItem> accounts = [];
-      bool updated = false;
-      
-      for (var accountJson in accountsData) {
-        final Map<String, dynamic> data = json.decode(accountJson);
-        final account = AccountItem.fromJson(data);
-        
-        if (account.title == accountName) {
-          if (add) {
-            account.balanceAsDouble += amount;
-          } else {
-            account.balanceAsDouble -= amount;
-          }
-          updated = true;
-        }
-        
-        accounts.add(account);
-      }
-      
-      if (updated) {
-        List<String> updatedAccountsData = 
-            accounts.map((item) => json.encode(item.toJson())).toList();
-        await prefs.setStringList('accounts', updatedAccountsData);
-      }
-    }
-  }
 
   @override
 Widget build(BuildContext context) {
@@ -907,138 +854,6 @@ void _loadTransactionData() {
         }
       }
     });
-  }
-}
-
-// Método para revertir el efecto de una transferencia anterior
-Future<void> _revertPreviousTransfer(Add_data transaction) async {
-  try {
-    final amount = double.parse(transaction.safeAmount);
-    final accountsParts = (transaction.explain ?? '').split(' > ');
-    
-    if (accountsParts.length == 2) {
-      final sourceAccountName = accountsParts[0].trim();
-      final destAccountName = accountsParts[1].trim();
-      
-      // Encontrar las cuentas en la lista actual
-      AccountItem? sourceAccount;
-      AccountItem? destAccount;
-      
-      for (var account in _accountItems) {
-        if (account.title.trim() == sourceAccountName) {
-          sourceAccount = account;
-        }
-        if (account.title.trim() == destAccountName) {
-          destAccount = account;
-        }
-      }
-      
-      // Revertir la transferencia: añadir al origen, quitar del destino
-      if (sourceAccount != null) {
-        sourceAccount.balanceAsDouble += amount;
-      }
-      
-      if (destAccount != null) {
-        destAccount.balanceAsDouble -= amount;
-      }
-      
-      // No guardar aquí, se guardará después de la nueva transferencia
-    }
-  } catch (e) {
-    AppLogger.error('Error al revertir transferencia', error: e);
-    throw Exception('No se pudo revertir la transferencia anterior');
-  }
-}
-
-// Añadir dentro de la clase _TransferScreenState
-
-// Método para mostrar el diálogo de confirmación de eliminación
-void _showDeleteConfirmation() {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        backgroundColor: context.appTheme.cardBackground,
-        title: Text('Confirmar eliminación', style: TextStyle(color: context.appTheme.textPrimary)),
-        content: Text('¿Estás seguro que deseas eliminar esta transferencia?', style: TextStyle(color: context.appTheme.textSecondary)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop(); // Cerrar el diálogo
-              
-              try {
-                // Mostrar indicador de carga
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (BuildContext context) {
-                    return const Center(child: CircularProgressIndicator());
-                  },
-                );
-                
-                // Revertir el efecto de la transacción en el saldo de la cuenta
-                if (widget.transaction != null) {
-                  await _revertPreviousTransaction(widget.transaction!);
-                }
-                
-                // Eliminar la transacción del box de Hive
-                if (widget.transactionKey != null) {
-                  box.delete(widget.transactionKey);
-                }
-                
-                // Notificar a la pantalla principal
-                if (widget.onTransactionUpdated != null) {
-                  widget.onTransactionUpdated!();
-                }
-                
-                // Cerrar el indicador de carga
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                }
-                
-                // Volver a la pantalla anterior
-                if (mounted && Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                }
-              } catch (e) {
-                // Cerrar el indicador de carga
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                }
-                
-                // Mostrar error
-                AlertHelper.error(context, 'Error al eliminar: ${e.toString()}');
-              }
-            },
-            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-// Método para revertir una transferencia previa
-Future<void> _revertPreviousTransaction(Add_data transaction) async {
-  try {
-    final amount = double.parse(transaction.safeAmount);
-
-    // Especial para transferencias: necesitamos revertir tanto origen como destino
-    await TransactionService.processTransaction(
-      type: 'Transfer',
-      amount: amount,
-      accountName: transaction.safeAccount, // Cuenta origen
-      destinationAccount: transaction.safeDetail, // Cuenta destino (en detail)
-      isNewTransaction: false,
-      oldTransaction: transaction
-    );
-  } catch (e) {
-    AppLogger.error('Error al revertir transferencia previa', error: e);
-    throw e;
   }
 }
 }

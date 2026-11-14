@@ -5,7 +5,6 @@ import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:finazaap/data/model/add_date.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:finazaap/widgets/total_balance_widget.dart';
 import 'package:finazaap/widgets/show_transaction_options.dart';
@@ -21,13 +20,11 @@ import 'package:finazaap/Screens/selecctaccount.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'package:finazaap/Screens/add.dart';
 import 'package:finazaap/Screens/add_expense.dart';
-import 'package:finazaap/data/models/account_item.dart'; // Modelo centralizado
 
 // Añadir esta importación al inicio del archivo
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/core/prefs_manager.dart';
-import 'package:finazaap/Screens/settings_screen.dart';
 import 'package:finazaap/Screens/daily_transactions.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:finazaap/Screens/ai_chat_screen.dart';
@@ -1604,138 +1601,6 @@ Future<void> _deleteTransaction(Add_data transaction) async {
   } catch (e) {
     print('Error al eliminar transacción: $e');
     AlertHelper.error(context, 'Error al eliminar: $e');
-  }
-}
-
-// Añadir este nuevo método para revertir transferencias
-Future<void> _revertTransfer(Add_data transaction) async {
-  try {
-    final amount = double.parse(transaction.safeAmount);
-    
-    // Obtener nombres de cuentas de origen y destino
-    final parts = (transaction.explain ?? '').split(' > ');
-    if (parts.length != 2) {
-      throw Exception('Formato de transferencia inválido');
-    }
-    
-    final sourceAccount = parts[0].trim();
-    final destAccount = parts[1].trim();
-    
-    // 1. Revertir en cuenta de origen (devolver dinero)
-    await _updateAccountBalance(sourceAccount, amount, true);
-    
-    // 2. Revertir en cuenta de destino (quitar dinero)
-    await _updateAccountBalance(destAccount, amount, false);
-  } catch (e) {
-    print('Error revirtiendo transferencia: $e');
-    throw e; // Re-lanzar para manejo superior
-  }
-}
-
-// Método auxiliar para actualizar el saldo de una cuenta específica
-Future<void> _updateAccountBalance(String accountName, double amount, bool add) async {
-  final prefs = await SharedPreferences.getInstance();
-  List<String>? accountsData = prefs.getStringList('accounts');
-  
-  if (accountsData != null) {
-    List<Map<String, dynamic>> accounts = [];
-    bool updated = false;
-    
-    for (var accountJson in accountsData) {
-      final Map<String, dynamic> data = json.decode(accountJson);
-      
-      // Si es la cuenta que buscamos, actualizar su saldo
-      if (data['title'] == accountName) {
-        double currentBalance;
-        if (data['balance'] is String) {
-          currentBalance = double.tryParse(data['balance']) ?? 0.0;
-        } else {
-          currentBalance = (data['balance'] is double) ? data['balance'] : 0.0;
-        }
-        
-        // Actualizar saldo según la operación
-        if (add) {
-          currentBalance += amount; // Sumar (devolver dinero)
-        } else {
-          currentBalance -= amount; // Restar (quitar dinero)
-        }
-        
-        // Preservar el tipo original
-        if (data['balance'] is String) {
-          data['balance'] = currentBalance.toString();
-        } else {
-          data['balance'] = currentBalance;
-        }
-        
-        updated = true;
-      }
-      
-      accounts.add(data);
-    }
-    
-    if (updated) {
-      List<String> updatedAccountsData = accounts.map((data) => json.encode(data)).toList();
-      await prefs.setStringList('accounts', updatedAccountsData);
-    }
-  }
-}
-
-  // Actualizar saldo de la cuenta después de eliminar una transacción
-  Future<void> _updateAccountBalanceAfterDeletion(
-  String accountName,
-  double amount,
-  bool wasIncome
-) async {
-  final prefs = await SharedPreferences.getInstance();
-  List<String>? accountsData = prefs.getStringList('accounts');
-  
-  if (accountsData != null) {
-    // Trabajar directamente con los mapas para preservar todos los campos originales
-    List<Map<String, dynamic>> accounts = [];
-    bool updated = false;
-    
-    // Procesar cada cuenta manteniendo su estructura original
-    for (var accountJson in accountsData) {
-      // Preservar el mapa completo original
-      final Map<String, dynamic> data = json.decode(accountJson);
-      
-      // Actualizar solo la cuenta afectada
-      if (data['title'] == accountName) {
-        double currentBalance;
-        // Manejar el caso donde balance puede ser String o double
-        if (data['balance'] is String) {
-          currentBalance = double.tryParse(data['balance']) ?? 0.0;
-        } else {
-          currentBalance = (data['balance'] is double) ? data['balance'] : 0.0;
-        }
-        
-        // Aplicar el ajuste según el tipo de transacción
-        if (wasIncome) {
-          currentBalance -= amount; // Revertir ingreso
-        } else {
-          currentBalance += amount; // Revertir gasto
-        }
-        
-        // Guardar el balance respetando el tipo original
-        if (data['balance'] is String) {
-          data['balance'] = currentBalance.toString();
-        } else {
-          data['balance'] = currentBalance;
-        }
-        
-        updated = true;
-      }
-      
-      // Añadir la cuenta (modificada o no) a la lista
-      accounts.add(data);
-    }
-    
-    // Guardar TODAS las cuentas independientemente de si hubo actualización
-    List<String> updatedAccountsData = accounts.map((data) => json.encode(data)).toList();
-    await prefs.setStringList('accounts', updatedAccountsData);
-    
-    // Actualizar el saldo global para reflejar el cambio
-    await _updateAvailableBalance();
   }
 }
 

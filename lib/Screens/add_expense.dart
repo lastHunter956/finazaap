@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:convert';
-import 'package:finazaap/data/account_utils.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:flutter/services.dart'; // Para FilteringTextInputFormatter
 import 'package:finazaap/data/category_service.dart';
@@ -746,14 +745,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  // Guarda la lista de cuentas en SharedPreferences
-  Future<void> _saveAccountsToPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> accountsData =
-        _accountItems.map((item) => json.encode(item.toJson())).toList();
-    prefs.setStringList('accounts', accountsData);
-  }
-
   // Método para cargar los datos del gasto
   void _loadTransactionData() {
     final transaction = widget.transaction!;
@@ -810,117 +801,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     } catch (_) {
       return Icons.category.codePoint;
     }
-  }
-
-  // 2. Agregar el método _updateAccountBalance
-  Future<void> _updateAccountBalance(
-      String accountName, double amount, bool add) async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? accountsData = prefs.getStringList('accounts');
-
-    if (accountsData != null) {
-      List<AccountItem> accounts = [];
-      bool updated = false;
-
-      for (var accountJson in accountsData) {
-        final Map<String, dynamic> data = json.decode(accountJson);
-        final account = AccountItem.fromJson(data);
-
-        if (account.title == accountName) {
-          if (add) {
-            account.balanceAsDouble += amount;
-          } else {
-            account.balanceAsDouble -= amount;
-          }
-          updated = true;
-        }
-
-        accounts.add(account);
-      }
-
-      if (updated) {
-        List<String> updatedAccountsData =
-            accounts.map((item) => json.encode(item.toJson())).toList();
-        await prefs.setStringList('accounts', updatedAccountsData);
-      }
-    }
-  }
-
-  // Método para mostrar el diálogo de confirmación de eliminación
-  void _showDeleteConfirmation() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: context.appTheme.cardBackground,
-          title: Text('Confirmar eliminación',
-              style: TextStyle(color: context.appTheme.textPrimary)),
-          content: Text(
-              '¿Estás seguro que deseas eliminar esta transacción?',
-              style: TextStyle(color: context.appTheme.textSecondary)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop(); // Cerrar el diálogo
-
-                try {
-                  // Mostrar indicador de carga
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (BuildContext context) {
-                      return const Center(child: CircularProgressIndicator());
-                    },
-                  );
-
-                  // Revertir el efecto de la transacción en el saldo de la cuenta
-                  if (widget.transaction != null) {
-                    await _revertPreviousTransaction(widget.transaction!);
-                  }
-
-                  // Eliminar la transacción del box de Hive
-                  if (widget.transactionKey != null) {
-                    box.delete(widget.transactionKey);
-                  }
-
-                  // Actualizar el saldo global disponible
-                  await _updateGlobalAvailableBalance();
-
-                  // Notificar a la pantalla principal
-                  if (widget.onTransactionUpdated != null) {
-                    widget.onTransactionUpdated!();
-                  }
-
-                  // Cerrar el indicador de carga
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  }
-
-                  // Volver a la pantalla anterior
-                  if (mounted && Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  }
-                } catch (e) {
-                  // Cerrar el indicador de carga
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  }
-
-                  // Mostrar error
-                  AlertHelper.error(context, 'Error al eliminar: ${e.toString()}');
-                }
-              },
-              child: const Text('Eliminar',
-                  style: TextStyle(color: Colors.redAccent)),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override

@@ -4,11 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:convert';
-import 'package:finazaap/data/account_utils.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:flutter/services.dart'; // Para FilteringTextInputFormatter
 import 'package:finazaap/utils/currency_helper.dart';
-import 'dart:collection';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/account_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
@@ -343,133 +341,6 @@ class _Add_ScreenState extends State<Add_Screen> {
       // Si tenemos acceso al notificador global:
       // availableBalanceNotifier.value = totalBalance;
     }
-  }
-
-  Future<void> _updateAccountBalance(
-      String accountTitle, double amount, bool isIncome) async {
-    if (accountTitle.isEmpty) return;
-    final accountIndex =
-        _accountItems.indexWhere((a) => a.title == accountTitle);
-    if (accountIndex == -1) return;
-
-    setState(() {
-      double currentBalance = double.tryParse(_accountItems[accountIndex].balance) ?? 0.0;
-      if (isIncome) {
-        currentBalance += amount;
-      } else {
-        currentBalance -= amount;
-      }
-      _accountItems[accountIndex].balance = currentBalance.toString();
-    });
-
-    final prefs = await SharedPreferences.getInstance();
-    // Convierte solo los campos necesarios para preservar compatibilidad
-    final accountsData = _accountItems
-        .map((item) => json.encode({
-              'title': item.title,
-              'subtitle': item.subtitle ?? '',
-              'balance': item.balance,
-              'icon': item.icon.codePoint,
-              'iconColor': item.iconColor.value,
-            }))
-        .toList();
-
-    prefs.setStringList('accounts', accountsData);
-  }
-
-  // Método para revertir el efecto de la transacción anterior
-  Future<void> _revertPreviousTransaction(Add_data transaction) async {
-    try {
-      final amount = double.parse(transaction.safeAmount);
-
-      // Usar el método existente en TransactionService en lugar del que falta
-      await TransactionService.processTransaction(
-          type: transaction.safeType,
-          amount: amount,
-          accountName: transaction.safeAccount,
-          isNewTransaction: false,
-          oldTransaction: transaction);
-    } catch (e) {
-      print('Error al revertir transacción previa: $e');
-      throw e;
-    }
-  }
-
-// Método para mostrar el diálogo de confirmación de eliminación
-  void _showDeleteConfirmation() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF2A2A3A),
-          title: const Text('Confirmar eliminación',
-              style: TextStyle(color: Colors.white)),
-          content: const Text('¿Estás seguro que deseas eliminar este ingreso?',
-              style: TextStyle(color: Colors.white)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child:
-                  const Text('Cancelar', style: TextStyle(color: Colors.grey)),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop(); // Cerrar el diálogo
-
-                try {
-                  // Mostrar indicador de carga
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (BuildContext context) {
-                      return const Center(child: CircularProgressIndicator());
-                    },
-                  );
-
-                  // Revertir el efecto de la transacción en el saldo de la cuenta
-                  if (widget.transaction != null) {
-                    await _revertPreviousTransaction(widget.transaction!);
-                  }
-
-                  // Eliminar la transacción del box de Hive
-                  if (widget.transactionKey != null) {
-                    box.delete(widget.transactionKey);
-                  }
-
-                  // Actualizar el saldo global disponible
-                  await _updateGlobalAvailableBalance();
-
-                  // Notificar a la pantalla principal
-                  if (widget.onTransactionUpdated != null) {
-                    widget.onTransactionUpdated!();
-                  }
-
-                  // Cerrar el indicador de carga
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  }
-
-                  // Volver a la pantalla anterior
-                  if (mounted && Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  }
-                } catch (e) {
-                  // Cerrar el indicador de carga
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  }
-
-                  // Mostrar error
-                  AlertHelper.error(context, 'Error al eliminar: ${e.toString()}');
-                }
-              },
-              child:
-                  const Text('Eliminar', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
