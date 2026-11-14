@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:finazaap/core/prefs_manager.dart';
@@ -6,20 +5,16 @@ import 'package:finazaap/data/credit_card_calculator.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/data/responsibility_service.dart';
-import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Suite de reproducción aislada (Ola 0 - T0.1).
+/// Suite de reproducción aislada pendiente (Ola 0 - T0.1).
 ///
-/// IMPORTANTE:
-/// - Invoca directamente al código productivo real (sin duplicar lógica).
-/// - Usa almacenamiento temporal aislado (`Directory.systemTemp` + `SharedPreferences.setMockInitialValues`).
-/// - Se mantiene temporalmente en `docs/audit/repro/` (fuera de `test/`) para no contaminar
-///   el baseline aprobado mientras los defectos sigan abiertos.
-/// - Cada prueba afirma el comportamiento contable esperado; si el defecto existe, falla.
+/// Las pruebas de L1.3a/b/c y L1.4 ya fueron trasladadas a
+/// `test/audit/t1_3a_transaction_service_test.dart` al corregirse en T1.3a.
+/// Aquí permanecen únicamente las reproducciones aún pendientes de Ola 1+.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -58,155 +53,6 @@ void main() {
     if (tempDir.existsSync()) {
       tempDir.deleteSync(recursive: true);
     }
-  });
-
-  test('L1.3a esperado: available_balance excluye cuenta con includeInTotal=false', () async {
-    final prefs = await PrefsManager.instance;
-    await prefs.setStringList('accounts', [
-      json.encode({
-        'title': 'Ahorros',
-        'subtitle': 'Cuenta de Ahorros',
-        'balance': '1000000',
-        'includeInTotal': true,
-      }),
-      json.encode({
-        'title': 'Reserva',
-        'subtitle': 'Cuenta de Ahorros',
-        'balance': '5000000',
-        'includeInTotal': false,
-      }),
-    ]);
-
-    final ok = await TransactionService.processTransaction(
-      type: 'Expenses',
-      amount: 100000,
-      accountName: 'Ahorros',
-      isNewTransaction: true,
-      recordInHive: false,
-    );
-    expect(ok, isTrue);
-    // Solo Ahorros (1.000.000 - 100.000 = 900.000) debe sumarse; Reserva tiene includeInTotal=false.
-    expect(prefs.getDouble('available_balance'), closeTo(900000.0, 0.01));
-  });
-
-  test('L1.3b esperado: available_balance excluye cupo de Tarjeta de Crédito', () async {
-    final prefs = await PrefsManager.instance;
-    await prefs.setStringList('accounts', [
-      json.encode({
-        'title': 'Ahorros',
-        'subtitle': 'Cuenta de Ahorros',
-        'balance': '1000000',
-        'includeInTotal': true,
-      }),
-      json.encode({
-        'title': 'Visa',
-        'subtitle': 'Tarjeta de Crédito',
-        'balance': '10000000',
-        'creditLimit': '10000000',
-        'includeInTotal': true,
-      }),
-    ]);
-
-    final ok = await TransactionService.processTransaction(
-      type: 'Expenses',
-      amount: 100000,
-      accountName: 'Ahorros',
-      isNewTransaction: true,
-      recordInHive: false,
-    );
-    expect(ok, isTrue);
-    // El cupo de deuda de una Tarjeta de Crédito (10.000.000) no es dinero líquido disponible.
-    expect(prefs.getDouble('available_balance'), closeTo(900000.0, 0.01));
-  });
-
-  test('L1.3c esperado (combinado): available_balance excluye includeInTotal=false y cupo TC', () async {
-    final prefs = await PrefsManager.instance;
-    await prefs.setStringList('accounts', [
-      json.encode({
-        'title': 'Ahorros',
-        'subtitle': 'Cuenta de Ahorros',
-        'balance': '1000000',
-        'includeInTotal': true,
-      }),
-      json.encode({
-        'title': 'Reserva',
-        'subtitle': 'Cuenta de Ahorros',
-        'balance': '5000000',
-        'includeInTotal': false,
-      }),
-      json.encode({
-        'title': 'Visa',
-        'subtitle': 'Tarjeta de Crédito',
-        'balance': '10000000',
-        'creditLimit': '10000000',
-        'includeInTotal': true,
-      }),
-    ]);
-
-    final ok = await TransactionService.processTransaction(
-      type: 'Expenses',
-      amount: 100000,
-      accountName: 'Ahorros',
-      isNewTransaction: true,
-      recordInHive: false,
-    );
-    expect(ok, isTrue);
-    expect(prefs.getDouble('available_balance'), closeTo(900000.0, 0.01));
-  });
-
-  test('L1.4 esperado: eliminar transferencia hacia TC revierte cardBalance y paidAmountThisMonth', () async {
-    final prefs = await PrefsManager.instance;
-    await prefs.setStringList('accounts', [
-      json.encode({
-        'title': 'Ahorros',
-        'subtitle': 'Cuenta de Ahorros',
-        'balance': '1000000',
-        'includeInTotal': true,
-      }),
-      json.encode({
-        'title': 'Visa',
-        'subtitle': 'Tarjeta de Crédito',
-        'balance': '4500000',
-        'creditLimit': '5000000',
-        'includeInTotal': false,
-      }),
-    ]);
-
-    final respBox = Hive.box<Responsibility>('responsibilities');
-    await respBox.add(Responsibility(
-      id: 'visa_id',
-      name: 'Visa',
-      category: 'tarjeta',
-      frequency: 'mensual',
-      cardLimit: 5000000,
-      cardBalance: 500000,
-      paidAmountThisMonth: 0,
-      isPaid: false,
-    ));
-
-    final now = DateTime(2026, 11, 10);
-    final ok = await TransactionService.processTransaction(
-      type: 'Transfer',
-      amount: 200000,
-      accountName: 'Ahorros',
-      destinationAccount: 'Visa',
-      isNewTransaction: true,
-      recordInHive: false,
-      targetMonth: now.month,
-      targetYear: now.year,
-    );
-    expect(ok, isTrue);
-
-    final dataBox = Hive.box<Add_data>('data');
-    final tx = Add_data('Transfer', '200000', now, 'Pago Visa', 'Ahorros > Visa', '');
-    await dataBox.add(tx);
-
-    final deleted = await TransactionService.deleteTransaction(tx);
-    expect(deleted, isTrue);
-
-    final respAfter = respBox.getAt(0)!;
-    expect(respAfter.cardBalance, closeTo(500000.0, 0.01));
-    expect(respAfter.paidAmountThisMonth ?? 0.0, closeTo(0.0, 0.01));
   });
 
   test('L2.4 esperado: cuota mensual es 0.0 si la deuda total de la TC ya fue saldada', () async {

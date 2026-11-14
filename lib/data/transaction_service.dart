@@ -252,37 +252,7 @@ class TransactionService {
       AppLogger.debug('🔄 INICIANDO REVERSIÓN: Type=${oldTransaction.safeType}, Account=${oldTransaction.safeAccount}, Amount=$amount, Installments=$installments');
 
       if (oldTransaction.safeType == 'Transfer') {
-        // Para transferencias
-        final parts = oldTransaction.safeCategory.split(' > ');
-        AppLogger.debug('Es TRANSFER: ${oldTransaction.safeCategory}');
-        if (parts.length == 2) {
-          final sourceAccount = parts[0].trim();
-          final destAccount = parts[1].trim();
-          
-          AppLogger.debug('Reversión Transferencia: Origen="$sourceAccount" (+$amount), Destino="$destAccount" (-$amount)');
-          
-          // Revertir: añadir al origen (era una resta) y quitar del destino (era una suma)
-          await _updateAccountBalance(
-            sourceAccount, 
-            amount, 
-            true, // añadir al origen
-            accounts, 
-            1, 
-            true, 
-            true, // isReversal = true
-            originalDate
-          );
-          await _updateAccountBalance(
-            destAccount, 
-            amount, 
-            false, // quitar del destino 
-            accounts, 
-            1, 
-            true, 
-            true, // isReversal = true
-            originalDate
-          );
-        }
+        await _revertTransfer(oldTransaction, amount, accounts);
       } else {
         // Para ingresos y gastos - invertir operación
         bool wasIncome = oldTransaction.safeType == 'Income';
@@ -324,13 +294,77 @@ class TransactionService {
       double totalBalance = 0.0;
       
       for (var account in accounts) {
-        totalBalance += _getBalanceFromData(account);
+        final includeInTotal = account['includeInTotal'] ?? true;
+        if (includeInTotal == true && !_isCreditCardAccount(account)) {
+          totalBalance += _getBalanceFromData(account);
+        }
       }
       
       await prefs.setDouble('available_balance', totalBalance);
       AppLogger.info('Saldo global actualizado: $totalBalance');
     } catch (e) {
       AppLogger.error('Error actualizando saldo global', error: e);
+    }
+  }
+
+  static bool _isCreditCardAccount(Map<String, dynamic> account) {
+    final subtitle = account['subtitle']?.toString().toLowerCase() ?? '';
+    return subtitle.contains('tarjeta') &&
+        (subtitle.contains('credito') || subtitle.contains('crédito'));
+  }
+
+  static void _applyBalanceDelta(Map<String, dynamic> account, double delta) {
+    final updated = _getBalanceFromData(account) + delta;
+    if (account['balance'] is String) {
+      account['balance'] = updated.toString();
+    } else {
+      account['balance'] = updated;
+    }
+  }
+
+  /// Revierte una transferencia de manera simétrica a [_processTransfer].
+  static Future<void> _revertTransfer(
+    Add_data transaction,
+    double amount,
+    List<Map<String, dynamic>> accounts,
+  ) async {
+    final parts = transaction.safeCategory.split(' > ');
+    if (parts.length != 2) return;
+
+    final sourceAccount = parts[0].trim();
+    final destAccount = parts[1].trim();
+    final originalDate = transaction.date;
+
+    int sourceIndex = -1;
+    int destIndex = -1;
+    for (int i = 0; i < accounts.length; i++) {
+      if (accounts[i]['title'] == sourceAccount) sourceIndex = i;
+      if (accounts[i]['title'] == destAccount) destIndex = i;
+      if (sourceIndex != -1 && destIndex != -1) break;
+    }
+
+    if (sourceIndex != -1) {
+      _applyBalanceDelta(accounts[sourceIndex], amount);
+      if (_isCreditCardAccount(accounts[sourceIndex])) {
+        await ResponsibilityService.processDebtReversal(
+          sourceAccount,
+          amount,
+          originalDate,
+          1,
+          true,
+        );
+      }
+    }
+
+    if (destIndex != -1) {
+      _applyBalanceDelta(accounts[destIndex], -amount);
+      if (_isCreditCardAccount(accounts[destIndex])) {
+        await ResponsibilityService.processPaymentReversal(
+          destAccount,
+          amount,
+          originalDate,
+        );
+      }
     }
   }
   
@@ -365,15 +399,7 @@ class TransactionService {
       double amount = double.parse(transaction.safeAmount);
       
       if (transaction.safeType == 'Transfer') {
-        final parts = transaction.safeCategory.split(' > ');
-        if (parts.length == 2) {
-          final sourceAccount = parts[0].trim();
-          final destAccount = parts[1].trim();
-          
-          // Revertir transferencia
-          await _updateAccountBalance(sourceAccount, amount, true, accounts, 1);  // Devuelve dinero a origen
-          await _updateAccountBalance(destAccount, amount, false, accounts, 1);  // Quita dinero del destino
-        }
+        await _revertTransfer(transaction, amount, accounts);
       } else {
         // Revertir ingreso/gasto
         bool wasIncome = transaction.safeType == 'Income';

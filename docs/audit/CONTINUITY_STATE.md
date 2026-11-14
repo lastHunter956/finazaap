@@ -52,6 +52,13 @@
   - **Casos UI (`L1.1`, `L2.1`, `L3.1`):** Constructores públicos verificados (`DailyTransactionsScreen`, `AddExpenseScreen`, `ResponsibilitiesScreen`); son viables mediante `testWidgets` con `tester.runAsync` y almacenamiento sintético sin tocar `lib/`, pero quedaron pendientes para Ola 1 (`T1.3c`) por requerir montaje de tema y `SharedPreferences`.
   - **Política de `docs/audit/repro/`:** El baseline en `test/` (`104/104`) pasa **excluyendo** estos escenarios conocidos; esto no corrige los defectos ni demuestra aprobación integral. Cada prueba deberá trasladarse a `test/` al integrarse su corrección en Ola 1.
 
-## 5. Siguiente Paso (Requiere Aprobación Humana)
-- **Ola 0 cerrada.** No se inicia Ola 1 ni se toman decisiones `D1`–`D8` sin aprobación explícita.
-- **Primera corrección recomendada:** `T1.1` (unificar `AccountItem` y corregir `CLP` en `currency_helper.dart`) o `T1.3a` (`transaction_service.dart`, que corrige `L1.3a/b/c` y `L1.4` ya reproducidos y **requiere aprobación explícita por ser archivo protegido**).
+## 5. Progreso de Ola 1 — `T1.3a` (Completada en rama de tarea)
+- **Rama:** `agent/ui/t1-3a-saldos` (desde `bc94ff7`).
+- **Archivo protegido modificado (con autorización explícita):** `lib/data/transaction_service.dart` (`_updateGlobalBalance` excluye `includeInTotal == false` y tarjetas de crédito; `_revertTransaction` y `deleteTransaction` delegan en `_revertTransfer` con reversión simétrica en `ResponsibilityService` para tarjetas origen/destino).
+- **Pruebas trasladadas a `test/`:** `test/audit/t1_3a_transaction_service_test.dart` (`5/5` pasan: `L1.3a`, `L1.3b`, `L1.3c`, `L1.4` y regresión normal de cuentas incluidas/transferencia líquida). Retiradas de `docs/audit/repro/accounting_repro_test.dart`.
+- **Verificación en Docker (`finazaap-flutter` sobre `agent/ui/t1-3a-saldos`):**
+  - `dart analyze lib/data/transaction_service.dart test/audit/t1_3a_transaction_service_test.dart` → `RC=2` (`0` errores; `7` warnings/infos preexistentes en `transaction_service.dart`, `0` issues en `t1_3a_transaction_service_test.dart`).
+  - `flutter test --no-pub -j 1 test/audit/t1_3a_transaction_service_test.dart` → `RC=0` (`5/5`).
+  - `flutter test --no-pub -j 1` → `RC=0` (`109/109`).
+  - `flutter test --no-pub -j 1 docs/audit/repro/accounting_repro_test.dart` → `RC=1` (quedan `3` fallos conocidos: `L1.10`, `L2.4`, `L2.5`; `L3.2` pasa).
+- **Pendiente de aprobación humana:** Siguientes tareas de Ola 1 (`T1.1`, `T1.2`, `T1.3b`, `T1.3c`) y decisiones `D1`–`D7` (`D8` confirmada: no migrar saldos reales existentes).
