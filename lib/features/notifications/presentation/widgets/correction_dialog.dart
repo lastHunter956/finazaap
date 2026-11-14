@@ -502,51 +502,105 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
                               ),
                               const SizedBox(height: 14),
 
-                              // Fila 1: Cuenta al lado de Categoría (o Cuenta destino en Transferir)
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        _buildLabel(
-                                          theme,
-                                          _classification ==
-                                                  'transferencia-propia'
-                                              ? 'Cuenta origen'
-                                              : 'Cuenta',
+                              // Transferencia: Cuenta origen arriba -> ícono conector -> Cuenta destino abajo
+                              // Gasto / Ingreso: Cuenta al lado de Categoría (como Editar Ingreso)
+                              if (_classification == 'transferencia-propia') ...[
+                                _buildLabel(theme, 'Cuenta origen'),
+                                const SizedBox(height: 6),
+                                _buildAccountDropdown(theme),
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Divider(
+                                          color: theme.borderSubtle,
+                                          height: 1,
                                         ),
-                                        const SizedBox(height: 6),
-                                        _buildAccountDropdown(theme),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        _buildLabel(
-                                          theme,
-                                          _classification ==
-                                                  'transferencia-propia'
-                                              ? 'Cuenta destino'
-                                              : 'Categoría',
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10),
+                                        child: InkWell(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          onTap: (_selectedDestinationAccount !=
+                                                      null &&
+                                                  _selectedDestinationAccount!
+                                                      .isNotEmpty)
+                                              ? () {
+                                                  setState(() {
+                                                    final prevOrigin =
+                                                        _selectedAccount;
+                                                    _selectedAccount =
+                                                        _selectedDestinationAccount!;
+                                                    _selectedDestinationAccount =
+                                                        prevOrigin;
+                                                  });
+                                                }
+                                              : null,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(
+                                              color: theme.accent
+                                                  .withValues(alpha: 0.16),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: theme.accent
+                                                    .withValues(alpha: 0.4),
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              Icons.arrow_downward_rounded,
+                                              size: 16,
+                                              color: theme.accent,
+                                            ),
+                                          ),
                                         ),
-                                        const SizedBox(height: 6),
-                                        _classification ==
-                                                'transferencia-propia'
-                                            ? _buildDestinationDropdown(theme)
-                                            : _buildCategoryDropdown(
-                                                theme, headerColor),
-                                      ],
-                                    ),
+                                      ),
+                                      Expanded(
+                                        child: Divider(
+                                          color: theme.borderSubtle,
+                                          height: 1,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                                _buildLabel(theme, 'Cuenta destino'),
+                                const SizedBox(height: 6),
+                                _buildDestinationDropdown(theme),
+                              ] else
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _buildLabel(theme, 'Cuenta'),
+                                          const SizedBox(height: 6),
+                                          _buildAccountDropdown(theme),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _buildLabel(theme, 'Categoría'),
+                                          const SizedBox(height: 6),
+                                          _buildCategoryDropdown(
+                                              theme, headerColor),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               const SizedBox(height: 14),
 
                               // Fila 2: Descripción al lado de Fecha (igual que Editar Ingreso)
@@ -1032,6 +1086,7 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
             _classification = value;
             _syncSelectedCategory();
           });
+          WidgetsBinding.instance.addPostFrameCallback((_) => _checkScroll());
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
