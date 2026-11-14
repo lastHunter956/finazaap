@@ -4,7 +4,6 @@ import 'package:finazaap/core/prefs_manager.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/data/responsibility_service.dart';
-import 'package:finazaap/utils/currency_helper.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -69,13 +68,5 @@ void main() {
     await ResponsibilityService.togglePaidStatus('internet_id');
     final updated = respBox.getAt(0)!;
     expect(updated.isPaid, isTrue);
-  });
-
-  test('L1.10 esperado: cleanAmountString en CLP interpreta miles con punto (10.000 -> 10000)', () async {
-    final prefs = await PrefsManager.instance;
-    await prefs.setString('default_currency', 'CLP');
-    await CurrencyHelper.loadCurrency();
-    final cleaned = CurrencyHelper.cleanAmountString('10.000');
-    expect(double.parse(cleaned), closeTo(10000.0, 0.01));
   });
 }

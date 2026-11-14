@@ -189,15 +189,23 @@ class CurrencyHelper {
     );
   }
 
+  static const List<String> _commaDecimalCurrencies = [
+    'COP',
+    'ARS',
+    'BRL',
+    'UYU',
+    'VES',
+    'CLP',
+    'EUR',
+  ];
+
+  /// Indica si la divisa actual usa '.' para miles y ',' para decimales
+  static bool get usesCommaDecimal => _commaDecimalCurrencies.contains(_cachedCurrency);
+
   /// Limpia un string de cantidad eliminando los separadores de miles y normalizando el separador decimal a '.'
   static String cleanAmountString(String amountStr) {
-    final code = _cachedCurrency;
-    // COP, ARS, BRL, UYU, VES, CLP, EUR -> Thousands: '.', Decimal: ','
-    // USD, MXN, PEN, GBP, JPY -> Thousands: ',', Decimal: '.'
-    final isCommaDecimal = const ['COP', 'ARS', 'BRL', 'UYU', 'VES', 'EUR'].contains(code);
-    
     String clean = amountStr.trim();
-    if (isCommaDecimal) {
+    if (usesCommaDecimal) {
       // Remover puntos (miles) y reemplazar coma por punto (decimal)
       clean = clean.replaceAll('.', '').replaceAll(',', '.');
     } else {
@@ -219,8 +227,7 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
       return newValue;
     }
 
-    final code = CurrencyHelper.currencyCode;
-    final isCommaDecimal = const ['COP', 'ARS', 'BRL', 'UYU', 'VES', 'EUR'].contains(code);
+    final isCommaDecimal = CurrencyHelper.usesCommaDecimal;
     final thousandSeparator = isCommaDecimal ? '.' : ',';
     final decimalSeparator = isCommaDecimal ? ',' : '.';
 

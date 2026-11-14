@@ -110,7 +110,7 @@
 | **L1.7** | **CONFIRMADO** | ALTO | `home.dart:1461,1746-1763` | Busca key por igualdad de campos pudiendo editar registro equivocado. |
 | **L1.8** | **CONFIRMADO** | ALTO | `transfer.dart:178`, `transaction_service.dart:87,256,368`, `credit_card_calculator.dart:41,171` | Delimitador `' > '` sin validación en nombres de cuenta. |
 | **L1.9** | **CONFIRMADO** | ALTO | `transfer.dart:129-143`, `transaction_service.dart:199-202` | Al editar transferencia, valida contra saldo actual sin re-sumar el monto previo. |
-| **L1.10** | **CONFIRMADO** | MEDIO | `currency_helper.dart:84-90,193-208,223-228`, `responsibilities_screen.dart:1266` | `CLP` falta en `isCommaDecimal`; distribuidor de ingresos borra separador decimal. |
+| **L1.10** | **CORREGIDO (rama `agent/ui/t1-1-clp-currency`, `CurrencyHelper`)** | MEDIO | `currency_helper.dart:192-235` | `CLP` incluido en `CurrencyHelper.usesCommaDecimal` (lectura, `ThousandsSeparatorInputFormatter` y `cleanAmountString`); cubierto en `test/audit/t1_1_currency_helper_test.dart`. |
 | **L1.11** | **CONFIRMADO** | MEDIO | `home.dart:1401,1443`, `add_expense.dart:199-215` | `_verifyDataBeforeEdit` agrega a `*_categories` sin limpiar `deleted_*_categories`. |
 | **L1.12** | **CONFIRMADO** | MEDIO | `ai_chat_service.dart:1584-1611` | Añade a Hive aunque `processTransaction` retorne `false`. |
 | **L1.13** | **CONFIRMADO** | BAJO | `add_date.dart:49-51`, `transaction_service.dart:541` | `isValid()` acepta `'IN'`, `'OUT'`, `'Expand'` no soportados en el servicio. |
