@@ -296,7 +296,9 @@ class _HomeState extends State<Home> {
           final raw = data['balance'];
           double balance;
           if (raw is String) {
-            balance = double.tryParse(raw) ?? 0.0;
+            balance = double.tryParse(raw) ??
+                double.tryParse(CurrencyHelper.cleanAmountString(raw)) ??
+                0.0;
           } else if (raw is double) {
             balance = raw;
           } else if (raw is int) {
@@ -621,6 +623,7 @@ class _HomeState extends State<Home> {
                           );
                           if (mounted) {
                             await _updateAvailableBalance();
+                            setState(() {});
                           }
                         },
                         // Se ha removido onSelectDate, ya que el widget maneja internamente la selección de fecha.

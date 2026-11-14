@@ -795,6 +795,24 @@ class AiChatService extends ChangeNotifier {
   Future<void> sendMessage(String userMessage) async {
     if (userMessage.trim().isEmpty || _isGenerating) return;
 
+    if (_isDownloading && !_useLocalSimulator) {
+      final pct = (_downloadProgress * 100).clamp(0, 100).toStringAsFixed(0);
+      _messages.add(ChatMessage(
+        role: 'user',
+        content: userMessage,
+        timestamp: DateTime.now(),
+      ));
+      _messages.add(ChatMessage(
+        role: 'assistant',
+        content:
+            'El modelo Gemma IA aún se está descargando ($pct%). Para evitar lentitud en el teléfono, espera a que finalice la descarga o cambia al modo **Simulador** en la parte superior.',
+        timestamp: DateTime.now(),
+      ));
+      notifyListeners();
+      await _saveHistory();
+      return;
+    }
+
     _isGenerating = true;
     _generationCancelled = false;
 
