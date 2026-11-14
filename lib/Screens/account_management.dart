@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:finazaap/Screens/edit_profile_screen.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 class AccountManagement extends StatelessWidget {
   const AccountManagement({Key? key}) : super(key: key);
@@ -9,12 +10,9 @@ class AccountManagement extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
-      appBar: AppBar(
-        title: Text('Administrar Cuenta', style: TextStyle(color: context.appTheme.textPrimary)),
-        backgroundColor: context.appTheme.cardBackground,
-        iconTheme: IconThemeData(color: context.appTheme.textPrimary),
-        elevation: 0,
-      ),
+      appBar: MoneoHeaderBar.subScreen(
+        title: 'Administrar Cuenta',
+      ).asPreferredSize(context),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 16),
         children: [

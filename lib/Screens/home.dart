@@ -35,6 +35,7 @@ import 'package:finazaap/services/widget_service.dart';
 import 'dart:async'; // Necesario para StreamSubscription
 import 'package:gradient_borders/gradient_borders.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 import 'package:finazaap/features/notifications/presentation/screens/pending_transactions_screen.dart';
 
@@ -315,166 +316,159 @@ class _HomeState extends State<Home> {
       },
       child: Scaffold(
         backgroundColor: context.appTheme.primaryBackground,
-        appBar: AppBar(
-          backgroundColor: context.appTheme.cardBackground,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          toolbarHeight: 75,
-          bottom: context.isDiurno
-              ? PreferredSize(
-                  preferredSize: const Size.fromHeight(1),
-                  child: Container(
-                    height: 1,
-                    color: context.appTheme.borderSubtle,
-                  ),
-                )
-              : null,
-          title: Text(
-            'Transacciones',
-            style: TextStyle(
-              color: context.appTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          actions: [
-            ListenableBuilder(
-              listenable: NotificationPipelineService.instance.pendingNotifier,
-              builder: (context, _) {
-                final count = NotificationPipelineService
-                    .instance.pendingNotifier.count;
-                if (count <= 0) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: InkWell(
-                    key: const Key('home_pending_inbox_appbar_button'),
-                    onTap: _openPendingInbox,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: context.appTheme.accent
-                                .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: context.appTheme.accent
-                                  .withValues(alpha: 0.4),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.move_to_inbox_rounded,
-                            color: context.appTheme.accent,
-                            size: 24,
-                          ),
-                        ),
-                        Positioned(
-                          right: -4,
-                          top: -4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: context.appTheme.accent,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            constraints: const BoxConstraints(minWidth: 18),
-                            child: Text(
-                              count > 99 ? '99+' : '$count',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: context.appTheme.buttonForeground,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+        body: Column(
+          children: [
+            MoneoHeaderBar.primaryTab(
+              title: 'Transacciones',
+              actions: [
+                ListenableBuilder(
+                  listenable:
+                      NotificationPipelineService.instance.pendingNotifier,
+                  builder: (context, _) {
+                    final count = NotificationPipelineService
+                        .instance.pendingNotifier.count;
+                    if (count <= 0) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: MoneoPressableScale(
+                        child: InkWell(
+                          key: const Key('home_pending_inbox_appbar_button'),
+                          onTap: _openPendingInbox,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: context.appTheme.accent
+                                      .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: context.appTheme.accent
+                                        .withValues(alpha: 0.4),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.move_to_inbox_rounded,
+                                  color: context.appTheme.accent,
+                                  size: 22,
+                                ),
                               ),
-                            ),
+                              Positioned(
+                                right: -4,
+                                top: -4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: context.appTheme.accent,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  constraints: const BoxConstraints(minWidth: 18),
+                                  child: Text(
+                                    count > 99 ? '99+' : '$count',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: context.appTheme.buttonForeground,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
+                    );
+                  },
+                ),
+                MoneoPressableScale(
+                  child: InkWell(
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const AiChatScreen()),
+                      );
+                      if (mounted) {
+                        setState(() {});
+                        await _updateAvailableBalance();
+                        await _loadCategoryMetadata();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: context.isDiurno &&
+                                !LiquidGlassSurface.shouldReduceEffects(context)
+                            ? null
+                            : context.appTheme.accent.withValues(alpha: 0.12),
+                        gradient: context.isDiurno &&
+                                !LiquidGlassSurface.shouldReduceEffects(context)
+                            ? const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFFFFFFFF), Color(0xFFEAF2FF)],
+                              )
+                            : null,
+                        borderRadius: BorderRadius.circular(
+                            context.isDiurno ? 14 : 12),
+                        border: context.isDiurno &&
+                                !LiquidGlassSurface.shouldReduceEffects(context)
+                            ? GradientBoxBorder(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white,
+                                    context.appTheme.accent
+                                        .withValues(alpha: 0.45),
+                                  ],
+                                ),
+                                width: 1.4,
+                              )
+                            : Border.all(
+                                color: context.appTheme.accent
+                                    .withValues(alpha: 0.4),
+                                width: 1.5,
+                              ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: context.appTheme.accent.withValues(
+                                alpha: context.isDiurno ? 0.18 : 0.15),
+                            blurRadius: context.isDiurno ? 12 : 10,
+                            offset: context.isDiurno
+                                ? const Offset(0, 3)
+                                : Offset.zero,
+                            spreadRadius: context.isDiurno ? 0 : 1,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.chat_rounded,
+                        color: context.appTheme.accent,
+                        size: 22,
+                      ),
                     ),
                   ),
-                );
-              },
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: InkWell(
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const AiChatScreen()),
-                  );
-                  if (mounted) {
-                    setState(() {});
-                    await _updateAvailableBalance();
-                    await _loadCategoryMetadata();
-                  }
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: context.isDiurno
-                        ? null
-                        : context.appTheme.accent.withValues(alpha: 0.12),
-                    gradient: context.isDiurno
-                        ? const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFFFFFFFF), Color(0xFFEAF2FF)],
-                          )
-                        : null,
-                    borderRadius: BorderRadius.circular(context.isDiurno ? 14 : 12),
-                    border: context.isDiurno
-                        ? GradientBoxBorder(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white,
-                                context.appTheme.accent.withValues(alpha: 0.45),
-                              ],
-                            ),
-                            width: 1.4,
-                          )
-                        : Border.all(
-                            color: context.appTheme.accent.withValues(alpha: 0.4),
-                            width: 1.5,
-                          ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: context.appTheme.accent
-                            .withValues(alpha: context.isDiurno ? 0.18 : 0.15),
-                        blurRadius: context.isDiurno ? 12 : 10,
-                        offset: context.isDiurno ? const Offset(0, 3) : Offset.zero,
-                        spreadRadius: context.isDiurno ? 0 : 1,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.chat_rounded,
-                    color: context.appTheme.accent,
-                    size: 24,
-                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-        body: ValueListenableBuilder(
-          valueListenable: _boxListenable,
-          builder: (context, value, child) {
-            final transactionsByDate = _getTransactionsGroupedByDate();
+            Expanded(
+              child: ValueListenableBuilder(
+                valueListenable: _boxListenable,
+                builder: (context, value, child) {
+                  final transactionsByDate = _getTransactionsGroupedByDate();
 
-            return CustomScrollView(
-              slivers: [
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  return CustomScrollView(
+                    slivers: [
+                      const SliverToBoxAdapter(child: SizedBox(height: 20)),
                   SliverToBoxAdapter(
                     child: ListenableBuilder(
                       listenable:
@@ -644,12 +638,20 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                   SliverToBoxAdapter(
-                    child: const SizedBox(height: 80),
+                    child: SizedBox(
+                      height: MoneoLayoutMetrics.scrollBottomPadding(
+                        context,
+                        hasFab: true,
+                      ).bottom,
+                    ),
                   )
                 ],
               );
             },
           ),
+            ),
+          ],
+        ),
         floatingActionButton: const FloatingActionMenu(),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       ), // Añadir esta coma

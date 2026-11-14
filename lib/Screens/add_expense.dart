@@ -14,6 +14,7 @@ import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 // Modelo de cuenta adaptado para recibir datos desde selecctaccount.dart
 class AccountItem {
@@ -1001,23 +1002,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          widget.isEditing ? 'Editar Egreso' : 'Nuevo Egreso',
-          style: TextStyle(
-            color: context.appTheme.textPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_rounded, color: context.appTheme.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: MoneoHeaderBar.form(
+        title: widget.isEditing ? 'Editar Egreso' : 'Nuevo Egreso',
+      ).asPreferredSize(context),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(

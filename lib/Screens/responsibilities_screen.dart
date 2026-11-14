@@ -18,8 +18,8 @@ import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'package:finazaap/widgets/show_responsibility_options.dart';
 import 'dart:ui';
-import 'package:finazaap/themes/app_colors.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 class ResponsibilitiesScreen extends StatefulWidget {
   const ResponsibilitiesScreen({Key? key}) : super(key: key);
@@ -66,33 +66,17 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
-      appBar: AppBar(
-        backgroundColor: context.appTheme.cardBackground,
-        elevation: 0,
-        centerTitle: true,
-        toolbarHeight: 75,
-        title: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Text(
-            'Responsabilidades',
-            style: TextStyle(
-              color: context.appTheme.textPrimary,
-              fontSize: 25,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        actions: const [
-          // Se movió al menú de acciones unificado en el FAB
-        ],
-      ),
-      body: ValueListenableBuilder(
-        valueListenable: ResponsibilityService.getBox().listenable(),
-        builder: (context, Box<Responsibility> box, _) {
-          final list = box.values.toList();
-          return CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
+      body: Column(
+        children: [
+          MoneoHeaderBar.primaryTab(title: 'Responsabilidades'),
+          Expanded(
+            child: ValueListenableBuilder(
+              valueListenable: ResponsibilityService.getBox().listenable(),
+              builder: (context, Box<Responsibility> box, _) {
+                final list = box.values.toList();
+                return CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
                     // Dashboard Card
                     SliverToBoxAdapter(
                       child: ResponsibilityDashboardCard(
@@ -315,32 +299,61 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
 
                     // Responsibility List
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        16,
+                        16,
+                        MoneoLayoutMetrics.scrollBottomPadding(
+                          context,
+                          hasFab: true,
+                        ).bottom,
+                      ),
                       sliver: _buildResponsibilitySliver(_selectedCategories),
                     ),
                   ],
           );
         },
       ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accent.withOpacity(0.4),
-              blurRadius: 12,
-              spreadRadius: -2,
-              offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      floatingActionButton: MoneoPressableScale(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: context.isDiurno
+                ? Border.all(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    width: 1.2,
+                  )
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: context.appTheme.buttonBackground.withValues(
+                  alpha: context.isDiurno ? 0.30 : 0.36,
+                ),
+                blurRadius: 12,
+                spreadRadius: -2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: FloatingActionButton(
+            heroTag: "responsibilities_fab",
+            onPressed: _showActionsMenu,
+            backgroundColor: context.appTheme.buttonBackground,
+            foregroundColor: context.appTheme.buttonForeground,
+            elevation: 0,
+            highlightElevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-          ],
-          shape: BoxShape.circle,
-        ),
-        child: FloatingActionButton(
-          heroTag: "responsibilities_fab",
-          onPressed: _showActionsMenu,
-          backgroundColor: AppColors.accent,
-          elevation: 0,
-          highlightElevation: 0,
-          child: Icon(Icons.add_rounded, size: 32, color: AppColors.primaryBackground),
+            child: Icon(
+              Icons.add_rounded,
+              size: 32,
+              color: context.appTheme.buttonForeground,
+            ),
+          ),
         ),
       ),
     );

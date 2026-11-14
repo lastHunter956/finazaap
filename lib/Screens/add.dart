@@ -14,6 +14,7 @@ import 'package:finazaap/data/account_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
 
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 // Modelo importado de package:finazaap/data/models/account_item.dart
 // Clase duplicada eliminada
@@ -479,23 +480,9 @@ class _Add_ScreenState extends State<Add_Screen> {
     
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          widget.isEditing ? 'Editar Ingreso' : 'Nuevo Ingreso',
-          style: TextStyle(
-            color: context.appTheme.textPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_rounded, color: context.appTheme.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: MoneoHeaderBar.form(
+        title: widget.isEditing ? 'Editar Ingreso' : 'Nuevo Ingreso',
+      ).asPreferredSize(context),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(

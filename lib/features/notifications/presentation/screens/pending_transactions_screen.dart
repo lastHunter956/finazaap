@@ -7,6 +7,7 @@ import 'package:finazaap/features/notifications/presentation/widgets/pending_tra
 import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/utils/alert_helper.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 /// Pantalla principal de la bandeja de transacciones bancarias pendientes en Moneo.
 ///
@@ -115,7 +116,8 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context).extension<AppTheme>() ??
+    final appThemeExtension = Theme.of(context).extension<AppTheme>();
+    final theme = appThemeExtension ??
         AppTheme.forMode(ThemeNotifier.activeMode);
 
     return ListenableBuilder(
@@ -124,31 +126,15 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
         final items = _notifier.items;
         final hasEligible = _notifier.eligibleCount > 0;
 
-        return Scaffold(
-          backgroundColor: theme.primaryBackground,
-          appBar: AppBar(
-            backgroundColor: theme.cardBackground,
-            iconTheme: IconThemeData(color: theme.textPrimary),
-            elevation: 0,
-            title: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    'Pendientes',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: theme.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+        Widget buildScaffold(BuildContext scaffoldContext) {
+          final header = MoneoHeaderBar.subScreen(
+            title: 'Pendientes',
+            badge: items.isNotEmpty
+                ? Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
                     ),
-                  ),
-                ),
-                if (items.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: theme.accent.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(10),
@@ -161,18 +147,30 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                ],
+                  )
+                : null,
+          );
+
+          return Scaffold(
+            backgroundColor: theme.primaryBackground,
+            appBar: header.asPreferredSize(scaffoldContext),
+            body: Column(
+              children: [
+                if (widget.isDemoMode) _buildDemoBanner(theme),
+                Expanded(child: _buildBody(theme, items, hasEligible)),
               ],
             ),
-          ),
-          body: Column(
-            children: [
-              if (widget.isDemoMode) _buildDemoBanner(theme),
-              Expanded(child: _buildBody(theme, items, hasEligible)),
-            ],
-          ),
-        );
+          );
+        }
+
+        if (appThemeExtension == null) {
+          return Theme(
+            data: buildThemeData(ThemeNotifier.activeMode),
+            child: Builder(builder: buildScaffold),
+          );
+        }
+
+        return buildScaffold(context);
       },
     );
   }

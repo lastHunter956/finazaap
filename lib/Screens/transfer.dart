@@ -14,6 +14,7 @@ import 'package:finazaap/widgets/bottomnavigationbar.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/core/utils/app_logger.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 class AccountItem {
   String title;
@@ -357,23 +358,9 @@ Widget build(BuildContext context) {
   
   return Scaffold(
     backgroundColor: context.appTheme.primaryBackground,
-    appBar: AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      title: Text(
-        widget.isEditing ? 'Editar Transferencia' : 'Nueva Transferencia',
-        style: TextStyle(
-          color: context.appTheme.textPrimary,
-          fontWeight: FontWeight.bold,
-          fontSize: 18,
-        ),
-      ),
-      centerTitle: true,
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back_ios_rounded, color: context.appTheme.textPrimary),
-        onPressed: () => Navigator.pop(context),
-      ),
-    ),
+    appBar: MoneoHeaderBar.form(
+      title: widget.isEditing ? 'Editar Transferencia' : 'Nueva Transferencia',
+    ).asPreferredSize(context),
     body: SafeArea(
       child: SingleChildScrollView(
         child: Column(

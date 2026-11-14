@@ -13,6 +13,7 @@ import 'package:finazaap/utils/currency_helper.dart'; // Import added
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/theme.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 class AccountItem {
   String title;
@@ -1472,81 +1473,78 @@ class _StatisticsState extends State<Statistics> {
 
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
-      appBar: AppBar(
-        backgroundColor:
-            context.appTheme.cardBackground, // Color actualizado
-        elevation: 0,
-        centerTitle: true,
-        toolbarHeight: 75, // Altura aumentada para acomodar el padding
-        title: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Text(
-            'Informes',
-            style: TextStyle(
-              color: context.appTheme.textPrimary,
-              fontSize: 25,
-              fontWeight: FontWeight.bold,
-            ),
+      body: Column(
+        children: [
+          MoneoHeaderBar.primaryTab(
+            title: 'Informes',
+            subtitle: titleDate,
           ),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-          child: Column(
-            children: [
-              // FILA SUPERIOR: Toggle Mensual/Anual y Selección de Año
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Toggle: Mensual / Anual
-                  ToggleButtons(
-                    borderRadius: BorderRadius.circular(10),
-                    isSelected: [isMonthly, !isMonthly],
-                    onPressed: (index) {
-                      isMonthly = (index == 0);
-                      _updateData();
-                    },
-                    color: context.appTheme.textSecondary,
-                    selectedColor: Colors.white,
-                    fillColor: context.appTheme.accent,
-                    borderColor: context.appTheme.borderSubtle,
-                    selectedBorderColor: context.appTheme.accent,
-                    children: const [
-                      Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        child: Text('Mensual', style: TextStyle(fontSize: 16)),
-                      ),
-                      Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        child: Text('Anual', style: TextStyle(fontSize: 16)),
-                      ),
-                    ],
-                  ),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              bottom: false,
+              child: SingleChildScrollView(
+                padding: MoneoLayoutMetrics.scrollBottomPadding(
+                  context,
+                  hasFab: false,
+                  horizontal: 15,
+                  top: 15,
+                ),
+                child: Column(
+                  children: [
+                    // FILA SUPERIOR: Toggle Mensual/Anual y Selección de Año
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Toggle: Mensual / Anual
+                        Expanded(
+                          child: MoneoSegmentedControl<bool>(
+                            options: const [
+                              MoneoSegmentOption(value: true, label: 'Mensual'),
+                              MoneoSegmentOption(value: false, label: 'Anual'),
+                            ],
+                            selectedValue: isMonthly,
+                            onChanged: (value) {
+                              if (isMonthly != value) {
+                                isMonthly = value;
+                                _updateData();
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
 
-                  // Selección de Año (usando flechas y sólo años disponibles)
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.arrow_left, color: context.appTheme.textPrimary),
-                        onPressed: _selectPreviousYear,
-                      ),
-                      Text(
-                        '$selectedYear',
-                        style:
-                            TextStyle(color: context.appTheme.textPrimary, fontSize: 16),
-                      ),
-                      IconButton(
-                        icon:
-                            Icon(Icons.arrow_right, color: context.appTheme.textPrimary),
-                        onPressed: _selectNextYear,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                        // Selección de Año (usando flechas y sólo años disponibles)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                Icons.arrow_left,
+                                color: context.appTheme.textPrimary,
+                              ),
+                              onPressed: _selectPreviousYear,
+                            ),
+                            Text(
+                              '$selectedYear',
+                              style: TextStyle(
+                                color: context.appTheme.textPrimary,
+                                fontSize: 16,
+                              ),
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                Icons.arrow_right,
+                                color: context.appTheme.textPrimary,
+                              ),
+                              onPressed: _selectNextYear,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
 
               const SizedBox(height: 10),
 
@@ -1679,6 +1677,9 @@ class _StatisticsState extends State<Statistics> {
             ],
           ),
         ),
+            ),
+          ),
+        ],
       ),
     );
   }

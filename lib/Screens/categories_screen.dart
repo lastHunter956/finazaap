@@ -1,11 +1,13 @@
+import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:finazaap/data/category_service.dart';
-import 'dart:ui';
 import 'package:gradient_borders/gradient_borders.dart';
 import 'package:finazaap/widgets/account_dialogs.dart'; // Import for helper widgets
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/theme.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 class CategoriesScreen extends StatefulWidget {
   final int activeIndex;
@@ -923,121 +925,138 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final tabHeight = math.max(
+      40.0,
+      MediaQuery.textScalerOf(context).scale(14.0) + 22.0,
+    );
+
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
       appBar: null,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 1. HEADER (Igual que en Home)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      body: Column(
+        children: [
+          MoneoHeaderBar.primaryTab(
+            title: 'Categorías',
+            bottomChild: Container(
               decoration: BoxDecoration(
-                color: context.appTheme.cardBackground,
-              ),
-              child: Text(
-                'Categorías',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: context.appTheme.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+                color: context.isDiurno
+                    ? context.appTheme.darkBackground.withValues(alpha: 0.72)
+                    : context.appTheme.darkBackground,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: context.appTheme.borderSubtle,
+                  width: 1,
                 ),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  color: context.isDiurno
+                      ? context.appTheme.cardBackground
+                      : context.appTheme.buttonBackground,
+                  borderRadius: BorderRadius.circular(11),
+                  border: context.isDiurno
+                      ? Border.all(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          width: 1,
+                        )
+                      : null,
+                  boxShadow: context.isDiurno
+                      ? const [
+                          BoxShadow(
+                            color: Color(0x140B132B),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                indicatorPadding: const EdgeInsets.all(3),
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelColor: context.isDiurno
+                    ? context.appTheme.textPrimary
+                    : context.appTheme.buttonForeground,
+                unselectedLabelColor: context.appTheme.textSecondary,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13.5,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13.5,
+                ),
+                dividerColor: Colors.transparent,
+                splashFactory: NoSplash.splashFactory,
+                overlayColor: WidgetStateProperty.all(Colors.transparent),
+                tabs: [
+                  Tab(height: tabHeight, text: 'Ingresos'),
+                  Tab(height: tabHeight, text: 'Gastos'),
+                ],
               ),
             ),
-            
-            const SizedBox(height: 20),
-
-            // 2. CONTENEDOR GRIS PRINCIPAL
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                decoration: BoxDecoration(
-                  color: context.appTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // TABS
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-                      child: Container(
-                        height: 48, // Altura ajustada
-                         decoration: BoxDecoration(
-                           color: context.appTheme.darkBackground, // Pill dinámico
-                           borderRadius: BorderRadius.circular(24),
-                           border: Border.all(
-                             color: context.appTheme.borderSubtle,
-                             width: 1,
-                           ),
-                         ),
-                        child: TabBar(
-                          controller: _tabController,
-                          // Indicador estilo premium (como el mes seleccionado)
-                          indicator: BoxDecoration(
-                            color: context.appTheme.accent, // Acento dinámico
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: context.appTheme.accent.withValues(alpha: 0.4),
-                                blurRadius: 15,
-                                offset: const Offset(0, 0),
-                              ),
-                            ],
-                          ),
-                          indicatorPadding: const EdgeInsets.all(4), // Padding interno para el indicador
-                          labelColor: context.appTheme.buttonForeground, // Texto dinámico
-                          unselectedLabelColor: context.appTheme.textSecondary,
-                          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          indicatorSize: TabBarIndicatorSize.tab, // Ocupar todo el espacio del tab
-                          tabs: const [
-                            Tab(text: 'Ingresos'),
-                            Tab(text: 'Gastos'),
-                          ],
-                          dividerColor: Colors.transparent,
-                          splashFactory: NoSplash.splashFactory,
-                          overlayColor: MaterialStateProperty.all(Colors.transparent),
-                        ),
+          ),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              bottom: false,
+              child: _isLoading
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: context.appTheme.accent,
                       ),
+                    )
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildCategoryList('Income', _incomeCategories),
+                        _buildCategoryList('Expenses', _expenseCategories),
+                      ],
                     ),
-
-                    // LISTA DE CATEGORÍAS (CARD STYLE)
-                    Expanded(
-                      child: _isLoading 
-                        ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                        : TabBarView(
-                            controller: _tabController,
-                            children: [
-                              _buildCategoryList('Income', _incomeCategories),
-                              _buildCategoryList('Expenses', _expenseCategories),
-                            ],
-                          ),
-                    ),
-                  ],
-                ),
-              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-       floatingActionButton: FloatingActionButton(
-        heroTag: "categories_fab",
-        onPressed: () {
-          final type = _tabController.index == 0 ? 'Income' : 'Expenses';
-          _showCategoryDialog(type: type);
-        },
-        backgroundColor: const Color.fromARGB(255, 82, 226, 255),
-        elevation: 10,
-        child: Icon(Icons.add, color: context.appTheme.primaryBackground, size: 30),
+      floatingActionButton: MoneoPressableScale(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: context.isDiurno
+                ? Border.all(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    width: 1.2,
+                  )
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: context.appTheme.buttonBackground.withValues(
+                  alpha: context.isDiurno ? 0.30 : 0.36,
+                ),
+                blurRadius: 12,
+                spreadRadius: -2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: FloatingActionButton(
+            heroTag: "categories_fab",
+            onPressed: () {
+              final type = _tabController.index == 0 ? 'Income' : 'Expenses';
+              _showCategoryDialog(type: type);
+            },
+            backgroundColor: context.appTheme.buttonBackground,
+            foregroundColor: context.appTheme.buttonForeground,
+            elevation: 0,
+            highlightElevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.add_rounded,
+              color: context.appTheme.buttonForeground,
+              size: 30,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1061,7 +1080,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
     
     // Usamos ListView normal con Padding para las tarjetas
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+      padding: MoneoLayoutMetrics.scrollBottomPadding(context, hasFab: true),
       itemCount: categories.length,
       itemBuilder: (context, index) {
         final category = categories[index];
@@ -1076,7 +1095,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: isLight ? context.appTheme.secondaryCardBackground : null,
+            color: isLight ? context.appTheme.cardBackground : null,
             gradient: isLight
                 ? null
                 : LinearGradient(
