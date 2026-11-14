@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/Screens/home.dart';
@@ -9,7 +11,7 @@ import 'package:finazaap/widgets/custom_pill_bottom_nav_bar.dart';
 import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 
 class MainContainer extends StatefulWidget {
-  const MainContainer({Key? key}) : super(key: key);
+  const MainContainer({super.key});
 
   @override
   State<MainContainer> createState() => _MainContainerState();
@@ -54,12 +56,43 @@ class _MainContainerState extends State<MainContainer>
       const SettingsScreen(),
     ];
 
+    final isDiurno = context.isDiurno;
+    final navHeight = MoneoLayoutMetrics.bottomNavBarHeight(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final effectiveBottomClearance = math.max(0.0, navHeight - bottomInset);
+
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
-      extendBody: context.isDiurno,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
+      extendBody: isDiurno,
+      body: Builder(
+        builder: (bodyContext) {
+          final mq = MediaQuery.of(bodyContext);
+          final bodyMediaQuery = isDiurno
+              ? mq.copyWith(
+                  padding: mq.padding.copyWith(
+                    bottom: math.max(mq.padding.bottom, effectiveBottomClearance),
+                  ),
+                  viewPadding: mq.viewPadding.copyWith(
+                    bottom: math.max(
+                      mq.viewPadding.bottom,
+                      effectiveBottomClearance,
+                    ),
+                  ),
+                )
+              : mq;
+
+          return MoneoNavBarScope(
+            navBarHeight: navHeight,
+            extendBody: isDiurno,
+            child: MediaQuery(
+              data: bodyMediaQuery,
+              child: IndexedStack(
+                index: _currentIndex,
+                children: screens,
+              ),
+            ),
+          );
+        },
       ),
       bottomNavigationBar: CustomPillBottomNavBar(
         selectedIndex: _currentIndex,

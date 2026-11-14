@@ -1044,48 +1044,53 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
           final callback = entry.$2;
           final isSelected = selectedFilter == label;
           return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  selectedFilter = label;
-                });
-                callback();
-              },
-              behavior: HitTestBehavior.opaque,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? context.appTheme.cardBackground
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  border: isSelected
-                      ? Border.all(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          width: 1,
-                        )
-                      : null,
-                  boxShadow: isSelected
-                      ? const [
-                          BoxShadow(
-                            color: Color(0x140B132B),
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
+            child: MoneoPressableScale(
+              pressedScale: 0.97,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedFilter = label;
+                  });
+                  callback();
+                },
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
                     color: isSelected
-                        ? context.appTheme.textPrimary
-                        : context.appTheme.textSecondary,
-                    fontSize: 13.5,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        ? context.appTheme.cardBackground
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    border: isSelected
+                        ? Border.all(
+                            color: Colors.white.withValues(alpha: 0.95),
+                            width: 1,
+                          )
+                        : null,
+                    boxShadow: isSelected
+                        ? const [
+                            BoxShadow(
+                              color: Color(0x140B132B),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isSelected
+                          ? context.appTheme.textPrimary
+                          : context.appTheme.textSecondary,
+                      fontSize: 13.5,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    ),
                   ),
                 ),
               ),

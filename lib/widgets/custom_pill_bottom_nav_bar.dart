@@ -1,46 +1,137 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 
-class CustomPillBottomNavBar extends StatelessWidget {
+class CustomPillBottomNavBar extends StatefulWidget {
   final int selectedIndex;
   final Function(int) onItemSelected;
 
   const CustomPillBottomNavBar({
-    Key? key,
+    super.key,
     required this.selectedIndex,
     required this.onItemSelected,
-  }) : super(key: key);
+  });
+
+  @override
+  State<CustomPillBottomNavBar> createState() => _CustomPillBottomNavBarState();
+}
+
+class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
+    with SingleTickerProviderStateMixin {
+  static const List<NavItem> _items = [
+    NavItem(
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home_rounded,
+      label: 'Inicio',
+    ),
+    NavItem(
+      icon: Icons.credit_card_outlined,
+      activeIcon: Icons.credit_card_rounded,
+      label: 'Pagos',
+    ),
+    NavItem(
+      icon: Icons.grid_view_outlined,
+      activeIcon: Icons.grid_view_rounded,
+      label: 'Categorías',
+    ),
+    NavItem(
+      icon: Icons.insert_chart_outlined_rounded,
+      activeIcon: Icons.insert_chart_rounded,
+      label: 'Reportes',
+    ),
+    NavItem(
+      icon: Icons.settings_outlined,
+      activeIcon: Icons.settings_rounded,
+      label: 'Ajustes',
+    ),
+  ];
+
+  late final AnimationController _selectionController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectionController = AnimationController.unbounded(
+      vsync: this,
+      value: _clampedIndex(widget.selectedIndex).toDouble(),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomPillBottomNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedIndex != oldWidget.selectedIndex) {
+      _animateSelectionTo(_clampedIndex(widget.selectedIndex).toDouble());
+    }
+  }
+
+  @override
+  void dispose() {
+    _selectionController.dispose();
+    super.dispose();
+  }
+
+  int _clampedIndex(int index) {
+    return index.clamp(0, _items.length - 1);
+  }
+
+  void _animateSelectionTo(double target) {
+    if (context.isDiurno) {
+      MoneoSpringMotion.animateTo(
+        _selectionController,
+        target,
+        useSpring: MoneoSpringMotion.shouldUseSpring(context),
+      );
+      return;
+    }
+
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _selectionController.value = target;
+      return;
+    }
+
+    _selectionController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutQuint,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    
-    // Lista de ítems de navegación
-    final List<NavItem> items = [
-      NavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Inicio'),
-      NavItem(icon: Icons.credit_card_outlined, activeIcon: Icons.credit_card_rounded, label: 'Pagos'), 
-      NavItem(icon: Icons.grid_view_outlined, activeIcon: Icons.grid_view_rounded, label: 'Categorías'), // Explore/Categories
-      NavItem(icon: Icons.insert_chart_outlined_rounded, activeIcon: Icons.insert_chart_rounded, label: 'Reportes'), // Stats
-      NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, label: 'Ajustes'), 
-    ];
-
     final isLight = Theme.of(context).brightness == Brightness.light;
     final isDiurno = context.isDiurno;
+    final t = context.appTheme;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final barHeight = MoneoLayoutMetrics.bottomNavPillHeight(context);
+    final reducedEffects = LiquidGlassSurface.shouldReduceEffects(context);
+
+    final unselectedColor = isDiurno
+        ? t.textPrimary.withValues(alpha: 0.72)
+        : t.textHint;
+    final selectedIconColor = isDiurno ? t.accent : t.textPrimary;
+
+    final scaledExtraHeight = math.max(0.0, textScaler.scale(12.5) - 12.5);
+    final itemVerticalInset = math.max(4.0, 6.0 - scaledExtraHeight * 0.15);
 
     return SafeArea(
       top: false,
       child: LiquidGlassSurface(
-        height: isDiurno ? 62 : 60,
+        height: barHeight,
         margin: EdgeInsets.only(
           bottom: isDiurno ? 12 : 10,
           left: isDiurno ? 14 : 10,
           right: isDiurno ? 14 : 10,
           top: isDiurno ? 6 : 10,
         ),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         borderRadius: BorderRadius.circular(35),
         blurSigma: 22.0,
-        fallbackColor: context.appTheme.cardBackground,
-        fallbackBorderColor: context.appTheme.borderSubtle,
+        fallbackColor: t.cardBackground,
+        fallbackBorderColor: t.borderSubtle,
         fallbackBoxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isLight ? 0.08 : 0.3),
@@ -48,127 +139,182 @@ class CustomPillBottomNavBar extends StatelessWidget {
             offset: const Offset(0, 5),
           ),
         ],
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: List.generate(items.length, (index) {
-            final item = items[index];
-            final isSelected = selectedIndex == index;
-            final unselectedColor =
-                isDiurno ? context.appTheme.textSecondary : context.appTheme.textHint;
-            final selectedIconColor =
-                isDiurno ? context.appTheme.accent : context.appTheme.textPrimary;
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth = constraints.maxWidth;
+            final maxHeight = constraints.maxHeight.isFinite
+                ? constraints.maxHeight
+                : barHeight - 2.0;
+            final itemHeight = math.max(40.0, maxHeight - itemVerticalInset * 2);
+            final selectedWidth = math.min(maxWidth * 0.34, 124.0);
+            final unselectedWidth = math.max(
+              0.0,
+              (maxWidth - selectedWidth) / (_items.length - 1),
+            );
+            final maxIndex = (_items.length - 1).toDouble();
 
-            return GestureDetector(
-              onTap: () => onItemSelected(index),
-              behavior: HitTestBehavior.opaque,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutQuint,
-                width: isSelected ? 112 : 50,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: !isSelected
-                      ? Colors.transparent
-                      : isDiurno
-                          ? null
-                          : context.appTheme.primaryBackground,
-                  gradient: isSelected && isDiurno
-                      ? LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.96),
-                            const Color(0xFFEAF2FF),
-                          ],
-                        )
-                      : null,
-                  borderRadius: BorderRadius.circular(24),
-                  border: isSelected && isDiurno
-                      ? Border.all(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          width: 1.2,
-                        )
-                      : null,
-                  boxShadow: isSelected && isDiurno
-                      ? const [
-                          BoxShadow(
-                            color: Color(0x1F0062CC),
-                            blurRadius: 12,
-                            offset: Offset(0, 3),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+            return AnimatedBuilder(
+              animation: _selectionController,
+              builder: (context, _) {
+                final double rawProgress = disableAnimations
+                    ? _clampedIndex(widget.selectedIndex).toDouble()
+                    : _selectionController.value;
+                final double progress =
+                    rawProgress.clamp(0.0, maxIndex).toDouble();
+                final double maxPillLeft =
+                    math.max(0.0, maxWidth - selectedWidth);
+                final double pillLeft =
+                    (progress * unselectedWidth).clamp(0.0, maxPillLeft).toDouble();
+
+                return Stack(
+                  alignment: Alignment.centerLeft,
                   children: [
-                    // Icono (con badge en Ajustes si hay notificaciones pendientes)
-                    if (index == 4)
-                      ListenableBuilder(
-                        listenable:
-                            NotificationPipelineService.instance.pendingNotifier,
-                        builder: (context, _) {
-                          final count = NotificationPipelineService
-                              .instance.pendingNotifier.count;
-                          final iconWidget = Icon(
-                            isSelected ? item.activeIcon : item.icon,
-                            color: isSelected
-                                ? selectedIconColor
-                                : unselectedColor,
-                            size: 24,
-                          );
-                          if (count <= 0) return iconWidget;
-                          return Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              iconWidget,
-                              Positioned(
-                                right: -2,
-                                top: -2,
-                                child: Container(
-                                  key: const Key('nav_settings_pending_dot'),
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: context.appTheme.accent,
-                                    shape: BoxShape.circle,
+                    Positioned(
+                      left: pillLeft,
+                      top: 0,
+                      width: selectedWidth,
+                      height: itemHeight,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: isDiurno ? null : t.primaryBackground,
+                          gradient: isDiurno
+                              ? LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.96),
+                                    const Color(0xFFEAF2FF),
+                                  ],
+                                )
+                              : null,
+                          borderRadius: BorderRadius.circular(24),
+                          border: isDiurno
+                              ? Border.all(
+                                  color: reducedEffects
+                                      ? t.borderSubtle
+                                      : Colors.white.withValues(alpha: 0.95),
+                                  width: 1.2,
+                                )
+                              : null,
+                          boxShadow: isDiurno
+                              ? const [
+                                  BoxShadow(
+                                    color: Color(0x1F0062CC),
+                                    blurRadius: 12,
+                                    offset: Offset(0, 3),
                                   ),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      )
-                    else
-                      Icon(
-                        isSelected ? item.activeIcon : item.icon,
-                        color: isSelected
-                            ? selectedIconColor
-                            : unselectedColor,
-                        size: 24,
-                      ),
-
-                    // Texto (solo visible si está seleccionado)
-                    if (isSelected) ...[
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          item.label,
-                          style: TextStyle(
-                            color: context.appTheme.textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
+                                ]
+                              : null,
                         ),
                       ),
-                    ]
+                    ),
+                    Row(
+                      children: List.generate(_items.length, (index) {
+                        final item = _items[index];
+                        final isSelected = widget.selectedIndex == index;
+                        final weight =
+                            (1.0 - (progress - index).abs()).clamp(0.0, 1.0);
+                        final itemWidth = unselectedWidth +
+                            (selectedWidth - unselectedWidth) * weight;
+
+                        final iconSize = maxWidth < 290 ? 22.0 : 24.0;
+                        final gapWidth = maxWidth < 290 ? 5.0 : 6.0;
+
+                        final Widget baseIcon = Icon(
+                          isSelected ? item.activeIcon : item.icon,
+                          color: isSelected
+                              ? selectedIconColor
+                              : unselectedColor,
+                          size: iconSize,
+                        );
+
+                        final Widget icon = index == 4
+                            ? ListenableBuilder(
+                                listenable: NotificationPipelineService
+                                    .instance.pendingNotifier,
+                                builder: (context, _) {
+                                  final count = NotificationPipelineService
+                                      .instance.pendingNotifier.count;
+                                  if (count <= 0) return baseIcon;
+                                  return Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      baseIcon,
+                                      Positioned(
+                                        right: -2,
+                                        top: -2,
+                                        child: Container(
+                                          key: const Key(
+                                            'nav_settings_pending_dot',
+                                          ),
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: t.accent,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              )
+                            : baseIcon;
+
+                        final Widget navItemContent = GestureDetector(
+                          onTap: () => widget.onItemSelected(index),
+                          behavior: HitTestBehavior.opaque,
+                          child: Semantics(
+                            button: true,
+                            selected: isSelected,
+                            label: item.label,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isSelected ? 4.0 : 0.0,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  icon,
+                                  if (isSelected) ...[
+                                    SizedBox(width: gapWidth),
+                                    Flexible(
+                                      child: Text(
+                                        item.label,
+                                        style: TextStyle(
+                                          color: t.textPrimary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                        softWrap: false,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+
+                        return SizedBox(
+                          width: itemWidth,
+                          height: itemHeight,
+                          child: isDiurno
+                              ? MoneoPressableScale(
+                                  pressedScale: 0.94,
+                                  child: navItemContent,
+                                )
+                              : navItemContent,
+                        );
+                      }),
+                    ),
                   ],
-                ),
-              ),
+                );
+              },
             );
-          }),
+          },
         ),
       ),
     );
@@ -180,7 +326,7 @@ class NavItem {
   final IconData activeIcon;
   final String label;
 
-  NavItem({
+  const NavItem({
     required this.icon,
     required this.activeIcon,
     required this.label,
