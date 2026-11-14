@@ -172,7 +172,9 @@ void main() {
       );
       await tester.pump();
 
-      final popScope = tester.widget<PopScope<dynamic>>(find.byType(PopScope<dynamic>));
+      final popScope = tester.widget<PopScope<dynamic>>(
+        find.byWidgetPredicate((w) => w is PopScope),
+      );
       expect(popScope.canPop, isFalse);
     });
 

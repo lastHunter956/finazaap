@@ -21,6 +21,7 @@ import 'package:finazaap/Screens/transfer.dart';
 import 'package:finazaap/Screens/add.dart';
 import 'package:finazaap/Screens/add_expense.dart';
 import 'package:finazaap/Screens/pin_code_screen.dart';
+import 'package:finazaap/providers/pin_provider.dart';
 
 // Añadir esta importación al inicio del archivo
 import 'package:finazaap/data/transaction_service.dart';
@@ -116,8 +117,9 @@ class _HomeState extends State<Home> {
     }
     if (!mounted) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final isPinEnabled = prefs.getBool('pin_enabled') ?? false;
+    final pinProvider = PinProvider();
+    await pinProvider.ensureInitialized();
+    final isPinEnabled = pinProvider.isPinEnabled;
     if (!mounted) return;
 
     if (!isPinEnabled) {

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart' hide Key;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:encrypt/encrypt.dart';
 import 'package:hive/hive.dart';
+import 'package:finazaap/data/model/add_date.dart';
+import 'package:finazaap/data/model/responsibility.dart';
 
 /// Abstracción mínima para almacenamiento seguro de llaves y marcadores.
 /// Permite inyectar un almacén en memoria en pruebas unitarias sin canal nativo.
@@ -203,7 +205,7 @@ class EncryptionService {
         final recovered = <dynamic, T>{};
         for (final k in stagingBox.keys) {
           final v = stagingBox.get(k);
-          if (v != null) recovered[k] = v;
+          if (v != null) recovered[k] = _detachForBox(v);
         }
         await stagingBox.close();
 
@@ -255,7 +257,7 @@ class EncryptionService {
       for (final k in legacyBox.keys) {
         final v = legacyBox.get(k);
         if (v != null) {
-          entries[k] = v;
+          entries[k] = _detachForBox(v);
         }
       }
       await legacyBox.close();
@@ -291,7 +293,9 @@ class EncryptionService {
       encryptionCipher: cipher,
     );
     if (entries.isNotEmpty) {
-      await encryptedBox.putAll(entries);
+      await encryptedBox.putAll(
+        entries.map((k, v) => MapEntry(k, _detachForBox(v))),
+      );
       await encryptedBox.flush();
     }
 
@@ -299,6 +303,52 @@ class EncryptionService {
     await Hive.deleteBoxFromDisk(stagingName);
     await _keyStore.write(markerKey, '1');
     return encryptedBox;
+  }
+
+  T _detachForBox<T>(T value) {
+    if (value is Add_data) {
+      return Add_data(
+        value.IN,
+        value.amount,
+        value.datetime,
+        value.detail,
+        value.explain,
+        value.name,
+        value.iconCode,
+        value.installments,
+        value.isInterestFree,
+        value.responsibilityId,
+        value.isObligationPayment,
+      ) as T;
+    }
+    if (value is Responsibility) {
+      return Responsibility(
+        id: value.id,
+        name: value.name,
+        amount: value.amount,
+        dueDay: value.dueDay,
+        category: value.category,
+        frequency: value.frequency,
+        isPaid: value.isPaid,
+        lastPaymentDate: value.lastPaymentDate,
+        iconCode: value.iconCode,
+        cardLimit: value.cardLimit,
+        cardBalance: value.cardBalance,
+        minimumPayment: value.minimumPayment,
+        cutoffDay: value.cutoffDay,
+        paymentDay: value.paymentDay,
+        interestRate: value.interestRate,
+        installments: value.installments,
+        installmentPlansJson: value.installmentPlansJson,
+        paidAmountThisMonth: value.paidAmountThisMonth,
+        lastPaymentMonth: value.lastPaymentMonth,
+        lastPaymentYear: value.lastPaymentYear,
+        paymentDates: value.paymentDates != null
+            ? List<DateTime>.from(value.paymentDates!)
+            : null,
+      ) as T;
+    }
+    return value;
   }
 
   /// Borra únicamente `'master_key'` sin eliminar llaves de PIN u otros módulos.

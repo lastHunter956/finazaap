@@ -63,7 +63,7 @@ void main() {
       () {
         final homeDart = File('lib/Screens/home.dart').readAsStringSync();
         expect(homeDart, contains('Future<void> _handleWidgetLaunch'));
-        expect(homeDart, contains("prefs.getBool('pin_enabled')"));
+        expect(homeDart, contains('pinProvider.isPinEnabled'));
         expect(homeDart, contains('PinCodeScreen('));
         expect(homeDart, contains('PinMode.verify'));
       },
