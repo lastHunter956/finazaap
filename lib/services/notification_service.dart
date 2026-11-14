@@ -190,15 +190,19 @@ class NotificationService {
     if (testCheckNotificationsEnabled != null) {
       return await testCheckNotificationsEnabled!();
     }
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    
-    if (androidPlugin != null) {
-      final bool? areEnabled = await androidPlugin.areNotificationsEnabled();
-      return areEnabled ?? false;
-    }
+    try {
+      final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
 
-    return true;
+      if (androidPlugin != null) {
+        final bool? areEnabled = await androidPlugin.areNotificationsEnabled();
+        return areEnabled ?? false;
+      }
+
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Verificar si las notificaciones están habilitadas en la app
