@@ -138,8 +138,9 @@ class _SettingsScreenState extends State<SettingsScreen>
       await _whitelistService.loadFromPrefs();
     }
     
-    // Check biometric availability
+    // Inicializar estado real de PIN (FlutterSecureStorage) y biometría
     try {
+      await _pinProvider.ensureInitialized();
       await _pinProvider.checkBiometricAvailability();
     } catch (_) {}
     
@@ -149,8 +150,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     
     if (!mounted) return;
     setState(() {
-      _pinEnabled = prefs.getBool('pin_enabled') ?? false;
-      _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+      _pinEnabled = _pinProvider.isPinEnabled;
+      _biometricEnabled = _pinProvider.isBiometricEnabled;
       _biometricAvailable = _pinProvider.isBiometricAvailable;
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
       _bankCaptureEnabled = _pipeline.isCaptureEnabled;

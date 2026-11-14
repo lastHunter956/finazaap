@@ -3566,41 +3566,46 @@ class _BouncingDotsIndicatorState extends State<BouncingDotsIndicator>
   @override
   Widget build(BuildContext context) {
     final t = context.appTheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    final dot = Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      width: 6,
+      height: 6,
       decoration: BoxDecoration(
-        color: t.cardBackground,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(18),
-          topRight: Radius.circular(18),
-          bottomLeft: Radius.circular(6),
-          bottomRight: Radius.circular(18),
-        ),
-        border: Border.all(color: t.borderSubtle),
+        shape: BoxShape.circle,
+        color: t.accent,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(3, (index) {
-          return AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              final delay = index * 0.2;
-              final wave = math.sin((_controller.value * 2 * math.pi) - delay);
-              final offset = (wave * 4.0).clamp(-4.0, 0.0);
-
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                transform: Matrix4.translationValues(0, offset, 0),
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: t.accent,
-                ),
-              );
-            },
-          );
-        }),
+    );
+    return RepaintBoundary(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: t.cardBackground,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(6),
+            bottomRight: Radius.circular(18),
+          ),
+          border: Border.all(color: t.borderSubtle),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            return AnimatedBuilder(
+              animation: _controller,
+              child: dot,
+              builder: (context, child) {
+                final delay = index * 0.2;
+                final wave = math.sin((_controller.value * 2 * math.pi) - delay);
+                final offset = (wave * 4.0).clamp(-4.0, 0.0);
+                return Transform.translate(
+                  offset: Offset(0, offset),
+                  child: child,
+                );
+              },
+            );
+          }),
+        ),
       ),
     );
   }

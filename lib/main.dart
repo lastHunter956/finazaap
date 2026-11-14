@@ -188,6 +188,24 @@ Future<void> _initializeDeferredServices() async {
   }
 }
 
+/// ScrollBehavior sin StretchingOverscrollIndicator para evitar saveLayer de pantalla completa en scroll.
+class _MoneoScrollBehavior extends MaterialScrollBehavior {
+  const _MoneoScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return GlowingOverscrollIndicator(
+      axisDirection: details.direction,
+      color: Theme.of(context).colorScheme.primary,
+      child: child,
+    );
+  }
+}
+
 /// Widget raíz de FinazaApp
 class FinazaApp extends StatelessWidget {
   const FinazaApp({Key? key}) : super(key: key);
@@ -200,6 +218,7 @@ class FinazaApp extends StatelessWidget {
         return MaterialApp(
           title: 'FinazaApp',
           debugShowCheckedModeBanner: false,
+          scrollBehavior: const _MoneoScrollBehavior(),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,

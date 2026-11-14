@@ -31,6 +31,7 @@ class ResponsibilitiesScreen extends StatefulWidget {
 }
 
 class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
+  static bool _sampleDataChecked = false;
   List<String> _selectedCategories = ['Todos'];
   // Categorias comunes para mostrar en la barra rápida
   final List<String> _quickCategories = ['Todos', 'servicio', 'tarjeta', 'préstamo', 'educación'];
@@ -50,16 +51,23 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
 
   Future<void> _initializeData() async {
     try {
-      await ResponsibilityService.init();
-      _responsibilitiesListenable ??= ResponsibilityService.getBox().listenable();
-      // Purge sample data once if they exist
-      final box = ResponsibilityService.getBox();
-      final sampleNames = {'Netflix', 'Luz', 'Internet', 'Manejo Visa', 'Gym', 'Spotify'};
-      final toDelete = box.values.where((r) => sampleNames.contains(r.safeName)).toList();
-      for (var r in toDelete) {
-        await r.delete();
+      final wasNull = _responsibilitiesListenable == null;
+      if (wasNull) {
+        await ResponsibilityService.init();
+        _responsibilitiesListenable = ResponsibilityService.getBox().listenable();
       }
-      if (mounted) {
+      var deletedAny = false;
+      if (!_sampleDataChecked) {
+        _sampleDataChecked = true;
+        final box = ResponsibilityService.getBox();
+        const sampleNames = {'Netflix', 'Luz', 'Internet', 'Manejo Visa', 'Gym', 'Spotify'};
+        final toDelete = box.values.where((r) => sampleNames.contains(r.safeName)).toList();
+        for (var r in toDelete) {
+          await r.delete();
+          deletedAny = true;
+        }
+      }
+      if (mounted && (wasNull || deletedAny)) {
         setState(() {});
       }
     } catch (e) {

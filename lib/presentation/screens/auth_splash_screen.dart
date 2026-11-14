@@ -77,7 +77,7 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
 
   Future<void> _checkSecurity() async {
     await Future.wait([
-      Future.delayed(const Duration(milliseconds: 1600)),
+      Future.delayed(const Duration(milliseconds: 300)),
       _pinProvider.ensureInitialized(),
     ]);
     if (!mounted) return;
