@@ -77,4 +77,9 @@
 - **Tarea `L1.10 / T1.1` (`CurrencyHelper` CLP en `agent/ui/t1-1-clp-currency` desde `00e26b2`):**
   - `CurrencyHelper` (`lib/utils/currency_helper.dart`) unifica `usesCommaDecimal` incluyendo `CLP` para `cleanAmountString` y `ThousandsSeparatorInputFormatter`, sin heurísticas nuevas ni migración de históricos.
   - Prueba `L1.10` trasladada de `docs/audit/repro/accounting_repro_test.dart` a `test/audit/t1_1_currency_helper_test.dart` (`3/3` pasando: lectura/edición/guardado CLP y regresiones para `COP`, `ARS`, `BRL`, `UYU`, `VES`, `EUR`, `USD`, `MXN`, `PEN`, `GBP`, `JPY`).
-- **Pendiente de aprobación humana:** Restantes tareas de Ola 1 (`T1.2` y parte restante de `T1.1` como `AccountItem`), y decisiones `D1`–`D7` (`D8` confirmada: no migrar saldos reales existentes).
+- **Tarea `T1.2` (`L3.3`, `L3.4`, `L3.5` en `agent/ui/t1-2-responsibility-frequencies` desde `6a8b7e2`):**
+  - `L3.4`: eliminados `0.95`/`0.98` y liquidación `0 >= 0` en `ResponsibilityService` (`processDebtPayment`, `processPaymentReversal`, `registerPayment`, `revertPayment`, `createFromAccount`) mediante `Responsibility.isAmountCovered` a precisión decimal de la moneda activa (`CurrencyHelper`). Queda pendiente `credit_card_calculator.dart:193` (protegido, no autorizado en T1.2).
+  - `L3.3`: `isPaidInMonth`, `isPaidOnDate`, `getDueDateForMonth` y `togglePaidStatus` corrigen ciclos `bimestral`/`trimestral`/`anual` con cambio de año, ocurrencias de `diario`/`semanal`/`quincenal` y ajuste de día 31 en febrero.
+  - `L3.5`: `updateResponsibilityFromAccount` acepta `responsibilityId` opcional y normaliza búsqueda evitando duplicados y conservando historial. `L3.2` no reproducido (`responsibility.save()` intacto).
+  - Pruebas en `test/audit/t1_2_responsibility_test.dart` (`7/7`).
+- **Pendiente de aprobación humana:** Autorización de `credit_card_calculator.dart:193` (umbral `0.95` restante de `L3.4`), `AccountItem` de `T1.1`, y siguientes frentes (`T1.3c` UI restante / `T1.4` / Ola 2 IA). Decisions `D1`–`D7` (`D8` confirmada).
