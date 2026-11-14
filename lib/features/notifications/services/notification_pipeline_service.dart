@@ -304,6 +304,7 @@ class NotificationPipelineService {
       parseResult: parseResult,
       rawText: rawText,
       userAccounts: accounts,
+      packageName: event.packageName,
     );
 
     final double? amount =

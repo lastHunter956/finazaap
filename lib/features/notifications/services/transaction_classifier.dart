@@ -5,6 +5,7 @@ import 'package:finazaap/features/notifications/domain/models/notification_parse
 import 'package:finazaap/features/notifications/domain/models/transaction_classification.dart';
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
 import 'package:finazaap/features/notifications/services/gemma_classifier_adapter.dart';
+import 'package:finazaap/features/notifications/services/notification_parser.dart';
 
 /// Clasificador jerárquico estricto de notificaciones bancarias en Moneo.
 ///
@@ -52,6 +53,7 @@ class TransactionClassifier {
     required NotificationParseResult parseResult,
     String? rawText,
     List<AccountItem>? userAccounts,
+    String? packageName,
   }) async {
     final text = rawText ?? _extractRawText(parseResult);
 
@@ -80,6 +82,25 @@ class TransactionClassifier {
       );
     }
 
+    // Defensa en profundidad: solicitudes/recordatorios de pago no son movimientos
+    final bool isPendingRequest =
+        (parseResult is UnparseableNotification &&
+                parseResult.flags.contains('payment_request_pending')) ||
+            NotificationParser.isPendingPaymentRequest(text);
+    if (isPendingRequest) {
+      return const TransactionClassification(
+        classification: 'gasto',
+        moneoType: null,
+        category: null,
+        accountName: null,
+        destinationAccount: null,
+        confidence: 0.0,
+        requiresReview: true,
+        createTransaction: false,
+        decisionSource: 'payment_request_pending',
+      );
+    }
+
     // Cargar cuentas del usuario para enriquecer matching
     final accounts = userAccounts ?? await _loadAccounts();
 
@@ -91,7 +112,12 @@ class TransactionClassifier {
       final pattern = await _patternsService.findPattern(merchant);
       if (pattern != null && pattern.confirmations >= 1) {
         final resolvedAccount = pattern.accountName ??
-            _detectAccountName(parseResult, text, accounts);
+            _detectAccountName(
+              parseResult,
+              text,
+              accounts,
+              packageName: packageName,
+            );
         final isTransfer = pattern.classification == 'transferencia-propia';
         final destAccount = isTransfer
             ? _detectDestinationAccount(parseResult, text, accounts)
@@ -125,9 +151,13 @@ class TransactionClassifier {
       parseResult: parseResult,
       rawText: text,
       accounts: accounts,
+      packageName: packageName,
     );
 
-    if (deterministicResult != null && deterministicResult.confidence >= 0.80) {
+    if (deterministicResult != null &&
+        (deterministicResult.confidence >= 0.80 ||
+            deterministicResult.decisionSource ==
+                'ambiguous_account_or_destination')) {
       return deterministicResult;
     }
 
@@ -219,6 +249,7 @@ class TransactionClassifier {
     required NotificationParseResult parseResult,
     required String rawText,
     required List<AccountItem> accounts,
+    String? packageName,
   }) {
     final lowerText = rawText.toLowerCase();
     final parsedType = parseResult.tipo.toLowerCase();
@@ -228,6 +259,7 @@ class TransactionClassifier {
       parseResult: parseResult,
       lowerText: lowerText,
       accounts: accounts,
+      packageName: packageName,
     );
     if (ownTransferResult != null) return ownTransferResult;
 
@@ -240,19 +272,27 @@ class TransactionClassifier {
 
     if (isIncomeParsed || hasIncomeKeywords) {
       final category = _resolveIncomeCategory(lowerText);
-      final accountName = _detectAccountName(parseResult, rawText, accounts);
-      final confidence = (isIncomeParsed && hasIncomeKeywords) ? 0.92 : 0.88;
+      final resolution = _resolveSourceAccount(
+        parseResult,
+        rawText,
+        accounts,
+        packageName: packageName,
+      );
+      final baseConfidence = (isIncomeParsed && hasIncomeKeywords) ? 0.92 : 0.88;
+      final needsReview = resolution.isAmbiguous;
 
       return TransactionClassification(
         classification: 'ingreso',
         moneoType: 'Income',
         category: category,
-        accountName: accountName,
+        accountName: resolution.accountName,
         destinationAccount: null,
-        confidence: confidence,
-        requiresReview: false,
-        createTransaction: true,
-        decisionSource: 'deterministic_rules',
+        confidence: needsReview ? 0.65 : baseConfidence,
+        requiresReview: needsReview,
+        createTransaction: !needsReview,
+        decisionSource: needsReview
+            ? 'ambiguous_account_or_destination'
+            : 'deterministic_rules',
       );
     }
 
@@ -267,7 +307,12 @@ class TransactionClassifier {
       final merchant = _extractMerchant(parseResult);
       final contextText = '$lowerText ${merchant?.toLowerCase() ?? ""}';
       final category = _resolveExpenseCategory(contextText);
-      final accountName = _detectAccountName(parseResult, rawText, accounts);
+      final resolution = _resolveSourceAccount(
+        parseResult,
+        rawText,
+        accounts,
+        packageName: packageName,
+      );
 
       double confidence = 0.85;
       if (category != 'Otros') {
@@ -275,17 +320,20 @@ class TransactionClassifier {
       } else if (isExpenseParsed && hasExpenseKeywords) {
         confidence = 0.86;
       }
+      final needsReview = resolution.isAmbiguous;
 
       return TransactionClassification(
         classification: 'gasto',
         moneoType: 'Expenses',
         category: category,
-        accountName: accountName,
+        accountName: resolution.accountName,
         destinationAccount: null,
-        confidence: confidence,
-        requiresReview: false,
-        createTransaction: true,
-        decisionSource: 'deterministic_rules',
+        confidence: needsReview ? 0.65 : confidence,
+        requiresReview: needsReview,
+        createTransaction: !needsReview,
+        decisionSource: needsReview
+            ? 'ambiguous_account_or_destination'
+            : 'deterministic_rules',
       );
     }
 
@@ -299,7 +347,12 @@ class TransactionClassifier {
       classification: 'gasto',
       moneoType: 'Expenses',
       category: 'Otros',
-      accountName: _detectAccountName(parseResult, rawText, accounts),
+      accountName: _detectAccountName(
+        parseResult,
+        rawText,
+        accounts,
+        packageName: packageName,
+      ),
       destinationAccount: null,
       confidence: 0.50,
       requiresReview: true,
@@ -315,44 +368,47 @@ class TransactionClassifier {
     required NotificationParseResult parseResult,
     required String lowerText,
     required List<AccountItem> accounts,
+    String? packageName,
   }) {
     final isTransferType = parseResult.tipo.toLowerCase() == 'transferencia';
     final hasExplicitOwnKeywords = RegExp(
-      r'(transferencia entre (tus|mis) cuentas|traslado entre cuentas|a tu cuenta|a tu propia cuenta)',
+      r'(transferencia entre (tus|mis) cuentas|traslado entre cuentas|a tu cuenta|a tu propia cuenta|hacia tu cuenta)',
       caseSensitive: false,
     ).hasMatch(lowerText);
 
-    // Buscar si 2 cuentas del usuario coinciden en el texto / indicios
     final matchedAccounts =
         _findMatchingUserAccounts(lowerText, parseResult, accounts);
 
-    if (matchedAccounts.length >= 2) {
-      final source = matchedAccounts[0].title;
-      final dest = matchedAccounts[1].title;
-
-      return TransactionClassification(
-        classification: 'transferencia-propia',
-        moneoType: 'Transfer',
-        category: 'Transferencia',
-        accountName: source,
-        destinationAccount: dest,
-        confidence: 0.92,
-        requiresReview: false,
-        createTransaction: true,
-        decisionSource: 'deterministic_rules',
-      );
-    }
-
     if (hasExplicitOwnKeywords) {
-      final source = _detectAccountName(parseResult, lowerText, accounts);
-      final dest = _detectDestinationAccount(parseResult, lowerText, accounts);
+      var sourceRes = _resolveSourceAccount(
+        parseResult,
+        lowerText,
+        accounts,
+        packageName: packageName,
+      );
+      if ((sourceRes.accountName == null || sourceRes.isAmbiguous) &&
+          (packageName == null || packageName.trim().isEmpty)) {
+        final explicitSource = _detectSourceFromClause(lowerText, accounts);
+        if (explicitSource != null) {
+          sourceRes = _AccountResolution(explicitSource);
+        }
+      }
+      final dest = _detectDestinationAccount(
+        parseResult,
+        lowerText,
+        accounts,
+        excludeAccount: sourceRes.accountName,
+      );
 
-      if (dest != null && dest != source) {
+      if (sourceRes.accountName != null &&
+          !sourceRes.isAmbiguous &&
+          dest != null &&
+          dest != sourceRes.accountName) {
         return TransactionClassification(
           classification: 'transferencia-propia',
           moneoType: 'Transfer',
           category: 'Transferencia',
-          accountName: source,
+          accountName: sourceRes.accountName,
           destinationAccount: dest,
           confidence: 0.90,
           requiresReview: false,
@@ -360,23 +416,63 @@ class TransactionClassifier {
           decisionSource: 'deterministic_rules',
         );
       }
-    }
 
-    // Si es transferencia pero hacia terceros, es un gasto
-    if (isTransferType &&
-        !hasExplicitOwnKeywords &&
-        matchedAccounts.length < 2) {
-      final accountName = _detectAccountName(parseResult, lowerText, accounts);
       return TransactionClassification(
         classification: 'gasto',
         moneoType: 'Expenses',
         category: 'Transferencia',
-        accountName: accountName,
+        accountName: sourceRes.accountName,
         destinationAccount: null,
-        confidence: 0.88,
-        requiresReview: false,
-        createTransaction: true,
-        decisionSource: 'deterministic_rules',
+        confidence: 0.65,
+        requiresReview: true,
+        createTransaction: false,
+        decisionSource: 'ambiguous_account_or_destination',
+      );
+    }
+
+    // Dos nombres de bancos/cuentas en el texto sin evidencia explícita de
+    // transferencia propia: no auto-aprobar transferencia ni gasto definitivo.
+    if (matchedAccounts.length >= 2) {
+      final sourceRes = _resolveSourceAccount(
+        parseResult,
+        lowerText,
+        accounts,
+        packageName: packageName,
+      );
+      return TransactionClassification(
+        classification: 'gasto',
+        moneoType: 'Expenses',
+        category: 'Otros',
+        accountName: sourceRes.accountName,
+        destinationAccount: null,
+        confidence: 0.65,
+        requiresReview: true,
+        createTransaction: false,
+        decisionSource: 'ambiguous_account_or_destination',
+      );
+    }
+
+    // Si es transferencia pero hacia terceros, es un gasto
+    if (isTransferType) {
+      final sourceRes = _resolveSourceAccount(
+        parseResult,
+        lowerText,
+        accounts,
+        packageName: packageName,
+      );
+      final needsReview = sourceRes.isAmbiguous;
+      return TransactionClassification(
+        classification: 'gasto',
+        moneoType: 'Expenses',
+        category: 'Transferencia',
+        accountName: sourceRes.accountName,
+        destinationAccount: null,
+        confidence: needsReview ? 0.65 : 0.88,
+        requiresReview: needsReview,
+        createTransaction: !needsReview,
+        decisionSource: needsReview
+            ? 'ambiguous_account_or_destination'
+            : 'deterministic_rules',
       );
     }
 
@@ -467,71 +563,212 @@ class TransactionClassifier {
   String? _detectAccountName(
     NotificationParseResult parseResult,
     String text,
-    List<AccountItem> accounts,
-  ) {
-    if (parseResult is ParsedTransaction && parseResult.cuenta != null) {
-      final hint = parseResult.cuenta!;
-      if (hint.last4 != null && hint.last4!.isNotEmpty) {
-        for (final acc in accounts) {
-          if (acc.subtitle.contains(hint.last4!) ||
+    List<AccountItem> accounts, {
+    String? packageName,
+  }) {
+    return _resolveSourceAccount(
+      parseResult,
+      text,
+      accounts,
+      packageName: packageName,
+    ).accountName;
+  }
+
+  _AccountResolution _resolveSourceAccount(
+    NotificationParseResult parseResult,
+    String text,
+    List<AccountItem> accounts, {
+    String? packageName,
+  }) {
+    if (accounts.isEmpty) {
+      return const _AccountResolution(null, isAmbiguous: true);
+    }
+
+    final hint = parseResult is ParsedTransaction ? parseResult.cuenta : null;
+
+    // 1. Últimos 4 dígitos: solo es inequívoco si coincide exactamente 1 producto
+    if (hint != null && hint.last4 != null && hint.last4!.isNotEmpty) {
+      final matchesByLast4 = accounts
+          .where((acc) =>
+              acc.subtitle.contains(hint.last4!) ||
               acc.title.contains(hint.last4!) ||
-              acc.id.contains(hint.last4!)) {
-            return acc.title;
-          }
-        }
+              acc.id.contains(hint.last4!))
+          .toList();
+      if (matchesByLast4.length == 1) {
+        return _AccountResolution(matchesByLast4.first.title);
       }
-      if (hint.hint != null && hint.hint!.isNotEmpty) {
-        for (final acc in accounts) {
-          if (acc.title.toLowerCase().contains(hint.hint!.toLowerCase())) {
-            return acc.title;
-          }
-        }
-        return hint.last4 != null ? '${hint.hint} *${hint.last4}' : hint.hint;
-      }
-      if (hint.last4 != null) {
-        return 'Cuenta *${hint.last4}';
+      if (matchesByLast4.length > 1) {
+        return const _AccountResolution(null, isAmbiguous: true);
       }
     }
 
-    // Buscar en texto
-    for (final acc in accounts) {
-      if (text.toLowerCase().contains(acc.title.toLowerCase())) {
-        return acc.title;
+    // 2. Evidencia de procedencia por packageName (no suficiente si hay varios productos)
+    final provenanceTokens = _provenanceTokensForPackage(packageName);
+    if (provenanceTokens.isNotEmpty) {
+      final bankMatches = accounts.where((acc) {
+        final combined = '${acc.title} ${acc.subtitle}'.toLowerCase();
+        return provenanceTokens.any(combined.contains);
+      }).toList();
+
+      if (bankMatches.length == 1) {
+        return _AccountResolution(bankMatches.first.title);
+      }
+
+      if (bankMatches.length > 1) {
+        final productHint = hint?.hint?.toLowerCase();
+        if (productHint != null && productHint.isNotEmpty) {
+          final narrowed = bankMatches.where((acc) {
+            final combined = '${acc.title} ${acc.subtitle}'.toLowerCase();
+            if (productHint.contains('crédito') || productHint.contains('credito')) {
+              final hasLimit = acc.creditLimit != null &&
+                  (double.tryParse(acc.creditLimit!) ?? 0) > 0;
+              return combined.contains('crédito') ||
+                  combined.contains('credito') ||
+                  combined.contains('tc') ||
+                  hasLimit;
+            }
+            return combined.contains(productHint);
+          }).toList();
+
+          if (narrowed.length == 1) {
+            return _AccountResolution(narrowed.first.title);
+          }
+        }
+        // Varios productos del mismo banco sin desambiguación inequívoca -> revisar
+        return const _AccountResolution(null, isAmbiguous: true);
+      }
+
+      // El paquete emisor es conocido, pero no hay cuenta registrada asociada
+      return const _AccountResolution(null, isAmbiguous: true);
+    }
+
+    // 3. Sin packageName (ej. llamadas directas): buscar indicio o título en texto
+    if (hint != null && hint.hint != null && hint.hint!.isNotEmpty) {
+      final hintMatches = accounts
+          .where((acc) =>
+              acc.title.toLowerCase().contains(hint.hint!.toLowerCase()))
+          .toList();
+      if (hintMatches.length == 1) {
+        return _AccountResolution(hintMatches.first.title);
+      }
+      if (hintMatches.length > 1) {
+        return const _AccountResolution(null, isAmbiguous: true);
       }
     }
 
-    return accounts.isNotEmpty ? accounts.first.title : null;
+    final lowerText = text.toLowerCase();
+    final titleMatches = accounts
+        .where((acc) => lowerText.contains(acc.title.toLowerCase()))
+        .toList();
+    if (titleMatches.length == 1) {
+      return _AccountResolution(titleMatches.first.title);
+    }
+
+    // Nunca usar accounts.first como fallback sin evidencia
+    return const _AccountResolution(null, isAmbiguous: true);
+  }
+
+  List<String> _provenanceTokensForPackage(String? packageName) {
+    if (packageName == null || packageName.trim().isEmpty) {
+      return const [];
+    }
+    final pkg = packageName.toLowerCase();
+    const known = <String, List<String>>{
+      'com.nu.production': ['nu'],
+      'com.bancolombia': ['bancolombia'],
+      'com.nequi': ['nequi'],
+      'com.davivienda': ['davivienda'],
+      'com.daviplata': ['daviplata'],
+      'com.bancodeoccidente': ['banco de occidente', 'occidente'],
+      'com.bbva': ['bbva'],
+      'com.scotiabank': ['scotiabank', 'colpatria'],
+      'com.colpatria': ['colpatria', 'scotiabank'],
+      'com.bancobogota': ['banco de bogota', 'banco de bogotá', 'bogota'],
+      'com.avvillas': ['av villas', 'avvillas'],
+      'com.bancopopular': ['banco popular', 'popular'],
+      'com.rappi': ['rappi', 'rappipay'],
+      'com.dale': ['dale'],
+      'com.lulo': ['lulo'],
+    };
+    for (final entry in known.entries) {
+      if (pkg.startsWith(entry.key) || pkg.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+    return const [];
   }
 
   String? _detectDestinationAccount(
     NotificationParseResult parseResult,
     String text,
-    List<AccountItem> accounts,
-  ) {
-    // Buscar patrones como "a tu cuenta Nequi", "a cuenta *1234", "a Nequi"
+    List<AccountItem> accounts, {
+    String? excludeAccount,
+  }) {
+    // Buscar patrones como "a tu cuenta Nequi *1234", "hacia tu cuenta Nequi"
     final destRegex = RegExp(
-      r'(?:a\s+(?:tu\s+)?(?:cuenta\s+)?|hacia\s+(?:cuenta\s+)?|destino\s+)([\w\s\*]+?)(?:desde|\.|$|,)',
+      r'(?:a\s+(?:tu\s+)?(?:propia\s+)?(?:cuenta\s+)?|hacia\s+(?:tu\s+)?(?:cuenta\s+)?|destino\s+)([\w\s\*]+?)(?:desde|\.|$|,)',
       caseSensitive: false,
     );
     final match = destRegex.firstMatch(text);
     if (match != null) {
       final candidate = match.group(1)?.trim();
       if (candidate != null && candidate.isNotEmpty) {
-        for (final acc in accounts) {
-          if (candidate.toLowerCase().contains(acc.title.toLowerCase())) {
-            return acc.title;
+        final lowerCandidate = candidate.toLowerCase();
+        final byTitle = accounts
+            .where((acc) =>
+                acc.title != excludeAccount &&
+                lowerCandidate.contains(acc.title.toLowerCase()))
+            .toList();
+        if (byTitle.length == 1) {
+          return byTitle.first.title;
+        }
+        final digitsMatch = RegExp(r'\*(\d{4})\b').firstMatch(candidate);
+        if (digitsMatch != null) {
+          final last4 = digitsMatch.group(1)!;
+          final byLast4 = accounts
+              .where((acc) =>
+                  acc.title != excludeAccount &&
+                  (acc.subtitle.contains(last4) || acc.title.contains(last4)))
+              .toList();
+          if (byLast4.length == 1) {
+            return byLast4.first.title;
           }
         }
-        return candidate;
       }
     }
 
-    // Si hay una segunda cuenta en la lista de cuentas del usuario
-    final matched = _findMatchingUserAccounts(text, parseResult, accounts);
-    if (matched.length >= 2) {
-      return matched[1].title;
+    return null;
+  }
+
+  String? _detectSourceFromClause(String text, List<AccountItem> accounts) {
+    final sourceRegex = RegExp(
+      r'\bdesde\s+(?:tu\s+)?(?:cuenta\s+)?([\w\s\*]+?)(?:\s+hacia|\s+a\s+|\.|,|$)',
+      caseSensitive: false,
+    );
+    final match = sourceRegex.firstMatch(text);
+    if (match == null) return null;
+    final candidate = match.group(1)?.trim();
+    if (candidate == null || candidate.isEmpty) return null;
+
+    final lowerCandidate = candidate.toLowerCase();
+    final byTitle = accounts
+        .where((acc) => lowerCandidate.contains(acc.title.toLowerCase()))
+        .toList();
+    if (byTitle.length == 1) {
+      return byTitle.first.title;
     }
 
+    final digitsMatch = RegExp(r'\*(\d{4})\b').firstMatch(candidate);
+    if (digitsMatch != null) {
+      final last4 = digitsMatch.group(1)!;
+      final byLast4 = accounts
+          .where((acc) =>
+              acc.subtitle.contains(last4) || acc.title.contains(last4))
+          .toList();
+      if (byLast4.length == 1) {
+        return byLast4.first.title;
+      }
+    }
     return null;
   }
 
@@ -581,4 +818,11 @@ class TransactionClassifier {
     } catch (_) {}
     return [];
   }
+}
+
+class _AccountResolution {
+  final String? accountName;
+  final bool isAmbiguous;
+
+  const _AccountResolution(this.accountName, {this.isAmbiguous = false});
 }

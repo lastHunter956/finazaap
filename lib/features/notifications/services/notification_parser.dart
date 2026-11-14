@@ -29,6 +29,33 @@ class NotificationParser {
     caseSensitive: false,
   );
 
+  /// Marcadores explícitos de operación ya ejecutada/aprobada.
+  static final RegExp _completedOperationRegex = RegExp(
+    r'\b(pago\s+aprobado|pago\s+exitoso|pago\s+realizado|pago\s+confirmado|'
+    r'pago\s+aplicado|pagaste|compra\s+aprobada|compraste|'
+    r'transacci[oó]n\s+aprobada|transacci[oó]n\s+exitosa|'
+    r'transferencia\s+exitosa|transferencia\s+aprobada|transferiste|'
+    r'se\s+realiz[oó]\s+un\s+pago|hemos\s+debitado|d[eé]bito\s+realizado)\b',
+    caseSensitive: false,
+  );
+
+  /// Marcadores de solicitud, recordatorio o pago pendiente aún no consumado.
+  static final RegExp _pendingPaymentRequestRegex = RegExp(
+    r'\b(tienes\s+un\s+pago|completa\s+tu\s+pago|realiza\s+tu\s+pago|'
+    r'haz\s+tu\s+pago|pago\s+pendiente|por\s+pagar|fecha\s+l[ií]mite\s+de\s+pago|'
+    r'pr[oó]ximo\s+pago|recordatorio\s+de\s+pago|cuota\s+pendiente|'
+    r'solicitud\s+de\s+pago|autoriza\s+tu\s+pago|paga\s+(?:aqu[ií]|ahora|antes\s+de))\b',
+    caseSensitive: false,
+  );
+
+  /// Distingue solicitudes/recordatorios de pago de operaciones ya completadas.
+  static bool isPendingPaymentRequest(String text) {
+    if (_completedOperationRegex.hasMatch(text)) {
+      return false;
+    }
+    return _pendingPaymentRequestRegex.hasMatch(text);
+  }
+
   /// Parsea un [NotificationEvent] en un resultado tipado [NotificationParseResult].
   NotificationParseResult parse(NotificationEvent event) {
     return parseRaw(
@@ -80,6 +107,16 @@ class NotificationParser {
             'Mensaje de seguridad o código de verificación no transaccional (OTP)',
         fecha: effectiveDate,
         flags: const ['non_transactional_text', 'otp_detected'],
+      );
+    }
+
+    if (isPendingPaymentRequest(fullRawText)) {
+      return UnparseableNotification(
+        rawText: fullRawText,
+        reason:
+            'Solicitud o recordatorio de pago pendiente, no una operación completada',
+        fecha: effectiveDate,
+        flags: const ['non_transactional_text', 'payment_request_pending'],
       );
     }
 

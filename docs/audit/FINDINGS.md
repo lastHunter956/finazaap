@@ -157,3 +157,14 @@
 | **P3.5** | **CONFIRMADO** | BAJO | `add.dart:302`, `add_expense.dart:767`, `transfer.dart:228`, `statistics.dart:256,268,365`, `home.dart:1608,1633` | `Future.delayed(100ms)` antes de `pop()` y `print()` sin `kDebugMode`. |
 
 *(Nota: Los 24 sub-ítems de Fluidez de la auditoría original están consolidados aquí en sus 14 grupos de archivo/causa raíz, todos verificados. Resumen global sobre los 81 hallazgos originales: **78 CONFIRMADOS**, **3 PARCIALES** (`M5`, `SEC-01`, `P2.1`), **0 NO REPRODUCIDOS**, **0 DESCARTADOS**).*
+
+---
+
+### E. Caso Sintético de Notificaciones (`test/features/notifications/integration/notification_request_vs_completed_test.dart`)
+- **N1 (`RESUELTO` con prueba de regresión en `test/`, `6/6` pasan):**
+  - **Evidencia:** `notification_parser.dart:33-53,111-120`, `transaction_classifier.dart:52-104,359-456,576-700`, `notification_pipeline_service.dart:302-308`.
+  - **Alcance implementado:**
+    1. Solicitud/recordatorio de pago pendiente (`"Tienes un pago... Completa tu pago"`) se descarta como movimiento no consumado (`UnparseableNotification` / `payment_request_pending`), conservando pagos aprobados reales incluso si incluyen texto sobre próximos pagos.
+    2. `packageName` se usa como evidencia de procedencia en `TransactionClassifier` sin inventar cuenta ni caer en `accounts.first`; varios productos del mismo banco sin desambiguación exigen revisión.
+    3. Dos nombres de bancos o cuentas en el texto sin evidencia explícita de transferencia propia no auto-aprueban `transferencia-propia` ni registran un gasto definitivo (`requiresReview=true, createTransaction=false`).
+    4. **Límite explícito:** Se implementó el descarte de solicitudes pendientes como movimiento y la exigencia de revisión sin evidencia suficiente; **no** se implementó correlación semántica completa entre notificaciones ni inferencia universal de pagos de tarjeta.
