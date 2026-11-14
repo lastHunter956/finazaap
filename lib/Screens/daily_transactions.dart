@@ -11,8 +11,6 @@ import 'package:finazaap/Screens/add_expense.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'dart:math' as math;
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
@@ -322,68 +320,16 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
   }
 
   Future<void> _deleteTransaction(Add_data transaction) async {
-    await _updateAccountBalanceAfterDeletion(transaction);
-    await transaction.delete();
+    final deleted = await TransactionService.deleteTransaction(transaction);
+    if (!mounted) return;
 
-    _refreshTransactions();
-    TransactionService.syncAccountBalances();
-
-    AlertHelper.success(context, 'Transacción eliminada');
-  }
-
-  Future<void> _updateAccountBalanceAfterDeletion(Add_data transaction) async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> accountsData = prefs.getStringList('accounts') ?? [];
-    List<Map<String, dynamic>> accounts = accountsData
-        .map((e) => json.decode(e) as Map<String, dynamic>)
-        .toList();
-
-    double amount = double.parse(transaction.safeAmount);
-
-    if (transaction.IN == 'Income') {
-       for (var acc in accounts) {
-         if (acc['name'] == transaction.safeAccount) {
-           double currentBalance = (acc['balance'] is String)
-               ? double.parse(acc['balance'])
-               : (acc['balance'] as num).toDouble();
-           acc['balance'] = currentBalance - amount;
-           break;
-         }
-       }
-    } else if (transaction.IN == 'Expenses') {
-       for (var acc in accounts) {
-         if (acc['name'] == transaction.safeAccount) {
-           double currentBalance = (acc['balance'] is String)
-               ? double.parse(acc['balance'])
-               : (acc['balance'] as num).toDouble();
-           acc['balance'] = currentBalance + amount;
-           break;
-         }
-       }
-    } else if (transaction.IN == 'Transfer') {
-       List<String> parts = (transaction.explain ?? '').split(' > ');
-       if (parts.length == 2) {
-         String sourceName = parts[0];
-         String destName = parts[1];
-
-         for (var acc in accounts) {
-           if (acc['name'] == sourceName) {
-             double currentBalance = (acc['balance'] is String)
-                 ? double.parse(acc['balance'])
-                 : (acc['balance'] as num).toDouble();
-             acc['balance'] = currentBalance + amount;
-           } else if (acc['name'] == destName) {
-             double currentBalance = (acc['balance'] is String)
-                 ? double.parse(acc['balance'])
-                 : (acc['balance'] as num).toDouble();
-             acc['balance'] = currentBalance - amount;
-           }
-         }
-       }
+    if (!deleted) {
+      AlertHelper.error(context, 'No se pudo eliminar la transacción');
+      return;
     }
 
-    List<String> updatedAccountsData = accounts.map((e) => json.encode(e)).toList();
-    await prefs.setStringList('accounts', updatedAccountsData);
+    _refreshTransactions();
+    AlertHelper.success(context, 'Transacción eliminada');
   }
 
   void _editTransaction(Add_data transaction) async {

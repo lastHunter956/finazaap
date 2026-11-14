@@ -411,12 +411,15 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                                             color: _context.appTheme.success.withOpacity(0.8),
                                                           ),
                                                           const SizedBox(width: 8),
-                                                          Text(
-                                                            "Sin interés",
-                                                            style: TextStyle(
-                                                              color: _context.appTheme.success,
-                                                              fontSize: 14,
-                                                              fontWeight: FontWeight.w600,
+                                                          Flexible(
+                                                            child: Text(
+                                                              "Sin interés",
+                                                              overflow: TextOverflow.ellipsis,
+                                                              style: TextStyle(
+                                                                color: _context.appTheme.success,
+                                                                fontSize: 14,
+                                                                fontWeight: FontWeight.w600,
+                                                              ),
                                                             ),
                                                           ),
                                                         ],
