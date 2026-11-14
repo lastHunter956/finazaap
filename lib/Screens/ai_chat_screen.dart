@@ -726,12 +726,12 @@ class _AiChatScreenState extends State<AiChatScreen>
             ElevatedButton(
               onPressed: () {
                 final url = urlController.text.trim();
-                if (url.isNotEmpty && url.startsWith('http')) {
+                if (url.isNotEmpty && url.startsWith('https://')) {
                   _chatService.setModelUrl(url);
                   _showFeedbackSnackBar('Iniciando descarga del modelo...');
                 } else {
                   _showFeedbackSnackBar(
-                    'Por favor ingresa una URL válida (http...)',
+                    'Por favor ingresa una URL válida (https://...)',
                     isError: true,
                   );
                 }

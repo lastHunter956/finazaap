@@ -73,8 +73,12 @@ class NotificationParser {
     String packageName = '',
     DateTime? timestamp,
   }) {
-    final cleanTitle = title.trim();
-    final cleanBody = body.trim();
+    final rawTitle = title.trim();
+    final rawBody = body.trim();
+    final cleanTitle =
+        rawTitle.length > 200 ? rawTitle.substring(0, 200) : rawTitle;
+    final cleanBody =
+        rawBody.length > 1000 ? rawBody.substring(0, 1000) : rawBody;
     final fullRawText = cleanTitle.isEmpty
         ? cleanBody
         : cleanBody.isEmpty
