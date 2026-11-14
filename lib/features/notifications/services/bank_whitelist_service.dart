@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Metadatos asociados a una entidad bancaria o billetera soportada.
 class BankMetadata {
@@ -48,6 +49,8 @@ class BankMetadata {
 /// Solo las notificaciones provenientes de paquetes registrados y habilitados
 /// en esta lista blanca son procesadas por el pipeline de ingestión.
 class BankWhitelistService {
+  static const String prefsKey = 'notifications_whitelisted_packages';
+
   /// Lista predeterminada de entidades financieras y billeteras en Colombia.
   static final List<BankMetadata> defaultBankList = [
     const BankMetadata(
@@ -216,5 +219,34 @@ class BankWhitelistService {
       _banks[bank.packageName] = bank;
       _enabledPackages.add(bank.packageName);
     }
+  }
+
+  /// Carga los paquetes habilitados desde [SharedPreferences].
+  ///
+  /// Si no hay preferencia guardada aún, conserva los valores predeterminados.
+  Future<void> loadFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(prefsKey);
+    if (saved == null) return;
+
+    _enabledPackages
+      ..clear()
+      ..addAll(saved.where((pkg) => _banks.containsKey(pkg)));
+  }
+
+  /// Persiste los paquetes habilitados actuales en [SharedPreferences].
+  Future<void> saveToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(prefsKey, _enabledPackages.toList());
+  }
+
+  /// Activa o desactiva un paquete bancario y guarda el cambio localmente.
+  Future<void> setBankEnabled(String packageName, bool enabled) async {
+    if (enabled) {
+      enablePackage(packageName);
+    } else {
+      disablePackage(packageName);
+    }
+    await saveToPrefs();
   }
 }

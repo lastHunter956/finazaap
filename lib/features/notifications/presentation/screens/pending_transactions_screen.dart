@@ -80,6 +80,9 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
     final correction = await CorrectionDialog.show(
       context,
       item: item,
+      availableAccounts: widget.isDemoMode
+          ? const ['Ahorros Bancolombia *1234', 'Nequi *5678']
+          : null,
     );
 
     if (correction == null || !mounted) return;
@@ -91,6 +94,8 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
       newAccountName: correction.accountName,
       newDestinationAccount: correction.destinationAccount,
       newAmount: correction.amount,
+      newDescription: correction.description,
+      newDate: correction.date,
     );
 
     if (!mounted) return;

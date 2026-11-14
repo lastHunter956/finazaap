@@ -6,6 +6,7 @@ import 'package:finazaap/services/notification_service.dart';
 import 'package:finazaap/services/data_management_service.dart';
 import 'package:finazaap/features/notifications/adapters/simulated_notification_source.dart';
 import 'package:finazaap/features/notifications/presentation/screens/pending_transactions_screen.dart';
+import 'package:finazaap/features/notifications/services/bank_whitelist_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
@@ -22,6 +23,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final PinProvider _pinProvider = PinProvider();
   final NotificationService _notificationService = NotificationService();
+  final BankWhitelistService _whitelistService = BankWhitelistService();
   bool _isLoading = true;
   bool _pinEnabled = false;
   bool _biometricEnabled = false;
@@ -56,6 +58,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    await _whitelistService.loadFromPrefs();
     
     // Check biometric availability
     await _pinProvider.checkBiometricAvailability();
@@ -236,6 +239,132 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final minute = time.minute.toString().padLeft(2, '0');
     final period = time.period == DayPeriod.am ? 'AM' : 'PM';
     return '$hour:$minute $period';
+  }
+
+  Future<void> _showBankAppsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.appTheme.secondaryCardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final banks = _whitelistService.allBanks;
+            final activeCount = _whitelistService.whitelistedPackages.length;
+            return SafeArea(
+              child: DraggableScrollableSheet(
+                expand: false,
+                initialChildSize: 0.65,
+                minChildSize: 0.4,
+                maxChildSize: 0.9,
+                builder: (_, scrollController) {
+                  return Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: context.appTheme.borderSubtle,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Aplicaciones bancarias',
+                                    style: TextStyle(
+                                      color: context.appTheme.textPrimary,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '$activeCount de ${banks.length} permitidas para leer notificaciones',
+                                    style: TextStyle(
+                                      color: context.appTheme.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                _whitelistService.resetToDefaults();
+                                await _whitelistService.saveToPrefs();
+                                setSheetState(() {});
+                                if (mounted) setState(() {});
+                              },
+                              child: Text(
+                                'Restablecer',
+                                style: TextStyle(color: context.appTheme.accent),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      Expanded(
+                        child: ListView.separated(
+                          controller: scrollController,
+                          itemCount: banks.length,
+                          separatorBuilder: (_, __) => Divider(
+                            height: 1,
+                            color: context.appTheme.borderSubtle,
+                          ),
+                          itemBuilder: (_, index) {
+                            final bank = banks[index];
+                            final enabled =
+                                _whitelistService.isWhitelisted(bank.packageName);
+                            return SwitchListTile(
+                              title: Text(
+                                bank.name,
+                                style: TextStyle(
+                                  color: context.appTheme.textPrimary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              subtitle: Text(
+                                bank.packageName,
+                                style: TextStyle(
+                                  color: context.appTheme.textSecondary,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              value: enabled,
+                              activeColor: context.appTheme.accent,
+                              onChanged: (value) async {
+                                await _whitelistService.setBankEnabled(
+                                  bank.packageName,
+                                  value,
+                                );
+                                setSheetState(() {});
+                                if (mounted) setState(() {});
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -422,6 +551,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: _toggleNotifications,
                       ),
                       
+                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      ListTile(
+                        key: const Key('settings_bank_whitelist_tile'),
+                        leading: Icon(
+                          Icons.apps_outlined,
+                          color: context.appTheme.accent,
+                        ),
+                        title: Text(
+                          'Aplicaciones bancarias permitidas',
+                          style: TextStyle(color: context.appTheme.textPrimary),
+                        ),
+                        subtitle: Text(
+                          '${_whitelistService.whitelistedPackages.length} de ${_whitelistService.allBanks.length} aplicaciones activas',
+                          style: TextStyle(
+                            color: context.appTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: context.appTheme.textSecondary,
+                        ),
+                        onTap: _showBankAppsSheet,
+                      ),
+
                       if (kDebugMode) ...[
                         Divider(height: 1, color: context.appTheme.borderSubtle),
                         ListTile(

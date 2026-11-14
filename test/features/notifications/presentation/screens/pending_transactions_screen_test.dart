@@ -292,5 +292,56 @@ void main() {
         expect(mockExec.executionCount, equals(3));
       },
     );
+
+    testWidgets(
+      'CorrectionDialog muestra dropdowns de cuentas/categorías, monto formateado, descripción y fecha modificables',
+      (tester) async {
+        final demoNotifier = await createDemoPendingNotifier();
+        final mockExec =
+            demoNotifier.executionPort as MockTransactionExecutionAdapter;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: PendingTransactionsScreen.demo(notifier: demoNotifier),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Abre el diálogo "Corregir" de la primera tarjeta
+        await tester.tap(find.widgetWithText(OutlinedButton, 'Corregir').first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Corregir Transacción'), findsOneWidget);
+        expect(find.text('Descripción'), findsOneWidget);
+        expect(find.text('Fecha'), findsOneWidget);
+        expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(2));
+
+        // Cambia la descripción
+        final descField = find.widgetWithText(TextFormField, 'EXITO COLOMBIA');
+        await tester.enterText(descField, 'Mercado semanal corregido');
+        await tester.pumpAndSettle();
+
+        // Cambia a Transferir y verifica que aparece dropdown de Cuenta destino
+        await tester.ensureVisible(find.text('Transferir'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Transferir'));
+        await tester.pumpAndSettle();
+        expect(find.text('Cuenta destino'), findsOneWidget);
+        expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(2));
+
+        // Guarda la corrección
+        await tester.ensureVisible(find.text('Guardar corrección'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Guardar corrección'));
+        await tester.pumpAndSettle();
+
+        expect(mockExec.executionCount, equals(1));
+        expect(
+          mockExec.lastExecutedRequest?.detail,
+          equals('Mercado semanal corregido'),
+        );
+        expect(mockExec.lastExecutedRequest?.type, equals('Transfer'));
+      },
+    );
   });
 }

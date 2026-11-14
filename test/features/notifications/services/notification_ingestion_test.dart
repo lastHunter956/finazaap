@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:finazaap/features/notifications/adapters/simulated_notification_source.dart';
 import 'package:finazaap/features/notifications/domain/models/notification_event.dart';
@@ -360,6 +361,25 @@ void main() {
       expect(ingestedEvents.length, equals(1));
 
       await sub.cancel();
+    });
+  });
+
+  group('BankWhitelistService persistencia', () {
+    test('setBankEnabled y loadFromPrefs persisten y restauran paquetes',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = BankWhitelistService();
+      await service.loadFromPrefs();
+
+      expect(service.isWhitelisted('com.bancolombia.personas'), isTrue);
+
+      await service.setBankEnabled('com.bancolombia.personas', false);
+      expect(service.isWhitelisted('com.bancolombia.personas'), isFalse);
+
+      final reloaded = BankWhitelistService();
+      await reloaded.loadFromPrefs();
+      expect(reloaded.isWhitelisted('com.bancolombia.personas'), isFalse);
+      expect(reloaded.isWhitelisted('com.nequi.MobileApp'), isTrue);
     });
   });
 }

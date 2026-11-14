@@ -272,6 +272,8 @@ class PendingTransactionsNotifier extends ChangeNotifier {
     required String newAccountName,
     String? newDestinationAccount,
     double? newAmount,
+    String? newDescription,
+    DateTime? newDate,
   }) async {
     final index = _items.indexWhere((i) => i.id == id);
     if (index < 0) return false;
@@ -298,13 +300,18 @@ class PendingTransactionsNotifier extends ChangeNotifier {
         TransactionClassification.resolveMoneoType(newClassification) ??
             'Expenses';
 
+    final effectiveDetail =
+        (newDescription != null && newDescription.trim().isNotEmpty)
+            ? newDescription.trim()
+            : (item.comercio ?? item.rawText);
+
     final request = TransactionExecutionRequest(
       type: resolvedType,
       amount: effectiveAmount,
       accountName: newAccountName,
       destinationAccount: newDestinationAccount,
-      detail: item.comercio ?? item.rawText,
-      date: item.fecha,
+      detail: effectiveDetail,
+      date: newDate ?? item.fecha,
     );
 
     final result = await _executionPort.execute(request);
