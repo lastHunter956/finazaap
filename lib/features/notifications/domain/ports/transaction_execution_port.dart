@@ -3,6 +3,7 @@ class TransactionExecutionRequest {
   final double amount;
   final String accountName;
   final String? destinationAccount;
+  final String? category;
   final String? detail;
   final DateTime? date;
 
@@ -11,6 +12,7 @@ class TransactionExecutionRequest {
     required this.amount,
     required this.accountName,
     this.destinationAccount,
+    this.category,
     this.detail,
     this.date,
   });
@@ -20,6 +22,7 @@ class TransactionExecutionRequest {
     double? amount,
     String? accountName,
     String? destinationAccount,
+    String? category,
     String? detail,
     DateTime? date,
   }) {
@@ -28,6 +31,7 @@ class TransactionExecutionRequest {
       amount: amount ?? this.amount,
       accountName: accountName ?? this.accountName,
       destinationAccount: destinationAccount ?? this.destinationAccount,
+      category: category ?? this.category,
       detail: detail ?? this.detail,
       date: date ?? this.date,
     );
@@ -38,6 +42,7 @@ class TransactionExecutionRequest {
         'amount': amount,
         'account_name': accountName,
         'destination_account': destinationAccount,
+        'category': category,
         'detail': detail,
         'date': date?.toIso8601String(),
       };
@@ -51,6 +56,7 @@ class TransactionExecutionRequest {
         accountName: (json['account_name'] ?? json['accountName']) as String,
         destinationAccount: (json['destination_account'] ??
             json['destinationAccount']) as String?,
+        category: json['category'] as String?,
         detail: json['detail'] as String?,
         date: json['date'] != null
             ? DateTime.parse(json['date'] as String)

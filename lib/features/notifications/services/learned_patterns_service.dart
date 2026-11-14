@@ -1,6 +1,7 @@
 import 'package:hive/hive.dart';
 import 'package:finazaap/features/notifications/domain/models/learned_pattern.dart';
 import 'package:finazaap/features/notifications/domain/models/transaction_classification.dart';
+import 'package:finazaap/features/notifications/services/notification_box_encryption.dart';
 
 /// Servicio de almacenamiento local en Hive para patrones aprendidos de comercios.
 ///
@@ -12,17 +13,23 @@ class LearnedPatternsService {
 
   final Box<dynamic>? _injectedBox;
   final String _boxName;
+  final NotificationBoxEncryption? _boxEncryption;
 
   LearnedPatternsService({
     Box<dynamic>? box,
     String boxName = defaultBoxName,
+    NotificationBoxEncryption? boxEncryption,
   })  : _injectedBox = box,
-        _boxName = boxName;
+        _boxName = boxName,
+        _boxEncryption = boxEncryption;
 
-  /// Obtiene la caja Hive abierta, abriéndola si es necesario.
+  /// Obtiene la caja Hive abierta (cifrada si [_boxEncryption] está configurado).
   Future<Box<dynamic>> _getBox() async {
     if (_injectedBox != null) {
       return _injectedBox!;
+    }
+    if (_boxEncryption != null) {
+      return _boxEncryption!.openEncryptedBox(_boxName);
     }
     if (Hive.isBoxOpen(_boxName)) {
       return Hive.box<dynamic>(_boxName);
@@ -204,6 +211,19 @@ class LearnedPatternsService {
       }
     }
     return patterns;
+  }
+
+  /// Obtiene ejemplos compactos (few-shot) desde patrones validados por el usuario
+  /// para asistir a Gemma sin exponer texto crudo ni datos sensibles innecesarios.
+  Future<List<String>> getFewShotExamples({int limit = 3}) async {
+    final all = await getAllPatterns();
+    if (all.isEmpty) return const [];
+    all.sort((a, b) => b.confirmations.compareTo(a.confirmations));
+    return all
+        .take(limit)
+        .map((p) =>
+            'comercio="${p.merchantKey}" -> classification="${p.classification}", category="${p.category}"')
+        .toList();
   }
 
   /// Limpia todos los patrones aprendidos en la caja.

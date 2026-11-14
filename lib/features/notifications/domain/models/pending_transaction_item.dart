@@ -19,6 +19,7 @@ class PendingTransactionItem {
   final String decisionSource;
   final List<String> flags;
   final DateTime createdAt;
+  final String executionStatus; // 'pending' | 'executing' | 'executed'
 
   const PendingTransactionItem({
     required this.id,
@@ -40,6 +41,7 @@ class PendingTransactionItem {
     required this.decisionSource,
     this.flags = const [],
     required this.createdAt,
+    this.executionStatus = 'pending',
   });
 
   /// Determina si cumple todos los invariantes para aprobación masiva en lote ("Aceptar todo").
@@ -75,6 +77,7 @@ class PendingTransactionItem {
     String? decisionSource,
     List<String>? flags,
     DateTime? createdAt,
+    String? executionStatus,
   }) {
     return PendingTransactionItem(
       id: id ?? this.id,
@@ -96,6 +99,7 @@ class PendingTransactionItem {
       decisionSource: decisionSource ?? this.decisionSource,
       flags: flags ?? this.flags,
       createdAt: createdAt ?? this.createdAt,
+      executionStatus: executionStatus ?? this.executionStatus,
     );
   }
 
@@ -119,6 +123,7 @@ class PendingTransactionItem {
         'decision_source': decisionSource,
         'flags': flags,
         'created_at': createdAt.toIso8601String(),
+        'execution_status': executionStatus,
       };
 
   factory PendingTransactionItem.fromJson(
@@ -162,6 +167,9 @@ class PendingTransactionItem {
             : (json['createdAt'] != null
                 ? DateTime.parse(json['createdAt'] as String)
                 : DateTime.now()),
+        executionStatus: (json['execution_status'] ??
+                json['executionStatus']) as String? ??
+            'pending',
       );
 
   @override

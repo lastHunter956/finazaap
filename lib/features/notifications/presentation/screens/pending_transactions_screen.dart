@@ -4,6 +4,7 @@ import 'package:finazaap/features/notifications/domain/models/pending_transactio
 import 'package:finazaap/features/notifications/presentation/notifiers/pending_transactions_notifier.dart';
 import 'package:finazaap/features/notifications/presentation/widgets/correction_dialog.dart';
 import 'package:finazaap/features/notifications/presentation/widgets/pending_transaction_card.dart';
+import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 
@@ -41,10 +42,13 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
     super.initState();
     if (widget.notifier != null) {
       _notifier = widget.notifier!;
-    } else {
+    } else if (widget.isDemoMode) {
       _notifier = PendingTransactionsNotifier();
       _ownsNotifier = true;
       _notifier.initialize();
+    } else {
+      _notifier = NotificationPipelineService.instance.pendingNotifier;
+      NotificationPipelineService.instance.initialize();
     }
   }
 

@@ -1,20 +1,269 @@
 package com.example.finazaap
 
+import android.app.Notification
+import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.lang.ref.WeakReference
 
 /**
- * Servicio mínimo declarativo para que Android muestre a Moneo en
- * Ajustes -> Acceso a notificaciones y permita consultar el estado real del permiso.
+ * Servicio nativo Android para captura selectiva y offline de notificaciones bancarias.
  *
- * En esta etapa no captura ni persiste notificaciones reales del usuario.
+ * Reglas de privacidad y ciclo de vida:
+ * - Solo procesa notificaciones cuando la captura está habilitada explícitamente por el usuario
+ *   y el paquete origen pertenece a la lista de apps seleccionadas.
+ * - Descarta de inmediato cualquier otra notificación sin persistir su contenido.
+ * - No ejecuta IA ni abre/resuelve URLs dentro del callback nativo.
+ * - No registra texto sensible de notificaciones en logcat.
  */
 class MoneoNotificationListenerService : NotificationListenerService() {
+
+    companion object {
+        const val PREFS_NAME = "moneo_notif_prefs"
+        const val KEY_CAPTURE_ENABLED = "capture_enabled"
+        const val KEY_ALLOWED_PACKAGES = "allowed_packages"
+        private const val QUEUE_FILE_NAME = "moneo_notif_queue.json"
+        private const val MAX_QUEUE_SIZE = 500
+
+        private val queueLock = Any()
+
+        @Volatile
+        private var activeInstance: WeakReference<MoneoNotificationListenerService>? = null
+
+        @Volatile
+        private var eventListener: ((Map<String, Any?>) -> Unit)? = null
+
+        fun setEventListener(listener: ((Map<String, Any?>) -> Unit)?) {
+            eventListener = listener
+        }
+
+        fun syncConfig(context: Context, enabled: Boolean, allowedPackages: Set<String>) {
+            val prefs = context.applicationContext.getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+            prefs.edit()
+                .putBoolean(KEY_CAPTURE_ENABLED, enabled)
+                .putStringSet(KEY_ALLOWED_PACKAGES, allowedPackages)
+                .apply()
+        }
+
+        fun isCaptureEnabled(context: Context): Boolean {
+            val prefs = context.applicationContext.getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+            return prefs.getBoolean(KEY_CAPTURE_ENABLED, false)
+        }
+
+        fun getAllowedPackages(context: Context): Set<String> {
+            val prefs = context.applicationContext.getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+            return prefs.getStringSet(KEY_ALLOWED_PACKAGES, emptySet()) ?: emptySet()
+        }
+
+        fun peekQueue(context: Context): List<Map<String, Any?>> {
+            synchronized(queueLock) {
+                val array = readQueueArrayLocked(context.applicationContext)
+                val result = ArrayList<Map<String, Any?>>(array.length())
+                for (i in 0 until array.length()) {
+                    val obj = array.optJSONObject(i) ?: continue
+                    result.add(jsonObjectToMap(obj))
+                }
+                return result
+            }
+        }
+
+        fun ackQueueIds(context: Context, ids: Set<String>): Int {
+            if (ids.isEmpty()) return 0
+            synchronized(queueLock) {
+                val appCtx = context.applicationContext
+                val array = readQueueArrayLocked(appCtx)
+                val remaining = JSONArray()
+                var removed = 0
+                for (i in 0 until array.length()) {
+                    val obj = array.optJSONObject(i) ?: continue
+                    val id = obj.optString("id", "")
+                    if (ids.contains(id)) {
+                        removed++
+                    } else {
+                        remaining.put(obj)
+                    }
+                }
+                writeQueueArrayLocked(appCtx, remaining)
+                return removed
+            }
+        }
+
+        fun clearQueue(context: Context) {
+            synchronized(queueLock) {
+                val file = File(context.applicationContext.filesDir, QUEUE_FILE_NAME)
+                if (file.exists()) {
+                    file.delete()
+                }
+            }
+        }
+
+        fun collectActiveNotifications(context: Context): List<Map<String, Any?>> {
+            val service = activeInstance?.get() ?: return emptyList()
+            if (!isCaptureEnabled(context)) return emptyList()
+            val allowed = getAllowedPackages(context)
+            if (allowed.isEmpty()) return emptyList()
+
+            return try {
+                val active = service.activeNotifications ?: return emptyList()
+                val collected = ArrayList<Map<String, Any?>>()
+                for (sbn in active) {
+                    val map = extractAllowedNotification(sbn, allowed) ?: continue
+                    enqueueLocked(context.applicationContext, map)
+                    collected.add(map)
+                }
+                collected
+            } catch (_: SecurityException) {
+                emptyList()
+            } catch (_: Exception) {
+                emptyList()
+            }
+        }
+
+        private fun extractAllowedNotification(
+            sbn: StatusBarNotification?,
+            allowedPackages: Set<String>
+        ): Map<String, Any?>? {
+            if (sbn == null) return null
+            val pkg = sbn.packageName ?: return null
+            if (!allowedPackages.contains(pkg)) return null
+
+            val notification = sbn.notification ?: return null
+            if ((notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) {
+                return null
+            }
+
+            val extras = notification.extras ?: return null
+            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: ""
+            val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim()
+            val plainText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+            val body = when {
+                !bigText.isNullOrEmpty() -> bigText
+                !plainText.isNullOrEmpty() -> plainText
+                else -> ""
+            }
+
+            if (title.isEmpty() && body.isEmpty()) return null
+
+            val postTime = sbn.postTime
+            val sbnKey = sbn.key ?: "${pkg}_${sbn.id}_$postTime"
+            val eventId = "${sbnKey}_$postTime"
+
+            return mapOf(
+                "id" to eventId,
+                "sbnKey" to sbnKey,
+                "packageName" to pkg,
+                "title" to title,
+                "body" to body,
+                "timestampMs" to postTime
+            )
+        }
+
+        private fun enqueueLocked(context: Context, item: Map<String, Any?>) {
+            synchronized(queueLock) {
+                val array = readQueueArrayLocked(context)
+                val targetId = item["id"]?.toString() ?: return
+
+                for (i in 0 until array.length()) {
+                    val existing = array.optJSONObject(i) ?: continue
+                    if (existing.optString("id") == targetId) {
+                        return
+                    }
+                }
+
+                val jsonObj = JSONObject()
+                jsonObj.put("id", targetId)
+                jsonObj.put("sbnKey", item["sbnKey"]?.toString() ?: "")
+                jsonObj.put("packageName", item["packageName"]?.toString() ?: "")
+                jsonObj.put("title", item["title"]?.toString() ?: "")
+                jsonObj.put("body", item["body"]?.toString() ?: "")
+                jsonObj.put("timestampMs", (item["timestampMs"] as? Number)?.toLong() ?: System.currentTimeMillis())
+
+                array.put(jsonObj)
+
+                val trimmed = if (array.length() > MAX_QUEUE_SIZE) {
+                    val next = JSONArray()
+                    val start = array.length() - MAX_QUEUE_SIZE
+                    for (i in start until array.length()) {
+                        next.put(array.get(i))
+                    }
+                    next
+                } else {
+                    array
+                }
+
+                writeQueueArrayLocked(context, trimmed)
+            }
+        }
+
+        private fun readQueueArrayLocked(context: Context): JSONArray {
+            val file = File(context.filesDir, QUEUE_FILE_NAME)
+            if (!file.exists()) return JSONArray()
+            return try {
+                val content = file.readText(Charsets.UTF_8)
+                if (content.isBlank()) JSONArray() else JSONArray(content)
+            } catch (_: Exception) {
+                JSONArray()
+            }
+        }
+
+        private fun writeQueueArrayLocked(context: Context, array: JSONArray) {
+            val file = File(context.filesDir, QUEUE_FILE_NAME)
+            val tmpFile = File(context.filesDir, "$QUEUE_FILE_NAME.tmp")
+            tmpFile.writeText(array.toString(), Charsets.UTF_8)
+            if (!tmpFile.renameTo(file)) {
+                file.writeText(array.toString(), Charsets.UTF_8)
+                tmpFile.delete()
+            }
+        }
+
+        private fun jsonObjectToMap(obj: JSONObject): Map<String, Any?> {
+            return mapOf(
+                "id" to obj.optString("id", ""),
+                "sbnKey" to obj.optString("sbnKey", ""),
+                "packageName" to obj.optString("packageName", ""),
+                "title" to obj.optString("title", ""),
+                "body" to obj.optString("body", ""),
+                "timestampMs" to obj.optLong("timestampMs", 0L)
+            )
+        }
+    }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        activeInstance = WeakReference(this)
+        collectActiveNotifications(applicationContext)
+    }
+
+    override fun onListenerDisconnected() {
+        activeInstance = null
+        super.onListenerDisconnected()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        // Sin procesamiento en esta etapa (solo demo / configuración de permisos)
+        if (sbn == null) return
+        if (!isCaptureEnabled(applicationContext)) return
+
+        val allowed = getAllowedPackages(applicationContext)
+        if (allowed.isEmpty()) return
+
+        val eventMap = extractAllowedNotification(sbn, allowed) ?: return
+        enqueueLocked(applicationContext, eventMap)
+        eventListener?.invoke(eventMap)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        // No-op
+        // No-op: los eventos ya capturados permanecen en cola hasta ser procesados.
     }
 }

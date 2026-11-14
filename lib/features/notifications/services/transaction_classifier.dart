@@ -136,11 +136,18 @@ class TransactionClassifier {
     // =========================================================================
     final double? amount =
         parseResult is ParsedTransaction ? parseResult.monto : null;
+    List<String> fewShot = const [];
+    try {
+      fewShot = await _patternsService.getFewShotExamples(limit: 3);
+    } catch (_) {
+      fewShot = const [];
+    }
 
     final gemmaResult = await _gemmaAdapter.classify(
       rawText: text,
       merchant: merchant,
       amount: amount,
+      fewShotExamples: fewShot,
     );
 
     if (gemmaResult != null) {

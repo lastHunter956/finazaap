@@ -5,6 +5,7 @@ import 'package:finazaap/features/notifications/domain/models/pending_transactio
 import 'package:finazaap/features/notifications/domain/models/transaction_classification.dart';
 import 'package:finazaap/features/notifications/domain/ports/transaction_execution_port.dart';
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
+import 'package:finazaap/features/notifications/services/notification_box_encryption.dart';
 
 /// Resumen estructurado del resultado de ejecutar la aprobación masiva ("Aceptar todo").
 class BatchApprovalSummary {
@@ -41,26 +42,35 @@ class BatchApprovalSummary {
 ///    (`confidence >= 0.85`, `!requiresReview`, no sospechosas y con cuentas válidas).
 class PendingTransactionsNotifier extends ChangeNotifier {
   static const String defaultBoxName = 'pending_notifications';
+  static const String executedBoxName = 'notification_executed_ids';
 
   final Box<dynamic>? _injectedBox;
+  final Box<dynamic>? _injectedExecutedBox;
   final String _boxName;
   final LearnedPatternsService _learnedPatternsService;
   final TransactionExecutionPort _executionPort;
+  final NotificationBoxEncryption? _boxEncryption;
 
   List<PendingTransactionItem> _items = [];
+  final Set<String> _inFlightIds = {};
+  final Set<String> _memoryExecutedIds = {};
   bool _isLoading = false;
   String? _errorMessage;
 
   PendingTransactionsNotifier({
     Box<dynamic>? box,
+    Box<dynamic>? executedBox,
     String boxName = defaultBoxName,
     LearnedPatternsService? learnedPatternsService,
     TransactionExecutionPort? executionPort,
+    NotificationBoxEncryption? boxEncryption,
   })  : _injectedBox = box,
+        _injectedExecutedBox = executedBox,
         _boxName = boxName,
         _learnedPatternsService =
             learnedPatternsService ?? LearnedPatternsService(),
-        _executionPort = executionPort ?? MockTransactionExecutionAdapter();
+        _executionPort = executionPort ?? MockTransactionExecutionAdapter(),
+        _boxEncryption = boxEncryption;
 
   /// Lista de transacciones actualmente pendientes, ordenada de más reciente a más antigua.
   List<PendingTransactionItem> get items => List.unmodifiable(_items);
@@ -87,10 +97,13 @@ class PendingTransactionsNotifier extends ChangeNotifier {
   /// Puerto de ejecución utilizado por este notifier.
   TransactionExecutionPort get executionPort => _executionPort;
 
-  /// Obtiene la caja Hive subyacente.
+  /// Obtiene la caja Hive subyacente (cifrada si [_boxEncryption] está configurado).
   Future<Box<dynamic>> _getBox() async {
     if (_injectedBox != null) {
       return _injectedBox!;
+    }
+    if (_boxEncryption != null) {
+      return _boxEncryption!.openEncryptedBox(_boxName);
     }
     if (Hive.isBoxOpen(_boxName)) {
       return Hive.box<dynamic>(_boxName);
@@ -98,7 +111,37 @@ class PendingTransactionsNotifier extends ChangeNotifier {
     return await Hive.openBox<dynamic>(_boxName);
   }
 
-  /// Inicializa la bandeja cargando los ítems persistidos en Hive.
+  Future<Box<dynamic>?> _getExecutedBox() async {
+    if (_injectedExecutedBox != null) return _injectedExecutedBox!;
+    if (_injectedBox != null) return null; // En widget tests in-memory usa _memoryExecutedIds
+    if (_boxEncryption != null) {
+      return _boxEncryption!.openEncryptedBox(executedBoxName);
+    }
+    if (Hive.isBoxOpen(executedBoxName)) {
+      return Hive.box<dynamic>(executedBoxName);
+    }
+    return Hive.openBox<dynamic>(executedBoxName);
+  }
+
+  Future<bool> _isAlreadyExecuted(String id) async {
+    if (_memoryExecutedIds.contains(id)) return true;
+    final execBox = await _getExecutedBox();
+    return execBox?.containsKey(id) ?? false;
+  }
+
+  Future<void> _markExecuted(String id, {String? txId}) async {
+    _memoryExecutedIds.add(id);
+    final execBox = await _getExecutedBox();
+    if (execBox != null) {
+      await execBox.put(id, {
+        'executed_at': DateTime.now().toIso8601String(),
+        if (txId != null) 'tx_id': txId,
+      });
+    }
+  }
+
+  /// Inicializa la bandeja cargando los ítems persistidos en Hive y reconciliando
+  /// posibles estados intermedios (`executing`) tras un reinicio inesperado.
   Future<void> initialize() async {
     _isLoading = true;
     notifyListeners();
@@ -106,18 +149,41 @@ class PendingTransactionsNotifier extends ChangeNotifier {
     try {
       final box = await _getBox();
       final loaded = <PendingTransactionItem>[];
+      final keysToDelete = <dynamic>[];
 
       for (final key in box.keys) {
         final raw = box.get(key);
         if (raw is Map) {
           try {
-            loaded.add(
-              PendingTransactionItem.fromJson(Map<String, dynamic>.from(raw)),
-            );
+            var item =
+                PendingTransactionItem.fromJson(Map<String, dynamic>.from(raw));
+            if (await _isAlreadyExecuted(item.id) ||
+                item.executionStatus == 'executed') {
+              keysToDelete.add(key);
+              continue;
+            }
+            if (item.executionStatus == 'executing') {
+              final nextFlags = <String>{
+                ...item.flags,
+                'recovery_check_required',
+              }.toList();
+              item = item.copyWith(
+                executionStatus: 'pending',
+                requiresReview: true,
+                autoProcessable: false,
+                flags: nextFlags,
+              );
+              await box.put(item.id, item.toJson());
+            }
+            loaded.add(item);
           } catch (_) {
             // Ignorar entradas corruptas
           }
         }
+      }
+
+      for (final key in keysToDelete) {
+        await box.delete(key);
       }
 
       loaded.sort((a, b) => b.fecha.compareTo(a.fecha));
@@ -178,10 +244,36 @@ class PendingTransactionsNotifier extends ChangeNotifier {
   /// - Al ser exitoso, incrementa confirmaciones en [LearnedPatternsService] y
   ///   remueve el ítem de la caja `pending_notifications`.
   Future<bool> confirmItem(String id) async {
+    return _confirmInternal(id, recordHumanFeedback: true);
+  }
+
+  /// Acepta automáticamente un ítem elegible si el modo automático está activo.
+  ///
+  /// Nunca registra el movimiento en `learned_patterns` como etiqueta humana validada.
+  Future<bool> autoAcceptIfEligible(PendingTransactionItem item) async {
+    if (!item.isEligibleForAcceptAll) return false;
+    await addPendingItem(item);
+    return _confirmInternal(item.id, recordHumanFeedback: false);
+  }
+
+  Future<bool> _confirmInternal(
+    String id, {
+    required bool recordHumanFeedback,
+  }) async {
+    if (_inFlightIds.contains(id)) return false;
+
     final index = _items.indexWhere((i) => i.id == id);
     if (index < 0) return false;
 
     final item = _items[index];
+
+    if (await _isAlreadyExecuted(id)) {
+      final box = await _getBox();
+      await box.delete(item.id);
+      _items.removeWhere((i) => i.id == id);
+      notifyListeners();
+      return false;
+    }
 
     // Invariante de seguridad: Prohibido auto-confirmar o confirmar directamente sospechosas
     if (item.classification == 'sospechosa') {
@@ -222,41 +314,60 @@ class PendingTransactionsNotifier extends ChangeNotifier {
       amount: item.monto!,
       accountName: item.accountName!,
       destinationAccount: item.destinationAccount,
+      category: item.category,
       detail: item.comercio ?? item.rawText,
       date: item.fecha,
     );
 
-    final result = await _executionPort.execute(request);
-    if (!result.success) {
-      _errorMessage = result.errorMessage ?? 'Error al ejecutar la transacción';
-      notifyListeners();
-      return false;
-    }
-
-    // Feedback loop: Registrar confirmación en learned_patterns
-    final merchant = item.comercio ?? item.merchantKey;
-    if (merchant != null && merchant.trim().isNotEmpty) {
-      try {
-        await _learnedPatternsService.recordConfirmation(
-          merchant: merchant,
-          category: item.category ?? 'Otros',
-          accountName: item.accountName,
-          classification: item.classification,
-          moneoType: resolvedType,
-          at: DateTime.now(),
-        );
-      } catch (_) {
-        // La actualización de patrones no debe romper la confirmación de la tx
-      }
-    }
-
+    _inFlightIds.add(id);
     final box = await _getBox();
-    await box.delete(item.id);
-    _items.removeAt(index);
-    _errorMessage = null;
+    try {
+      await box.put(
+        item.id,
+        item.copyWith(executionStatus: 'executing').toJson(),
+      );
 
-    notifyListeners();
-    return true;
+      final result = await _executionPort.execute(request);
+      if (!result.success) {
+        await box.put(
+          item.id,
+          item.copyWith(executionStatus: 'pending').toJson(),
+        );
+        _errorMessage = result.errorMessage ?? 'Error al ejecutar la transacción';
+        notifyListeners();
+        return false;
+      }
+
+      await _markExecuted(item.id, txId: result.transactionId);
+
+      // Feedback loop: Solo confirmaciones humanas actualizan learned_patterns
+      if (recordHumanFeedback) {
+        final merchant = item.comercio ?? item.merchantKey;
+        if (merchant != null && merchant.trim().isNotEmpty) {
+          try {
+            await _learnedPatternsService.recordConfirmation(
+              merchant: merchant,
+              category: item.category ?? 'Otros',
+              accountName: item.accountName,
+              classification: item.classification,
+              moneoType: resolvedType,
+              at: DateTime.now(),
+            );
+          } catch (_) {
+            // La actualización de patrones no debe romper la confirmación de la tx
+          }
+        }
+      }
+
+      await box.delete(item.id);
+      _items.removeWhere((i) => i.id == id);
+      _errorMessage = null;
+
+      notifyListeners();
+      return true;
+    } finally {
+      _inFlightIds.remove(id);
+    }
   }
 
   /// Aplica una corrección explícita del usuario a una transacción pendiente.
@@ -310,41 +421,62 @@ class PendingTransactionsNotifier extends ChangeNotifier {
       amount: effectiveAmount,
       accountName: newAccountName,
       destinationAccount: newDestinationAccount,
+      category: newCategory,
       detail: effectiveDetail,
       date: newDate ?? item.fecha,
     );
 
-    final result = await _executionPort.execute(request);
-    if (!result.success) {
-      _errorMessage = result.errorMessage ?? 'Error al ejecutar la corrección';
-      notifyListeners();
+    if (_inFlightIds.contains(id) || await _isAlreadyExecuted(id)) {
       return false;
     }
 
-    // Feedback loop: Registrar corrección en learned_patterns
-    final merchant = item.comercio ?? item.merchantKey ?? 'comercio';
-    if (merchant.trim().isNotEmpty) {
-      try {
-        await _learnedPatternsService.recordCorrection(
-          merchant: merchant,
-          newCategory: newCategory,
-          newAccountName: newAccountName,
-          newClassification: newClassification,
-          newMoneoType: resolvedType,
-          at: DateTime.now(),
-        );
-      } catch (_) {
-        // La actualización de patrones no debe romper la corrección de la tx
-      }
-    }
-
+    _inFlightIds.add(id);
     final box = await _getBox();
-    await box.delete(item.id);
-    _items.removeAt(index);
-    _errorMessage = null;
+    try {
+      await box.put(
+        item.id,
+        item.copyWith(executionStatus: 'executing').toJson(),
+      );
 
-    notifyListeners();
-    return true;
+      final result = await _executionPort.execute(request);
+      if (!result.success) {
+        await box.put(
+          item.id,
+          item.copyWith(executionStatus: 'pending').toJson(),
+        );
+        _errorMessage = result.errorMessage ?? 'Error al ejecutar la corrección';
+        notifyListeners();
+        return false;
+      }
+
+      await _markExecuted(item.id, txId: result.transactionId);
+
+      // Feedback loop: Registrar corrección en learned_patterns
+      final merchant = item.comercio ?? item.merchantKey ?? 'comercio';
+      if (merchant.trim().isNotEmpty) {
+        try {
+          await _learnedPatternsService.recordCorrection(
+            merchant: merchant,
+            newCategory: newCategory,
+            newAccountName: newAccountName,
+            newClassification: newClassification,
+            newMoneoType: resolvedType,
+            at: DateTime.now(),
+          );
+        } catch (_) {
+          // La actualización de patrones no debe romper la corrección de la tx
+        }
+      }
+
+      await box.delete(item.id);
+      _items.removeWhere((i) => i.id == id);
+      _errorMessage = null;
+
+      notifyListeners();
+      return true;
+    } finally {
+      _inFlightIds.remove(id);
+    }
   }
 
   /// Descarta un ítem de la bandeja sin tocar saldos ni patrones aprendidos.

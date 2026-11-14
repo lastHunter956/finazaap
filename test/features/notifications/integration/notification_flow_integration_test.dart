@@ -214,8 +214,11 @@ void main() {
         ),
       );
 
-      // Esperar brevemente a que el stream asíncrono complete
-      await Future<void>.delayed(const Duration(milliseconds: 250));
+      // Esperar a que el stream asíncrono procese los 3 eventos válidos
+      final deadline = DateTime.now().add(const Duration(seconds: 3));
+      while (notifier.count < 3 && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
 
       // Verificación de la capa de Ingestión:
       // De 5 eventos: 3 aceptados, 1 descartado por no-whitelist, 1 descartado por duplicado

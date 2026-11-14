@@ -5,8 +5,10 @@ import 'package:finazaap/Screens/pin_code_screen.dart';
 import 'package:finazaap/services/notification_service.dart';
 import 'package:finazaap/services/data_management_service.dart';
 import 'package:finazaap/features/notifications/adapters/simulated_notification_source.dart';
+import 'package:finazaap/features/notifications/domain/ports/notification_source_port.dart';
 import 'package:finazaap/features/notifications/presentation/screens/pending_transactions_screen.dart';
 import 'package:finazaap/features/notifications/services/bank_whitelist_service.dart';
+import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
@@ -20,15 +22,21 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with WidgetsBindingObserver {
   final PinProvider _pinProvider = PinProvider();
   final NotificationService _notificationService = NotificationService();
-  final BankWhitelistService _whitelistService = BankWhitelistService();
+  final NotificationPipelineService _pipeline =
+      NotificationPipelineService.instance;
+  BankWhitelistService get _whitelistService => _pipeline.whitelistService;
   bool _isLoading = true;
   bool _pinEnabled = false;
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
   bool _notificationsEnabled = false;
+  bool _bankCaptureEnabled = false;
+  bool _autoAcceptFutureEnabled = false;
+  bool _notificationAccessGranted = false;
   String _selectedCurrency = 'COP';
   
   // Configuración de notificaciones
@@ -53,25 +61,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshNotificationPermission();
+    }
+  }
+
+  Future<void> _refreshNotificationPermission() async {
+    final status = await _pipeline.source.checkStatus();
+    if (!mounted) return;
+    setState(() {
+      _notificationAccessGranted =
+          status.permissionStatus == NotificationPermissionStatus.granted;
+    });
   }
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await _whitelistService.loadFromPrefs();
+    var accessGranted = false;
+    try {
+      await _pipeline.initialize();
+      final sourceStatus = await _pipeline.source.checkStatus();
+      accessGranted =
+          sourceStatus.permissionStatus == NotificationPermissionStatus.granted;
+    } catch (_) {
+      await _whitelistService.loadFromPrefs();
+    }
     
     // Check biometric availability
-    await _pinProvider.checkBiometricAvailability();
+    try {
+      await _pinProvider.checkBiometricAvailability();
+    } catch (_) {}
     
     // Cargar configuración de notificaciones
     final hour = await _notificationService.getHour();
     final minute = await _notificationService.getMinute();
     
+    if (!mounted) return;
     setState(() {
       _pinEnabled = prefs.getBool('pin_enabled') ?? false;
       _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
       _biometricAvailable = _pinProvider.isBiometricAvailable;
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
+      _bankCaptureEnabled = _pipeline.isCaptureEnabled;
+      _autoAcceptFutureEnabled = _pipeline.isAutoAcceptFutureEnabled;
+      _notificationAccessGranted = accessGranted;
       _selectedCurrency = prefs.getString('default_currency') ?? 'COP';
       _daysBefore = prefs.getInt('notification_days_before') ?? 1;
       _sameDay = prefs.getBool('notification_same_day') ?? true;
@@ -234,6 +279,219 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _toggleBankCapture(bool value) async {
+    if (value) {
+      final accepted = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: context.appTheme.cardBackground,
+          title: Text(
+            'Captura de notificaciones bancarias',
+            style: TextStyle(color: context.appTheme.textPrimary),
+          ),
+          content: Text(
+            'Moneo leerá únicamente las notificaciones de las apps que selecciones.\n\n'
+            '• Qué se guarda: texto de la notificación y clasificación propuesta en cajas locales cifradas con AES-256 en tu dispositivo (100% offline).\n'
+            '• Qué NO hace: no envía datos a servidores externos ni lee tu historial de SMS.\n'
+            '• Historial previo: Android solo entrega notificaciones nuevas o activas; no es posible recuperar notificaciones descartadas antes de habilitar el permiso.\n'
+            '• Control total: puedes desactivar o eliminar todos los datos desde Configuración en cualquier momento.',
+            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'Cancelar',
+                style: TextStyle(color: context.appTheme.textSecondary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: context.appTheme.accent,
+                foregroundColor: context.appTheme.buttonForeground,
+              ),
+              child: const Text('Activar'),
+            ),
+          ],
+        ),
+      );
+      if (accepted != true || !mounted) return;
+
+      await _pipeline.setCaptureEnabled(true);
+      await _refreshNotificationPermission();
+      if (!mounted) return;
+      setState(() => _bankCaptureEnabled = true);
+
+      if (!_notificationAccessGranted) {
+        AlertHelper.info(
+          context,
+          'Captura activada. Otorga el permiso de acceso a notificaciones en Ajustes de Android.',
+        );
+      } else {
+        AlertHelper.success(context, 'Captura de notificaciones activada');
+      }
+    } else {
+      await _pipeline.setCaptureEnabled(false);
+      if (!mounted) return;
+      setState(() => _bankCaptureEnabled = false);
+      AlertHelper.info(context, 'Captura de notificaciones desactivada');
+    }
+  }
+
+  Future<void> _toggleAutoAcceptFuture(bool value) async {
+    await _pipeline.setAutoAcceptFutureEnabled(value);
+    if (!mounted) return;
+    setState(() => _autoAcceptFutureEnabled = value);
+    AlertHelper.info(
+      context,
+      value
+          ? 'Auto-aceptación activada solo para movimientos futuros de alta confianza.'
+          : 'Auto-aceptación automática desactivada.',
+    );
+  }
+
+  Future<void> _showLearnedPatternsSheet() async {
+    final patterns = await _pipeline.patternsService.getAllPatterns();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: context.appTheme.cardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Patrones aprendidos (${patterns.length})',
+                      style: TextStyle(
+                        color: context.appTheme.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Reglas locales guardadas a partir de tus confirmaciones o correcciones manuales.',
+                      style: TextStyle(
+                        color: context.appTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (patterns.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                          child: Text(
+                            'Aún no hay patrones aprendidos.',
+                            style: TextStyle(
+                              color: context.appTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: patterns.length,
+                          separatorBuilder: (_, __) => Divider(
+                            height: 1,
+                            color: context.appTheme.borderSubtle,
+                          ),
+                          itemBuilder: (_, index) {
+                            final p = patterns[index];
+                            return ListTile(
+                              dense: true,
+                              title: Text(
+                                p.merchantKey,
+                                style: TextStyle(
+                                  color: context.appTheme.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${p.classification} • ${p.category} • ${p.accountName ?? "Sin cuenta"} (${p.confirmations}x)',
+                                style: TextStyle(
+                                  color: context.appTheme.textSecondary,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                              trailing: IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: context.appTheme.error,
+                                ),
+                                onPressed: () async {
+                                  await _pipeline.patternsService
+                                      .deletePattern(p.merchantKey);
+                                  patterns.removeAt(index);
+                                  setSheetState(() {});
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmWipeNotificationData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.appTheme.cardBackground,
+        title: Text(
+          'Eliminar datos de notificaciones',
+          style: TextStyle(color: context.appTheme.textPrimary),
+        ),
+        content: Text(
+          'Se eliminarán las transacciones pendientes, el historial de deduplicación, '
+          'los patrones aprendidos y la cola nativa. Tus transacciones ya confirmadas en Moneo no se borrarán.',
+          style: TextStyle(color: context.appTheme.textSecondary, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: context.appTheme.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.appTheme.error,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _pipeline.wipeAllNotificationData();
+    if (!mounted) return;
+    setState(() {});
+    AlertHelper.success(context, 'Datos de notificaciones eliminados');
+  }
+
   String _formatTime(TimeOfDay time) {
     final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
     final minute = time.minute.toString().padLeft(2, '0');
@@ -284,11 +542,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Container(
-                  decoration: BoxDecoration(
-                    color: context.appTheme.cardBackground,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                Material(
+                  color: context.appTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.antiAlias,
                   child: ListTile(
                     title: Text('Divisa por defecto', style: TextStyle(color: context.appTheme.textPrimary)),
                     subtitle: Text(
@@ -356,11 +613,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Container(
-                  decoration: BoxDecoration(
-                    color: context.appTheme.cardBackground,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                Material(
+                  color: context.appTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
                       SwitchListTile(
@@ -423,11 +679,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Container(
-                  decoration: BoxDecoration(
-                    color: context.appTheme.cardBackground,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                Material(
+                  color: context.appTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
                       // Toggle principal
@@ -442,6 +697,107 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: _toggleNotifications,
                       ),
                       
+                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      SwitchListTile(
+                        key: const Key('settings_bank_capture_switch'),
+                        secondary: Icon(
+                          Icons.notifications_active_outlined,
+                          color: context.appTheme.accent,
+                        ),
+                        title: Text(
+                          'Captura automática bancaria',
+                          style: TextStyle(color: context.appTheme.textPrimary),
+                        ),
+                        subtitle: Text(
+                          _bankCaptureEnabled
+                              ? (_notificationAccessGranted
+                                  ? 'Activa • Permiso Android concedido (cifrado local AES-256)'
+                                  : 'Falta permiso de acceso a notificaciones en Android')
+                              : 'Desactivada • Solo procesa apps seleccionadas, 100% offline',
+                          style: TextStyle(
+                            color: _bankCaptureEnabled && !_notificationAccessGranted
+                                ? context.appTheme.warning
+                                : context.appTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        value: _bankCaptureEnabled,
+                        activeThumbColor: context.appTheme.accent,
+                        onChanged: _toggleBankCapture,
+                      ),
+
+                      if (_bankCaptureEnabled && !_notificationAccessGranted) ...[
+                        Divider(height: 1, color: context.appTheme.borderSubtle),
+                        ListTile(
+                          key: const Key('settings_grant_notification_access_tile'),
+                          leading: Icon(
+                            Icons.security_update_warning_outlined,
+                            color: context.appTheme.warning,
+                          ),
+                          title: Text(
+                            'Otorgar acceso a notificaciones',
+                            style: TextStyle(color: context.appTheme.warning),
+                          ),
+                          subtitle: Text(
+                            'Abre Ajustes de Android y habilita "Moneo Notificaciones"',
+                            style: TextStyle(
+                              color: context.appTheme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.open_in_new,
+                            color: context.appTheme.warning,
+                          ),
+                          onTap: () => _whitelistService
+                              .openNotificationAccessSettings(),
+                        ),
+                      ],
+
+                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      ListenableBuilder(
+                        listenable: _pipeline.pendingNotifier,
+                        builder: (context, _) {
+                          final pendingCount = _pipeline.pendingNotifier.count;
+                          return ListTile(
+                            key: const Key('settings_real_inbox_tile'),
+                            leading: Icon(
+                              Icons.move_to_inbox_outlined,
+                              color: context.appTheme.accent,
+                            ),
+                            title: Text(
+                              'Bandeja de Pendientes',
+                              style:
+                                  TextStyle(color: context.appTheme.textPrimary),
+                            ),
+                            subtitle: Text(
+                              pendingCount > 0
+                                  ? '$pendingCount movimientos detectados por revisar'
+                                  : 'Revisa y confirma movimientos antes de afectar saldos',
+                              style: TextStyle(
+                                color: context.appTheme.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                            trailing: Icon(
+                              Icons.chevron_right,
+                              color: context.appTheme.textSecondary,
+                            ),
+                            onTap: () async {
+                              await _pipeline.syncOnResume();
+                              if (!context.mounted) return;
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => PendingTransactionsScreen(
+                                    notifier: _pipeline.pendingNotifier,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+
                       Divider(height: 1, color: context.appTheme.borderSubtle),
                       ListTile(
                         key: const Key('settings_bank_whitelist_tile'),
@@ -465,6 +821,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: context.appTheme.textSecondary,
                         ),
                         onTap: _showBankAppsSheet,
+                      ),
+
+                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      SwitchListTile(
+                        key: const Key('settings_auto_accept_future_switch'),
+                        secondary: Icon(
+                          Icons.bolt_outlined,
+                          color: context.appTheme.accent,
+                        ),
+                        title: Text(
+                          'Aceptar automáticamente futuras',
+                          style: TextStyle(color: context.appTheme.textPrimary),
+                        ),
+                        subtitle: Text(
+                          'Desactivado por defecto. Solo aplica a futuras notificaciones elegibles de alta confianza (≥85%); ambiguas o sospechosas quedan pendientes.',
+                          style: TextStyle(
+                            color: context.appTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        value: _autoAcceptFutureEnabled,
+                        activeThumbColor: context.appTheme.accent,
+                        onChanged: _toggleAutoAcceptFuture,
+                      ),
+
+                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      ListTile(
+                        key: const Key('settings_learned_patterns_tile'),
+                        leading: Icon(
+                          Icons.psychology_outlined,
+                          color: context.appTheme.accent,
+                        ),
+                        title: Text(
+                          'Patrones aprendidos',
+                          style: TextStyle(color: context.appTheme.textPrimary),
+                        ),
+                        subtitle: Text(
+                          'Ver o eliminar reglas locales de comercios',
+                          style: TextStyle(
+                            color: context.appTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: context.appTheme.textSecondary,
+                        ),
+                        onTap: _showLearnedPatternsSheet,
+                      ),
+
+                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      ListTile(
+                        key: const Key('settings_wipe_notifications_tile'),
+                        leading: Icon(
+                          Icons.delete_sweep_outlined,
+                          color: context.appTheme.error,
+                        ),
+                        title: Text(
+                          'Eliminar datos de notificaciones',
+                          style: TextStyle(color: context.appTheme.error),
+                        ),
+                        subtitle: Text(
+                          'Borra bandeja pendiente, patrones aprendidos y cola nativa',
+                          style: TextStyle(
+                            color: context.appTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        onTap: _confirmWipeNotificationData,
                       ),
 
                       if (kDebugMode) ...[
@@ -636,18 +1061,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // ═══════════════════════════════════════════════════════════
                 // SECCIÓN: DATOS
                 // ═══════════════════════════════════════════════════════════
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Material(
                     color: context.appTheme.cardBackground,
                     borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
                           'Datos',
                           style: TextStyle(
                             color: context.appTheme.accent,
@@ -719,6 +1144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
+                ),
                 ),
                 
                 const SizedBox(height: 40),
@@ -1373,6 +1799,8 @@ class _AllowedAppsSheetState extends State<_AllowedAppsSheet>
                                     value,
                                     appName: app.appName,
                                   );
+                                  await NotificationPipelineService.instance
+                                      .syncWhitelistToNative();
                                   setState(() {});
                                   widget.onChanged();
                                 },

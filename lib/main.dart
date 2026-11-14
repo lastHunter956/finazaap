@@ -19,6 +19,7 @@ import 'package:finazaap/services/ai_chat_service.dart';
 import 'package:finazaap/themes/app_theme_mode.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/core/theme_notifier.dart';
+import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 
 /// Punto de entrada principal de FinazaApp
 /// Inicializa servicios de seguridad, Hive y registra adaptadores
@@ -115,6 +116,14 @@ void main() async {
       AppLogger.success('NotificationService inicializado');
     } catch (e) {
       AppLogger.warning('Error en servicio de notificaciones: $e');
+    }
+
+    // 3.5. Inicializar pipeline real de notificaciones bancarias (Fallo recuperable)
+    try {
+      await NotificationPipelineService.instance.initialize();
+      AppLogger.success('NotificationPipelineService inicializado');
+    } catch (e) {
+      AppLogger.warning('Error en pipeline de notificaciones bancarias: $e');
     }
     
     // Inicializar preferencia de tema

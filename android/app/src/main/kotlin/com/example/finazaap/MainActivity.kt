@@ -15,6 +15,7 @@ import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
 
@@ -74,9 +75,54 @@ class MainActivity : FlutterFragmentActivity() {
                             result.error("SETTINGS_ERROR", e.message, null)
                         }
                     }
+                    "syncCaptureConfig" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: false
+                        val packages = call.argument<List<String>>("allowedPackages") ?: emptyList()
+                        MoneoNotificationListenerService.syncConfig(
+                            this,
+                            enabled,
+                            packages.toSet()
+                        )
+                        result.success(true)
+                    }
+                    "peekQueuedNotifications" -> {
+                        result.success(MoneoNotificationListenerService.peekQueue(this))
+                    }
+                    "ackQueuedNotifications" -> {
+                        val ids = call.argument<List<String>>("ids") ?: emptyList()
+                        val removed = MoneoNotificationListenerService.ackQueueIds(
+                            this,
+                            ids.toSet()
+                        )
+                        result.success(removed)
+                    }
+                    "fetchActiveNotifications" -> {
+                        val collected = MoneoNotificationListenerService.collectActiveNotifications(this)
+                        result.success(collected)
+                    }
+                    "clearNativeQueue" -> {
+                        MoneoNotificationListenerService.clearQueue(this)
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger,
+                     "com.example.finazaap/notifications_events")
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    MoneoNotificationListenerService.setEventListener { eventMap ->
+                        runOnUiThread {
+                            events?.success(eventMap)
+                        }
+                    }
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    MoneoNotificationListenerService.setEventListener(null)
+                }
+            })
     }
 
     private fun loadLaunchableApps(): List<Map<String, Any?>> {
