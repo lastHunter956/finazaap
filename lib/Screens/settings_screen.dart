@@ -12,6 +12,7 @@ import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/app_theme_mode.dart';
 import 'package:finazaap/core/theme_notifier.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -559,16 +560,24 @@ class _SettingsScreenState extends State<SettingsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
-      appBar: AppBar(
-        title: Text('Ajustes', style: TextStyle(color: context.appTheme.textPrimary)),
-        backgroundColor: context.appTheme.cardBackground,
-        iconTheme: IconThemeData(color: context.appTheme.textPrimary),
-      ),
-      body: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
+      body: Column(
+        children: [
+          MoneoHeaderBar.primaryTab(title: 'Ajustes'),
+          Expanded(
+            child: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: context.appTheme.accent,
+                    ),
+                  )
+                : ListView(
+                    padding: MoneoLayoutMetrics.scrollBottomPadding(
+                      context,
+                      hasFab: false,
+                      horizontal: 16,
+                      top: 16,
+                    ),
+                    children: [
                 // ═══════════════════════════════════════════════════════════════
                 // SECCIÓN: GENERAL
                 // ═══════════════════════════════════════════════════════════════
@@ -1177,9 +1186,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
                 ),
                 
-                const SizedBox(height: 40),
+                const SizedBox(height: 8),
               ],
             ),
+          ),
+        ],
+      ),
     );
   }
   

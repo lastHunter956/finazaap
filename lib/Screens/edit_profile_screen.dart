@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final Function(String, XFile?) onSave;
@@ -17,25 +19,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.appTheme;
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Edit Profile'),
-      ),
+      backgroundColor: t.primaryBackground,
+      appBar: MoneoHeaderBar.subScreen(
+        title: 'Editar Perfil',
+      ).asPreferredSize(context),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             TextField(
               controller: _nameController,
-              decoration: InputDecoration(labelText: 'Name'),
+              style: TextStyle(color: t.textPrimary),
+              decoration: const InputDecoration(labelText: 'Name'),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 widget.onSave(_nameController.text, _profileImage);
                 Navigator.pop(context);
               },
-              child: Text('Save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: t.buttonBackground,
+                foregroundColor: t.buttonForeground,
+              ),
+              child: const Text('Save'),
             ),
           ],
         ),

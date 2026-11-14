@@ -14,6 +14,7 @@ import 'package:finazaap/widgets/show_responsibility_options.dart';
 import 'package:finazaap/widgets/add_responsibility_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 class AnnualProjectionScreen extends StatefulWidget {
   const AnnualProjectionScreen({Key? key}) : super(key: key);
@@ -465,23 +466,9 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
-      appBar: AppBar(
-        backgroundColor: context.appTheme.cardBackground,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: context.appTheme.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Proyección Anual',
-          style: TextStyle(
-            color: context.appTheme.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
+      appBar: MoneoHeaderBar.subScreen(
+        title: 'Proyección Anual',
+      ).asPreferredSize(context),
       body: ValueListenableBuilder(
         valueListenable: ResponsibilityService.getBox().listenable(),
         builder: (context, Box<Responsibility> box, _) {

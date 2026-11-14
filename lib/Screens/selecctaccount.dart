@@ -16,6 +16,7 @@ import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/theme.dart';
 import 'package:finazaap/core/utils/app_logger.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 // Clase para dibujar líneas punteadas (MOVIDA AL INICIO)
 class DashedLinePainter extends CustomPainter {
@@ -299,82 +300,65 @@ class _MyHomePageState extends State<MyHomePage> {
     // Formateador de moneda eliminado
 
     return Scaffold(
-      backgroundColor: AppColors.primaryBackground,
-      // Eliminamos el AppBar predeterminado
+      backgroundColor: context.appTheme.primaryBackground,
       appBar: null,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Contenedor personalizado para el título y flecha de retroceso
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: AppSizes.paddingLarge, vertical: 20.0),
-              decoration: BoxDecoration(
-                color: AppColors.cardBackground,
-              ),
-              child: Row(
-                children: [
-                  // Botón de retroceso (solo si se muestra)
-                  if (widget.showBackButton)
-                    IconButton(
-                      icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                      onPressed: () {
-                        _updateTotalBalance();
-                        Navigator.pop(context);
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(),
-                    ),
-                  if (widget.showBackButton) SizedBox(width: 16),
-                  // Título
-                  Expanded(
-                    child: Text(
-                      _isReorderMode ? 'Reordenar Cuentas' : 'Cuentas',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MoneoHeaderBar.subScreen(
+            title: _isReorderMode ? 'Reordenar Cuentas' : 'Cuentas',
+            showBackButton: widget.showBackButton,
+            onBack: () {
+              _updateTotalBalance();
+              Navigator.pop(context);
+            },
+            actions: [
+              if (_isReorderMode)
+                TextButton.icon(
+                  onPressed: _saveCustomOrder,
+                  icon: Icon(
+                    Icons.check,
+                    color: context.appTheme.success,
+                    size: 20,
+                  ),
+                  label: Text(
+                    'Guardar',
+                    style: TextStyle(
+                      color: context.appTheme.success,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  // Botón Guardar (solo en modo reorder)
-                  if (_isReorderMode)
-                    TextButton.icon(
-                      onPressed: _saveCustomOrder,
-                      icon: Icon(Icons.check, color: const Color(0xFF2ECC71), size: 20),
-                      label: Text(
-                        'Guardar',
-                        style: TextStyle(
-                          color: const Color(0xFF2ECC71),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFF2ECC71).withOpacity(0.15),
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
+                  style: TextButton.styleFrom(
+                    backgroundColor:
+                        context.appTheme.success.withValues(alpha: 0.15),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                  // Botón de ordenar (solo cuando no está en modo reorder)
-                  if (!_isReorderMode)
-                    IconButton(
-                      icon: Icon(
-                        Icons.sort,
-                        color: AppColors.textPrimary,
-                        size: 24,
-                      ),
-                      onPressed: _showSortOptions,
-                      tooltip: 'Ordenar cuentas',
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                ],
-              ),
-            ),
+                  ),
+                ),
+              if (!_isReorderMode)
+                MoneoPressableScale(
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.sort,
+                      color: context.appTheme.textPrimary,
+                      size: 24,
+                    ),
+                    onPressed: _showSortOptions,
+                    tooltip: 'Ordenar cuentas',
+                  ),
+                ),
+            ],
+          ),
 
-            // El resto del contenido en un SingleChildScrollView
-            // El resto del contenido
-            Expanded(
+          // El resto del contenido
+          Expanded(
+            child: SafeArea(
+              top: false,
               child: _isReorderMode
                   ? ReorderableListView(
                       padding: const EdgeInsets.only(bottom: 80),
@@ -450,8 +434,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
@@ -460,8 +444,9 @@ class _MyHomePageState extends State<MyHomePage> {
             _saveAccount(newItem);
           }
         },
-        backgroundColor: AppColors.accent,
-        child: Icon(Icons.add, color: AppColors.primaryBackground),
+        backgroundColor: context.appTheme.buttonBackground,
+        foregroundColor: context.appTheme.buttonForeground,
+        child: Icon(Icons.add, color: context.appTheme.buttonForeground),
       ),
     );
   }
