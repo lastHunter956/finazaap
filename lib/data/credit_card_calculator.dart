@@ -71,6 +71,7 @@ class CreditCardCalculator {
   /// @param interestRate Tasa de interés mensual (opcional, para cálculos con interés)
   static double calculateMonthlyPayment(String cardName, int month, int year, {int? cutoffDay, double? interestRate}) {
     try {
+      if (calculateTotalDebt(cardName) <= 0) return 0.0;
       final box = _getTransactionBox();
       double monthlyPayment = 0.0;
       int activeInstallments = 0;

@@ -117,8 +117,8 @@
 | **L2.1** | **CONFIRMADO** | CRÍTICO | `add_expense.dart:721-759`, `transaction_service.dart:149`, `responsibility_service.dart:302-455` | Doble suma de deuda (`syncCardBalance` + `processDebtIncrease`); cuotas no se revierten. |
 | **L2.2** | **CONFIRMADO** | CRÍTICO | `edit_account_dialogs.dart:75,598-601`, `selecctaccount.dart:723`, `add_account_dialogs.dart:660` | `balance` mezcla cupo total/disponible; editar tarjeta sobrescribe `creditLimit`. |
 | **L2.3** | **CONFIRMADO** | ALTO | `credit_card_calculator.dart:81,96`, `add_expense.dart:113`, `edit_account_dialogs.dart:604` | Tasa `2.0%` fantasma cuando `interestRate == null`. |
-| **L2.4** | **CONFIRMADO** | ALTO | `credit_card_calculator.dart:22-64,72-127` | Cuotas futuras siguen cobrándose aunque la deuda total ya sea `0`. |
-| **L2.5** | **CONFIRMADO** | ALTO | `responsibility.dart:153-168` | `getDynamicQuota` devuelve `minimumPayment` aunque `dynamicCardBalance <= 0`. |
+| **L2.4** | **CORREGIDO (rama `agent/ui/credit-card-accounting-fixes`)** | ALTO | `credit_card_calculator.dart:72-76` | `calculateMonthlyPayment` retorna `0.0` si `calculateTotalDebt <= 0`; cubierto en `test/audit/t1_3b_credit_card_calculator_test.dart`. |
+| **L2.5** | **CORREGIDO (rama `agent/ui/credit-card-accounting-fixes`)** | ALTO | `responsibility.dart:150-166,416-427` | `getDynamicQuota` y `getAmountForDate` retornan `0.0` en tarjetas sin deuda; cubierto en `test/audit/t1_3b_credit_card_calculator_test.dart`. |
 | **L2.6** | **CONFIRMADO** | MEDIO | `credit_card_calculator.dart:107-109,155-184` | Compras post-corte vs pagos filtrados por mes calendario. |
 | **L3.1** | **CONFIRMADO** | CRÍTICO | `responsibilities_screen.dart:1036-1062`, `annual_projection_screen.dart:335-445`, `credit_card_calculator.dart:34-54,166-176` | "Pagar obligación" de TC registra `'Expenses'` en vez de `'Transfer'`. |
 | **L3.2** | **NO REPRODUCIDO** | BAJO | `responsibility_service.dart:141-144` | En `docs/audit/repro/accounting_repro_test.dart` `togglePaidStatus` **pasó** (`isPaid == true`); no se demostró fallo en el escenario probado. |

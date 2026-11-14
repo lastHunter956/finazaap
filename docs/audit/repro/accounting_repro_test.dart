@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:finazaap/core/prefs_manager.dart';
-import 'package:finazaap/data/credit_card_calculator.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/data/responsibility_service.dart';
@@ -53,60 +52,6 @@ void main() {
     if (tempDir.existsSync()) {
       tempDir.deleteSync(recursive: true);
     }
-  });
-
-  test('L2.4 esperado: cuota mensual es 0.0 si la deuda total de la TC ya fue saldada', () async {
-    // Campos de Add_data en Hive:
-    // - IN ('Expenses'): compra con tarjeta en cuotas.
-    // - amount ('1200000'): capital total de la compra.
-    // - installments ('12'): número de cuotas mensuales (100.000/mes).
-    // - isInterestFree (true): sin intereses, para aislar el cálculo de capital.
-    // - Transfer ('Ahorros > Visa', '1200000'): pago total de la deuda antes del mes siguiente.
-    // Por qué el esperado es 0.0: si calculateTotalDebt('Visa') == 0.0 (no queda capital adeudado),
-    // cobrar 100.000 mensuales durante los 11 meses restantes exige pagar una deuda inexistente.
-    final dataBox = Hive.box<Add_data>('data');
-    await dataBox.add(Add_data(
-      'Expenses',
-      '1200000',
-      DateTime(2026, 10, 5),
-      'Portátil',
-      'Compras',
-      'Visa',
-      0,
-      '12',
-      true,
-    ));
-    await dataBox.add(Add_data(
-      'Transfer',
-      '1200000',
-      DateTime(2026, 10, 20),
-      'Pago total',
-      'Ahorros > Visa',
-      '',
-    ));
-
-    final debt = CreditCardCalculator.calculateTotalDebt('Visa');
-    expect(debt, closeTo(0.0, 0.01));
-
-    final quotaNextMonth = CreditCardCalculator.calculateMonthlyPayment('Visa', 11, 2026);
-    expect(quotaNextMonth, closeTo(0.0, 0.01));
-  });
-
-  test('L2.5 esperado: getDynamicQuota es 0.0 cuando la deuda de la TC es 0', () async {
-    // Campos de Responsibility:
-    // - category ('tarjeta'): obligación dinámica calculada desde Hive ('data').
-    // - minimumPayment (50000): cuota mínima configurada cuando existe deuda pendiente.
-    // - Al no haber compras en 'data', calculateTotalDebt('Visa') == 0.0 (sin deuda).
-    // Por qué el esperado es 0.0: sin saldo adeudado no debe proyectarse pago mínimo mensual.
-    final resp = Responsibility(
-      id: 'visa_min',
-      name: 'Visa',
-      category: 'tarjeta',
-      frequency: 'mensual',
-      minimumPayment: 50000,
-    );
-    expect(CreditCardCalculator.calculateTotalDebt('Visa'), closeTo(0.0, 0.01));
-    expect(resp.getDynamicQuota(11, 2026), closeTo(0.0, 0.01));
   });
 
   test('L3.2 escenario probado: togglePaidStatus persiste isPaid=true en Hive', () async {

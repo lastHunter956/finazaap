@@ -151,6 +151,9 @@ class Responsibility extends HiveObject {
     if (safeCategory != 'tarjeta') {
       return safeAmount;
     }
+    if (CreditCardCalculator.calculateTotalDebt(safeName) <= 0) {
+      return 0.0;
+    }
     // FIX: Priorizar minimumPayment (Cuota Fija Manual) si existe
     if (minimumPayment != null && minimumPayment! > 0) {
       return minimumPayment!;
@@ -416,6 +419,7 @@ class Responsibility extends HiveObject {
   double getAmountForDate(int month, int year) {
     // Para responsabilidades que NO son tarjetas, usar lógica legado
     if (safeCategory != 'tarjeta' && safeCategory != 'préstamo') return getMonthlyAmount();
+    if (safeCategory == 'tarjeta') return getDynamicQuota(month, year);
     
     // CASO CORRECTIVO: Si tiene un pago mínimo definido, esa es la "cuota" prioritaria
     if (minimumPayment != null && minimumPayment! > 0) {
