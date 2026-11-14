@@ -1,6 +1,6 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-14 (Traspaso de ejecución autónoma desde `agent/ui/t1-3c-daily-transactions-delete` @ `05379fa`; ver detalle operativo de Ola 1 y continuidad en `docs/audit/CONTINUITY_STATE.md`)  
+> **Última actualización:** 2026-11-14 (Cierre de lote autónomo en `agent/ui/t1-3c-daily-transactions-delete` @ `c43a3ea` con `164/164` tests en verde; ver detalle en `docs/audit/CONTINUITY_STATE.md`)  
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---

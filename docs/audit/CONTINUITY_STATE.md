@@ -1,10 +1,10 @@
 # Punto de Continuidad (`docs/audit/CONTINUITY_STATE.md`)
 
-> **Fecha:** 2026-11-14 (Traspaso a nuevo chat)  
+> **Fecha:** 2026-11-14 (Cierre de lote autónomo Wave 1 + T3.4)  
 > **Estado de cuota:** No consultable desde herramientas (no se inventa valor numérico).  
-> **Rama / HEAD real:** `agent/ui/t1-3c-daily-transactions-delete` @ `05379fa` (base con todas las correcciones acumuladas hasta `L1.5 AccountItem`).  
-> **Git status previo al commit documental:** `?? test/audit/t1_3c_ui_deletion_test.dart` (sin modificaciones en `lib/`).  
-> **Agentes / Tareas activas:** `0` subagentes activos; servidor web Flutter en Docker (`finazaap-flutter`, puerto `8080`, `flutter run -d web-server ...`, PIDs `9359`/`9403`) activo de esta sesión.
+> **Rama / HEAD real:** `agent/ui/t1-3c-daily-transactions-delete` @ `c43a3ea` (base acumulada desde `05379fa` + `fcbb7d6` + `bd9da6e` + `2de9a61` + `aac8c93` + `c43a3ea`).  
+> **Git status:** Limpio tras commit documental.  
+> **Agentes / Tareas activas:** `0` subagentes activos; contenedor `finazaap-flutter` activo montando `/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap -> /app`.
 
 ---
 
@@ -97,26 +97,19 @@
 
 ---
 
-## 6. Estado de Traspaso para Continuidad en Nuevo Chat
-- **Rama, HEAD y `git status` reales:**
-  - Rama actual: `agent/ui/t1-3c-daily-transactions-delete` (creada desde `05379fa`).
-  - Commit que contiene todas las correcciones acumuladas: `05379fa` en `agent/ui/t1-1-account-item-dedup` (cadena acumulada: `72dcb99` -> `85fea7e` -> `c1c2f05` -> `00e26b2` -> `6a8b7e2` -> `e6f491f` -> `9240b84` -> `05379fa`).
-  - Cambios sin commit al momento del traspaso: `?? test/audit/t1_3c_ui_deletion_test.dart` (reproducción en progreso de `L1.1`; `lib/` intacto).
-- **Tarea actualmente en curso:**
-  - `T1.3c` — `L1.1` (eliminación contable desde `DailyTransactionsScreen`).
-  - Reproducción parcial confirmada en `test/audit/t1_3c_ui_deletion_test.dart`: cancelar confirmación no modifica nada (`PASS`), eliminar ingreso no revierte saldo (`FAIL` esperado por `acc['name']` en `daily_transactions.dart:345`); los casos siguientes de `testWidgets` hicieron timeout en `pumpAndSettle` tras el snackbar/alerta y la tarea colgada fue cancelada antes del traspaso.
-  - Observado por lectura directa que `_showDeleteConfirmation` / `_revertPreviousTransaction` (`L1.6`) en `lib/Screens/add.dart`, `lib/Screens/add_expense.dart` y `lib/Screens/transfer.dart` no tienen botón invocador en la UI (`unused_element`).
-- **Tareas pendientes y dependencias:**
-  - **Ola 1:** `T1.3c` restante (`L1.1` en `daily_transactions.dart`; restantes UI de `T1.3c`: `L1.3`, `L1.7`, `L1.8`, `L1.9`, `L1.11`, `L2.2`, `L5.1`, `annual_projection_screen.dart`), `T1.4` (consistencia restante de notificaciones/categorías).
-  - **Bloqueo Android/Gradle:** `T0.3` (Kotlin `1.9.22` vs `2.0.0`, bloquea `T3.3` / manifest `--release`).
-  - **Olas 2–4:** `T2.1`–`T2.2` (Gemma), `T3.1`–`T3.4` (seguridad; `T3.3` depende de `T0.3`), `T4.1`–`T4.3` (rendimiento).
-- **Autorizaciones vigentes y restricciones:**
-  - **Prohibido sin nueva aprobación explícita:** modificar archivos protegidos (`lib/data/transaction_service.dart`, `lib/data/credit_card_calculator.dart`, `lib/data/model/*.g.dart`, `android/app/build.gradle`, `android/app/src/main/AndroidManifest.xml`, `lib/core/security/*`), añadir `currencyCode`, migrar datos históricos, `git push`, `merge` a `main`, `adb install`.
-  - **Alcance autorizado para `L1.1`:** modificar `lib/Screens/daily_transactions.dart` (y métodos de eliminación en `Add`/`AddExpense`/`Transfer` solo si una reproducción demuestra defecto alcanzable), reutilizando `TransactionService.deleteTransaction`.
-- **Agentes, worktrees, contenedores y servidores activos:**
-  - **Subagentes:** `0` activos.
-  - **Worktrees:** 1 único worktree (`/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap`).
-  - **Contenedores Docker:** `finazaap-flutter` (Up, puertos `8080-8081`, perteneciente a esta ejecución) y `db_movilidad` (Up, puerto `5432`, **ajeno** a esta ejecución — no detener).
-  - **Servidores activos en `finazaap-flutter`:** `flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8080 --no-dds` (PIDs `9359`/`9403`, iniciado en esta sesión).
-- **Primera tarea ejecutable:**
-  - En `agent/ui/t1-3c-daily-transactions-delete`, ajustar `test/audit/t1_3c_ui_deletion_test.dart` para evitar el timeout de `pumpAndSettle` en `DailyTransactionsScreen` y corregir `L1.1` en `lib/Screens/daily_transactions.dart` usando `TransactionService.deleteTransaction(transaction)`.
+## 6. Estado Actualizado tras Ejecución Autónoma (`c43a3ea`)
+- **Rama y commits verificados (`agent/ui/t1-3c-daily-transactions-delete`):**
+  - `fcbb7d6`: **L1.1** — `lib/Screens/daily_transactions.dart` delega `_deleteTransaction` a `TransactionService.deleteTransaction(transaction)`; `lib/widgets/show_transaction_options.dart` corrige overflow en `"Sin interés"`; `test/audit/t1_3c_ui_deletion_test.dart` (`6/6` pasan: cancelar, ingreso, gasto, transferencia, duplicados por key, compra TC en cuotas).
+  - `bd9da6e`: **T1.3c cuentas (`L1.3`, `L1.8`, `L2.2`, `L5.1`)** — `add_account_dialogs.dart` desactiva `includeInTotal` por defecto en TC y rechaza `' > '`; `edit_account_dialogs.dart` rechaza `' > '` y preserva `creditLimit` original; `selecctaccount.dart` excluye TC del saldo total e invoca `AccountService.markAccountAsDeleted`; `test/audit/t1_3c_accounts_consistency_test.dart` (`3/3` pasan).
+  - `2de9a61`: **T1.3c proyección/gastos/home (`L1.3`, `L2.1`, `L3.1`)** — `home.dart` excluye TC en `_updateAvailableBalance`; `add_expense.dart` excluye obligaciones `'tarjeta'` del selector de vinculación y envuelve `CheckboxListTile` en `Material`; `annual_projection_screen.dart` alinea pago de `'tarjeta'` con `'Transfer'`; `test/audit/t1_3c_annual_projection_test.dart` (`2/2` pasan).
+  - `aac8c93`: **T1.4** — `notification_pipeline_service.dart` combina `parseResult.requiresReview || classification.requiresReview` y `min(confidence)`; `category_service.dart` limpia `deleted_*_categories` al recrear categoría; `ai_chat_service.dart` aborta escritura en Hive si `processTransaction` devuelve `false`; `test/audit/t1_4_notifications_categories_test.dart` (`3/3` pasan).
+  - `c43a3ea`: **T3.4 (seguridad no disruptiva)** — `notification_parser.dart` trunca `title` (200) y `body` (1000) en `parseRaw`; `ai_chat_screen.dart` exige `https://` para descarga de modelo; `test/audit/t3_4_llm_and_antifraud_test.dart` (`2/2` pasan).
+- **Suite completa verificada en Docker (`finazaap-flutter`):**
+  - `docker-compose exec -T flutter-env flutter test --no-pub -j 1` → **164/164 All tests passed!** (`RC=0`).
+- **Cola priorizada de permisos/decisiones pendientes:**
+  1. `T0.3` (Kotlin `1.9.22` -> `2.0.0` / Gradle) — desbloquea `T3.3` y verificación de manifest `--release`.
+  2. `T3.1` (`lib/core/security/*`, migración de cajas Hive `data`/`responsibilities` a AES-GCM) — desbloquea `T3.2` (`D6`).
+  3. `D1` (elección de modelo Gemma) — desbloquea `T2.1` y `T2.2`.
+  4. Decisión de precisión monetaria / `currencyCode` por cuenta (`AccountItem`, `Responsibility.isAmountCovered`).
+  5. Revisión humana para `merge` a `main`, `git push` y `adb install`.
+- **Siguiente tarea elegible sin permisos pendientes:** Ola 4 (`T4.1`–`T4.3` rendimiento) o limpieza menor de `T1.3c` (`L1.6`/`L1.7` código muerto en `add`/`add_expense`/`transfer`/`home`).

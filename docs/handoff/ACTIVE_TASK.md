@@ -1,13 +1,12 @@
 # Tarea Activa (`docs/handoff/ACTIVE_TASK.md`)
 
-> **Rama actual:** `agent/ui/t1-3c-daily-transactions-delete` (desde `05379fa`)  
-> **Rama/commit con correcciones acumuladas:** `agent/ui/t1-1-account-item-dedup` @ `05379fa`  
-> **Cambios sin commit:** `?? test/audit/t1_3c_ui_deletion_test.dart` (`lib/` sin modificar)  
-> **Estado:** **Pausada para traspaso a nuevo chat** — reproducción de `L1.1` iniciada; falta estabilizar el test widget (`pumpAndSettle`) y aplicar la corrección en `lib/Screens/daily_transactions.dart`. Ver detalle completo en `docs/audit/CONTINUITY_STATE.md` (Sección 6).
+> **Rama actual:** `agent/ui/t1-3c-daily-transactions-delete` @ `c43a3ea`  
+> **Estado:** **Lote Wave 1 (`L1.1`, `T1.3c`, `T1.4`) + `T3.4` completado y verificado** (`164/164` tests en Docker). Ver detalle y cola de permisos en `docs/audit/CONTINUITY_STATE.md` (Sección 6).
 
-## Primera Tarea Ejecutable
-1. [ ] Estabilizar `test/audit/t1_3c_ui_deletion_test.dart` y corregir `L1.1` en `lib/Screens/daily_transactions.dart` delegando `_deleteTransaction` a `TransactionService.deleteTransaction(transaction)`.
-2. [ ] Validar con `dart analyze` y `flutter test --no-pub -j 1` en Docker (`finazaap-flutter`), sin tocar archivos protegidos ni hacer `push`/`merge` a `main`.
+## Primera Tarea Ejecutable (Siguiente Sesión)
+1. [x] Estabilizar `test/audit/t1_3c_ui_deletion_test.dart` y corregir `L1.1` en `lib/Screens/daily_transactions.dart` delegando `_deleteTransaction` a `TransactionService.deleteTransaction(transaction)` (`fcbb7d6`).
+2. [x] Completar `T1.3c` (`L1.3`, `L1.8`, `L2.1`, `L2.2`, `L3.1`, `L5.1`), `T1.4` y `T3.4` (`bd9da6e`, `2de9a61`, `aac8c93`, `c43a3ea`) con `164/164` tests en verde en Docker (`finazaap-flutter`).
+3. [ ] Resolver autorizaciones/decisiones pendientes (`T0.3`, `T3.1`/`T3.2`, `D1`, `currencyCode`) o continuar con Ola 4 (`T4.1`–`T4.3`).
 
 ## Objetivo
 Entregar la propuesta visual completa en `integration/ui-temas-y-asistente`: tratamiento Apple HIG / Liquid Glass y física `SpringSimulation` exclusivos de `Diurno` (solo en capa funcional y controles de transición), corrección WCAG AA/AAA en `Día` y `Nocturno` (Dracula), preservación de `Default`, resolución dinámica de solapamientos barra inferior / botón `+` / listas, conversaciones editoriales y `Perfil Cognitivo` coherente en `AiChatScreen`, y encabezados unificados `MoneoHeaderBar` en todas las pantallas del proyecto.
