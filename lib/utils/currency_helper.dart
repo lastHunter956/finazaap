@@ -111,77 +111,165 @@ class CurrencyHelper {
     final prefs = await SharedPreferences.getInstance();
     _cachedCurrency = prefs.getString('default_currency') ?? 'COP';
   }
-  
+
+  /// Lista inmutable de códigos de moneda soportados.
+  static List<String> get supportedCurrencies =>
+      List<String>.unmodifiable(_currencyConfig.keys);
+
+  /// Indica si [code] corresponde a una moneda soportada.
+  static bool isSupported(String? code) {
+    if (code == null) return false;
+    return _currencyConfig.containsKey(code.trim().toUpperCase());
+  }
+
+  /// Normaliza un código de moneda o retorna [fallback] (por defecto la moneda activa).
+  static String normalizeCode(String? code, {String? fallback}) {
+    if (code != null) {
+      final upper = code.trim().toUpperCase();
+      if (_currencyConfig.containsKey(upper)) {
+        return upper;
+      }
+    }
+    if (fallback != null && fallback.trim().isNotEmpty) {
+      final upperFallback = fallback.trim().toUpperCase();
+      if (_currencyConfig.containsKey(upperFallback)) {
+        return upperFallback;
+      }
+    }
+    return _cachedCurrency;
+  }
+
+  static Map<String, dynamic> _configFor(String? currencyCode) {
+    final code = normalizeCode(currencyCode);
+    return _currencyConfig[code] ?? _currencyConfig['USD']!;
+  }
+
   /// Obtiene el código de la divisa actual
   static String get currencyCode => _cachedCurrency;
-  
-  /// Obtiene el símbolo
-  static String get currencySymbol {
-    final config = _currencyConfig[_cachedCurrency];
+
+  /// Obtiene el símbolo de la divisa actual
+  static String get currencySymbol => symbolFor(_cachedCurrency);
+
+  /// Obtiene el símbolo para una moneda específica sin mutar el estado global.
+  static String symbolFor(String? currencyCode) {
+    final code = normalizeCode(currencyCode);
+    final config = _currencyConfig[code];
     return config != null ? config['symbol'] as String : '\$';
   }
-  
-  /// Formatea una cantidad con control TOTAL sobre la posición y separadores
+
+  /// Obtiene los decimales configurados para una moneda específica.
+  static int decimalDigitsFor(String? currencyCode) {
+    return _configFor(currencyCode)['decimals'] as int;
+  }
+
+  /// Indica si se puede transferir entre dos cuentas sin tasa de conversión aprobada.
+  static bool canTransferWithoutConversion(
+    String? fromCurrency,
+    String? toCurrency,
+  ) {
+    return normalizeCode(fromCurrency) == normalizeCode(toCurrency);
+  }
+
+  /// Formatea una cantidad usando la divisa global activa.
   static String format(double amount, {bool showSymbol = true, int? decimalDigits}) {
-    // 1. Obtener configuración
-    final config = _currencyConfig[_cachedCurrency] ?? _currencyConfig['USD']!;
-    
+    return formatFor(
+      amount,
+      _cachedCurrency,
+      showSymbol: showSymbol,
+      decimalDigits: decimalDigits,
+    );
+  }
+
+  /// Formatea una cantidad para una moneda explícita sin mutar el estado global.
+  static String formatFor(
+    double amount,
+    String? currencyCode, {
+    bool showSymbol = true,
+    int? decimalDigits,
+  }) {
+    final config = _configFor(currencyCode);
+
     final locale = config['locale'] as String;
     final symbol = config['symbol'] as String;
     final position = config['position'] as String; // 'left' or 'right'
     final space = config['space'] as bool;
     final defaultDecimals = config['decimals'] as int;
-    
+
     final digits = decimalDigits ?? defaultDecimals;
-    
-    // 2. Formatear SÓLO el número (sin símbolo) usando NumberFormat
-    // Usamos currency(symbol: '') para obtener los separadores correctos pero sin el símbolo default
+
     final formatter = NumberFormat.currency(
       locale: locale,
-      symbol: '', 
+      symbol: '',
       decimalDigits: digits,
     );
-    
-    String formattedNumber = formatter.format(amount).trim();
-    
-    // 3. Construir el string final manualmente
+
+    final String formattedNumber = formatter.format(amount).trim();
+
     if (!showSymbol) return formattedNumber;
-    
+
     final spacer = space ? ' ' : '';
-    
+
     if (position == 'left') {
       return '$symbol$spacer$formattedNumber';
     } else {
       return '$formattedNumber$spacer$symbol';
     }
   }
-  
-  /// Formatea desde String
+
+  /// Formatea desde String usando la divisa global activa.
   static String formatString(String amountStr, {bool showSymbol = true, int? decimalDigits}) {
-    final amount = double.tryParse(amountStr) ?? 0.0;
-    return format(amount, showSymbol: showSymbol, decimalDigits: decimalDigits);
+    return formatStringFor(
+      amountStr,
+      _cachedCurrency,
+      showSymbol: showSymbol,
+      decimalDigits: decimalDigits,
+    );
   }
 
-  /// Formatea compacto (1M, 10K)
+  /// Formatea desde String para una moneda explícita.
+  static String formatStringFor(
+    String amountStr,
+    String? currencyCode, {
+    bool showSymbol = true,
+    int? decimalDigits,
+  }) {
+    final amount = double.tryParse(amountStr) ?? 0.0;
+    return formatFor(
+      amount,
+      currencyCode,
+      showSymbol: showSymbol,
+      decimalDigits: decimalDigits,
+    );
+  }
+
+  /// Formatea compacto (1M, 10K) usando la divisa global activa.
   static String formatCompact(double amount, {bool showSymbol = true}) {
-    // Para compacto, delegamos al sistema pero intentamos respetar el locale
-    final config = _currencyConfig[_cachedCurrency] ?? _currencyConfig['USD']!;
+    return formatCompactFor(amount, _cachedCurrency, showSymbol: showSymbol);
+  }
+
+  /// Formatea compacto (1M, 10K) para una moneda explícita.
+  static String formatCompactFor(
+    double amount,
+    String? currencyCode, {
+    bool showSymbol = true,
+  }) {
+    final config = _configFor(currencyCode);
     final locale = config['locale'] as String;
     final symbol = config['symbol'] as String;
-    
+
     final formatter = NumberFormat.compactCurrency(
       locale: locale,
       symbol: showSymbol ? symbol : '',
     );
-    
+
     return formatter.format(amount);
   }
-  
+
   // Getter legacy para compatibilidad si alguien lo usa
   static NumberFormat getFormatter({bool showSymbol = true, int? decimalDigits}) {
-    // Advertencia: Este método retorna un formatter estándar y podría no respetar 
+    // Advertencia: Este método retorna un formatter estándar y podría no respetar
     // exactamenta la posición forzada en format(). Usar format() preferiblemente.
-    final config = _currencyConfig[_cachedCurrency] ?? _currencyConfig['USD']!;
+    final config = _configFor(_cachedCurrency);
     return NumberFormat.currency(
       locale: config['locale'] as String,
       symbol: showSymbol ? config['symbol'] as String : '',
@@ -200,12 +288,22 @@ class CurrencyHelper {
   ];
 
   /// Indica si la divisa actual usa '.' para miles y ',' para decimales
-  static bool get usesCommaDecimal => _commaDecimalCurrencies.contains(_cachedCurrency);
+  static bool get usesCommaDecimal => usesCommaDecimalFor(_cachedCurrency);
 
-  /// Limpia un string de cantidad eliminando los separadores de miles y normalizando el separador decimal a '.'
+  /// Indica si [currencyCode] usa '.' para miles y ',' para decimales.
+  static bool usesCommaDecimalFor(String? currencyCode) {
+    return _commaDecimalCurrencies.contains(normalizeCode(currencyCode));
+  }
+
+  /// Limpia un string de cantidad usando la divisa global activa.
   static String cleanAmountString(String amountStr) {
+    return cleanAmountStringFor(amountStr, currencyCode: _cachedCurrency);
+  }
+
+  /// Limpia un string de cantidad para una moneda específica sin mutar el estado global.
+  static String cleanAmountStringFor(String amountStr, {String? currencyCode}) {
     String clean = amountStr.trim();
-    if (usesCommaDecimal) {
+    if (usesCommaDecimalFor(currencyCode)) {
       // Remover puntos (miles) y reemplazar coma por punto (decimal)
       clean = clean.replaceAll('.', '').replaceAll(',', '.');
     } else {
@@ -216,8 +314,120 @@ class CurrencyHelper {
   }
 }
 
+/// Acumulador de totales separados por código de moneda explícito.
+/// Nunca suma monedas distintas ni inventa tasas de conversión.
+class MultiCurrencyTotals {
+  final String fallbackCurrency;
+  final Map<String, double> _totals = {};
+
+  MultiCurrencyTotals({
+    String? fallbackCurrency,
+    Map<String, double>? initial,
+  }) : fallbackCurrency = CurrencyHelper.normalizeCode(fallbackCurrency) {
+    if (initial != null) {
+      initial.forEach((code, amount) => add(code, amount));
+    }
+  }
+
+  /// Agrega [amount] al bucket de [currencyCode] sin mezclar monedas distintas.
+  void add(String? currencyCode, double amount) {
+    final normalized = CurrencyHelper.normalizeCode(
+      currencyCode,
+      fallback: fallbackCurrency,
+    );
+    _totals[normalized] = (_totals[normalized] ?? 0.0) + amount;
+  }
+
+  /// Fusiona otro acumulador respetando la separación por moneda.
+  void addAll(MultiCurrencyTotals other) {
+    other._totals.forEach((code, amount) {
+      _totals[code] = (_totals[code] ?? 0.0) + amount;
+    });
+  }
+
+  bool get isEmpty => _totals.isEmpty;
+  bool get isNotEmpty => _totals.isNotEmpty;
+  bool get isMultiCurrency => _totals.length > 1;
+  int get currencyCount => _totals.length;
+
+  /// Códigos presentes en orden determinista (moneda principal primero si existe, luego alfabético).
+  List<String> get currencies {
+    final keys = _totals.keys.toList();
+    keys.sort((a, b) {
+      if (a == fallbackCurrency && b != fallbackCurrency) return -1;
+      if (b == fallbackCurrency && a != fallbackCurrency) return 1;
+      return a.compareTo(b);
+    });
+    return List<String>.unmodifiable(keys);
+  }
+
+  /// Mapa inmutable de totales por moneda.
+  Map<String, double> get byCurrency => Map<String, double>.unmodifiable({
+        for (final code in currencies) code: _totals[code]!,
+      });
+
+  /// Total acumulado para [currencyCode] (0.0 si no está presente).
+  double totalFor(String currencyCode) {
+    final normalized = CurrencyHelper.normalizeCode(
+      currencyCode,
+      fallback: fallbackCurrency,
+    );
+    return _totals[normalized] ?? 0.0;
+  }
+
+  /// Formatea el total de una moneda específica.
+  String formatEntry(
+    String currencyCode, {
+    bool includeCode = true,
+    bool compact = false,
+  }) {
+    final normalized = CurrencyHelper.normalizeCode(
+      currencyCode,
+      fallback: fallbackCurrency,
+    );
+    final value = _totals[normalized] ?? 0.0;
+    final formatted = compact
+        ? CurrencyHelper.formatCompactFor(value, normalized)
+        : CurrencyHelper.formatFor(value, normalized);
+    return includeCode ? '$formatted $normalized' : formatted;
+  }
+
+  /// Retorna una línea formateada por cada moneda presente.
+  List<String> formatLines({
+    bool includeCodeWhenSingle = false,
+    bool compact = false,
+  }) {
+    final includeCode = isMultiCurrency || includeCodeWhenSingle;
+    return currencies
+        .map((code) => formatEntry(code, includeCode: includeCode, compact: compact))
+        .toList(growable: false);
+  }
+
+  /// Resumen en una línea separando monedas con [separator].
+  String formatSummary({
+    String separator = ' · ',
+    bool includeCodeWhenSingle = false,
+    bool compact = false,
+  }) {
+    if (_totals.isEmpty) {
+      final zero = compact
+          ? CurrencyHelper.formatCompactFor(0.0, fallbackCurrency)
+          : CurrencyHelper.formatFor(0.0, fallbackCurrency);
+      return includeCodeWhenSingle ? '$zero $fallbackCurrency' : zero;
+    }
+    return formatLines(
+      includeCodeWhenSingle: includeCodeWhenSingle,
+      compact: compact,
+    ).join(separator);
+  }
+}
+
 /// Formateador dinámico para campos de texto monetarios
 class ThousandsSeparatorInputFormatter extends TextInputFormatter {
+  final String? currencyCode;
+
+  ThousandsSeparatorInputFormatter({this.currencyCode});
+
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
@@ -227,7 +437,9 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
       return newValue;
     }
 
-    final isCommaDecimal = CurrencyHelper.usesCommaDecimal;
+    final isCommaDecimal = currencyCode != null
+        ? CurrencyHelper.usesCommaDecimalFor(currencyCode)
+        : CurrencyHelper.usesCommaDecimal;
     final thousandSeparator = isCommaDecimal ? '.' : ',';
     final decimalSeparator = isCommaDecimal ? ',' : '.';
 
