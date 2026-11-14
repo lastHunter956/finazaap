@@ -3,14 +3,28 @@
 > **Base verificada:** `main` @ `bab211f` (solo lectura).  
 > **Limitación explícita:** Ni la lectura estática del código ni las pruebas automatizadas garantizan ausencia de errores ni sustituyen la reproducción real en teléfono físico.
 >
-> **Clasificación en 4 categorías obligatorias:**
-> 1. **Confirmados por lectura (`CONFIRMADO` / `PARCIAL`):** Evidencia directa leída en el código fuente o pub-cache en `main @ bab211f`.
-> 2. **Fallos reproducidos con pruebas:** **0 actualmente** — se ejecutarán en `T0.1` (`test/audit/accounting_repro_test.dart`).
-> 3. **Hipótesis pendientes:**
->    - Comportamiento en tiempo de ejecución en dispositivo físico (tiempos en ms/s, `tokens/s`, consumo real de RAM/LMKD, FPS en scroll).
->    - Merged manifest real generado por Gradle `--release` para confirmar ausencia de `INTERNET` y `allowBackup` (`T0.2`).
->    - Regla `SEC-01` en `encrypted_hive_datasource.dart` vs estado de datos reales instalados en `R5CY21GE9YY`.
-> 4. **Hallazgos descartados:** **0 actualmente** (los 3 matices encontrados se clasificaron como `PARCIAL`: `M5`, `SEC-01`, `P2.1`).
+> **Clasificación en 4 categorías obligatorias (actualizada al cierre de Ola 0):**
+> 1. **Fallos reproducidos con pruebas (`docs/audit/repro/accounting_repro_test.dart`, comando `docker-compose exec -T flutter-env flutter test --no-pub -j 1 docs/audit/repro/accounting_repro_test.dart` → `RC=1`, 7 fallos / 1 pasa):**
+>    - `L1.3a` (`includeInTotal=false`): `5900000.0` vs `900000.0`.
+>    - `L1.3b` (cupo Tarjeta de Crédito): `10900000.0` vs `900000.0`.
+>    - `L1.3c` (combinado): `15900000.0` vs `900000.0`.
+>    - `L1.4` (eliminar transferencia hacia TC): `paidAmountThisMonth = 200000.0` vs `0.0`.
+>    - `L2.4` (cuota TC con deuda total `0`): `100000.0` vs `0.0`.
+>    - `L2.5` (`getDynamicQuota` con deuda `0`): `50000.0` vs `0.0`.
+>    - `L1.10` (`cleanAmountString` en `CLP`): `10.0` vs `10000.0`.
+> 2. **Confirmados solo por lectura estática (sin reproducción en ejecución todavía):** El resto de hallazgos con etiqueta `CONFIRMADO` o `PARCIAL` en las tablas siguientes. La lectura estática no equivale a reproducción en dispositivo.
+> 3. **No reproducidos en prueba (`NO REPRODUCIDO`):**
+>    - `L3.2` (`ResponsibilityService.togglePaidStatus`): en el escenario unitario probado (`docs/audit/repro/accounting_repro_test.dart`), `updated.isPaid` resultó `true`; se retira cualquier afirmación de que el fallo quedó demostrado (aunque `responsibility.save()` en `responsibility_service.dart:144` sigue siendo código frágil).
+> 4. **Bloqueados / Hipótesis pendientes:**
+>    - **Manifest fusionado `release` (`M5`, `SEC-07`):** **BLOQUEADO** en `./gradlew :app:processReleaseMainManifest --offline --no-daemon` (`RC=1` por Kotlin `1.9.22 < 2.0.0`); permiso `INTERNET` en variante release **no determinado** en build real (propuesta tarea separada `T0.3`).
+>    - **Casos UI (`L1.1`, `L2.1`, `L3.1`):** Viables mediante `testWidgets` con `tester.runAsync` y almacenamiento sintético sin modificar `lib/`, pendientes para `T1.3c` / pruebas UI de Ola 1.
+>    - Comportamiento en dispositivo físico (tiempos en ms/s, `tokens/s`, RAM/LMKD, FPS, datos reales en `R5CY21GE9YY`).
+> 5. **Hallazgos descartados:** **0** (se reclasificó `L3.2` como `NO REPRODUCIDO` en el escenario probado).
+>
+> **Nota sobre `docs/audit/repro/` y el baseline (`test/`):**
+> - El baseline en `test/` (`104/104`) pasa, pero **excluye estos escenarios conocidos**.
+> - Mantener `docs/audit/repro/` separado **no corrige los defectos ni demuestra aprobación integral**.
+> - Cada prueba de `docs/audit/repro/` deberá **trasladarse a `test/`** cuando su corrección se integre en Ola 1, conservándola como test de regresión.
 
 ---
 
@@ -106,7 +120,7 @@
 | **L2.5** | **CONFIRMADO** | ALTO | `responsibility.dart:153-168` | `getDynamicQuota` devuelve `minimumPayment` aunque `dynamicCardBalance <= 0`. |
 | **L2.6** | **CONFIRMADO** | MEDIO | `credit_card_calculator.dart:107-109,155-184` | Compras post-corte vs pagos filtrados por mes calendario. |
 | **L3.1** | **CONFIRMADO** | CRÍTICO | `responsibilities_screen.dart:1036-1062`, `annual_projection_screen.dart:335-445`, `credit_card_calculator.dart:34-54,166-176` | "Pagar obligación" de TC registra `'Expenses'` en vez de `'Transfer'`. |
-| **L3.2** | **CONFIRMADO** | CRÍTICO | `responsibility_service.dart:141-144` | `putAt(updated)` seguido de `responsibility.save()` sobre instancia vieja revierte el cambio. |
+| **L3.2** | **NO REPRODUCIDO** | BAJO | `responsibility_service.dart:141-144` | En `docs/audit/repro/accounting_repro_test.dart` `togglePaidStatus` **pasó** (`isPaid == true`); no se demostró fallo en el escenario probado. |
 | **L3.3** | **CONFIRMADO** | ALTO | `responsibility.dart:77-122,405-419,447-472` | Frecuencias anual/bimestral/trimestral/quincenal mal evaluadas. |
 | **L3.4** | **CONFIRMADO** | ALTO | `credit_card_calculator.dart:192`, `responsibility_service.dart:576,814`, `responsibility.dart:452,462` | Umbrales de pagado divergentes (`0.95` vs `0.98`) y `0 >= 0` en TC sin cuota. |
 | **L3.5** | **CONFIRMADO** | MEDIO | `responsibility_service.dart:702-740` | Búsqueda por nombre nuevo puede duplicar si no se llama antes `updateCardResponsibilityName`. |

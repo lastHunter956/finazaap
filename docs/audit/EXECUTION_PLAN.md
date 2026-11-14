@@ -29,8 +29,9 @@
 ### Ola 0 — Diagnóstico de solo lectura y pruebas de reproducción
 | Tarea | Modelo | Paralelizable con | Motivo |
 |---|---|---|---|
-| `T0.1` | Ligero | `T0.2` | `T0.1` solo crea `test/audit/accounting_repro_test.dart`; `T0.2` solo lee/ejecuta checks en Docker. |
+| `T0.1` | Ligero | `T0.2` | `T0.1` crea `docs/audit/repro/accounting_repro_test.dart` (cada prueba se traslada a `test/` al corregirse); `T0.2` solo lee/ejecuta checks en Docker. |
 | `T0.2` | Ligero | `T0.1` | Cero archivos compartidos. |
+| `T0.3` | Ligero | Independiente | Desbloquea conflicto Kotlin `1.9.22` vs `2.1.0` en `android/build.gradle` para inspeccionar el manifest release (requiere aprobación). |
 
 ### Ola 1 — Errores contables críticos *(requiere aprobación para `T1.3a` y `T1.3b`)*
 | Tarea | Modelo | Archivos principales | Paralelizable | Motivo |

@@ -34,9 +34,24 @@
 
 ---
 
-## 4. Trabajo Realizado, Pendientes y Siguiente Paso
-- **Hecho:** Paquete completo en `docs/audit/` (`README.md`, `CONTINUITY_STATE.md`, `FINDINGS.md`, `DECISIONS.md`, `EXECUTION_PLAN.md`, `START_HERE_NEW_CHAT.md` y 17 fichas en `docs/audit/tasks/`).
-- **Pendiente (próximo chat de ejecución):**
-  1. Ejecutar **Ola 0** (`T0.1` y `T0.2` en paralelo con `Model: 'inherit'` o secuencial en Docker).
-  2. Responder las decisiones `D1`–`D8` en `docs/audit/DECISIONS.md` antes de iniciar Olas 1–3.
-- **Primera tarea apta para ejecución:** **`T0.1`** ([T0.1](file:///Volumes/ADATA%20SD620/Programacion%207.0/moneo/finazaap/docs/audit/tasks/T0.1-diagnostico-datos-y-tests-contables.md)) y **`T0.2`** ([T0.2](file:///Volumes/ADATA%20SD620/Programacion%207.0/moneo/finazaap/docs/audit/tasks/T0.2-baseline-docker-y-manifest.md)) — no tocan código productivo ni requieren decisiones `D1`–`D8`.
+## 4. Resultados de Ola 0 (`T0.1` y `T0.2` — Cerrada)
+- **Rama y commit documental:** `docs/audit-execution-package` @ `88d5979` (base `main` @ `bab211f`).
+- **Montaje Docker verificado:** `finazaap-flutter` monta `/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap -> /app` en la rama `docs/audit-execution-package`.
+- **Baseline (`T0.2`):**
+  - `docker-compose exec -T flutter-env dart analyze` → salida `2` (`1006 issues`: `0` errors, `96` warnings, `910` infos). Log: `docs/audit/logs/t0_2_baseline_analyze.log`.
+  - `docker-compose exec -T flutter-env flutter test --no-pub -j 1` → salida `0` (`104/104 All tests passed!`). Log: `docs/audit/logs/t0_2_baseline_test.log`.
+- **Manifest Release (`T0.2`):**
+  - **Bloqueado en entorno Gradle offline:** `./gradlew :app:processReleaseMainManifest --offline --no-daemon` falló (`RC=1`); permiso `INTERNET` en variante release **no determinado**.
+  - **Versiones efectivas:** Flutter `3.44.2` (Dart `3.12.2`), Java `OpenJDK 17.0.19`, Gradle `8.7`, AGP `8.6.0`, Kotlin plugin `2.1.0` en `android/settings.gradle:22` forzado a `1.9.22` en `android/build.gradle:2,15`. Error: `Your project's Kotlin version (1.9.22) is lower than Flutter's minimum supported version of 2.0.0.` (Log: `docs/audit/logs/t0_2_release_manifest_gradle.log`).
+  - Se creó la tarea separada [T0.3](file:///Volumes/ADATA%20SD620/Programacion%207.0/moneo/finazaap/docs/audit/tasks/T0.3-desbloqueo-kotlin-gradle-android.md) para resolver este bloqueo con aprobación.
+- **Suite de reproducción aislada (`T0.1` — `docs/audit/repro/accounting_repro_test.dart`):**
+  - `dart analyze docs/audit/repro/accounting_repro_test.dart` → `0` issues (`RC=0`).
+  - `flutter test --no-pub -j 1 docs/audit/repro/accounting_repro_test.dart` → `RC=1` (**7 fallaron reproduciendo defectos reales, 1 pasó**; log: `docs/audit/logs/t0_1_repro_test.log`).
+  - **Reproducidos con prueba (7):** `L1.3a` (`5900000.0` vs `900000.0`), `L1.3b` (`10900000.0` vs `900000.0`), `L1.3c` (`15900000.0` vs `900000.0`), `L1.4` (`paidAmountThisMonth = 200000.0` vs `0.0`), `L2.4` (`100000.0` vs `0.0`), `L2.5` (`50000.0` vs `0.0`), `L1.10` (`10.0` vs `10000.0`).
+  - **No reproducido en test unitario (1):** `L3.2` (`togglePaidStatus` **pasó** `updated.isPaid == true`; no se demostró el fallo en el escenario probado).
+  - **Casos UI (`L1.1`, `L2.1`, `L3.1`):** Constructores públicos verificados (`DailyTransactionsScreen`, `AddExpenseScreen`, `ResponsibilitiesScreen`); son viables mediante `testWidgets` con `tester.runAsync` y almacenamiento sintético sin tocar `lib/`, pero quedaron pendientes para Ola 1 (`T1.3c`) por requerir montaje de tema y `SharedPreferences`.
+  - **Política de `docs/audit/repro/`:** El baseline en `test/` (`104/104`) pasa **excluyendo** estos escenarios conocidos; esto no corrige los defectos ni demuestra aprobación integral. Cada prueba deberá trasladarse a `test/` al integrarse su corrección en Ola 1.
+
+## 5. Siguiente Paso (Requiere Aprobación Humana)
+- **Ola 0 cerrada.** No se inicia Ola 1 ni se toman decisiones `D1`–`D8` sin aprobación explícita.
+- **Primera corrección recomendada:** `T1.1` (unificar `AccountItem` y corregir `CLP` en `currency_helper.dart`) o `T1.3a` (`transaction_service.dart`, que corrige `L1.3a/b/c` y `L1.4` ya reproducidos y **requiere aprobación explícita por ser archivo protegido**).
