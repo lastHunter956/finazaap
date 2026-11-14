@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/core/theme_notifier.dart';
 import 'package:finazaap/features/notifications/domain/models/pending_transaction_item.dart';
 import 'package:finazaap/features/notifications/presentation/widgets/suspicious_badge.dart';
-import 'package:finazaap/themes/app_colors.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 
 /// Tarjeta de presentación de una transacción bancaria detectada y pendiente de revisión.
@@ -27,51 +28,94 @@ class PendingTransactionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<AppTheme>() ??
+        AppTheme.forMode(ThemeNotifier.activeMode);
     final merchantTitle = item.comercio ??
         (item.merchantKey != null && item.merchantKey!.isNotEmpty
             ? item.merchantKey!
             : (isSuspicious ? 'Alerta de Seguridad' : 'Comercio no detectado'));
 
     final amountText = CurrencyHelper.format(item.monto ?? 0.0);
+    final typeColor = _resolveTypeColor(theme);
     final borderColor = isSuspicious
-        ? AppColors.error.withValues(alpha: 0.5)
-        : AppColors.borderSubtle;
+        ? theme.error.withValues(alpha: 0.45)
+        : item.requiresReview
+            ? theme.warning.withValues(alpha: 0.35)
+            : Colors.transparent;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: 1),
+        color: theme.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: borderColor == Colors.transparent
+            ? null
+            : Border.all(color: borderColor, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(14.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabecera: Comercio + Insignia
+            // Cabecera: Ícono circular + Comercio + Insignia
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: typeColor.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _resolveCategoryIcon(),
+                    size: 19,
+                    color: typeColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    merchantTitle,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        merchantTitle,
+                        style: TextStyle(
+                          color: theme.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${item.category ?? (isSuspicious ? 'Fraude' : 'Otros')} · ${_formatDate(item.fecha)}',
+                        style: TextStyle(
+                          color: theme.textSecondary,
+                          fontSize: 11.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 SuspiciousBadge.fromItem(item),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
-            // Monto + Cuenta / Categoría
+            // Monto + Cuenta
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -80,16 +124,17 @@ class PendingTransactionCard extends StatelessWidget {
                 Text(
                   amountText,
                   style: TextStyle(
-                    color: _resolveAmountColor(),
-                    fontSize: 18,
+                    color: _resolveAmountColor(theme),
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     _buildAccountSubtitle(),
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: theme.textSecondary,
                       fontSize: 12,
                     ),
                     textAlign: TextAlign.right,
@@ -98,61 +143,48 @@ class PendingTransactionCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
 
-            // Categoría y fecha
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _resolveCategoryIcon(),
-                      size: 13,
-                      color: AppColors.accent,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      item.category ?? (isSuspicious ? 'Fraude' : 'Otros'),
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+            // Texto crudo de la notificación (compacto, nunca enlace clickable)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.darkBackground.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                item.rawText,
+                style: TextStyle(
+                  color: theme.textSecondary,
+                  fontSize: 11.5,
+                  height: 1.35,
                 ),
-                Text(
-                  _formatDate(item.fecha),
-                  style: TextStyle(
-                    color: AppColors.textHint,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
 
             // Alerta si es sospechosa
             if (isSuspicious) ...[
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
+                  color: theme.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.shield_outlined,
-                        size: 16, color: AppColors.error),
-                    const SizedBox(width: 6),
+                    Icon(Icons.shield_outlined, size: 16, color: theme.error),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         item.flags.contains('anti_fraud_link_detected')
                             ? 'Enlace web detectado. Por política conservadora de revisión, no se procesa automáticamente y requiere revisión manual.'
                             : 'Enlace sospechoso o texto de urgencia detectado. Se bloqueó la adición automática de saldos.',
                         style: TextStyle(
-                          color: AppColors.error,
+                          color: theme.error,
                           fontSize: 11,
                         ),
                       ),
@@ -162,53 +194,57 @@ class PendingTransactionCard extends StatelessWidget {
               ),
             ],
 
-            const Divider(height: 20),
+            const SizedBox(height: 12),
+            Divider(height: 1, color: theme.borderSubtle),
+            const SizedBox(height: 10),
 
-            // Acciones: Descartar, Corregir, Confirmar
+            // Acciones balanceadas: Descartar, Corregir, Confirmar
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
                   onPressed: onDiscard,
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary,
+                    foregroundColor: theme.textSecondary,
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
-                  child: const Text('Descartar'),
+                  child: const Text('Descartar', style: TextStyle(fontSize: 13)),
                 ),
-                const SizedBox(width: 4),
+                const Spacer(),
                 OutlinedButton(
                   onPressed: onCorrect,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.accent,
-                    side: BorderSide(color: AppColors.accent),
+                    foregroundColor: theme.accent,
+                    side: BorderSide(
+                      color: theme.accent.withValues(alpha: 0.55),
+                    ),
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text('Corregir'),
+                  child: const Text('Corregir', style: TextStyle(fontSize: 13)),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: isSuspicious ? null : onConfirm,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: AppColors.primaryBackground,
+                    backgroundColor: theme.buttonBackground,
+                    foregroundColor: theme.buttonForeground,
                     disabledBackgroundColor:
-                        AppColors.borderSubtle.withValues(alpha: 0.3),
-                    disabledForegroundColor: AppColors.textHint,
+                        theme.borderSubtle.withValues(alpha: 0.25),
+                    disabledForegroundColor: theme.textHint,
+                    elevation: 0,
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   child: const Text(
                     'Confirmar',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                 ),
               ],
@@ -219,11 +255,18 @@ class PendingTransactionCard extends StatelessWidget {
     );
   }
 
-  Color _resolveAmountColor() {
-    if (isSuspicious) return AppColors.error;
-    if (item.classification == 'ingreso') return AppColors.income;
-    if (item.classification == 'transferencia-propia') return AppColors.accent;
-    return AppColors.textPrimary;
+  Color _resolveTypeColor(AppTheme theme) {
+    if (isSuspicious) return theme.error;
+    if (item.classification == 'ingreso') return theme.income;
+    if (item.classification == 'transferencia-propia') return theme.accent;
+    return theme.expense;
+  }
+
+  Color _resolveAmountColor(AppTheme theme) {
+    if (isSuspicious) return theme.error;
+    if (item.classification == 'ingreso') return theme.income;
+    if (item.classification == 'transferencia-propia') return theme.accent;
+    return theme.textPrimary;
   }
 
   IconData _resolveCategoryIcon() {
