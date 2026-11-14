@@ -102,6 +102,10 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
     'Otros',
   ];
 
+  final ScrollController _scrollController = ScrollController();
+  bool _showScrollIndicator = false;
+  double _lastBottomInset = 0;
+
   @override
   void initState() {
     super.initState();
@@ -123,6 +127,20 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
     );
 
     _initLists();
+    _scrollController.addListener(_checkScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkScroll());
+  }
+
+  void _checkScroll() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    final show = maxScroll > 4 && currentScroll < maxScroll - 20;
+    if (show != _showScrollIndicator) {
+      setState(() {
+        _showScrollIndicator = show;
+      });
+    }
   }
 
   void _initLists() {
@@ -236,6 +254,7 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _amountController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -270,6 +289,13 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
     final dest = _classification == 'transferencia-propia'
         ? _selectedDestinationAccount
         : null;
+    if (_classification == 'transferencia-propia' &&
+        (dest == null || dest.trim().isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona la cuenta de destino')),
+      );
+      return;
+    }
 
     final result = CorrectionData(
       classification: _classification,
@@ -298,448 +324,647 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
             ? theme.accent
             : theme.expense;
 
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    if ((bottomInset - _lastBottomInset).abs() > 1) {
+      _lastBottomInset = bottomInset;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkScroll());
+    }
+
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
       child: Dialog(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-        child: SingleChildScrollView(
-          child: Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(maxWidth: 420),
-            decoration: BoxDecoration(
-              color: theme.secondaryCardBackground,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  blurRadius: 40,
-                  offset: const Offset(0, 20),
-                ),
-              ],
-              border: Border.all(
-                color: theme.borderSubtle,
-                width: 1,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Container(
+          width: double.infinity,
+          constraints: BoxConstraints(
+            maxWidth: 440,
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          decoration: BoxDecoration(
+            color: theme.secondaryCardBackground,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 40,
+                offset: const Offset(0, 20),
               ),
+            ],
+            border: Border.all(
+              color: theme.borderSubtle,
+              width: 1,
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Cabecera estilizada estilo Moneo
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            headerColor.withValues(alpha: 0.22),
-                            headerColor.withValues(alpha: 0.04),
-                          ],
-                        ),
-                        border: Border(
-                          bottom: BorderSide(
-                            color: theme.borderSubtle,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: headerColor,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: headerColor.withValues(alpha: 0.35),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              _classification == 'ingreso'
-                                  ? Icons.arrow_upward_rounded
-                                  : _classification == 'transferencia-propia'
-                                      ? Icons.swap_horiz_rounded
-                                      : Icons.arrow_downward_rounded,
-                              color: Colors.white,
-                              size: 26,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Corregir Transacción',
-                                  style: TextStyle(
-                                    color: theme.textPrimary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 17,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  merchantTitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: headerColor,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Cabecera fija estilo Moneo
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          headerColor.withValues(alpha: 0.22),
+                          headerColor.withValues(alpha: 0.04),
                         ],
                       ),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: theme.borderSubtle,
+                          width: 1,
+                        ),
+                      ),
                     ),
-
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildLabel(theme, 'Tipo de movimiento'),
-                          const SizedBox(height: 6),
-                          _buildTypeSelector(theme),
-                          const SizedBox(height: 16),
-
-                          _buildLabel(theme, 'Monto (${widget.item.moneda})'),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _amountController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            inputFormatters: [
-                              ThousandsSeparatorInputFormatter(),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: headerColor,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: headerColor.withValues(alpha: 0.35),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
                             ],
-                            style: TextStyle(
-                              color: theme.textPrimary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            decoration: _inputDecoration(
-                              theme,
-                              hint: '0.00',
-                              prefixIcon: Icon(
-                                Icons.attach_money_rounded,
-                                color: headerColor,
-                              ),
-                            ),
-                            validator: (val) {
-                              final cleaned = CurrencyHelper.cleanAmountString(
-                                  val?.trim() ?? '');
-                              final n = double.tryParse(cleaned);
-                              if (n == null || n <= 0) {
-                                return 'Ingresa un monto válido mayor a 0';
-                              }
-                              return null;
-                            },
                           ),
-                          const SizedBox(height: 14),
-
-                          _buildLabel(
-                            theme,
-                            _classification == 'transferencia-propia'
-                                ? 'Cuenta origen'
-                                : 'Cuenta',
+                          child: Icon(
+                            _classification == 'ingreso'
+                                ? Icons.arrow_upward_rounded
+                                : _classification == 'transferencia-propia'
+                                    ? Icons.swap_horiz_rounded
+                                    : Icons.arrow_downward_rounded,
+                            color: Colors.white,
+                            size: 24,
                           ),
-                          const SizedBox(height: 6),
-                          DropdownButtonFormField<String>(
-                            value: _selectedAccount,
-                            dropdownColor: theme.secondaryCardBackground,
-                            icon: Icon(
-                              Icons.arrow_drop_down_rounded,
-                              color: theme.textSecondary,
-                            ),
-                            isExpanded: true,
-                            decoration: _inputDecoration(theme),
-                            style: TextStyle(
-                              color: theme.textPrimary,
-                              fontSize: 14,
-                            ),
-                            items: _accounts.map((acc) {
-                              return DropdownMenuItem<String>(
-                                value: acc,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.account_balance_wallet_rounded,
-                                      size: 18,
-                                      color: theme.accent,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        acc,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val == null) return;
-                              setState(() {
-                                _selectedAccount = val;
-                                if (_selectedDestinationAccount == val) {
-                                  final others = _accounts
-                                      .where((a) => a != val)
-                                      .toList();
-                                  _selectedDestinationAccount =
-                                      others.isNotEmpty ? others.first : null;
-                                }
-                              });
-                            },
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return 'Selecciona una cuenta';
-                              }
-                              return null;
-                            },
-                          ),
-
-                          if (_classification == 'transferencia-propia') ...[
-                            const SizedBox(height: 14),
-                            _buildLabel(theme, 'Cuenta destino'),
-                            const SizedBox(height: 6),
-                            DropdownButtonFormField<String>(
-                              value: _accounts.contains(
-                                      _selectedDestinationAccount)
-                                  ? _selectedDestinationAccount
-                                  : null,
-                              dropdownColor: theme.secondaryCardBackground,
-                              icon: Icon(
-                                Icons.arrow_drop_down_rounded,
-                                color: theme.textSecondary,
-                              ),
-                              isExpanded: true,
-                              hint: Text(
-                                'Selecciona cuenta destino',
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Corregir Transacción',
                                 style: TextStyle(
-                                  color: theme.textHint,
-                                  fontSize: 14,
+                                  color: theme.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 17,
                                 ),
                               ),
-                              decoration: _inputDecoration(theme),
-                              style: TextStyle(
-                                color: theme.textPrimary,
-                                fontSize: 14,
+                              const SizedBox(height: 2),
+                              Text(
+                                merchantTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: headerColor,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                              items: _accounts
-                                  .where((acc) => acc != _selectedAccount)
-                                  .map((acc) {
-                                return DropdownMenuItem<String>(
-                                  value: acc,
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.account_balance_rounded,
-                                        size: 18,
-                                        color: theme.income,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          acc,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                setState(() {
-                                  _selectedDestinationAccount = val;
-                                });
-                              },
-                              validator: (val) {
-                                if (_classification == 'transferencia-propia' &&
-                                    (val == null || val.trim().isEmpty)) {
-                                  return 'Selecciona la cuenta de destino';
-                                }
-                                return null;
-                              },
-                            ),
-                          ] else ...[
-                            const SizedBox(height: 14),
-                            _buildLabel(theme, 'Categoría'),
-                            const SizedBox(height: 6),
-                            DropdownButtonFormField<String>(
-                              value: _currentCategories
-                                      .contains(_selectedCategory)
-                                  ? _selectedCategory
-                                  : _currentCategories.first,
-                              dropdownColor: theme.secondaryCardBackground,
-                              icon: Icon(
-                                Icons.arrow_drop_down_rounded,
-                                color: theme.textSecondary,
-                              ),
-                              isExpanded: true,
-                              decoration: _inputDecoration(theme),
-                              style: TextStyle(
-                                color: theme.textPrimary,
-                                fontSize: 14,
-                              ),
-                              items: _currentCategories.map((cat) {
-                                return DropdownMenuItem<String>(
-                                  value: cat,
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        _resolveCategoryIcon(cat),
-                                        size: 18,
-                                        color: headerColor,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          cat,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() {
-                                    _selectedCategory = val;
-                                  });
-                                }
-                              },
-                            ),
-                          ],
-
-                          const SizedBox(height: 14),
-                          _buildLabel(theme, 'Descripción'),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _descriptionController,
-                            style: TextStyle(
-                              color: theme.textPrimary,
-                              fontSize: 14,
-                            ),
-                            decoration: _inputDecoration(
-                              theme,
-                              hint: 'Ej. Compra en supermercado',
-                              prefixIcon: Icon(
-                                Icons.description_outlined,
-                                color: theme.textSecondary,
-                                size: 20,
-                              ),
-                            ),
+                            ],
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-                          const SizedBox(height: 14),
-                          _buildLabel(theme, 'Fecha'),
-                          const SizedBox(height: 6),
-                          InkWell(
-                            onTap: _pickDate,
-                            borderRadius: BorderRadius.circular(12),
-                            child: InputDecorator(
-                              decoration: _inputDecoration(
+                  // Cuerpo scrolleable con indicador "Desliza para ver más"
+                  Flexible(
+                    child: Stack(
+                      children: [
+                        SingleChildScrollView(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.fromLTRB(18, 16, 18, 22),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildLabel(theme, 'Tipo de movimiento'),
+                              const SizedBox(height: 6),
+                              _buildTypeSelector(theme),
+                              const SizedBox(height: 14),
+
+                              _buildLabel(
+                                  theme, 'Monto (${widget.item.moneda})'),
+                              const SizedBox(height: 6),
+                              _buildMoneoField(
                                 theme,
-                                prefixIcon: Icon(
-                                  Icons.calendar_today_rounded,
-                                  color: theme.accent,
-                                  size: 18,
+                                child: TextFormField(
+                                  controller: _amountController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
+                                  inputFormatters: [
+                                    ThousandsSeparatorInputFormatter(),
+                                  ],
+                                  style: TextStyle(
+                                    color: theme.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: '0.00',
+                                    hintStyle: TextStyle(
+                                        color: theme.textHint, fontSize: 14),
+                                    border: InputBorder.none,
+                                    prefixIcon: Icon(
+                                      Icons.attach_money_rounded,
+                                      color: headerColor,
+                                      size: 20,
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                  ),
+                                  validator: (val) {
+                                    final cleaned =
+                                        CurrencyHelper.cleanAmountString(
+                                            val?.trim() ?? '');
+                                    final n = double.tryParse(cleaned);
+                                    if (n == null || n <= 0) {
+                                      return 'Ingresa un monto válido mayor a 0';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              const SizedBox(height: 14),
+
+                              // Fila 1: Cuenta al lado de Categoría (o Cuenta destino en Transferir)
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    _formatDate(_selectedDate),
-                                    style: TextStyle(
-                                      color: theme.textPrimary,
-                                      fontSize: 14,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _buildLabel(
+                                          theme,
+                                          _classification ==
+                                                  'transferencia-propia'
+                                              ? 'Cuenta origen'
+                                              : 'Cuenta',
+                                        ),
+                                        const SizedBox(height: 6),
+                                        _buildAccountDropdown(theme),
+                                      ],
                                     ),
                                   ),
-                                  Icon(
-                                    Icons.edit_calendar_rounded,
-                                    size: 18,
-                                    color: theme.textSecondary,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _buildLabel(
+                                          theme,
+                                          _classification ==
+                                                  'transferencia-propia'
+                                              ? 'Cuenta destino'
+                                              : 'Categoría',
+                                        ),
+                                        const SizedBox(height: 6),
+                                        _classification ==
+                                                'transferencia-propia'
+                                            ? _buildDestinationDropdown(theme)
+                                            : _buildCategoryDropdown(
+                                                theme, headerColor),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ),
+                              const SizedBox(height: 14),
 
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            width: double.infinity,
-                            child: Wrap(
-                              alignment: WrapAlignment.end,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(null),
-                                  child: Text(
-                                    'Cancelar',
-                                    style:
-                                        TextStyle(color: theme.textSecondary),
+                              // Fila 2: Descripción al lado de Fecha (igual que Editar Ingreso)
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _buildLabel(theme, 'Descripción'),
+                                        const SizedBox(height: 6),
+                                        _buildMoneoField(
+                                          theme,
+                                          child: TextFormField(
+                                            controller: _descriptionController,
+                                            style: TextStyle(
+                                              color: theme.textPrimary,
+                                              fontSize: 14,
+                                            ),
+                                            decoration: InputDecoration(
+                                              hintText: 'Detalles...',
+                                              hintStyle: TextStyle(
+                                                color: theme.textHint,
+                                                fontSize: 14,
+                                              ),
+                                              border: InputBorder.none,
+                                              prefixIcon: Icon(
+                                                Icons.description_outlined,
+                                                color: headerColor,
+                                                size: 18,
+                                              ),
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 12),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _buildLabel(theme, 'Fecha'),
+                                        const SizedBox(height: 6),
+                                        InkWell(
+                                          onTap: _pickDate,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          child: _buildMoneoField(
+                                            theme,
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 12),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons
+                                                        .calendar_today_rounded,
+                                                    color: headerColor,
+                                                    size: 18,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      _formatDate(
+                                                          _selectedDate),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: TextStyle(
+                                                        color:
+                                                            theme.textPrimary,
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Indicador de desplazamiento igual que EditAccountDialog
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: AnimatedOpacity(
+                            opacity: _showScrollIndicator ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 250),
+                            child: IgnorePointer(
+                              ignoring: !_showScrollIndicator,
+                              child: Container(
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      theme.secondaryCardBackground
+                                          .withValues(alpha: 0.95),
+                                    ],
                                   ),
                                 ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: theme.buttonShadow,
-                                  ),
-                                  child: ElevatedButton(
-                                    onPressed: _submit,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: theme.buttonBackground,
-                                      foregroundColor: theme.buttonForeground,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 18,
-                                        vertical: 12,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Guardar corrección',
+                                alignment: Alignment.bottomCenter,
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Desliza para ver más',
                                       style: TextStyle(
-                                          fontWeight: FontWeight.bold),
+                                        color: theme.textSecondary,
+                                        fontSize: 10,
+                                      ),
                                     ),
-                                  ),
+                                    Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      color: theme.textSecondary,
+                                      size: 20,
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Barra de botones fija abajo
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: theme.borderSubtle, width: 1),
                       ),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: TextButton(
+                            onPressed: () => Navigator.of(context).pop(null),
+                            child: Text(
+                              'Cancelar',
+                              style: TextStyle(color: theme.textSecondary),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: theme.buttonShadow,
+                            ),
+                            child: ElevatedButton(
+                              onPressed: _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.buttonBackground,
+                                foregroundColor: theme.buttonForeground,
+                                elevation: 0,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Guardar corrección',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAccountDropdown(AppTheme theme) {
+    return _buildMoneoField(
+      theme,
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedAccount,
+          dropdownColor: theme.secondaryCardBackground,
+          icon: Icon(
+            Icons.arrow_drop_down_rounded,
+            color: theme.textSecondary,
+          ),
+          isExpanded: true,
+          style: TextStyle(color: theme.textPrimary),
+          onChanged: (val) {
+            if (val == null) return;
+            setState(() {
+              _selectedAccount = val;
+              if (_selectedDestinationAccount == val) {
+                final others = _accounts.where((a) => a != val).toList();
+                _selectedDestinationAccount =
+                    others.isNotEmpty ? others.first : null;
+              }
+            });
+          },
+          items: _accounts.map((acc) {
+            return DropdownMenuItem<String>(
+              value: acc,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: theme.accent.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.account_balance_wallet_rounded,
+                      color: theme.accent,
+                      size: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      acc,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDestinationDropdown(AppTheme theme) {
+    final availableDest =
+        _accounts.where((acc) => acc != _selectedAccount).toList();
+    final currentDest = availableDest.contains(_selectedDestinationAccount)
+        ? _selectedDestinationAccount
+        : null;
+
+    return _buildMoneoField(
+      theme,
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: currentDest,
+          hint: Text(
+            'Destino',
+            style: TextStyle(color: theme.textHint, fontSize: 14),
+          ),
+          dropdownColor: theme.secondaryCardBackground,
+          icon: Icon(
+            Icons.arrow_drop_down_rounded,
+            color: theme.textSecondary,
+          ),
+          isExpanded: true,
+          style: TextStyle(color: theme.textPrimary),
+          onChanged: (val) {
+            setState(() {
+              _selectedDestinationAccount = val;
+            });
+          },
+          items: availableDest.map((acc) {
+            return DropdownMenuItem<String>(
+              value: acc,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: theme.income.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.account_balance_rounded,
+                      color: theme.income,
+                      size: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      acc,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryDropdown(AppTheme theme, Color headerColor) {
+    final currentCat = _currentCategories.contains(_selectedCategory)
+        ? _selectedCategory
+        : _currentCategories.first;
+
+    return _buildMoneoField(
+      theme,
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: currentCat,
+          dropdownColor: theme.secondaryCardBackground,
+          icon: Icon(
+            Icons.arrow_drop_down_rounded,
+            color: theme.textSecondary,
+          ),
+          isExpanded: true,
+          style: TextStyle(color: theme.textPrimary),
+          onChanged: (val) {
+            if (val != null) {
+              setState(() {
+                _selectedCategory = val;
+              });
+            }
+          },
+          items: _currentCategories.map((cat) {
+            return DropdownMenuItem<String>(
+              value: cat,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: headerColor.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _resolveCategoryIcon(cat),
+                      color: headerColor,
+                      size: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      cat,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMoneoField(AppTheme theme, {required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.darkBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.borderSubtle,
+          width: 1,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            filled: false,
+          ),
+        ),
+        child: child,
       ),
     );
   }
@@ -874,36 +1099,5 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
     final d = date.day.toString().padLeft(2, '0');
     final m = date.month.toString().padLeft(2, '0');
     return '$d/$m/${date.year}';
-  }
-
-  InputDecoration _inputDecoration(
-    AppTheme theme, {
-    String? hint,
-    Widget? prefixIcon,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: theme.textHint, fontSize: 13),
-      prefixIcon: prefixIcon,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      filled: true,
-      fillColor: theme.darkBackground,
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.borderSubtle),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.accent, width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.error),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.error, width: 1.5),
-      ),
-    );
   }
 }

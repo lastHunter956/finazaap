@@ -314,7 +314,7 @@ void main() {
         expect(find.text('Corregir Transacción'), findsOneWidget);
         expect(find.text('Descripción'), findsOneWidget);
         expect(find.text('Fecha'), findsOneWidget);
-        expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(2));
+        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
 
         // Cambia la descripción
         final descField = find.widgetWithText(TextFormField, 'EXITO COLOMBIA');
@@ -327,7 +327,7 @@ void main() {
         await tester.tap(find.text('Transferir'));
         await tester.pumpAndSettle();
         expect(find.text('Cuenta destino'), findsOneWidget);
-        expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(2));
+        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
 
         // Guarda la corrección
         await tester.ensureVisible(find.text('Guardar corrección'));

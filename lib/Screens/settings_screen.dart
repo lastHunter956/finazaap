@@ -249,121 +249,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (sheetCtx) {
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            final banks = _whitelistService.allBanks;
-            final activeCount = _whitelistService.whitelistedPackages.length;
-            return SafeArea(
-              child: DraggableScrollableSheet(
-                expand: false,
-                initialChildSize: 0.65,
-                minChildSize: 0.4,
-                maxChildSize: 0.9,
-                builder: (_, scrollController) {
-                  return Column(
-                    children: [
-                      const SizedBox(height: 10),
-                      Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: context.appTheme.borderSubtle,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Aplicaciones bancarias',
-                                    style: TextStyle(
-                                      color: context.appTheme.textPrimary,
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '$activeCount de ${banks.length} permitidas para leer notificaciones',
-                                    style: TextStyle(
-                                      color: context.appTheme.textSecondary,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                _whitelistService.resetToDefaults();
-                                await _whitelistService.saveToPrefs();
-                                setSheetState(() {});
-                                if (mounted) setState(() {});
-                              },
-                              child: Text(
-                                'Restablecer',
-                                style: TextStyle(color: context.appTheme.accent),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Divider(height: 1, color: context.appTheme.borderSubtle),
-                      Expanded(
-                        child: ListView.separated(
-                          controller: scrollController,
-                          itemCount: banks.length,
-                          separatorBuilder: (_, __) => Divider(
-                            height: 1,
-                            color: context.appTheme.borderSubtle,
-                          ),
-                          itemBuilder: (_, index) {
-                            final bank = banks[index];
-                            final enabled =
-                                _whitelistService.isWhitelisted(bank.packageName);
-                            return SwitchListTile(
-                              title: Text(
-                                bank.name,
-                                style: TextStyle(
-                                  color: context.appTheme.textPrimary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              subtitle: Text(
-                                bank.packageName,
-                                style: TextStyle(
-                                  color: context.appTheme.textSecondary,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              value: enabled,
-                              activeColor: context.appTheme.accent,
-                              onChanged: (value) async {
-                                await _whitelistService.setBankEnabled(
-                                  bank.packageName,
-                                  value,
-                                );
-                                setSheetState(() {});
-                                if (mounted) setState(() {});
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            );
-          },
-        );
-      },
+      builder: (_) => _AllowedAppsSheet(
+        whitelistService: _whitelistService,
+        onChanged: () {
+          if (mounted) setState(() {});
+        },
+      ),
     );
   }
 
@@ -559,11 +450,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: context.appTheme.accent,
                         ),
                         title: Text(
-                          'Aplicaciones bancarias permitidas',
+                          'Apps permitidas para notificaciones',
                           style: TextStyle(color: context.appTheme.textPrimary),
                         ),
                         subtitle: Text(
-                          '${_whitelistService.whitelistedPackages.length} de ${_whitelistService.allBanks.length} aplicaciones activas',
+                          '${_whitelistService.whitelistedPackages.length} aplicaciones activas (bancos y mensajería)',
                           style: TextStyle(
                             color: context.appTheme.textSecondary,
                             fontSize: 12,
@@ -1116,6 +1007,407 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shape: BoxShape.circle,
         border: Border.all(color: Colors.black12, width: 0.5),
       ),
+    );
+  }
+}
+
+enum _AppFilterMode { all, selected, banks }
+
+class _AllowedAppsSheet extends StatefulWidget {
+  final BankWhitelistService whitelistService;
+  final VoidCallback onChanged;
+
+  const _AllowedAppsSheet({
+    required this.whitelistService,
+    required this.onChanged,
+  });
+
+  @override
+  State<_AllowedAppsSheet> createState() => _AllowedAppsSheetState();
+}
+
+class _AllowedAppsSheetState extends State<_AllowedAppsSheet>
+    with WidgetsBindingObserver {
+  final TextEditingController _searchCtrl = TextEditingController();
+  bool _loading = true;
+  bool _hasPermission = false;
+  List<InstalledAppInfo> _installedApps = const [];
+  _AppFilterMode _filter = _AppFilterMode.all;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshPermissionOnly();
+    }
+  }
+
+  Future<void> _refreshPermissionOnly() async {
+    final granted =
+        await widget.whitelistService.isNotificationAccessGranted();
+    if (!mounted) return;
+    setState(() => _hasPermission = granted);
+  }
+
+  Future<void> _loadData() async {
+    final results = await Future.wait<dynamic>([
+      widget.whitelistService.isNotificationAccessGranted(),
+      widget.whitelistService.getInstalledApps(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _hasPermission = results[0] as bool;
+      _installedApps = results[1] as List<InstalledAppInfo>;
+      _loading = false;
+    });
+  }
+
+  List<InstalledAppInfo> _buildDisplayList() {
+    final defaultPkgs = BankWhitelistService.defaultBankList
+        .map((b) => b.packageName)
+        .toSet();
+
+    // Si no hay apps nativas (ej. Web/tests), usa el catálogo configurado
+    final baseList = _installedApps.isNotEmpty
+        ? _installedApps
+        : widget.whitelistService.allBanks
+            .map(
+              (b) => InstalledAppInfo(
+                packageName: b.packageName,
+                appName: b.name,
+              ),
+            )
+            .toList();
+
+    final q = _query.trim().toLowerCase();
+    final filtered = baseList.where((app) {
+      if (q.isNotEmpty &&
+          !app.appName.toLowerCase().contains(q) &&
+          !app.packageName.toLowerCase().contains(q)) {
+        return false;
+      }
+      if (_filter == _AppFilterMode.selected) {
+        return widget.whitelistService.isWhitelisted(app.packageName);
+      }
+      if (_filter == _AppFilterMode.banks) {
+        return defaultPkgs.contains(app.packageName);
+      }
+      return true;
+    }).toList();
+
+    filtered.sort((a, b) {
+      final aOn = widget.whitelistService.isWhitelisted(a.packageName) ? 0 : 1;
+      final bOn = widget.whitelistService.isWhitelisted(b.packageName) ? 0 : 1;
+      if (aOn != bOn) return aOn.compareTo(bOn);
+      final aBank = defaultPkgs.contains(a.packageName) ? 0 : 1;
+      final bBank = defaultPkgs.contains(b.packageName) ? 0 : 1;
+      if (aBank != bBank) return aBank.compareTo(bBank);
+      return a.appName.toLowerCase().compareTo(b.appName.toLowerCase());
+    });
+    return filtered;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.appTheme;
+    final items = _buildDisplayList();
+    final activeCount = widget.whitelistService.whitelistedPackages.length;
+
+    return SafeArea(
+      child: DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.78,
+        minChildSize: 0.45,
+        maxChildSize: 0.94,
+        builder: (_, scrollController) {
+          return Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.borderSubtle,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 16, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Apps permitidas',
+                            style: TextStyle(
+                              color: theme.textPrimary,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$activeCount activas · bancos, mensajería y otras apps',
+                            style: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        widget.whitelistService.resetToDefaults();
+                        await widget.whitelistService.saveToPrefs();
+                        setState(() {});
+                        widget.onChanged();
+                      },
+                      child: Text(
+                        'Restablecer',
+                        style: TextStyle(color: theme.accent),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Banner del permiso real de lectura de notificaciones
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: (_hasPermission ? theme.income : Colors.amber)
+                      .withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: (_hasPermission ? theme.income : Colors.amber)
+                        .withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _hasPermission
+                          ? Icons.verified_user_rounded
+                          : Icons.notifications_paused_rounded,
+                      color: _hasPermission ? theme.income : Colors.amber,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _hasPermission
+                                ? 'Acceso a notificaciones activo'
+                                : 'Permiso de notificaciones pendiente',
+                            style: TextStyle(
+                              color: theme.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            _hasPermission
+                                ? 'Android permite leer notificaciones de las apps elegidas'
+                                : 'Actívalo en Ajustes de Android para detectar alertas reales',
+                            style: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => widget.whitelistService
+                          .openNotificationAccessSettings(),
+                      child: Text(
+                        _hasPermission ? 'Ajustes' : 'Abrir permisos',
+                        style: TextStyle(
+                          color: theme.accent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Buscador y chips de filtro
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: (v) => setState(() => _query = v),
+                  style: TextStyle(color: theme.textPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar app o paquete (ej. WhatsApp, Mensajes)...',
+                    hintStyle: TextStyle(color: theme.textHint, fontSize: 13),
+                    prefixIcon:
+                        Icon(Icons.search_rounded, color: theme.textSecondary),
+                    suffixIcon: _query.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.close_rounded,
+                                size: 18, color: theme.textSecondary),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              setState(() => _query = '');
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: theme.darkBackground,
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: theme.borderSubtle),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: theme.borderSubtle),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    _buildFilterChip(theme, _AppFilterMode.all, 'Todas'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(
+                        theme, _AppFilterMode.selected, 'Seleccionadas'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(theme, _AppFilterMode.banks, 'Bancos'),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: theme.borderSubtle),
+
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : items.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No hay aplicaciones que coincidan',
+                              style: TextStyle(color: theme.textSecondary),
+                            ),
+                          )
+                        : ListView.separated(
+                            controller: scrollController,
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: theme.borderSubtle,
+                            ),
+                            itemBuilder: (_, index) {
+                              final app = items[index];
+                              final enabled = widget.whitelistService
+                                  .isWhitelisted(app.packageName);
+                              return SwitchListTile(
+                                secondary: app.iconBytes != null
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.memory(
+                                          app.iconBytes!,
+                                          width: 34,
+                                          height: 34,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      )
+                                    : CircleAvatar(
+                                        radius: 17,
+                                        backgroundColor: theme.accent
+                                            .withValues(alpha: 0.16),
+                                        child: Icon(
+                                          Icons.apps_rounded,
+                                          size: 18,
+                                          color: theme.accent,
+                                        ),
+                                      ),
+                                title: Text(
+                                  app.appName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: theme.textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  app.packageName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: theme.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                value: enabled,
+                                activeThumbColor: theme.accent,
+                                onChanged: (value) async {
+                                  await widget.whitelistService.setBankEnabled(
+                                    app.packageName,
+                                    value,
+                                    appName: app.appName,
+                                  );
+                                  setState(() {});
+                                  widget.onChanged();
+                                },
+                              );
+                            },
+                          ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(
+    AppTheme theme,
+    _AppFilterMode mode,
+    String label,
+  ) {
+    final selected = _filter == mode;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => setState(() => _filter = mode),
+      selectedColor: theme.accent.withValues(alpha: 0.2),
+      labelStyle: TextStyle(
+        color: selected ? theme.accent : theme.textSecondary,
+        fontSize: 12,
+        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+      ),
+      side: BorderSide(
+        color: selected ? theme.accent : theme.borderSubtle,
+      ),
+      backgroundColor: theme.darkBackground,
+      visualDensity: VisualDensity.compact,
     );
   }
 }

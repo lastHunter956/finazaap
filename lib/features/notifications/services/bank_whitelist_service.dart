@@ -1,5 +1,20 @@
 import 'dart:collection';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Representa una aplicación instalada en el dispositivo Android.
+class InstalledAppInfo {
+  final String packageName;
+  final String appName;
+  final Uint8List? iconBytes;
+
+  const InstalledAppInfo({
+    required this.packageName,
+    required this.appName,
+    this.iconBytes,
+  });
+}
 
 /// Metadatos asociados a una entidad bancaria o billetera soportada.
 class BankMetadata {
@@ -221,11 +236,28 @@ class BankWhitelistService {
     }
   }
 
-  /// Carga los paquetes habilitados desde [SharedPreferences].
+  static const String customAppsPrefsKey = 'notifications_custom_apps';
+  static const MethodChannel _appsChannel =
+      MethodChannel('com.example.finazaap/notifications_apps');
+
+  /// Carga los paquetes habilitados y apps personalizadas desde [SharedPreferences].
   ///
   /// Si no hay preferencia guardada aún, conserva los valores predeterminados.
   Future<void> loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    final customRaw = prefs.getStringList(customAppsPrefsKey);
+    if (customRaw != null) {
+      for (final item in customRaw) {
+        try {
+          final map = jsonDecode(item) as Map<String, dynamic>;
+          final meta = BankMetadata.fromJson(map);
+          _banks[meta.packageName] = meta;
+        } catch (_) {
+          // Ignora entradas corruptas
+        }
+      }
+    }
+
     final saved = prefs.getStringList(prefsKey);
     if (saved == null) return;
 
@@ -234,19 +266,89 @@ class BankWhitelistService {
       ..addAll(saved.where((pkg) => _banks.containsKey(pkg)));
   }
 
-  /// Persiste los paquetes habilitados actuales en [SharedPreferences].
+  /// Persiste los paquetes habilitados y apps personalizadas en [SharedPreferences].
   Future<void> saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(prefsKey, _enabledPackages.toList());
+    final customApps = _banks.values
+        .where((b) => !b.isDefault)
+        .map((b) => jsonEncode(b.toJson()))
+        .toList();
+    await prefs.setStringList(customAppsPrefsKey, customApps);
   }
 
-  /// Activa o desactiva un paquete bancario y guarda el cambio localmente.
-  Future<void> setBankEnabled(String packageName, bool enabled) async {
+  /// Activa o desactiva cualquier aplicación (bancaria o de mensajería) y guarda localmente.
+  Future<void> setBankEnabled(
+    String packageName,
+    bool enabled, {
+    String? appName,
+  }) async {
+    final normalized = packageName.trim();
     if (enabled) {
-      enablePackage(packageName);
+      if (!_banks.containsKey(normalized)) {
+        addPackage(
+          normalized,
+          bankName: (appName != null && appName.trim().isNotEmpty)
+              ? appName.trim()
+              : normalized,
+          enabled: true,
+        );
+      } else {
+        enablePackage(normalized);
+      }
     } else {
-      disablePackage(packageName);
+      disablePackage(normalized);
     }
     await saveToPrefs();
+  }
+
+  /// Obtiene la lista real de apps instaladas en Android; retorna lista vacía en Web/tests.
+  Future<List<InstalledAppInfo>> getInstalledApps() async {
+    try {
+      final raw = await _appsChannel.invokeMethod<List<dynamic>>(
+        'getInstalledApps',
+      );
+      if (raw == null) return const [];
+      return raw.whereType<Map>().map((entry) {
+        final rawIcon = entry['iconBytes'];
+        Uint8List? iconBytes;
+        if (rawIcon is Uint8List) {
+          iconBytes = rawIcon;
+        } else if (rawIcon is List<int>) {
+          iconBytes = Uint8List.fromList(rawIcon);
+        }
+        return InstalledAppInfo(
+          packageName: (entry['packageName'] ?? '').toString(),
+          appName: (entry['appName'] ?? '').toString(),
+          iconBytes: iconBytes,
+        );
+      }).where((a) => a.packageName.isNotEmpty).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Consulta si el permiso real de acceso a notificaciones está activo en Android.
+  Future<bool> isNotificationAccessGranted() async {
+    try {
+      final granted = await _appsChannel.invokeMethod<bool>(
+        'isNotificationAccessGranted',
+      );
+      return granted ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Abre la pantalla del sistema Android para habilitar el acceso a notificaciones.
+  Future<bool> openNotificationAccessSettings() async {
+    try {
+      final opened = await _appsChannel.invokeMethod<bool>(
+        'openNotificationAccessSettings',
+      );
+      return opened ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 }

@@ -380,6 +380,16 @@ void main() {
       await reloaded.loadFromPrefs();
       expect(reloaded.isWhitelisted('com.bancolombia.personas'), isFalse);
       expect(reloaded.isWhitelisted('com.nequi.MobileApp'), isTrue);
+
+      await reloaded.setBankEnabled(
+        'com.whatsapp',
+        true,
+        appName: 'WhatsApp',
+      );
+      final reloadedCustom = BankWhitelistService();
+      await reloadedCustom.loadFromPrefs();
+      expect(reloadedCustom.isWhitelisted('com.whatsapp'), isTrue);
+      expect(reloadedCustom.getBankName('com.whatsapp'), equals('WhatsApp'));
     });
   });
 }
