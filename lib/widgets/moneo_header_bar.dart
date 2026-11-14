@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -126,22 +125,26 @@ class MoneoHeaderBar extends StatelessWidget {
     bool hasBadge = false,
   }) {
     final textScaler = MediaQuery.textScalerOf(context);
-    final titleFont = variant == MoneoHeaderVariant.primaryTab ? 22.0 : 18.0;
+    final titleFont = switch (variant) {
+      MoneoHeaderVariant.primaryTab => 26.0,
+      MoneoHeaderVariant.subScreen => 19.0,
+      MoneoHeaderVariant.form => 18.0,
+    };
     final titleHeight = textScaler.scale(titleFont) * 1.25;
     final minRowHeight = switch (variant) {
-      MoneoHeaderVariant.primaryTab => hasBadge ? 48.0 : 41.0,
+      MoneoHeaderVariant.primaryTab => hasBadge ? 48.0 : 42.0,
       MoneoHeaderVariant.subScreen => hasBadge ? 48.0 : 39.0,
       MoneoHeaderVariant.form => 38.0,
     };
     final subtitleHeight =
-        hasSubtitle ? (2.0 + textScaler.scale(12.0) * 1.45) : 0.0;
+        hasSubtitle ? (3.0 + textScaler.scale(12.5) * 1.45) : 0.0;
     final verticalChrome = switch (variant) {
-      MoneoHeaderVariant.primaryTab => 21.0,
-      MoneoHeaderVariant.subScreen => 19.0,
+      MoneoHeaderVariant.primaryTab => 26.0,
+      MoneoHeaderVariant.subScreen => 22.0,
       MoneoHeaderVariant.form => 18.0,
     };
     final bottomExtra = hasBottomChild
-        ? (10.0 + math.max(40.0, textScaler.scale(14.0) + 26.0) + 4.0)
+        ? (12.0 + math.max(40.0, textScaler.scale(14.0) + 26.0) + 4.0)
         : 0.0;
     return math.max(minRowHeight, titleHeight) +
         subtitleHeight +
@@ -167,69 +170,38 @@ class MoneoHeaderBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.appTheme;
-    final isDiurno = context.isDiurno;
-    final reduceEffects = LiquidGlassSurface.shouldReduceEffects(context);
-    final useTranslucent =
-        isDiurno && !reduceEffects && variant != MoneoHeaderVariant.form;
 
-    final Color backgroundColor = switch (variant) {
-      MoneoHeaderVariant.form => t.primaryBackground,
-      MoneoHeaderVariant.primaryTab || MoneoHeaderVariant.subScreen =>
-        isDiurno
-            ? (reduceEffects
-                ? const Color(0xFFF7FAFF)
-                : const Color(0xE8FFFFFF))
-            : t.cardBackground,
+    final double horizontalPad = variant == MoneoHeaderVariant.primaryTab ? 20 : 14;
+    final double verticalTop = variant == MoneoHeaderVariant.primaryTab ? 14 : 10;
+    final double verticalBottom = switch (variant) {
+      MoneoHeaderVariant.primaryTab => bottomChild != null ? 10 : 8,
+      MoneoHeaderVariant.subScreen => 10,
+      MoneoHeaderVariant.form => 8,
     };
 
-    final double horizontalPad = variant == MoneoHeaderVariant.primaryTab ? 18 : 12;
-    final double verticalTop = variant == MoneoHeaderVariant.primaryTab ? 10 : 8;
-    final double verticalBottom = bottomChild != null ? 10 : 10;
-
-    final content = SafeArea(
-      bottom: false,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(
-          horizontalPad,
-          verticalTop,
-          horizontalPad,
-          verticalBottom,
-        ),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          border: variant == MoneoHeaderVariant.form
-              ? null
-              : Border(
-                  bottom: BorderSide(
-                    color: isDiurno && !reduceEffects
-                        ? const Color(0x99C7D7EB)
-                        : t.borderSubtle,
-                    width: 1.0,
-                  ),
-                ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildTopRow(context, t),
-            if (bottomChild != null) ...[
-              const SizedBox(height: 10),
-              bottomChild!,
+    return ColoredBox(
+      color: t.primaryBackground,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalPad,
+            verticalTop,
+            horizontalPad,
+            verticalBottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildTopRow(context, t),
+              if (bottomChild != null) ...[
+                const SizedBox(height: 12),
+                bottomChild!,
+              ],
             ],
-          ],
+          ),
         ),
-      ),
-    );
-
-    if (!useTranslucent) {
-      return content;
-    }
-
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
-        child: content,
       ),
     );
   }
@@ -283,21 +255,28 @@ class MoneoHeaderBar extends StatelessWidget {
       );
     }
 
-    final titleStyle = variant == MoneoHeaderVariant.primaryTab
-        ? TextStyle(
-            color: t.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.3,
-            height: 1.15,
-          )
-        : TextStyle(
-            color: t.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
-            height: 1.15,
-          );
+    final titleStyle = switch (variant) {
+      MoneoHeaderVariant.primaryTab => TextStyle(
+          color: t.textPrimary,
+          fontSize: 26,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
+          height: 1.15,
+        ),
+      MoneoHeaderVariant.subScreen => TextStyle(
+          color: t.textPrimary,
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.25,
+          height: 1.15,
+        ),
+      MoneoHeaderVariant.form => TextStyle(
+          color: t.textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          height: 1.15,
+        ),
+    };
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -382,27 +361,38 @@ class _HeaderBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.appTheme;
+    final isDiurno = context.isDiurno;
     return MoneoPressableScale(
       child: Material(
-        color: t.darkBackground.withValues(
-          alpha: context.isDiurno ? 0.65 : 0.85,
-        ),
-        borderRadius: BorderRadius.circular(12),
+        color: isDiurno ? Colors.white.withValues(alpha: 0.9) : t.cardBackground,
+        borderRadius: BorderRadius.circular(13),
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(13),
           child: Container(
             width: 38,
             height: 38,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: t.borderSubtle, width: 1),
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(
+                color: isDiurno ? const Color(0xC7D7EBFF) : t.borderSubtle,
+                width: 1,
+              ),
+              boxShadow: isDiurno
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x120B132B),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             child: Icon(
               Icons.arrow_back_ios_new_rounded,
               color: t.textPrimary,
-              size: 17,
+              size: 16,
             ),
           ),
         ),

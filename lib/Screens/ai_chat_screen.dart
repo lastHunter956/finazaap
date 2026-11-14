@@ -2859,47 +2859,17 @@ class _AiChatScreenState extends State<AiChatScreen>
     final bottomSafe = MediaQuery.viewPaddingOf(context).bottom;
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 28 + bottomSafe),
+      padding: EdgeInsets.fromLTRB(16, 14, 16, 28 + bottomSafe),
       children: [
-        _buildHealthBannerCard(),
-        const SizedBox(height: 14),
-        _buildMetricsDashboard(),
-        const SizedBox(height: 14),
+        _buildCognitiveOverviewSurface(),
         if (categoryExpenses.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          _buildSectionHeading('Gastos por categoría · Mes actual'),
+          const SizedBox(height: 8),
           _buildSectionCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: t.secondaryAccent.withValues(alpha: 0.14),
-                      ),
-                      child: Icon(
-                        Icons.pie_chart_outline_rounded,
-                        color: t.secondaryAccent,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Gastos por Categoría (Mes actual)',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          color: t.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Divider(height: 22, color: t.borderSubtle),
                 ...categoryExpenses.entries.map((entry) {
                   final percent =
                       totalExpenses > 0 ? (entry.value / totalExpenses) : 0.0;
@@ -2912,58 +2882,37 @@ class _AiChatScreenState extends State<AiChatScreen>
               ],
             ),
           ),
-          const SizedBox(height: 14),
         ],
+        const SizedBox(height: 20),
+        _buildSectionHeading('Metas financieras'),
+        const SizedBox(height: 8),
         _buildSectionCard(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: t.success.withValues(alpha: 0.14),
-                    ),
-                    child: Icon(Icons.flag_rounded, color: t.success, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Tus Metas Financieras',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        color: t.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
               Text(
-                'El asistente evaluará la conveniencia de tus consumos basándose en estas metas:',
+                'El asistente priorizará estas metas al evaluar tus compras:',
                 style: GoogleFonts.outfit(
                   color: t.textSecondary,
-                  fontSize: 12,
-                  height: 1.35,
+                  fontSize: 12.5,
+                  height: 1.38,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               TextField(
                 controller: _goalsController,
                 maxLines: 2,
-                style: GoogleFonts.outfit(color: t.textPrimary, fontSize: 13),
+                style: GoogleFonts.outfit(color: t.textPrimary, fontSize: 13.5),
                 decoration: InputDecoration(
                   hintText:
                       'Ej. Ahorrar para una laptop, reducir comidas fuera de casa...',
                   hintStyle: GoogleFonts.outfit(color: t.textHint, fontSize: 13),
                   filled: true,
                   fillColor: t.darkBackground,
-                  contentPadding: const EdgeInsets.all(12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 11,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: t.borderSubtle),
@@ -2979,23 +2928,30 @@ class _AiChatScreenState extends State<AiChatScreen>
                 ),
               ),
               const SizedBox(height: 12),
-              MoneoPressableScale(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: t.buttonBackground,
-                    foregroundColor: t.buttonForeground,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: MoneoPressableScale(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: t.buttonBackground,
+                      foregroundColor: t.buttonForeground,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                     ),
-                    minimumSize: const Size(double.infinity, 42),
-                  ),
-                  onPressed: _saveGoals,
-                  child: Text(
-                    'Guardar Metas',
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                    onPressed: _saveGoals,
+                    icon: const Icon(Icons.check_rounded, size: 16),
+                    label: Text(
+                      'Guardar Metas',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -3008,32 +2964,27 @@ class _AiChatScreenState extends State<AiChatScreen>
           width: double.infinity,
           decoration: BoxDecoration(
             color: t.cardBackground,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(color: t.borderSubtle),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             child: Theme(
               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: t.accent.withValues(alpha: 0.14),
-                  ),
-                  child: Icon(
-                    Icons.description_outlined,
-                    color: t.accent,
-                    size: 20,
-                  ),
+                tilePadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                leading: Icon(
+                  Icons.description_outlined,
+                  color: t.accent,
+                  size: 20,
                 ),
                 title: Text(
                   'Reporte Analítico Detallado (Markdown)',
                   style: GoogleFonts.outfit(
                     color: t.textPrimary,
                     fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 iconColor: t.accent,
@@ -3071,74 +3022,88 @@ class _AiChatScreenState extends State<AiChatScreen>
             ),
           ),
         ),
-        const SizedBox(height: 20),
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: t.error),
-            foregroundColor: t.error,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+        const SizedBox(height: 12),
+        Center(
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: t.error,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
-            minimumSize: const Size(double.infinity, 46),
-          ),
-          icon: const Icon(Icons.delete_sweep_rounded, size: 18),
-          label: Text(
-            'Reiniciar Conversación y Memoria',
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (dialogCtx) => AlertDialog(
-                backgroundColor: t.cardBackground,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: t.borderSubtle),
-                ),
-                title: Text(
-                  '¿Reiniciar todo?',
-                  style: GoogleFonts.outfit(
-                    color: t.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                content: Text(
-                  'Se borrará todo el historial del chat y el asistente comenzará de cero.',
-                  style: GoogleFonts.outfit(color: t.textSecondary),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogCtx),
-                    child: Text(
-                      'Cancelar',
-                      style: GoogleFonts.outfit(
-                        color: t.textSecondary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      Navigator.pop(dialogCtx);
-                      await _chatService.clearHistory();
-                    },
-                    child: Text(
-                      'Sí, Reiniciar',
-                      style: GoogleFonts.outfit(
-                        color: t.error,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+            icon: const Icon(Icons.delete_outline_rounded, size: 17),
+            label: Text(
+              'Reiniciar Conversación y Memoria',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
-            );
-          },
+            ),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (dialogCtx) => AlertDialog(
+                  backgroundColor: t.cardBackground,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(color: t.borderSubtle),
+                  ),
+                  title: Text(
+                    '¿Reiniciar todo?',
+                    style: GoogleFonts.outfit(
+                      color: t.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  content: Text(
+                    'Se borrará todo el historial del chat y el asistente comenzará de cero.',
+                    style: GoogleFonts.outfit(color: t.textSecondary),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogCtx),
+                      child: Text(
+                        'Cancelar',
+                        style: GoogleFonts.outfit(
+                          color: t.textSecondary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        Navigator.pop(dialogCtx);
+                        await _chatService.clearHistory();
+                      },
+                      child: Text(
+                        'Sí, Reiniciar',
+                        style: GoogleFonts.outfit(
+                          color: t.error,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSectionHeading(String title) {
+    final t = context.appTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: GoogleFonts.outfit(
+          color: t.textSecondary,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.7,
+        ),
+      ),
     );
   }
 
@@ -3149,14 +3114,14 @@ class _AiChatScreenState extends State<AiChatScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: t.cardBackground,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: t.borderSubtle),
       ),
       child: child,
     );
   }
 
-  Widget _buildHealthBannerCard() {
+  Widget _buildCognitiveOverviewSurface() {
     final t = context.appTheme;
     final status = _chatService.ratioStatus;
     final message = _chatService.ratioMessageText;
@@ -3164,81 +3129,26 @@ class _AiChatScreenState extends State<AiChatScreen>
     final (Color color, IconData icon, String statusTitle) = switch (status) {
       'excellent' => (
           t.success,
-          Icons.emoji_emotions_outlined,
+          Icons.check_circle_outline_rounded,
           'Salud Financiera Óptima',
         ),
       'moderate' => (
           t.warning,
-          Icons.sentiment_satisfied_alt_outlined,
+          Icons.info_outline_rounded,
           'Ahorro Moderado',
         ),
       'deficit' => (
           t.error,
-          Icons.sentiment_very_dissatisfied_outlined,
+          Icons.warning_amber_rounded,
           'Alerta de Déficit',
         ),
       _ => (
           t.accent,
-          Icons.hourglass_empty_rounded,
+          Icons.insights_rounded,
           'Sin Diagnóstico',
         ),
     };
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: t.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: t.borderSubtle),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              color: color.withValues(alpha: 0.12),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  statusTitle,
-                  style: GoogleFonts.outfit(
-                    color: t.textPrimary,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  message.isEmpty
-                      ? 'Analizando tus datos en tiempo real.'
-                      : message,
-                  softWrap: true,
-                  style: GoogleFonts.outfit(
-                    color: t.textSecondary,
-                    fontSize: 12.5,
-                    height: 1.42,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetricsDashboard() {
-    final t = context.appTheme;
     final topCat = _chatService.topCategory;
     final topCatAmt = CurrencyHelper.format(_chatService.topCategoryAmount);
     final maxExpItem = _chatService.maxExpenseItem;
@@ -3246,84 +3156,156 @@ class _AiChatScreenState extends State<AiChatScreen>
     final txCount = _chatService.expenseCount.toString();
     final savingsRatio = _chatService.savingsRatio.toStringAsFixed(1);
 
-    final cards = [
-      _buildMetricCard(
+    final cells = [
+      _buildMetricCell(
         title: 'Tasa de Ahorro',
         value: '$savingsRatio%',
-        subtitle: 'Porcentaje de ingresos netos',
+        subtitle: 'De ingresos netos',
         icon: Icons.donut_large_rounded,
         color: t.accent,
       ),
-      _buildMetricCard(
+      _buildMetricCell(
         title: 'Gasto Mayoritario',
         value: topCat.isEmpty ? 'Ninguna' : topCat,
         subtitle: '$topCatAmt este mes',
         icon: Icons.pie_chart_rounded,
         color: t.secondaryAccent,
       ),
-      _buildMetricCard(
+      _buildMetricCell(
         title: 'Mayor Transacción',
         value: maxExpItem.isEmpty ? 'Ninguna' : maxExpItem,
         subtitle: '$maxExpAmt registrados',
         icon: Icons.trending_up_rounded,
         color: t.expense,
       ),
-      _buildMetricCard(
+      _buildMetricCell(
         title: 'Total Transacciones',
         value: '$txCount egresos',
-        subtitle: 'En tu historial registrado',
+        subtitle: 'Historial analizado',
         icon: Icons.receipt_long_rounded,
         color: t.warning,
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompactOrScaled = constraints.maxWidth < 380 ||
-            MediaQuery.textScalerOf(context).scale(14) > 16.5;
+    final dividerColor = t.borderSubtle.withValues(alpha: 0.75);
 
-        if (isCompactOrScaled) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var i = 0; i < cards.length; i++) ...[
-                if (i > 0) const SizedBox(height: 10),
-                cards[i],
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: t.cardBackground,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: t.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 15, 16, 14),
+            color: color.withValues(alpha: 0.06),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color.withValues(alpha: 0.14),
+                  ),
+                  child: Icon(icon, color: color, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        statusTitle,
+                        style: GoogleFonts.outfit(
+                          color: t.textPrimary,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        message.isEmpty
+                            ? 'Analizando tus datos financieros en tiempo real.'
+                            : message,
+                        softWrap: true,
+                        style: GoogleFonts.outfit(
+                          color: t.textSecondary,
+                          fontSize: 12.5,
+                          height: 1.38,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
-            ],
-          );
-        }
+            ),
+          ),
+          Divider(height: 1, thickness: 1, color: dividerColor),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final useSingleColumn = constraints.maxWidth < 260 ||
+                  MediaQuery.textScalerOf(context).scale(14) > 19.0;
 
-        return Column(
-          children: [
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              if (useSingleColumn) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < cells.length; i++) ...[
+                      if (i > 0)
+                        Divider(height: 1, thickness: 1, color: dividerColor),
+                      cells[i],
+                    ],
+                  ],
+                );
+              }
+
+              return Column(
                 children: [
-                  Expanded(child: cards[0]),
-                  const SizedBox(width: 12),
-                  Expanded(child: cards[1]),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: cells[0]),
+                        VerticalDivider(
+                          width: 1,
+                          thickness: 1,
+                          color: dividerColor,
+                        ),
+                        Expanded(child: cells[1]),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, thickness: 1, color: dividerColor),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: cells[2]),
+                        VerticalDivider(
+                          width: 1,
+                          thickness: 1,
+                          color: dividerColor,
+                        ),
+                        Expanded(child: cells[3]),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: cards[2]),
-                  const SizedBox(width: 12),
-                  Expanded(child: cards[3]),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildMetricCard({
+  Widget _buildMetricCell({
     required String title,
     required String value,
     required String subtitle,
@@ -3331,19 +3313,16 @@ class _AiChatScreenState extends State<AiChatScreen>
     required Color color,
   }) {
     final t = context.appTheme;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: t.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: t.borderSubtle),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
+              Icon(icon, color: color, size: 14),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   title,
@@ -3352,16 +3331,14 @@ class _AiChatScreenState extends State<AiChatScreen>
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.outfit(
                     color: t.textSecondary,
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
-              Icon(icon, color: color, size: 17),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             value,
             maxLines: 2,
@@ -3369,21 +3346,23 @@ class _AiChatScreenState extends State<AiChatScreen>
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.outfit(
               color: t.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              height: 1.25,
+              fontSize: 15.5,
+              fontWeight: FontWeight.w700,
+              height: 1.22,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             subtitle,
             maxLines: 2,
             softWrap: true,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.outfit(
-              color: t.textSecondary,
-              fontSize: 12,
+              color: t.textHint,
+              fontSize: 11.5,
               height: 1.3,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -3420,7 +3399,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             style: GoogleFonts.outfit(
               color: t.textPrimary,
               fontSize: 13,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -3433,11 +3412,12 @@ class _AiChatScreenState extends State<AiChatScreen>
         color: t.textSecondary,
         fontSize: 12,
         fontWeight: FontWeight.w500,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 13),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3460,12 +3440,11 @@ class _AiChatScreenState extends State<AiChatScreen>
             ),
           const SizedBox(height: 6),
           Container(
-            height: 8,
+            height: 6,
             width: double.infinity,
             decoration: BoxDecoration(
               color: t.darkBackground,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: t.borderSubtle),
+              borderRadius: BorderRadius.circular(3),
             ),
             child: Align(
               alignment: Alignment.centerLeft,
@@ -3473,13 +3452,8 @@ class _AiChatScreenState extends State<AiChatScreen>
                 widthFactor: percent.clamp(0.0, 1.0),
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    gradient: LinearGradient(
-                      colors: [
-                        categoryColor.withValues(alpha: 0.72),
-                        categoryColor,
-                      ],
-                    ),
+                    borderRadius: BorderRadius.circular(3),
+                    color: categoryColor,
                   ),
                 ),
               ),

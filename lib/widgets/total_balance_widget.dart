@@ -67,7 +67,7 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
         final now = DateTime.now();
         _selectedMonth = now.month;
         _selectedYear = now.year;
-        _selectedMonthYear = DateFormat.yMMMM('es').format(now);
+        _selectedMonthYear = _formatDate(now);
         
         // Notificar al padre sobre la selección inicial
         if (widget.onDateSelected != null) {
@@ -83,7 +83,9 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
       // Retornar un valor predeterminado mientras se inicializa
       return widget.selectedMonthYear;
     }
-    return DateFormat.yMMMM('es').format(date);
+    final formatted = DateFormat('MMM yyyy', 'es').format(date).replaceAll('.', '');
+    if (formatted.isEmpty) return formatted;
+    return formatted[0].toUpperCase() + formatted.substring(1);
   }
 
   // Método mejorado para mostrar el selector de mes/año con diseño premium
@@ -755,80 +757,94 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
               const SizedBox(height: 16),
 
               // FILA DE BOTONES: Gestionar cuentas y Fecha (selector de mes/año)
-              Scrollbar(
-                thumbVisibility: false,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: widget.onManageAccounts,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDiurno
-                              ? context.appTheme.secondaryCardBackground
-                              : context.appTheme.primaryBackground,
-                          elevation: 0,
-                          side: BorderSide(
-                            color: context.appTheme.borderSubtle,
-                            width: 1,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(isDiurno ? 12.0 : 8.0),
-                          ),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 6,
+                    child: ElevatedButton.icon(
+                      onPressed: widget.onManageAccounts,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDiurno
+                            ? context.appTheme.secondaryCardBackground
+                            : context.appTheme.primaryBackground,
+                        elevation: 0,
+                        side: BorderSide(
+                          color: context.appTheme.borderSubtle,
+                          width: 1,
                         ),
-                        icon: Icon(
-                          Icons.account_balance_wallet_outlined,
-                          size: 16,
-                          color: isDiurno
-                              ? context.appTheme.accent
-                              : context.appTheme.textPrimary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
                         ),
-                        label: Text(
-                          'Gestionar cuentas',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isDiurno ? FontWeight.w600 : FontWeight.normal,
-                            color: context.appTheme.textPrimary,
-                          ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(isDiurno ? 12.0 : 8.0),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: _showMonthYearSelector,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDiurno
-                              ? context.appTheme.secondaryCardBackground
-                              : context.appTheme.primaryBackground,
-                          elevation: 0,
-                          side: BorderSide(
-                            color: context.appTheme.borderSubtle,
-                            width: 1,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(isDiurno ? 12.0 : 8.0),
-                          ),
-                        ),
-                        icon: Icon(
-                          Icons.calendar_month,
-                          size: 16,
-                          color: isDiurno
-                              ? context.appTheme.accent
-                              : context.appTheme.textPrimary,
-                        ),
-                        label: Text(
-                          _selectedMonthYear,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isDiurno ? FontWeight.w600 : FontWeight.normal,
-                            color: context.appTheme.textPrimary,
-                          ),
+                      icon: Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 16,
+                        color: isDiurno
+                            ? context.appTheme.accent
+                            : context.appTheme.textPrimary,
+                      ),
+                      label: Text(
+                        'Gestionar cuentas',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight:
+                              isDiurno ? FontWeight.w600 : FontWeight.normal,
+                          color: context.appTheme.textPrimary,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 5,
+                    child: ElevatedButton.icon(
+                      onPressed: _showMonthYearSelector,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDiurno
+                            ? context.appTheme.secondaryCardBackground
+                            : context.appTheme.primaryBackground,
+                        elevation: 0,
+                        side: BorderSide(
+                          color: context.appTheme.borderSubtle,
+                          width: 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(isDiurno ? 12.0 : 8.0),
+                        ),
+                      ),
+                      icon: Icon(
+                        Icons.calendar_month,
+                        size: 16,
+                        color: isDiurno
+                            ? context.appTheme.accent
+                            : context.appTheme.textPrimary,
+                      ),
+                      label: Text(
+                        _selectedMonthYear,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight:
+                              isDiurno ? FontWeight.w600 : FontWeight.normal,
+                          color: context.appTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 

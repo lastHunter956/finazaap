@@ -201,6 +201,21 @@ void main() {
 
           final fabRect = tester.getRect(find.byType(FloatingActionButton));
           final navRect = tester.getRect(find.byType(CustomPillBottomNavBar));
+          final pillRect = tester.getRect(
+            find.byKey(const Key('nav_active_pill_indicator')),
+          );
+          final barInnerRect = tester.getRect(
+            find.descendant(
+              of: find.byType(CustomPillBottomNavBar),
+              matching: find.byType(LayoutBuilder),
+            ),
+          );
+
+          expect(
+            (pillRect.center.dy - barInnerRect.center.dy).abs(),
+            lessThanOrEqualTo(1.0),
+            reason: '$mode: la píldora activa debe quedar centrada verticalmente dentro de la barra',
+          );
 
           expect(
             fabRect.overlaps(navRect),

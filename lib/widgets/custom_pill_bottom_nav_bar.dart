@@ -166,15 +166,18 @@ class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
                 final double pillLeft =
                     (progress * unselectedWidth).clamp(0.0, maxPillLeft).toDouble();
 
+                final double pillTop = (maxHeight - itemHeight) / 2;
+
                 return Stack(
                   alignment: Alignment.centerLeft,
                   children: [
                     Positioned(
                       left: pillLeft,
-                      top: 0,
+                      top: pillTop,
                       width: selectedWidth,
                       height: itemHeight,
                       child: DecoratedBox(
+                        key: const Key('nav_active_pill_indicator'),
                         decoration: BoxDecoration(
                           color: isDiurno ? null : t.primaryBackground,
                           gradient: isDiurno
@@ -195,7 +198,10 @@ class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
                                       : Colors.white.withValues(alpha: 0.95),
                                   width: 1.2,
                                 )
-                              : null,
+                              : Border.all(
+                                  color: t.borderSubtle,
+                                  width: 1.0,
+                                ),
                           boxShadow: isDiurno
                               ? const [
                                   BoxShadow(
@@ -208,8 +214,12 @@ class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
                         ),
                       ),
                     ),
-                    Row(
-                      children: List.generate(_items.length, (index) {
+                    SizedBox(
+                      width: maxWidth,
+                      height: maxHeight,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: List.generate(_items.length, (index) {
                         final item = _items[index];
                         final isSelected = widget.selectedIndex == index;
                         final weight =
@@ -309,6 +319,7 @@ class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
                               : navItemContent,
                         );
                       }),
+                      ),
                     ),
                   ],
                 );
