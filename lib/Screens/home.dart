@@ -20,6 +20,7 @@ import 'package:finazaap/Screens/selecctaccount.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'package:finazaap/Screens/add.dart';
 import 'package:finazaap/Screens/add_expense.dart';
+import 'package:finazaap/Screens/pin_code_screen.dart';
 
 // Añadir esta importación al inicio del archivo
 import 'package:finazaap/data/transaction_service.dart';
@@ -109,12 +110,38 @@ class _HomeState extends State<Home> {
     _widgetSubscription = HomeWidget.widgetClicked.listen(_handleWidgetLaunch);
   }
 
-  void _handleWidgetLaunch(Uri? uri) {
-    if (uri?.scheme == 'finazaap' && uri?.host == 'add_operation') {
+  Future<void> _handleWidgetLaunch(Uri? uri) async {
+    if (uri?.scheme != 'finazaap' || uri?.host != 'add_operation') {
+      return;
+    }
+    if (!mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final isPinEnabled = prefs.getBool('pin_enabled') ?? false;
+    if (!mounted) return;
+
+    if (!isPinEnabled) {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => AddExpenseScreen()),
       );
+      return;
     }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PinCodeScreen(
+          mode: PinMode.verify,
+          onSuccess: (ctx) {
+            Navigator.of(ctx).pushReplacement(
+              MaterialPageRoute(builder: (context) => AddExpenseScreen()),
+            );
+          },
+          onCancel: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      ),
+    );
   }
 
   @override

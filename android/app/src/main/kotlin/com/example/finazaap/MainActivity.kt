@@ -10,10 +10,12 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.os.PowerManager
 import android.os.StatFs
 import android.provider.Settings
+import android.view.WindowManager
 import androidx.core.app.NotificationManagerCompat
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -30,8 +32,60 @@ class MainActivity : FlutterFragmentActivity() {
 
     private val appsCacheTtlMs = 5L * 60 * 1000
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        syncSecureFlagFromPrefs()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        syncSecureFlagFromPrefs()
+    }
+
+    private fun syncSecureFlagFromPrefs() {
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val pinEnabled = prefs.getBoolean("flutter.pin_enabled", false)
+        val privacyEnabled = prefs.getBoolean("flutter.privacy_mode_enabled", false)
+        val flagSecureEnabled = prefs.getBoolean("flutter.flag_secure_enabled", false)
+        applySecureFlag(pinEnabled || privacyEnabled || flagSecureEnabled)
+    }
+
+    private fun applySecureFlag(enabled: Boolean) {
+        if (enabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
+                      "com.example.finazaap/security")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setFlagSecure" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: false
+                        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("flutter.flag_secure_enabled", enabled).apply()
+                        runOnUiThread {
+                            syncSecureFlagFromPrefs()
+                            result.success(true)
+                        }
+                    }
+                    "syncFlagSecure" -> {
+                        runOnUiThread {
+                            syncSecureFlagFromPrefs()
+                            result.success(true)
+                        }
+                    }
+                    "isFlagSecureEnabled" -> {
+                        val isSecure = (window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0
+                        result.success(isSecure)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
                       "com.example.finazaap/device_info")
             .setMethodCallHandler { call, result ->

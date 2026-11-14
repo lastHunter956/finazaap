@@ -17,9 +17,15 @@ class FinazaapWidgetProvider : HomeWidgetProvider() {
                 val views = RemoteViews(context.packageName, R.layout.widget_layout)
                 
                 // Get main data from SharedPreferences
-                val income = widgetData.getString("income", null) ?: "$ 0"
-                val expense = widgetData.getString("expense", null) ?: "$ 0"
-                val balance = widgetData.getString("balance", null) ?: "$ 0"
+                val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                val isPrivacyActive = widgetData.getBoolean("privacy_mode", false) ||
+                    widgetData.getBoolean("hide_balance", false) ||
+                    flutterPrefs.getBoolean("flutter.privacy_mode_enabled", false) ||
+                    flutterPrefs.getBoolean("flutter.hide_balance", false)
+
+                val income = if (isPrivacyActive) "••••••" else (widgetData.getString("income", null) ?: "$ 0")
+                val expense = if (isPrivacyActive) "••••••" else (widgetData.getString("expense", null) ?: "$ 0")
+                val balance = if (isPrivacyActive) "••••••" else (widgetData.getString("balance", null) ?: "$ 0")
                 val isPositive = widgetData.getBoolean("is_positive", true)
                 
                 // Set main values
@@ -27,8 +33,12 @@ class FinazaapWidgetProvider : HomeWidgetProvider() {
                 views.setTextViewText(R.id.widget_expense, expense)
                 views.setTextViewText(R.id.widget_balance, balance)
                 
-                // Set balance color based on positive/negative
-                val balanceColor = if (isPositive) Color.parseColor("#4ADE80") else Color.parseColor("#F87171")
+                // Set balance color based on privacy mode or positive/negative
+                val balanceColor = when {
+                    isPrivacyActive -> Color.parseColor("#94A3B8")
+                    isPositive -> Color.parseColor("#4ADE80")
+                    else -> Color.parseColor("#F87171")
+                }
                 views.setTextColor(R.id.widget_balance, balanceColor)
 
                 // Add Button Action: Deep link to add operation
@@ -47,7 +57,6 @@ class FinazaapWidgetProvider : HomeWidgetProvider() {
                 views.setOnClickPendingIntent(R.id.widget_container, mainIntent)
                 
                 appWidgetManager.updateAppWidget(widgetId, views)
-                android.util.Log.i("FinazaapWidget", "Widget updated successfully: income=$income, expense=$expense, balance=$balance")
             } catch (e: Exception) {
                 android.util.Log.e("FinazaapWidget", "Error updating widget: ${e.message}", e)
             }

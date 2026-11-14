@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -66,8 +67,9 @@ class BankMetadata {
 class BankWhitelistService {
   static const String prefsKey = 'notifications_whitelisted_packages';
 
-  /// Lista predeterminada de entidades financieras y billeteras en Colombia.
-  static final List<BankMetadata> defaultBankList = [
+  /// Construye la lista predeterminada de entidades financieras según el modo.
+  /// En release (`!isDebug`), excluye el paquete simulador `com.moneo.simulated.bank`.
+  static List<BankMetadata> buildDefaultBankList({bool isDebug = kDebugMode}) => [
     const BankMetadata(
       packageName: 'com.bancolombia.personas',
       name: 'Bancolombia',
@@ -144,11 +146,15 @@ class BankWhitelistService {
       packageName: 'com.serfinanza.app',
       name: 'Banco Serfinanza',
     ),
-    const BankMetadata(
-      packageName: 'com.moneo.simulated.bank',
-      name: 'Moneo Bank (Simulador)',
-    ),
+    if (isDebug)
+      const BankMetadata(
+        packageName: 'com.moneo.simulated.bank',
+        name: 'Moneo Bank (Simulador)',
+      ),
   ];
+
+  /// Lista predeterminada de entidades financieras y billeteras en Colombia.
+  static final List<BankMetadata> defaultBankList = buildDefaultBankList();
 
   final Map<String, BankMetadata> _banks = {};
   final Set<String> _enabledPackages = {};
