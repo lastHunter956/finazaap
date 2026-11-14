@@ -16,73 +16,8 @@ import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 
-// Modelo de cuenta adaptado para recibir datos desde selecctaccount.dart
-class AccountItem {
-  String title;
-  double balance;
-  IconData? icon;
-  String? subtitle;
-  Color? iconColor;
-
-  AccountItem({
-    required this.title,
-    required this.balance,
-    this.icon,
-    this.subtitle,
-    this.iconColor,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'title': title,
-        'subtitle': subtitle ?? '',
-        'balance': balance.toString(), // Convertir a String para compatibilidad
-        'icon': icon?.codePoint ?? Icons.account_balance_wallet.codePoint,
-        'iconColor': iconColor?.value ?? Colors.blue.value,
-      };
-
-  factory AccountItem.fromJson(Map<String, dynamic> json) {
-    // Manejar el caso donde balance puede ser String o double
-    double balanceValue;
-    if (json['balance'] is String) {
-      balanceValue = double.tryParse(json['balance']) ?? 0.0;
-    } else {
-      balanceValue = (json['balance'] is double) ? json['balance'] : 0.0;
-    }
-
-    // Manejo mejorado para el icono
-    IconData? iconData;
-    if (json['icon'] != null) {
-      if (json['icon'] is int) {
-        iconData = AppIcons.getIcon(json['icon']);
-      } else if (json['icon'] is String) {
-        // En caso que el icono venga como string (código en hexadecimal)
-        iconData = AppIcons.getIcon(
-            int.tryParse(json['icon']) ??
-                Icons.account_balance_wallet.codePoint);
-      }
-    }
-
-    // Manejo mejorado para el color del icono
-    Color? iconColor;
-    if (json['iconColor'] != null) {
-      if (json['iconColor'] is int) {
-        iconColor = Color(json['iconColor']);
-      } else if (json['iconColor'] is String) {
-        // En caso que el color venga como string (código en hexadecimal)
-        iconColor = Color(
-            int.tryParse(json['iconColor'] ?? '0xFF4C8BF5') ?? 0xFF4C8BF5);
-      }
-    }
-
-    return AccountItem(
-      title: json['title'] ?? '',
-      balance: balanceValue,
-      icon: iconData,
-      subtitle: json['subtitle'],
-      iconColor: iconColor,
-    );
-  }
-}
+import 'package:finazaap/data/models/account_item.dart';
+export 'package:finazaap/data/models/account_item.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   final bool isEditing;
@@ -887,9 +822,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
         if (account.title == accountName) {
           if (add) {
-            account.balance += amount;
+            account.balanceAsDouble += amount;
           } else {
-            account.balance -= amount;
+            account.balanceAsDouble -= amount;
           }
           updated = true;
         }

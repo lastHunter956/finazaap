@@ -15,48 +15,8 @@ import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/theme.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 
-class AccountItem {
-  String title;
-  double balance;
-  IconData? icon;
-  Color? iconColor;
-
-  AccountItem({
-    required this.title,
-    required this.balance,
-    this.icon,
-    this.iconColor,
-  });
-
-  factory AccountItem.fromJson(Map<String, dynamic> json) {
-    // Extraer balance
-    double balanceValue;
-    if (json['balance'] is String) {
-      balanceValue = double.tryParse(json['balance']) ?? 0.0;
-    } else {
-      balanceValue = (json['balance'] is double) ? json['balance'] : 0.0;
-    }
-
-    // Extraer icono
-    IconData? iconData;
-    if (json['icon'] != null) {
-      iconData = AppIcons.getIcon(json['icon']);
-    }
-
-    // Extraer color del icono
-    Color? iconColor;
-    if (json['iconColor'] != null) {
-      iconColor = Color(json['iconColor']);
-    }
-
-    return AccountItem(
-      title: json['title'] ?? '',
-      balance: balanceValue,
-      icon: iconData,
-      iconColor: iconColor,
-    );
-  }
-}
+import 'package:finazaap/data/models/account_item.dart';
+export 'package:finazaap/data/models/account_item.dart';
 
 // Estructura para gráficos
 class ChartData {

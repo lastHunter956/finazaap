@@ -16,49 +16,8 @@ import 'package:finazaap/core/utils/app_logger.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 
-class AccountItem {
-  String title;
-  double balance;
-  IconData? icon;
-  String? subtitle;
-  Color? iconColor;
-
-  AccountItem({
-    required this.title,
-    required this.balance,
-    this.icon,
-    this.subtitle,
-    this.iconColor,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'title': title,
-        'subtitle': subtitle ?? '',
-        'balance': balance.toString(), // Convertir a String para compatibilidad
-        'icon': icon?.codePoint ?? Icons.account_balance_wallet.codePoint,
-        'iconColor': iconColor?.value ?? Colors.blue.value,
-      };
-
-  factory AccountItem.fromJson(Map<String, dynamic> json) {
-    // Manejar el caso donde balance puede ser String o double
-    double balanceValue;
-    if (json['balance'] is String) {
-      balanceValue = double.tryParse(json['balance']) ?? 0.0;
-    } else {
-      balanceValue = (json['balance'] is double) ? json['balance'] : 0.0;
-    }
-
-    return AccountItem(
-      title: json['title'],
-      balance: balanceValue,
-      icon: json['icon'] != null
-          ? AppIcons.getIcon(json['icon'])
-          : null,
-      subtitle: json['subtitle'],
-      iconColor: json['iconColor'] != null ? Color(json['iconColor']) : null,
-    );
-  }
-}
+import 'package:finazaap/data/models/account_item.dart';
+export 'package:finazaap/data/models/account_item.dart';
 
 class TransferScreen extends StatefulWidget {
   final bool isEditing;
@@ -247,19 +206,8 @@ Future<void> _saveTransfer() async {
     final prefs = await SharedPreferences.getInstance();
     
     // Serializar los objetos AccountItem a JSON
-    List<String> accountsData = _accountItems.map((item) {
-      // Crear mapa con todos los datos necesarios de la cuenta
-      final Map<String, dynamic> itemMap = {
-        'title': item.title,
-        'balance': item.balance.toString(), // Guardar como String para evitar problemas de precisión
-        'icon': item.icon?.codePoint ?? Icons.account_balance_wallet.codePoint,
-        'iconColor': item.iconColor?.value ?? Colors.blue.value,
-        'subtitle': item.subtitle ?? '',
-        'includeInTotal': true // Por defecto incluir en total
-      };
-      
-      return json.encode(itemMap);
-    }).toList();
+    List<String> accountsData =
+        _accountItems.map((item) => json.encode(item.toJson())).toList();
     
     // Guardar en SharedPreferences
     await prefs.setStringList('accounts', accountsData);
@@ -330,9 +278,9 @@ Future<void> _loadAccountsFromPrefs() async {
         
         if (account.title == accountName) {
           if (add) {
-            account.balance += amount;
+            account.balanceAsDouble += amount;
           } else {
-            account.balance -= amount;
+            account.balanceAsDouble -= amount;
           }
           updated = true;
         }
@@ -559,7 +507,7 @@ Widget build(BuildContext context) {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'Saldo disponible: ${CurrencyHelper.format(_selectedSourceAccount!.balance)}',
+                                  'Saldo disponible: ${CurrencyHelper.format(_selectedSourceAccount!.balanceAsDouble)}',
                                   style: TextStyle(
                                     color: context.appTheme.textSecondary,
                                     fontSize: 13,
@@ -983,11 +931,11 @@ Future<void> _revertPreviousTransfer(Add_data transaction) async {
       
       // Revertir la transferencia: añadir al origen, quitar del destino
       if (sourceAccount != null) {
-        sourceAccount.balance += amount;
+        sourceAccount.balanceAsDouble += amount;
       }
       
       if (destAccount != null) {
-        destAccount.balance -= amount;
+        destAccount.balanceAsDouble -= amount;
       }
       
       // No guardar aquí, se guardará después de la nueva transferencia
