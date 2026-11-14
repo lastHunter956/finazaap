@@ -697,6 +697,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           oldTransaction: widget.transaction,
           installments: int.tryParse(_installmentsCtrl.text) ?? 1, // Pasamos las cuotas al editar también
           isInterestFree: _isInterestFree, // Pasamos preferencia de interés
+          transactionDate: _selectedDate,
         );
 
         if (success) {
@@ -725,6 +726,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           isNewTransaction: true,
           installments: int.tryParse(_installmentsCtrl.text) ?? 1, // Pasamos las cuotas al crear
           isInterestFree: _isInterestFree, // Pasamos preferencia de interés
+          transactionDate: _selectedDate,
         );
 
         if (success) {
@@ -744,18 +746,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         } else {
           throw Exception('Error al actualizar el saldo de la cuenta');
         }
-      }
-
-      // Notificar a ResponsibilityService si es una compra con tarjeta (SOLO PARA MODO CREACIÓN O EDICIÓN QUE AFECTE)
-      // La lógica interna de processDebtIncrease se encarga de verificar si es tarjeta
-      if (_selectedAccount != null) {
-         await ResponsibilityService.processDebtIncrease(
-            _selectedAccount!.title,
-            amount,
-            int.tryParse(_installmentsCtrl.text) ?? 1,
-            _isInterestFree,
-            _selectedDate
-         );
       }
 
       // Notificar a la pantalla principal

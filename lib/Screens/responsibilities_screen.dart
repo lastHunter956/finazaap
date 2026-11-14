@@ -717,7 +717,11 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
     final TextEditingController amountController = TextEditingController(text: CurrencyHelper.format(initialValue, showSymbol: false));
     
     // 2. Obtener cuentas activas para el dropdown
-    final List<Map<String, dynamic>> accounts = await AccountService.getActiveAccounts();
+    final bool isCardResponsibility = responsibility.safeCategory == 'tarjeta';
+    final List<Map<String, dynamic>> allAccounts = await AccountService.getActiveAccounts();
+    final List<Map<String, dynamic>> accounts = isCardResponsibility
+        ? allAccounts.where((acc) => acc['title'] != responsibility.safeName).toList()
+        : allAccounts;
     String? selectedAccountName;
     if (accounts.isNotEmpty) {
       selectedAccountName = accounts.first['title'];
@@ -1024,53 +1028,87 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                       Navigator.pop(dialogContext);
 
                       try {
-                        // 1. Process real transaction Expense (egreso)
-                        final success = await TransactionService.processTransaction(
-                          type: 'Expenses',
-                          amount: payAmount,
-                          accountName: selectedAccountName!,
-                          isNewTransaction: true,
-                        );
+                        final box = Hive.isBoxOpen('data')
+                            ? Hive.box<Add_data>('data')
+                            : await Hive.openBox<Add_data>('data');
 
-                        if (success) {
-                          // 2. Add transaction to Hive
-                          final box = Hive.isBoxOpen('data')
-                              ? Hive.box<Add_data>('data')
-                              : await Hive.openBox<Add_data>('data');
-                          
-                          // Obtener categoría de transacción correspondiente
-                          final matchedCat = await CategoryService.findMatchingCategoryForObligation(responsibility.safeCategory);
-                          final String categoryName = matchedCat != null ? (matchedCat['text'] as String) : responsibility.safeCategory;
-                          final int iconCode = matchedCat != null ? (matchedCat['icon'] as int) : responsibility.safeIconCode;
-
-                          final transaction = Add_data(
-                            'Expenses',
-                            payAmount.toString(),
-                            selectedDate,
-                            'Pago obligación: ${responsibility.safeName}',
-                            categoryName,
-                            selectedAccountName!,
-                            iconCode,
-                            '1', // installments
-                            true, // isInterestFree
-                            responsibility.safeId,
-                            true, // isObligationPayment
-                          );
-                          await box.add(transaction);
-
-                          // 3. Register payment in Responsibility box
-                          await ResponsibilityService.registerPayment(
-                            responsibility.safeId,
-                            payAmount,
-                            selectedDate,
-                            markAsPaidComplete,
+                        if (isCardResponsibility) {
+                          // Pago de tarjeta de crédito: siempre Transfer desde cuenta origen hacia la tarjeta
+                          final success = await TransactionService.processTransaction(
+                            type: 'Transfer',
+                            amount: payAmount,
+                            accountName: selectedAccountName!,
+                            destinationAccount: responsibility.safeName,
+                            isNewTransaction: true,
+                            targetMonth: selectedDate.month,
+                            targetYear: selectedDate.year,
                           );
 
-                          _loadResponsibilities();
-                          setState(() {});
-                          AlertHelper.success(context, 'Pago registrado correctamente');
+                          if (success) {
+                            final transaction = Add_data(
+                              'Transfer',
+                              payAmount.toString(),
+                              selectedDate,
+                              'Pago tarjeta: ${responsibility.safeName}',
+                              '${selectedAccountName!} > ${responsibility.safeName}',
+                              '',
+                              Icons.sync_alt.codePoint,
+                              '1',
+                              true,
+                            );
+                            await box.add(transaction);
+
+                            _loadResponsibilities();
+                            setState(() {});
+                            AlertHelper.success(context, 'Pago registrado correctamente');
+                          } else {
+                            AlertHelper.error(context, 'Error al procesar la transacción');
+                          }
                         } else {
-                          AlertHelper.error(context, 'Error al procesar la transacción');
+                          // 1. Process real transaction Expense (egreso)
+                          final success = await TransactionService.processTransaction(
+                            type: 'Expenses',
+                            amount: payAmount,
+                            accountName: selectedAccountName!,
+                            isNewTransaction: true,
+                          );
+
+                          if (success) {
+                            // 2. Add transaction to Hive
+                            // Obtener categoría de transacción correspondiente
+                            final matchedCat = await CategoryService.findMatchingCategoryForObligation(responsibility.safeCategory);
+                            final String categoryName = matchedCat != null ? (matchedCat['text'] as String) : responsibility.safeCategory;
+                            final int iconCode = matchedCat != null ? (matchedCat['icon'] as int) : responsibility.safeIconCode;
+
+                            final transaction = Add_data(
+                              'Expenses',
+                              payAmount.toString(),
+                              selectedDate,
+                              'Pago obligación: ${responsibility.safeName}',
+                              categoryName,
+                              selectedAccountName!,
+                              iconCode,
+                              '1', // installments
+                              true, // isInterestFree
+                              responsibility.safeId,
+                              true, // isObligationPayment
+                            );
+                            await box.add(transaction);
+
+                            // 3. Register payment in Responsibility box
+                            await ResponsibilityService.registerPayment(
+                              responsibility.safeId,
+                              payAmount,
+                              selectedDate,
+                              markAsPaidComplete,
+                            );
+
+                            _loadResponsibilities();
+                            setState(() {});
+                            AlertHelper.success(context, 'Pago registrado correctamente');
+                          } else {
+                            AlertHelper.error(context, 'Error al procesar la transacción');
+                          }
                         }
                       } catch (e) {
                         AlertHelper.error(context, 'Ocurrió un error: $e');

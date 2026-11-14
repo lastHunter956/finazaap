@@ -34,6 +34,7 @@ class TransactionService {
     int? targetYear,             // Año objetivo para el estado de la responsabilidad
     bool recordInHive = false,   // Si debe registrar la transacción en el historial de Hive
     String? detail,              // Detalle opcional para el registro Hive
+    DateTime? transactionDate,   // Fecha de la transacción para planes de cuotas
   }) async {
     try {
       // 1. Obtener el estado actual de las cuentas
@@ -60,7 +61,7 @@ class TransactionService {
       } else {
         // Para ingresos y gastos
         bool isIncome = (type == 'Income');
-        updated = await _updateAccountBalance(accountName, amount, isIncome, accounts, installments, isInterestFree, false, null);
+        updated = await _updateAccountBalance(accountName, amount, isIncome, accounts, installments, isInterestFree, false, transactionDate);
       }
       
       // 5. Si se actualizaron cuentas, guardar y actualizar el saldo global
@@ -142,15 +143,49 @@ class TransactionService {
         
         updated = true;
         
-        // SYNC: Si es tarjeta de crédito, actualizar la responsabilidad asociada
+        // SYNC: Si es tarjeta de crédito, actualizar deuda y planes de cuotas una sola vez
         try {
-          // No podemos importar ResponsibilityService aquí arriba si hay ciclo, 
-          // pero asumimos que podemos llamarlo o usar una lógica desacoplada.
-          await ResponsibilityService.syncCardBalance(
-             cardName: accountTitle,
-             amount: amount,
-             isExpense: !isIncome, // Si NO es ingreso, es Gasto
-          );
+          if (_isCreditCardAccount(accounts[i])) {
+            if (isReversal) {
+              if (isIncome) {
+                await ResponsibilityService.processDebtReversal(
+                  accountTitle,
+                  amount,
+                  transactionDate ?? DateTime.now(),
+                  installments,
+                  isInterestFree,
+                );
+              } else {
+                await ResponsibilityService.processPaymentReversal(
+                  accountTitle,
+                  amount,
+                  transactionDate ?? DateTime.now(),
+                );
+              }
+            } else {
+              if (!isIncome) {
+                await ResponsibilityService.processDebtIncrease(
+                  accountTitle,
+                  amount,
+                  installments,
+                  isInterestFree,
+                  transactionDate,
+                );
+              } else {
+                await ResponsibilityService.processDebtPayment(
+                  accountTitle,
+                  amount,
+                  paymentDate: transactionDate,
+                );
+              }
+            }
+          } else {
+            await ResponsibilityService.syncCardBalance(
+              cardName: accountTitle,
+              amount: amount,
+              isExpense: !isIncome, // Si NO es ingreso, es Gasto
+            );
+          }
         } catch (e) {
           AppLogger.error('Error syncing card balance', error: e);
         }
