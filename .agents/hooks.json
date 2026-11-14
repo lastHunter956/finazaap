@@ -1,12 +1,35 @@
 {
-  "proteccion-archivos-criticos": {
+  "arranque-handoff": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if [ -x \"$ROOT/.agents/hooks/session_start_handoff.sh\" ]; then exec \"$ROOT/.agents/hooks/session_start_handoff.sh\"; elif [ -x \".agents/hooks/session_start_handoff.sh\" ]; then exec \".agents/hooks/session_start_handoff.sh\"; else exec \"./hooks/session_start_handoff.sh\"; fi",
+        "timeout": 5
+      }
+    ]
+  },
+  "guardia-seguridad": {
     "PreToolUse": [
       {
-        "matcher": "write_file|edit_file",
+        "matcher": "read_file|view_file|write_file|write_to_file|edit_file|replace_file_content|multi_replace_file_content|run_command|shell_exec",
         "hooks": [
           {
             "type": "command",
-            "command": "./hooks/check_protected_files.py",
+            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if [ -x \"$ROOT/.agents/hooks/security_guard.py\" ]; then exec \"$ROOT/.agents/hooks/security_guard.py\"; elif [ -x \".agents/hooks/security_guard.py\" ]; then exec \".agents/hooks/security_guard.py\"; else exec \"./hooks/security_guard.py\"; fi",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "proteccion-archivos-criticos": {
+    "PreToolUse": [
+      {
+        "matcher": "write_file|write_to_file|edit_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if [ -x \"$ROOT/.agents/hooks/check_protected_files.py\" ]; then exec \"$ROOT/.agents/hooks/check_protected_files.py\"; elif [ -x \".agents/hooks/check_protected_files.py\" ]; then exec \".agents/hooks/check_protected_files.py\"; else exec \"./hooks/check_protected_files.py\"; fi",
             "timeout": 10
           }
         ]
@@ -16,11 +39,11 @@
   "analisis-post-edicion": {
     "PostToolUse": [
       {
-        "matcher": "write_file|edit_file",
+        "matcher": "write_file|write_to_file|edit_file|replace_file_content|multi_replace_file_content",
         "hooks": [
           {
             "type": "command",
-            "command": "./hooks/post_edit_analyze.sh",
+            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if [ -x \"$ROOT/.agents/hooks/post_edit_analyze.sh\" ]; then exec \"$ROOT/.agents/hooks/post_edit_analyze.sh\"; elif [ -x \".agents/hooks/post_edit_analyze.sh\" ]; then exec \".agents/hooks/post_edit_analyze.sh\"; else exec \"./hooks/post_edit_analyze.sh\"; fi",
             "timeout": 60
           }
         ]
@@ -31,7 +54,7 @@
     "Stop": [
       {
         "type": "command",
-        "command": "./hooks/pre_stop_test.sh",
+        "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if [ -x \"$ROOT/.agents/hooks/pre_stop_test.sh\" ]; then exec \"$ROOT/.agents/hooks/pre_stop_test.sh\"; elif [ -x \".agents/hooks/pre_stop_test.sh\" ]; then exec \".agents/hooks/pre_stop_test.sh\"; else exec \"./hooks/pre_stop_test.sh\"; fi",
         "timeout": 120
       }
     ]

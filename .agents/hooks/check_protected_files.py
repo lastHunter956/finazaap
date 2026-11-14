@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hook PreToolUse: verifica que write_file/edit_file no modifiquen archivos protegidos sin aprobación."""
+"""Hook PreToolUse: verifica que herramientas de edición no modifiquen archivos protegidos sin aprobación (fail-closed)."""
 
 import fnmatch
 import json
@@ -21,23 +21,38 @@ def main() -> None:
     try:
         payload = json.load(sys.stdin)
     except Exception:
-        print(json.dumps({"decision": "allow"}))
+        print(json.dumps({"decision": "deny", "reason": "Payload JSON inválido en check_protected_files.py (fail-closed)."}))
+        return
+
+    if not isinstance(payload, dict):
+        print(json.dumps({"decision": "deny", "reason": "Payload inválido en check_protected_files.py (fail-closed)."}))
         return
 
     args = payload.get("toolCall", {}).get("args", {})
-    raw_path = args.get("Path") or args.get("path") or ""
-    cwd = payload.get("cwd") or os.getcwd()
-
-    if not raw_path:
-        print(json.dumps({"decision": "allow"}))
+    if not isinstance(args, dict):
+        print(json.dumps({"decision": "deny", "reason": "Argumentos inválidos en check_protected_files.py (fail-closed)."}))
         return
 
-    abs_target = os.path.abspath(raw_path)
+    raw_path = (
+        args.get("Path")
+        or args.get("path")
+        or args.get("AbsolutePath")
+        or args.get("TargetFile")
+        or ""
+    )
+    cwd = payload.get("cwd") or os.getcwd()
+
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        print(json.dumps({"decision": "deny", "reason": "Ruta de archivo vacía en check_protected_files.py (fail-closed)."}))
+        return
+
+    clean_path = raw_path.strip().strip("'\"")
+    abs_target = os.path.abspath(os.path.join(cwd, clean_path) if not os.path.isabs(clean_path) else clean_path)
     abs_cwd = os.path.abspath(cwd)
     try:
         rel_path = os.path.relpath(abs_target, abs_cwd).replace(os.sep, "/")
     except ValueError:
-        rel_path = raw_path.replace(os.sep, "/")
+        rel_path = clean_path.replace(os.sep, "/")
 
     for pattern in PROTECTED_PATTERNS:
         if fnmatch.fnmatch(rel_path, pattern) or rel_path.startswith("lib/core/security/"):

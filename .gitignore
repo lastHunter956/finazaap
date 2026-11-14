@@ -41,3 +41,41 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment files (keep templates)
+.env
+.env.*
+!.env.example
+!.env.template
+!.env.sample
+
+# Keys, certificates, keystores and credentials
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+key.properties
+google-services.json
+GoogleService-Info.plist
+*credentials*.json
+
+# Local databases and Hive boxes (synthetic test fixtures remain tracked)
+*.hive
+*.hivec
+*.hive.lock
+*.db
+*.sqlite
+*.sqlite3
+
+# Agent local state, cache, logs and private handoffs (keep .agents/skills, rules, hooks)
+.agents/.local/
+.agents/*.log
+*.local.md
+docs/handoff/*.private.md
+docs/handoff/.local/
+
+# Test coverage
+coverage/
+*.lcov
