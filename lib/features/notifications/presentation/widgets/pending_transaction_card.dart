@@ -148,7 +148,9 @@ class PendingTransactionCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Enlace sospechoso o texto de urgencia detectado. Se bloqueó la adición automática de saldos.',
+                        item.flags.contains('anti_fraud_link_detected')
+                            ? 'Enlace web detectado. Por política conservadora de revisión, no se procesa automáticamente y requiere revisión manual.'
+                            : 'Enlace sospechoso o texto de urgencia detectado. Se bloqueó la adición automática de saldos.',
                         style: TextStyle(
                           color: AppColors.error,
                           fontSize: 11,

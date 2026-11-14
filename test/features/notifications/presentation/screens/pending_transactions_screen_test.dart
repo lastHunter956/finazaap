@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive/hive.dart';
 import 'package:finazaap/features/notifications/adapters/mock_transaction_execution_adapter.dart';
+import 'package:finazaap/features/notifications/adapters/simulated_notification_source.dart';
 import 'package:finazaap/features/notifications/domain/models/pending_transaction_item.dart';
 import 'package:finazaap/features/notifications/presentation/notifiers/pending_transactions_notifier.dart';
 import 'package:finazaap/features/notifications/presentation/screens/pending_transactions_screen.dart';
@@ -9,121 +9,16 @@ import 'package:finazaap/features/notifications/presentation/widgets/pending_tra
 import 'package:finazaap/features/notifications/presentation/widgets/suspicious_badge.dart';
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
 
-/// Implementación en memoria de [Box] para pruebas de widgets sin E/S de disco
-/// y compatible con el scheduler síncrono/falso de [FakeAsync].
-class _InMemoryHiveBox implements Box<dynamic> {
-  final Map<dynamic, dynamic> _store = {};
-  bool _isOpen = true;
-
-  @override
-  bool get isOpen => _isOpen;
-
-  @override
-  String get name => 'in_memory_box';
-
-  @override
-  String? get path => null;
-
-  @override
-  Iterable<dynamic> get keys => _store.keys;
-
-  @override
-  Iterable<dynamic> get values => _store.values;
-
-  @override
-  int get length => _store.length;
-
-  @override
-  bool get isEmpty => _store.isEmpty;
-
-  @override
-  bool get isNotEmpty => _store.isNotEmpty;
-
-  @override
-  dynamic get(dynamic key, {dynamic defaultValue}) =>
-      _store.containsKey(key) ? _store[key] : defaultValue;
-
-  @override
-  dynamic getAt(int index) => _store.values.elementAt(index);
-
-  @override
-  Future<void> put(dynamic key, dynamic value) async {
-    _store[key] = value;
-  }
-
-  @override
-  Future<void> putAt(int index, dynamic value) async {
-    final key = _store.keys.elementAt(index);
-    _store[key] = value;
-  }
-
-  @override
-  Future<void> putAll(Map<dynamic, dynamic> entries) async {
-    _store.addAll(entries);
-  }
-
-  @override
-  Future<void> delete(dynamic key) async {
-    _store.remove(key);
-  }
-
-  @override
-  Future<void> deleteAt(int index) async {
-    final key = _store.keys.elementAt(index);
-    _store.remove(key);
-  }
-
-  @override
-  Future<void> deleteAll(Iterable<dynamic> keys) async {
-    for (final key in keys) {
-      _store.remove(key);
-    }
-  }
-
-  @override
-  bool containsKey(dynamic key) => _store.containsKey(key);
-
-  @override
-  Future<int> clear() async {
-    final count = _store.length;
-    _store.clear();
-    return count;
-  }
-
-  @override
-  Map<dynamic, dynamic> toMap() => Map.unmodifiable(_store);
-
-  @override
-  Future<void> close() async {
-    _isOpen = false;
-  }
-
-  @override
-  Future<void> deleteFromDisk() async {
-    _store.clear();
-    _isOpen = false;
-  }
-
-  @override
-  Future<void> flush() async {}
-
-  @override
-  Future<void> compact() async {}
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
 void main() {
-  late _InMemoryHiveBox pendingBox;
-  late _InMemoryHiveBox patternsBox;
+  late InMemoryDemoBox pendingBox;
+  late InMemoryDemoBox patternsBox;
   late LearnedPatternsService patternsService;
   late MockTransactionExecutionAdapter mockExecutionAdapter;
   late PendingTransactionsNotifier notifier;
 
   setUp(() async {
-    pendingBox = _InMemoryHiveBox();
-    patternsBox = _InMemoryHiveBox();
+    pendingBox = InMemoryDemoBox();
+    patternsBox = InMemoryDemoBox();
 
     patternsService = LearnedPatternsService(box: patternsBox);
     mockExecutionAdapter = MockTransactionExecutionAdapter();
@@ -325,6 +220,76 @@ void main() {
           finalPatterns.any((p) => p.merchantKey.contains('phishing')),
           isFalse,
         );
+      },
+    );
+  });
+
+  group('PendingTransactionsScreen.demo - Revisión visual Sprint 1', () {
+    testWidgets(
+      'muestra banner permanente (incluso vacía), casos sintéticos, política conservadora de URL y aislamiento contable',
+      (tester) async {
+        final demoNotifier = await createDemoPendingNotifier();
+        expect(
+          demoNotifier.executionPort,
+          isA<MockTransactionExecutionAdapter>(),
+        );
+        final mockExec =
+            demoNotifier.executionPort as MockTransactionExecutionAdapter;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: PendingTransactionsScreen.demo(notifier: demoNotifier),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Banner visible desde el inicio
+        expect(find.byKey(const Key('demo_mode_banner')), findsOneWidget);
+        expect(
+          find.text('Demostración: datos simulados. No modifica saldos reales.'),
+          findsOneWidget,
+        );
+
+        // 6 casos sintéticos cargados en bandeja
+        expect(demoNotifier.count, equals(6));
+        expect(demoNotifier.eligibleCount, equals(3));
+        expect(demoNotifier.manualReviewCount, equals(3));
+
+        // Mensaje con URL: política conservadora y texto no accionable
+        await tester.scrollUntilVisible(
+          find.textContaining('política conservadora de revisión'),
+          200,
+        );
+        expect(
+          find.text(
+            'Enlace web detectado. Por política conservadora de revisión, no se procesa automáticamente y requiere revisión manual.',
+          ),
+          findsOneWidget,
+        );
+
+        // "Aceptar todo" solo aprueba los 3 elegibles de alta confianza
+        await tester.tap(find.byKey(const Key('accept_all_button')));
+        await tester.pumpAndSettle();
+
+        expect(mockExec.executionCount, equals(3));
+        expect(demoNotifier.count, equals(3));
+
+        // Descarta los 3 restantes y verifica que el banner sigue visible con lista vacía
+        for (var i = 0; i < 3; i++) {
+          final discardBtn = find.widgetWithText(TextButton, 'Descartar').first;
+          await tester.tap(discardBtn);
+          await tester.pumpAndSettle();
+        }
+
+        expect(demoNotifier.count, equals(0));
+        expect(find.text('No hay transacciones pendientes'), findsOneWidget);
+        expect(find.byKey(const Key('demo_mode_banner')), findsOneWidget);
+        expect(
+          find.text('Demostración: datos simulados. No modifica saldos reales.'),
+          findsOneWidget,
+        );
+        // Descartar no ejecuta nuevas transacciones
+        expect(mockExec.executionCount, equals(3));
       },
     );
   });

@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:finazaap/providers/pin_provider.dart';
 import 'package:finazaap/Screens/pin_code_screen.dart';
 import 'package:finazaap/services/notification_service.dart';
 import 'package:finazaap/services/data_management_service.dart';
+import 'package:finazaap/features/notifications/adapters/simulated_notification_source.dart';
+import 'package:finazaap/features/notifications/presentation/screens/pending_transactions_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
@@ -419,6 +422,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: _toggleNotifications,
                       ),
                       
+                      if (kDebugMode) ...[
+                        Divider(height: 1, color: context.appTheme.borderSubtle),
+                        ListTile(
+                          key: const Key('settings_notifications_demo_tile'),
+                          leading: Icon(
+                            Icons.inbox_outlined,
+                            color: context.appTheme.accent,
+                          ),
+                          title: Text(
+                            'Bandeja de Notificaciones (Demo Dev)',
+                            style: TextStyle(color: context.appTheme.textPrimary),
+                          ),
+                          subtitle: Text(
+                            'Revisión visual con datos simulados sin alterar saldos',
+                            style: TextStyle(
+                              color: context.appTheme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.chevron_right,
+                            color: context.appTheme.textSecondary,
+                          ),
+                          onTap: () async {
+                            final demoNotifier =
+                                await createDemoPendingNotifier();
+                            if (!context.mounted) return;
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => PendingTransactionsScreen.demo(
+                                  notifier: demoNotifier,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+
                       // Opciones de configuración (solo si está habilitado)
                       if (_notificationsEnabled) ...[
                         Divider(height: 1, color: context.appTheme.borderSubtle),

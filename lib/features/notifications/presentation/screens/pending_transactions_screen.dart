@@ -12,11 +12,18 @@ import 'package:finazaap/themes/app_colors.dart';
 /// restringido a alta confianza), corregir parámetros y descartar elementos.
 class PendingTransactionsScreen extends StatefulWidget {
   final PendingTransactionsNotifier? notifier;
+  final bool isDemoMode;
 
   const PendingTransactionsScreen({
     super.key,
     this.notifier,
+    this.isDemoMode = false,
   });
+
+  const PendingTransactionsScreen.demo({
+    super.key,
+    this.notifier,
+  }) : isDemoMode = true;
 
   @override
   State<PendingTransactionsScreen> createState() =>
@@ -192,9 +199,50 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
                 ),
             ],
           ),
-          body: _buildBody(items),
+          body: Column(
+            children: [
+              if (widget.isDemoMode) _buildDemoBanner(),
+              Expanded(child: _buildBody(items)),
+            ],
+          ),
         );
       },
+    );
+  }
+
+  Widget _buildDemoBanner() {
+    return Container(
+      key: const Key('demo_mode_banner'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.accent.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.science_outlined,
+            size: 18,
+            color: AppColors.accent,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Demostración: datos simulados. No modifica saldos reales.',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
