@@ -39,7 +39,7 @@ void main() async {
       Hive.initFlutter(),
     ]);
 
-    // 1. Inicializar Hive (CRÍTICO)
+    // 1. Inicializar seguridad y base de datos cifrada Hive (CRÍTICO / fail-closed)
     try {
       if (!Hive.isAdapterRegistered(1)) {
         Hive.registerAdapter(AdddataAdapter());
@@ -48,30 +48,22 @@ void main() async {
         Hive.registerAdapter(ResponsibilityAdapter());
       }
 
-      await Future.wait([
-        Hive.openBox<Add_data>('data'),
-        Hive.openBox('transactions_v2'),
-        Hive.openBox('accounts'),
-        Hive.openBox('accounts_v2'),
-      ]);
+      await EncryptionService().initialize();
+      AppLogger.success('EncryptionService inicializado');
 
-      AppLogger.success('Hive inicializado correctamente');
+      await EncryptionService().openEncryptedBox<Add_data>('data');
+      AppLogger.success('Hive inicializado y cifrado correctamente');
     } catch (e) {
-      AppLogger.error('CRITICAL: Fallo al inicializar Hive', error: e);
+      AppLogger.error('CRITICAL: Fallo al inicializar Hive cifrado', error: e);
       throw Exception('Fallo crítico de base de datos: $e');
     }
 
-    // 1.5. Inicializar CurrencyHelper, Tema y Seguridad en paralelo (fallos recuperables)
+    // 1.5. Inicializar CurrencyHelper y Tema en paralelo (fallos recuperables)
     await Future.wait([
       CurrencyHelper.loadCurrency().then((_) {
         AppLogger.success('CurrencyHelper inicializado');
       }).catchError((e) {
         AppLogger.warning('Error cargando divisa (usando default): $e');
-      }),
-      EncryptionService().initialize().then((_) {
-        AppLogger.success('EncryptionService inicializado');
-      }).catchError((e) {
-        AppLogger.warning('Error en servicios de seguridad (continuando app): $e');
       }),
       ThemeNotifier.init(),
     ]);

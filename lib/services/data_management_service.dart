@@ -1,10 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/core/security/encryption_service.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/data/category_service.dart';
+import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
+import 'package:finazaap/services/widget_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
@@ -15,14 +19,53 @@ class DataManagementService {
   factory DataManagementService() => _instance;
   DataManagementService._internal();
 
+  Future<Box<Add_data>> _openDataBox() async {
+    if (Hive.isBoxOpen('data')) {
+      return Hive.box<Add_data>('data');
+    }
+    try {
+      return await EncryptionService().openEncryptedBox<Add_data>('data');
+    } on MissingPluginException {
+      return Hive.openBox<Add_data>('data');
+    }
+  }
+
+  Future<Box<Responsibility>> _openResponsibilitiesBox() async {
+    if (Hive.isBoxOpen('responsibilities')) {
+      return Hive.box<Responsibility>('responsibilities');
+    }
+    try {
+      return await EncryptionService().openEncryptedBox<Responsibility>('responsibilities');
+    } on MissingPluginException {
+      return Hive.openBox<Responsibility>('responsibilities');
+    }
+  }
+
+  Future<void> _deleteTempBackupFiles() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final entities = directory.listSync();
+      for (final entity in entities) {
+        if (entity is File) {
+          final name = entity.uri.pathSegments.isNotEmpty
+              ? entity.uri.pathSegments.last
+              : '';
+          if (name.startsWith('moneo_backup_') && name.endsWith('.json')) {
+            await entity.delete();
+          }
+        }
+      }
+    } catch (_) {
+      // Ignorar si no hay canal nativo de path_provider (p.ej. tests unitarios)
+    }
+  }
+
   /// Generar el mapa de datos para exportación
   Future<Map<String, dynamic>> _generateExportData() async {
     final exportData = <String, dynamic>{};
       
     // 1. Exportar transacciones de Hive
-    final dataBox = Hive.isBoxOpen('data') 
-        ? Hive.box<Add_data>('data') 
-        : await Hive.openBox<Add_data>('data');
+    final dataBox = await _openDataBox();
     
     final transactions = <Map<String, dynamic>>[];
     for (var item in dataBox.values) {
@@ -41,9 +84,7 @@ class DataManagementService {
     exportData['transactions'] = transactions;
     
     // 2. Exportar responsabilidades
-    final respBox = Hive.isBoxOpen('responsibilities') 
-        ? Hive.box<Responsibility>('responsibilities') 
-        : await Hive.openBox<Responsibility>('responsibilities');
+    final respBox = await _openResponsibilitiesBox();
     
     final responsibilities = <Map<String, dynamic>>[];
     for (var item in respBox.values) {
@@ -132,21 +173,28 @@ class DataManagementService {
 
   /// Método fallback para usar Share (si el usuario lo prefiere o falla lo anterior)
   Future<bool> exportAndShareData() async {
+    File? tempFile;
     try {
       final exportData = await _generateExportData();
       final directory = await getApplicationDocumentsDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final file = File('${directory.path}/moneo_backup_$timestamp.json');
-      await file.writeAsString(jsonEncode(exportData));
+      tempFile = File('${directory.path}/moneo_backup_$timestamp.json');
+      await tempFile.writeAsString(jsonEncode(exportData));
       
       await Share.shareXFiles(
-        [XFile(file.path)],
+        [XFile(tempFile.path)],
         subject: 'Moneo Backup',
         text: 'Respaldo de datos de Moneo',
       );
       return true;
     } catch (e) {
       return false;
+    } finally {
+      try {
+        if (tempFile != null && await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (_) {}
     }
   }
 
@@ -202,9 +250,7 @@ class DataManagementService {
       // 1. Importar transacciones (Append)
       final transactions = data['transactions'] as List<dynamic>?;
       if (transactions != null) {
-        final dataBox = Hive.isBoxOpen('data') 
-            ? Hive.box<Add_data>('data') 
-            : await Hive.openBox<Add_data>('data');
+        final dataBox = await _openDataBox();
         
         for (var item in transactions) {
           final transaction = Add_data(
@@ -227,9 +273,7 @@ class DataManagementService {
       // 2. Importar responsabilidades (Append)
       final responsibilities = data['responsibilities'] as List<dynamic>?;
       if (responsibilities != null) {
-        final respBox = Hive.isBoxOpen('responsibilities') 
-            ? Hive.box<Responsibility>('responsibilities') 
-            : await Hive.openBox<Responsibility>('responsibilities');
+        final respBox = await _openResponsibilitiesBox();
         
         for (var item in responsibilities) {
           final resp = Responsibility(
@@ -345,36 +389,36 @@ class DataManagementService {
   /// Eliminar TODOS los datos de la app
   Future<bool> deleteAllData() async {
     try {
-      // 1. Limpiar Hive boxes
-      final dataBox = Hive.isBoxOpen('data') 
-          ? Hive.box<Add_data>('data') 
-          : await Hive.openBox<Add_data>('data');
+      // 1. Limpiar Hive boxes cifradas
+      final dataBox = await _openDataBox();
       await dataBox.clear();
-      
-      final respBox = Hive.isBoxOpen('responsibilities') 
-          ? Hive.box<Responsibility>('responsibilities') 
-          : await Hive.openBox<Responsibility>('responsibilities');
+
+      final respBox = await _openResponsibilitiesBox();
       await respBox.clear();
-      
-      // Limpiar otras boxes si existen
-      try {
-        if (Hive.isBoxOpen('transactions_v2')) {
-          await Hive.box('transactions_v2').clear();
+
+      // Eliminar cajas legadas sin uso si existen en disco
+      for (final legacyBox in ['transactions_v2', 'accounts', 'accounts_v2']) {
+        try {
+          if (Hive.isBoxOpen(legacyBox)) {
+            await Hive.box(legacyBox).clear();
+            await Hive.box(legacyBox).close();
+          }
+          if (await Hive.boxExists(legacyBox)) {
+            await Hive.deleteBoxFromDisk(legacyBox);
+          }
+        } catch (_) {
+          // Ignorar si no existen
         }
-        if (Hive.isBoxOpen('accounts')) {
-          await Hive.box('accounts').clear();
-        }
-        if (Hive.isBoxOpen('accounts_v2')) {
-          await Hive.box('accounts_v2').clear();
-        }
-      } catch (e) {
-        // Ignorar si no existen
       }
-      
-      // 2. Limpiar SharedPreferences (excepto configuración de seguridad)
+
+      // 2. Limpiar notificaciones detectadas, patrones aprendidos y cola nativa
+      try {
+        await NotificationPipelineService.instance.wipeAllNotificationData();
+      } catch (_) {}
+
+      // 3. Limpiar SharedPreferences (datos financieros + historial/preferencias IA)
       final prefs = await SharedPreferences.getInstance();
-      
-      // Limpiar datos financieros
+
       await prefs.remove('accounts');
       await prefs.remove('income_categories');
       await prefs.remove('expense_categories');
@@ -383,7 +427,21 @@ class DataManagementService {
       await prefs.remove('deleted_income_categories');
       await prefs.remove('deleted_expense_categories');
       await prefs.remove('available_balance');
-      
+
+      for (final key in prefs.getKeys().toList()) {
+        if (key.startsWith('ai_')) {
+          await prefs.remove(key);
+        }
+      }
+
+      // 4. Eliminar archivos temporales de respaldo moneo_backup_*.json
+      await _deleteTempBackupFiles();
+
+      // 5. Refrescar widget de pantalla de inicio
+      try {
+        await WidgetService.refreshWidgetFromData();
+      } catch (_) {}
+
       return true;
     } catch (e) {
       return false;

@@ -1,4 +1,6 @@
+import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:finazaap/core/security/encryption_service.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/data/models/account_item.dart';
 import 'package:uuid/uuid.dart';
@@ -22,7 +24,12 @@ class ResponsibilityService {
   // Inicializar el box
   static Future<void> init() async {
     if (!Hive.isBoxOpen(_boxName)) {
-      _box = await Hive.openBox<Responsibility>(_boxName);
+      try {
+        _box = await EncryptionService().openEncryptedBox<Responsibility>(_boxName);
+      } on MissingPluginException {
+        // Entorno de pruebas sin canal nativo de FlutterSecureStorage.
+        _box = await Hive.openBox<Responsibility>(_boxName);
+      }
     } else {
       _box = Hive.box<Responsibility>(_boxName);
     }
