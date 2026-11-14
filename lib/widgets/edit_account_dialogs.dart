@@ -588,6 +588,10 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                           onPressed: () {
+                            if (titleController.text.contains(' > ')) {
+                              AlertHelper.warning(context, 'El nombre no puede contener " > "');
+                              return;
+                            }
                             if (titleController.text.isNotEmpty) {
                               Navigator.of(context).pop(AccountItem(
                                 id: widget.item.id,
@@ -596,8 +600,10 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                                 subtitle: selectedAccountType,
                                 balance: balanceController.text.isEmpty ? "0" : CurrencyHelper.cleanAmountString(balanceController.text),
                                 iconColor: iconColor,
-                                includeInTotal: includeInTotal,
-                                creditLimit: isCreditCard ? CurrencyHelper.cleanAmountString(balanceController.text) : null,
+                                includeInTotal: isCreditCard ? false : includeInTotal,
+                                creditLimit: isCreditCard
+                                    ? (widget.item.creditLimit ?? CurrencyHelper.cleanAmountString(balanceController.text))
+                                    : null,
                                 cutoffDay: isCreditCard && cutoffController.text.isNotEmpty ? int.tryParse(cutoffController.text) : null,
                                 paymentDay: isCreditCard && paymentController.text.isNotEmpty ? int.tryParse(paymentController.text) : null,
                                 interestRate: isCreditCard && interestController.text.isNotEmpty ? double.tryParse(interestController.text) : null,

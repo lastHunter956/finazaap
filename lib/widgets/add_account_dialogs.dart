@@ -321,6 +321,9 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                         if (newValue != null) {
                                           setState(() {
                                             selectedAccountType = newValue;
+                                            if (newValue == "Tarjeta de Crédito") {
+                                              includeInTotal = false;
+                                            }
                                           });
                                         }
                                       },
@@ -644,6 +647,10 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             ),
                           ),
                           onPressed: () {
+                            if (titleController.text.contains(' > ')) {
+                              AlertHelper.warning(context, 'El nombre no puede contener " > "');
+                              return;
+                            }
                             if (titleController.text.isNotEmpty &&
                                 balanceController.text.isNotEmpty) {
                               
@@ -653,7 +660,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                 subtitle: selectedAccountType,
                                 balance: CurrencyHelper.cleanAmountString(balanceController.text),
                                 iconColor: iconColor,
-                                includeInTotal: includeInTotal,
+                                includeInTotal: isCreditCard ? false : includeInTotal,
                                 creditLimit: isCreditCard ? CurrencyHelper.cleanAmountString(balanceController.text) : null,
                                 cutoffDay: isCreditCard && cutoffController.text.isNotEmpty ? int.tryParse(cutoffController.text) : null,
                                 paymentDay: isCreditCard && paymentController.text.isNotEmpty ? int.tryParse(paymentController.text) : null,

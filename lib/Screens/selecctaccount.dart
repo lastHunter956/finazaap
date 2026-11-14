@@ -12,6 +12,7 @@ import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:gradient_borders/gradient_borders.dart';
 import 'package:finazaap/data/responsibility_service.dart';
+import 'package:finazaap/data/account_service.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/theme.dart';
@@ -119,6 +120,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (account.subtitle == "Tarjeta de Crédito") {
        await ResponsibilityService.deleteResponsibilityByName(account.title);
     }
+    await AccountService.markAccountAsDeleted(account.title);
 
     setState(() {
       accountItems.remove(account);
@@ -267,14 +269,20 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  // Calcula el saldo total y llama al callback correspondiente
-  void _updateTotalBalance() {
-    double totalBalance = accountItems.fold<double>(
+  double _calculateTotalBalance() {
+    return accountItems.fold<double>(
       0.0,
       (sum, item) =>
           sum +
-          (item.includeInTotal ? (double.tryParse(item.balance) ?? 0.0) : 0.0),
+          (item.includeInTotal && item.subtitle != 'Tarjeta de Crédito'
+              ? (double.tryParse(item.balance) ?? 0.0)
+              : 0.0),
     );
+  }
+
+  // Calcula el saldo total y llama al callback correspondiente
+  void _updateTotalBalance() {
+    double totalBalance = _calculateTotalBalance();
 
     // Notificar siempre, incluso si el valor no ha cambiado
     widget.onBalanceUpdated(totalBalance);
@@ -287,13 +295,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Modificar este cálculo para respetar includeInTotal
-    double totalBalance = accountItems.fold<double>(
-      0.0,
-      (sum, item) =>
-          sum +
-          (item.includeInTotal ? (double.tryParse(item.balance) ?? 0.0) : 0.0),
-    );
+    // Modificar este cálculo para respetar includeInTotal y excluir TC
+    double totalBalance = _calculateTotalBalance();
 
     // Formateador de moneda (eliminado)
 
