@@ -1,29 +1,32 @@
 # Tarea Activa (`docs/handoff/ACTIVE_TASK.md`)
 
 > **Rama de integración activa:** `integration/ui-temas-y-asistente` (sin merge a `main`; `main` permanece en `165c1c1`)  
-> **Rama de agente:** `agent/ui/fase-1-tokens-contraste` (fusionada vía `--ff-only` en `integration/ui-temas-y-asistente`)  
-> **Estado:** **Fases 1, 2 y 3 completadas y consolidadas** — en espera de **validación visual completa del usuario** en el navegador (puerto local `8080`); prohibido instalar en el teléfono o fusionar a `main` sin aprobación explícita.
+> **Ramas consolidadas y retiradas:** `agent/ui/fase-1-tokens-contraste`, `agent/ui/nav-and-fab-layout`, `agent/ui/chat-and-cognitive-profile`, `agent/ui/screens-headers-and-scroll-padding`  
+> **Estado:** **Fases 1–4 completadas y consolidadas** — en espera de **validación visual completa del usuario** en el navegador (puerto local `8080`); prohibido instalar en el teléfono o fusionar a `main` sin aprobación explícita.
 
 ## Objetivo
-Entregar la propuesta visual completa de temas y asistente en `integration/ui-temas-y-asistente`: tratamiento Apple HIG / Liquid Glass exclusivo en `Diurno` (solo capa funcional), corrección de paleta/contraste WCAG AA/AAA en `Día` y `Nocturno` (Dracula), preservación total de `Default`, rediseño integral de `AiChatScreen` en los 4 temas y eliminación de `"Bandeja de Notificaciones (Demo Dev)"`.
+Entregar la propuesta visual completa en `integration/ui-temas-y-asistente`: tratamiento Apple HIG / Liquid Glass y física `SpringSimulation` exclusivos de `Diurno` (solo en capa funcional y controles de transición), corrección WCAG AA/AAA en `Día` y `Nocturno` (Dracula), preservación de `Default`, resolución dinámica de solapamientos barra inferior / botón `+` / listas, conversaciones editoriales y `Perfil Cognitivo` coherente en `AiChatScreen`, y encabezados unificados `MoneoHeaderBar` en todas las pantallas del proyecto.
 
 ## Plan Activo
 1. [x] **Fase 1 — Tokens y Contraste WCAG 2.1 AA/AAA (`lib/themes/app_theme_data.dart`):**
-   - Garantizado contraste AA (`>=4.5:1`) y AAA (`>=7.0:1`) en texto primario, secundario, hints, acentos y estados frente a las 3 superficies (`primaryBackground`, `cardBackground`, `darkBackground`) en `Diurno`, `Día` y `Nocturno` (Dracula `#282A36` / `#21222C` / `#191A21` / `#44475A`, `#BD93F9`, `#FF79C6`, `#50FA7B`, `#8BE9FD`, `#FFB86C`, `#FF5555`).
-   - `_defaultDark` preservado 100% intacto.
-2. [x] **Fase 2 — Rediseño Completo de `AiChatScreen` en los 4 Temas (`lib/Screens/ai_chat_screen.dart`):**
-   - Corregido el bug de `Spacer()` (burbujas con ancho orgánico en texto plano y `MarkdownBody(fitContent: true)` para Markdown), cabecera única unificada con selector `Simulador`/`Gemma IA` y pestañas, eliminación de colores/bordes neón hardcodeados, sugerencias y diálogos tematizados con `CurrencyHelper`, y composer flotante multilínea.
-   - Eliminada `"Bandeja de Notificaciones (Demo Dev)"` de `lib/Screens/settings_screen.dart`.
-3. [x] **Fase 3 — Apple HIG & Liquid Glass Exclusivo en `Diurno`:**
-   - Implementado `LiquidGlassSurface` con blur (`sigma 22`), gradiente frío translúcido, borde especular (`GradientBoxBorder`), cresta superior e invariante de respaldo escarchado opaco ante preferencias de accesibilidad.
-   - Aplicado exclusivamente en capa funcional en `Diurno` (`CustomPillBottomNavBar`, cabecera unificada y composer flotante de `AiChatScreen`; contenido en tarjetas sólidas en `Home` y `TotalBalanceCard`).
-4. [x] **Pruebas y Despliegue Web Local:** `dart analyze` limpio en temas/tests, 0 errores en archivos editados, `flutter test -j 1` **102/102 pasaron** en Docker y servidor web debug actualizado en `http://localhost:8080`.
+   - Contraste AA (`>=4.5:1`) y AAA (`>=7.0:1`) verificado en las 3 superficies para `Diurno`, `Día` y `Nocturno` (Dracula), manteniendo `_defaultDark` 100% intacto.
+2. [x] **Fase 2 y 3 — Liquid Glass Exclusivo de `Diurno` y Retiro de Demo Dev:**
+   - `LiquidGlassSurface` en capa funcional con respaldo sólido accesible y eliminación de `"Bandeja de Notificaciones (Demo Dev)"` en `lib/Screens/settings_screen.dart`.
+3. [x] **Fase 4 — Trabajo Paralelo Consolidado (5 Frentes Críticos):**
+   - **Barra inferior, `+` y Scroll Clearance:** `MoneoLayoutMetrics`, `MoneoNavBarScope`, `MainContainer` (`effectiveBottomClearance`), `CustomPillBottomNavBar` proporcional y dinámica, `FloatingActionMenu` y FABs con contraste AA, y `scrollBottomPadding` en listas.
+   - **Movimiento físico real en `Diurno`:** `MoneoSpringMotion` (`SpringSimulation`) y `MoneoPressableScale` en barra inferior, controles segmentados y acciones principales, respetando `disableAnimations` / accesibilidad.
+   - **Conversación editorial (`AiChatScreen`):** burbujas limpias sin círculos/headers repetidos ni bordes/sombras multicapa, ancho orgánico sin `Spacer()`, cero `BackdropFilter` en mensajes/reportes, y tarjetas estructuradas solo en sugerencias accionables.
+   - **Perfil Cognitivo adaptativo:** eliminación de `.substring(0, 12)` y marcas decorativas, conservando métricas reales de `AiChatService` con layout responsive a ancho y `TextScaler`.
+   - **Encabezados unificados (`MoneoHeaderBar` y `MoneoSegmentedControl`):** `primaryTab`, `subScreen` y `form` en las 13 pantallas del proyecto con `TextStyle` 100% offline y `preferredHeightFor` calibrado para escalado de texto y badges.
+4. [x] **Pruebas Separadas y Servidor Web Local:**
+   - `test/themes/app_theme_contrast_test.dart` (4 tests de tokens/contraste) + `test/widgets/ui_layout_and_navigation_test.dart` (6 tests de layout, FAB/nav clearance, `SpringSimulation`, `AiChatScreen`, `Perfil Cognitivo` y `MoneoHeaderBar`).
+   - `dart analyze` limpio en archivos editados y `flutter test --no-pub -j 1` **104/104 pasaron** en Docker (`finazaap-flutter`).
+   - Servidor web debug reiniciado en `http://localhost:8080`.
 5. [ ] **Validación visual humana del conjunto completo:** Revisión por el usuario en navegador (sin merge a `main` ni instalación móvil sin aprobación).
 6. [ ] **Validación real ampliada de notificaciones (sesión futura en `R5CY21GE9YY`):** Gasto real, ingreso real, transferencia entre cuentas propias, duplicados/actualizaciones, confirmación repetida/reinicio, descarte sin mutación contable, app no seleccionada, notificación ambigua, URL no accionable y *force stop* + reapertura.
 7. [ ] **Publicación remota (`git push`) y merge a `main`:** Pendientes de validación humana completa y aprobación explícita.
 
 ## Criterio de Término
-- `Default` sin cambios en tokens y `Nocturno` (Dracula), `Día` y `Diurno` con AA/AAA en las 3 superficies verificados por test.
-- `LiquidGlassSurface` exclusivo en `Diurno` y con respaldo sólido accesible verificado por test widget.
-- `AiChatScreen` sin overflows en `360x640`, con teclado abierto, textos largos y ancho orgánico verificado en los 4 temas.
+- `Default` sin cambios en tokens y `Nocturno` (Dracula), `Día` y `Diurno` con AA/AAA en las 3 superficies verificados en `test/themes/app_theme_contrast_test.dart`.
+- `LiquidGlassSurface`, no solapamiento barra/`+`, `SpringSimulation` en `Diurno`, `AiChatScreen` (teclado abierto, burbujas orgánicas, cero `BackdropFilter` en mensajes, `Perfil Cognitivo` sin truncamiento) y `MoneoHeaderBar` verificados en `test/widgets/ui_layout_and_navigation_test.dart`.
 - Rama `integration/ui-temas-y-asistente` conservada sin merge a `main` hasta validación visual del usuario.

@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:finazaap/themes/app_theme_data.dart';
 
@@ -124,18 +123,30 @@ class MoneoHeaderBar extends StatelessWidget {
     required MoneoHeaderVariant variant,
     bool hasSubtitle = false,
     bool hasBottomChild = false,
+    bool hasBadge = false,
   }) {
     final textScaler = MediaQuery.textScalerOf(context);
     final titleFont = variant == MoneoHeaderVariant.primaryTab ? 22.0 : 18.0;
-    final titleExtra = math.max(0.0, textScaler.scale(titleFont) - titleFont);
-    final subExtra = hasSubtitle ? 18.0 : 0.0;
-    final bottomExtra = hasBottomChild ? 52.0 : 0.0;
-    final base = switch (variant) {
-      MoneoHeaderVariant.primaryTab => 62.0,
-      MoneoHeaderVariant.subScreen => 58.0,
-      MoneoHeaderVariant.form => 56.0,
+    final titleHeight = textScaler.scale(titleFont) * 1.25;
+    final minRowHeight = switch (variant) {
+      MoneoHeaderVariant.primaryTab => hasBadge ? 48.0 : 41.0,
+      MoneoHeaderVariant.subScreen => hasBadge ? 48.0 : 39.0,
+      MoneoHeaderVariant.form => 38.0,
     };
-    return base + titleExtra + subExtra + bottomExtra;
+    final subtitleHeight =
+        hasSubtitle ? (2.0 + textScaler.scale(12.0) * 1.45) : 0.0;
+    final verticalChrome = switch (variant) {
+      MoneoHeaderVariant.primaryTab => 21.0,
+      MoneoHeaderVariant.subScreen => 19.0,
+      MoneoHeaderVariant.form => 18.0,
+    };
+    final bottomExtra = hasBottomChild
+        ? (10.0 + math.max(40.0, textScaler.scale(14.0) + 26.0) + 4.0)
+        : 0.0;
+    return math.max(minRowHeight, titleHeight) +
+        subtitleHeight +
+        verticalChrome +
+        bottomExtra;
   }
 
   /// Envuelve esta barra como `PreferredSizeWidget` listo para `Scaffold.appBar`.
@@ -145,6 +156,7 @@ class MoneoHeaderBar extends StatelessWidget {
       variant: variant,
       hasSubtitle: subtitle != null && subtitle!.trim().isNotEmpty,
       hasBottomChild: bottomChild != null,
+      hasBadge: badge != null,
     );
     return PreferredSize(
       preferredSize: Size.fromHeight(height),
@@ -240,7 +252,7 @@ class MoneoHeaderBar extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     color: t.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -253,7 +265,7 @@ class MoneoHeaderBar extends StatelessWidget {
                     subtitle!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(
                       color: t.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -272,14 +284,14 @@ class MoneoHeaderBar extends StatelessWidget {
     }
 
     final titleStyle = variant == MoneoHeaderVariant.primaryTab
-        ? GoogleFonts.outfit(
+        ? TextStyle(
             color: t.textPrimary,
             fontSize: 22,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.3,
             height: 1.15,
           )
-        : GoogleFonts.outfit(
+        : TextStyle(
             color: t.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -337,7 +349,7 @@ class MoneoHeaderBar extends StatelessWidget {
                         subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(
                           color: t.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -479,7 +491,7 @@ class MoneoSegmentedControl<T> extends StatelessWidget {
                             opt.label,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
+                            style: TextStyle(
                               color: labelColor,
                               fontSize: 13,
                               fontWeight:

@@ -52,5 +52,18 @@
 
 ## 5. Verificación
 
-- `test/themes/app_theme_contrast_test.dart`: contrastes exactos AA (`>= 4.5:1`) en las 3 superficies, exclusividad de `BackdropFilter` en `Diurno`, y pruebas de `AiChatScreen` en los 4 temas a `360x640` con teclado abierto, textos largos y ancho orgánico de burbujas.
-- Ejecución completa en Docker (`dart analyze` + `flutter test -j 1`) y despliegue en servidor web debug (`8080`) sobre `integration/ui-temas-y-asistente`.
+- `test/themes/app_theme_contrast_test.dart`: contrastes exactos AA (`>= 4.5:1`) y AAA (`>= 7.0:1`) en las 3 superficies para `Diurno`, `Día` y `Nocturno` (Dracula), preservando `Default` intacto.
+- `test/widgets/ui_layout_and_navigation_test.dart`: exclusividad de `BackdropFilter` en `LiquidGlassSurface` y banderas de accesibilidad, no solapamiento `CustomPillBottomNavBar` vs `FloatingActionMenu` (`+`) con continuidad `SpringSimulation` en `360x640` + `TextScaler 1.35`, `AiChatScreen` (ancho orgánico de burbujas, teclado abierto, cero `BackdropFilter` en burbujas y `Perfil Cognitivo` sin truncamiento `.substring`), y responsividad de las 3 variantes de `MoneoHeaderBar` + `MoneoSegmentedControl`.
+- Ejecución completa en Docker (`dart analyze` + `flutter test --no-pub -j 1`, **104/104** pruebas pasando) y despliegue en servidor web debug (`8080`) sobre `integration/ui-temas-y-asistente`.
+
+---
+
+## 6. Arquitectura Consolidada en Fase 4 (Multi-Worktree -> `integration/ui-temas-y-asistente`)
+
+- **Contratos compartidos (`lib/widgets/liquid_glass_surface.dart` y `lib/widgets/moneo_header_bar.dart`):**
+  - Extracción de `LiquidGlassSurface` fuera de `lib/themes/app_theme_data.dart` (re-exportado por compatibilidad), incorporación de `MoneoLayoutMetrics`, `MoneoNavBarScope`, `MoneoSpringMotion` (`SpringSimulation` real), `MoneoPressableScale`, `MoneoHeaderBar` (`primaryTab`, `subScreen`, `form`) y `MoneoSegmentedControl`.
+  - Uso de `TextStyle` nativo (sin descargas HTTP de `google_fonts`) en `MoneoHeaderBar` y ajuste de `preferredHeightFor` para escalados de texto y badges sin overflows.
+- **Ramas consolidadas y retiradas tras pruebas en worktrees aislados:**
+  - `agent/ui/nav-and-fab-layout` (`MainContainer`, `CustomPillBottomNavBar`, `FloatingActionMenu`, `TotalBalanceCard`).
+  - `agent/ui/chat-and-cognitive-profile` (`AiChatScreen`: conversación editorial y `Perfil Cognitivo` adaptativo).
+  - `agent/ui/screens-headers-and-scroll-padding` (13 pantallas principales, detalle y formularios con `MoneoHeaderBar` y `MoneoLayoutMetrics.scrollBottomPadding`).

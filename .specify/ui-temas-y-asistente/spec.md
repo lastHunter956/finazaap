@@ -48,3 +48,27 @@
 - **Archivos protegidos intactos:** No tocar `lib/data/transaction_service.dart`, `lib/data/credit_card_calculator.dart`, `lib/data/model/*.g.dart`, `android/app/build.gradle`, `android/app/src/main/AndroidManifest.xml` ni `lib/core/security/*`.
 - **Docker obligatorio:** Todas las pruebas y análisis se ejecutan en `finazaap-flutter` (`docker-compose exec -T flutter-env ...`).
 - **Validación humana antes de merge:** La rama `integration/ui-temas-y-asistente` permanece abierta sin merge a `main` y sin instalación en dispositivo físico hasta aprobación explícita del usuario.
+
+---
+
+## 4. Extensión Disciplinada (Fase 4 — Navegación/FAB, Conversación Editorial, Perfil Cognitivo, Encabezados y Movimiento `SpringSimulation`)
+
+1. **Barra inferior (`CustomPillBottomNavBar`) y botones `+` (`FloatingActionMenu` y FABs locales):**
+   - Clearance dinámico mediante `MoneoLayoutMetrics` y `MoneoNavBarScope` (calculando altura real de la barra, `viewPadding.bottom`, `viewInsets.bottom` del teclado y `MediaQuery.textScalerOf(context)`), inyectando el clearance efectivo hacia los `Scaffold` hijos en `MainContainer` cuando `extendBody` está activo (`Diurno`).
+   - El último elemento de cada `ListView` / `CustomScrollView` / `SingleChildScrollView` despeja barra + FAB con `MoneoLayoutMetrics.scrollBottomPadding`.
+   - Corrección de contraste AA en los botones `+` (`FloatingActionMenu`, `CategoriesScreen`, `ResponsibilitiesScreen`) usando `t.buttonBackground` / `t.buttonForeground`.
+
+2. **Conversaciones modernas en `AiChatScreen`:**
+   - Lectura editorial limpia sin repetición de círculos/avatares AI, cabeceras repetidas `"Asistente"`, bordes cian ni sombras multicapa en burbujas o reportes Markdown.
+   - Tarjetas estructuradas reservadas exclusivamente para sugerencias accionables (`INGRESO`/`GASTO`, `CurrencyHelper`, acciones `Descartar` / `Editar` / `Guardar`).
+   - Prohibición estricta de `LiquidGlassSurface` / `BackdropFilter` en burbujas, sugerencias y reportes.
+
+3. **Perfil Cognitivo coherente (`AiChatScreen`):**
+   - Presentación editorial de métricas existentes de `AiChatService` sin inventar puntajes ni porcentajes de salud financiera, eliminando marcas de agua decorativas (`90px`) y truncamientos artificiales (`.substring(0, 12)...`), con salto adaptativo entre cuadrícula 2×2 y filas de ancho completo según ancho útil (`< 380`) y `TextScaler` (`scale(14) > 16.5`).
+
+4. **Encabezados unificados (`MoneoHeaderBar` + `MoneoSegmentedControl`):**
+   - Tres variantes diferenciadas: `primaryTab` (5 pestañas raíz), `subScreen` (5 pantallas de detalle) y `form` (3 formularios de captura), operando 100% offline con `TextStyle` nativo y altura dinámica (`preferredHeightFor`) calibrada para `TextScaler` y badges.
+   - `AiChatScreen` conserva su cabecera unificada flotante como referencia visual del diseño.
+
+5. **Movimiento físico real exclusivo en `Diurno` (`MoneoSpringMotion` y `MoneoPressableScale`):**
+   - Continuidad de selección en `CustomPillBottomNavBar` y `MoneoSegmentedControl`, y respuesta táctil discreta (`pressedScale: 0.965`/`0.97`), accionados por `SpringSimulation` (`stiffness: 380.0`, `damping: 30.0`, `mass: 1.0`) y desactivados automáticamente cuando `MediaQuery.disableAnimations` está activo.
