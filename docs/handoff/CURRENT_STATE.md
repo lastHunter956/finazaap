@@ -1,23 +1,22 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-14 (Integración completa de `ui-temas-y-asistente` — Fases 1, 2, 3 y 4 unificadas en `integration/ui-temas-y-asistente`; pendiente de validación visual del usuario en navegador y **sin merge a `main`**)  
+> **Última actualización:** 2026-11-14 (Validación visual de `ui-temas-y-asistente` aprobada por el usuario; merge `--ff-only` a `main`, re-verificación en `main` y preparación de APK debug para prueba en dispositivo físico)  
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `integration/ui-temas-y-asistente` (consolidada desde los 3 worktrees paralelos de Fase 4 y `agent/ui/fase-1-tokens-contraste`; **sin merge a `main`** hasta validación visual del usuario).
-- **Estado de `main`:** `main` permanece en `165c1c1` (adelantada `34` commits respecto a `origin/main`, sin `git push`). Tag de seguridad previo: `pre-sprint-2-main` -> `2369699`.
-- **Integración `ui-temas-y-asistente` lista para validación visual en navegador (Fases 1–4):**
+- **Rama actual:** `main` (tras validación visual del usuario sobre `integration/ui-temas-y-asistente`, consolidando Fases 1–4 y ajustes visuales finales `af1fbf5` mediante merge `--ff-only`; **sin `git push`**). Tag de seguridad previo: `pre-sprint-2-main` -> `2369699`.
+- **Integración `ui-temas-y-asistente` aprobada y fusionada en `main`:**
   - `lib/themes/app_theme_data.dart`: contraste WCAG 2.1 AA (`>=4.5:1`) y AAA (`>=7.0:1`) verificado sobre las **3 superficies** (`primaryBackground`, `cardBackground`, `darkBackground`) en `_diurno`, `_dia` y `_nocturno` (Dracula oficial); `_defaultDark` 100% intacto sin modificaciones; re-exporta `lib/widgets/liquid_glass_surface.dart`.
   - **Navegación, FAB `+`, Scroll Clearance y Movimiento (`Diurno`)**: `lib/widgets/liquid_glass_surface.dart` (`MoneoLayoutMetrics`, `MoneoNavBarScope`, `MoneoSpringMotion` con `SpringSimulation(mass: 1.0, stiffness: 380.0, damping: 30.0)`, `MoneoPressableScale`, `LiquidGlassSurface`), `MainContainer` (`effectiveBottomClearance`), `CustomPillBottomNavBar` (cápsula proporcional con continuidad `SpringSimulation` en `Diurno`), `FloatingActionMenu` (`t.buttonBackground`/`t.buttonForeground` con contraste AA) y `TotalBalanceCard` (`MoneoPressableScale` discreto en segmentos `Diurno`).
   - **Conversación Editorial y Perfil Cognitivo (`lib/Screens/ai_chat_screen.dart`):** burbujas editoriales limpias sin bordes neón, sin sombras multicapa ni círculos/badges repetidos, ancho orgánico sin `Spacer()`, cero `BackdropFilter` en contenido, tarjetas estructuradas solo en sugerencias accionables (`INGRESO`/`GASTO`, `CurrencyHelper`, acciones integradas), y `Perfil Cognitivo` sin marcas de agua ni truncamientos `.substring(0, 12)` con salto adaptativo entre grilla 2×2 y columna según ancho (`< 380`) y `TextScaler` (`scale(14) > 16.5`).
   - **Encabezados Unificados y Clearance en 13 Pantallas (`lib/widgets/moneo_header_bar.dart`):** `MoneoHeaderBar` (`primaryTab`, `subScreen`, `form`) y `MoneoSegmentedControl` usando `TextStyle` nativo 100% offline, altura dinámica `preferredHeightFor` y `MoneoLayoutMetrics.scrollBottomPadding` aplicados en `Home`, `ResponsibilitiesScreen`, `CategoriesScreen`, `Statistics`, `SettingsScreen`, `PendingTransactionsScreen`, `SelectAccountScreen`, `AnnualProjectionScreen`, `AccountManagement`, `EditProfileScreen`, `AddScreen`, `AddExpenseScreen` y `TransferScreen`.
   - **Retiro de `"Bandeja de Notificaciones (Demo Dev)"`** (`settings_notifications_demo_tile`) en `lib/Screens/settings_screen.dart`.
   - **Suites de Prueba Separadas:** `test/themes/app_theme_contrast_test.dart` (tokens y WCAG 2.1 AA/AAA) y `test/widgets/ui_layout_and_navigation_test.dart` (`LiquidGlassSurface` + accesibilidad, no solapamiento `CustomPillBottomNavBar`/`FloatingActionMenu` en `360x640` con `TextScaler 1.35`, `AiChatScreen` chat/teclado/burbujas/`Perfil Cognitivo` y `MoneoHeaderBar`/`MoneoSegmentedControl`).
-  - **Validación en Docker (`finazaap-flutter`):** `dart analyze` en archivos UI/temas/pruebas con `No issues found!`, `dart analyze --no-fatal-warnings lib/Screens/ lib/features/` con 0 errores y `flutter test --no-pub -j 1` **104/104 pasaron**. Servidor web debug activo en puerto local `8080`.
-- **Worktrees y ramas limpias:** únicamente existe el worktree principal (`/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap`) y las ramas `main` e `integration/ui-temas-y-asistente`; los 3 worktrees paralelos (`/tmp/moneo_wt_nav`, `/tmp/moneo_wt_chat`, `/tmp/moneo_wt_screens`) y las ramas `agent/ui/*` ya fusionadas fueron eliminados.
+  - **Validación en Docker (`finazaap-flutter`):** `dart analyze` en archivos UI/temas/pruebas con `No issues found!`, `dart analyze --no-fatal-warnings lib/Screens/ lib/features/` con 0 errores y `flutter test --no-pub -j 1` **104/104 pasaron**.
+- **Worktrees y ramas limpias:** únicamente existe el worktree principal (`/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap`) y la rama `main`; los worktrees paralelos, las ramas `agent/ui/*` y la rama `integration/ui-temas-y-asistente` ya fusionada fueron eliminados tras aprobar pruebas en `main`.
 - **Commit de configuración de hooks y `.gitignore`:** `b45b31a` (`chore(security): configure fail-closed hooks, SessionStart handoff and gitignore rules`).
 - **Política vigente para el futuro (`AGENTS.md` y `docs/handoff/DECISIONS.md`):**
   - Cada chat/agente trabaja en `agent/<nombre>/<tarea>` (con su propio `git worktree` si hay paralelismo) y consolida en **UNA** sola rama de integración por funcionalidad o sprint (`integration/<funcionalidad-o-sprint>`).
@@ -32,9 +31,8 @@
   - UX: `SettingsScreen` refresca estado/diagnóstico al volver de Ajustes (`resumed`), guía exención de batería y resincroniza al restablecer; `Home` muestra botón AppBar con badge y banner directo a pendientes; `CustomPillBottomNavBar` muestra punto indicador en Ajustes.
   - APK debug instalado y probado por el usuario en `R5CY21GE9YY` (`/tmp/finazaap_debug_build/build/app/outputs/flutter-apk/app-debug.apk`): `SHA-256: 662cc1f50d848a79b54a88634aecc575fa1a2064961a7158d24f62ea3df885bf`, firma Android Debug `SHA-256: 1103fe225bd22694fb0ffc2e3d94ecd1cbb8f5a27712167b1eccab3a1f679e61`, `applicationId: com.example.finazaap`, `versionCode: 1`, `versionName: 1.0.0`.
 - **Ramas observadas en el repositorio:**
-  - `main` (`165c1c1`, adelantada `34` commits respecto a `origin/main`, sin `push`)
-  - `integration/ui-temas-y-asistente` (rama de integración activa; **permanece hasta validación visual del usuario**, prohibido eliminar o fusionar a `main` antes)
-- **Docker (`flutter-env` / `finazaap-flutter`):** Contenedor activo. Validación completa en Docker: `dart analyze` limpio en archivos de temas/widgets/navegación/chat/tests, `dart analyze --no-fatal-warnings lib/Screens/ lib/features/` con 0 errores y `flutter test --no-pub -j 1` **104/104 pasaron** (4 en `test/themes/app_theme_contrast_test.dart` y 6 en `test/widgets/ui_layout_and_navigation_test.dart`).
+  - `main` (adelantada respecto a `origin/main`, sin `push`)
+- **Docker (`flutter-env` / `finazaap-flutter`):** Contenedor activo. Validación completa en Docker sobre `main` (`dart analyze` + `flutter test --no-pub -j 1`). APK debug preparado desde `main` para revisión y aprobación explícita de `adb install` en el teléfono físico del usuario.
 
 ---
 

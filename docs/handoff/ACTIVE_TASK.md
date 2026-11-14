@@ -1,8 +1,8 @@
 # Tarea Activa (`docs/handoff/ACTIVE_TASK.md`)
 
-> **Rama de integración activa:** `integration/ui-temas-y-asistente` (sin merge a `main`; `main` permanece en `165c1c1`)  
-> **Ramas consolidadas y retiradas:** `agent/ui/fase-1-tokens-contraste`, `agent/ui/nav-and-fab-layout`, `agent/ui/chat-and-cognitive-profile`, `agent/ui/screens-headers-and-scroll-padding`  
-> **Estado:** **Fases 1–4 completadas y consolidadas** — en espera de **validación visual completa del usuario** en el navegador (puerto local `8080`); prohibido instalar en el teléfono o fusionar a `main` sin aprobación explícita.
+> **Rama actual:** `main` (`integration/ui-temas-y-asistente` aprobada visualmente, fusionada con `--ff-only` y retirada tras pasar pruebas en `main`)  
+> **Ramas consolidadas y retiradas:** `integration/ui-temas-y-asistente`, `agent/ui/fase-1-tokens-contraste`, `agent/ui/nav-and-fab-layout`, `agent/ui/chat-and-cognitive-profile`, `agent/ui/screens-headers-and-scroll-padding`  
+> **Estado:** **UI aprobada y fusionada en `main`** — preparando APK debug desde `main` para verificación en teléfono físico (requiere aprobación explícita antes de `adb install` y `git push`).
 
 ## Objetivo
 Entregar la propuesta visual completa en `integration/ui-temas-y-asistente`: tratamiento Apple HIG / Liquid Glass y física `SpringSimulation` exclusivos de `Diurno` (solo en capa funcional y controles de transición), corrección WCAG AA/AAA en `Día` y `Nocturno` (Dracula), preservación de `Default`, resolución dinámica de solapamientos barra inferior / botón `+` / listas, conversaciones editoriales y `Perfil Cognitivo` coherente en `AiChatScreen`, y encabezados unificados `MoneoHeaderBar` en todas las pantallas del proyecto.
@@ -21,12 +21,13 @@ Entregar la propuesta visual completa en `integration/ui-temas-y-asistente`: tra
 4. [x] **Pruebas Separadas y Servidor Web Local:**
    - `test/themes/app_theme_contrast_test.dart` (4 tests de tokens/contraste) + `test/widgets/ui_layout_and_navigation_test.dart` (6 tests de layout, FAB/nav clearance, `SpringSimulation`, `AiChatScreen`, `Perfil Cognitivo` y `MoneoHeaderBar`).
    - `dart analyze` limpio en archivos editados y `flutter test --no-pub -j 1` **104/104 pasaron** en Docker (`finazaap-flutter`).
-   - Servidor web debug reiniciado en `http://localhost:8080`.
-5. [ ] **Validación visual humana del conjunto completo:** Revisión por el usuario en navegador (sin merge a `main` ni instalación móvil sin aprobación).
-6. [ ] **Validación real ampliada de notificaciones (sesión futura en `R5CY21GE9YY`):** Gasto real, ingreso real, transferencia entre cuentas propias, duplicados/actualizaciones, confirmación repetida/reinicio, descarte sin mutación contable, app no seleccionada, notificación ambigua, URL no accionable y *force stop* + reapertura.
-7. [ ] **Publicación remota (`git push`) y merge a `main`:** Pendientes de validación humana completa y aprobación explícita.
+   - Servidor web debug local revisado por el usuario en `http://localhost:8080`.
+5. [x] **Validación visual humana y merge a `main`:** Aprobación explícita del usuario sobre `integration/ui-temas-y-asistente` (`af1fbf5`), consolidación en `main` mediante `--ff-only` y re-ejecución de análisis y suite completa en `main`.
+6. [ ] **Prueba en teléfono físico (`adb install` pendiente de aprobación explícita):** Compilar APK debug desde `main`, verificar firma/hash/dispositivo/preservación de datos y solicitar autorización explícita antes de instalar en el teléfono.
+7. [ ] **Validación real ampliada de notificaciones (sesión futura en `R5CY21GE9YY`):** Gasto real, ingreso real, transferencia entre cuentas propias, duplicados/actualizaciones, confirmación repetida/reinicio, descarte sin mutación contable, app no seleccionada, notificación ambigua, URL no accionable y *force stop* + reapertura.
+8. [ ] **Publicación remota (`git push`):** Pendiente de aprobación explícita del usuario.
 
 ## Criterio de Término
 - `Default` sin cambios en tokens y `Nocturno` (Dracula), `Día` y `Diurno` con AA/AAA en las 3 superficies verificados en `test/themes/app_theme_contrast_test.dart`.
 - `LiquidGlassSurface`, no solapamiento barra/`+`, `SpringSimulation` en `Diurno`, `AiChatScreen` (teclado abierto, burbujas orgánicas, cero `BackdropFilter` en mensajes, `Perfil Cognitivo` sin truncamiento) y `MoneoHeaderBar` verificados en `test/widgets/ui_layout_and_navigation_test.dart`.
-- Rama `integration/ui-temas-y-asistente` conservada sin merge a `main` hasta validación visual del usuario.
+- `main` verificada tras merge con `dart analyze` y `flutter test --no-pub -j 1`, sin ramas de integración ni worktrees residuales, y APK debug documentada para instalación aprobada en teléfono físico.
