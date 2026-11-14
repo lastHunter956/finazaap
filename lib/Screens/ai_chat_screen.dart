@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:gradient_borders/gradient_borders.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:finazaap/data/category_service.dart';
@@ -17,7 +16,7 @@ import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 
 class AiChatScreen extends StatefulWidget {
-  const AiChatScreen({Key? key}) : super(key: key);
+  const AiChatScreen({super.key});
 
   @override
   State<AiChatScreen> createState() => _AiChatScreenState();
@@ -241,6 +240,9 @@ class _AiChatScreenState extends State<AiChatScreen>
     final t = context.appTheme;
     final isDiurno = context.isDiurno;
     final isGemma = !_chatService.useLocalSimulator;
+    final scaledTabFont = MediaQuery.textScalerOf(context).scale(12.5);
+    final tabContainerHeight =
+        36.0 + math.max(0.0, scaledTabFont - 12.5) * 1.5;
 
     final Color statusColor;
     final String statusLabel;
@@ -351,12 +353,21 @@ class _AiChatScreenState extends State<AiChatScreen>
                 ),
               ),
               const SizedBox(width: 6),
-              _buildEngineSegmentedControl(context, isGemma),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.46,
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: _buildEngineSegmentedControl(context, isGemma),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
           Container(
-            height: 36,
+            height: tabContainerHeight,
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               color: isDiurno
@@ -394,9 +405,23 @@ class _AiChatScreenState extends State<AiChatScreen>
                 fontWeight: FontWeight.w500,
                 fontSize: 12.5,
               ),
-              tabs: const [
-                Tab(text: 'Consultas'),
-                Tab(text: 'Perfil Cognitivo'),
+              tabs: [
+                Tab(
+                  height: tabContainerHeight - 6,
+                  child: const Text(
+                    'Consultas',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Tab(
+                  height: tabContainerHeight - 6,
+                  child: const Text(
+                    'Perfil Cognitivo',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
               dividerColor: Colors.transparent,
               splashFactory: NoSplash.splashFactory,
@@ -472,6 +497,8 @@ class _AiChatScreenState extends State<AiChatScreen>
         ),
         child: Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.outfit(
             color: !isSelected
                 ? t.textSecondary
@@ -490,6 +517,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     final isGemma = !_chatService.useLocalSimulator;
     final showEngineBanner = isGemma && !_chatService.gemmaInitialized;
     final messages = _chatService.messages;
+    final bottomClearance = MoneoLayoutMetrics.floatingComposerClearance(context);
 
     return Stack(
       children: [
@@ -498,7 +526,7 @@ class _AiChatScreenState extends State<AiChatScreen>
               ? _buildEmptyChat(includeEngineBanner: showEngineBanner)
               : ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 96),
+                  padding: EdgeInsets.fromLTRB(14, 12, 14, bottomClearance),
                   itemCount:
                       messages.length + (showEngineBanner ? 1 : 0) + (_isLoading ? 1 : 0),
                   itemBuilder: (context, index) {
@@ -844,6 +872,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   Widget _buildEmptyChat({required bool includeEngineBanner}) {
     final t = context.appTheme;
     final sampleAmount = CurrencyHelper.format(700);
+    final bottomClearance = MoneoLayoutMetrics.floatingComposerClearance(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -853,7 +882,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             16,
             compact ? 10 : 16,
             16,
-            96,
+            bottomClearance,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -905,43 +934,45 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   Widget _buildStatCard(String label, String value, IconData icon, Color color) {
     final t = context.appTheme;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
-        decoration: BoxDecoration(
-          color: t.secondaryCardBackground,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: t.borderSubtle),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 19),
-            const SizedBox(height: 6),
-            Text(
-              label,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: t.secondaryCardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: t.borderSubtle),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              color: t.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
               maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.outfit(
-                color: t.textSecondary,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                style: GoogleFonts.outfit(
-                  color: t.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
+                color: t.textPrimary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -982,7 +1013,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: t.cardBackground,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: t.borderSubtle),
       ),
       child: Column(
@@ -990,27 +1021,20 @@ class _AiChatScreenState extends State<AiChatScreen>
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: t.accent.withValues(alpha: 0.12),
-                ),
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  color: t.accent,
-                  size: 17,
-                ),
+              Icon(
+                Icons.auto_awesome_rounded,
+                color: t.accent,
+                size: 18,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Resumen Financiero para IA',
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.outfit(
                     color: t.textPrimary,
-                    fontSize: 14,
+                    fontSize: 14.5,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1018,39 +1042,75 @@ class _AiChatScreenState extends State<AiChatScreen>
             ],
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              _buildStatCard(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final screenWidth = MediaQuery.sizeOf(context).width;
+              final scaledFont = MediaQuery.textScalerOf(context).scale(14);
+              final isNarrowOrScaled = screenWidth < 360 ||
+                  scaledFont > 16.8 ||
+                  constraints.maxWidth < 280;
+              final isVeryLargeScale =
+                  scaledFont > 21.0 || constraints.maxWidth < 220;
+
+              final availableCard = _buildStatCard(
                 'Disponible',
                 balance,
                 Icons.account_balance_wallet_rounded,
                 t.accent,
-              ),
-              const SizedBox(width: 8),
-              _buildStatCard(
+              );
+              final incomeCard = _buildStatCard(
                 'Ingresos Mes',
                 income,
                 Icons.trending_up_rounded,
                 t.income,
-              ),
-              const SizedBox(width: 8),
-              _buildStatCard(
+              );
+              final expenseCard = _buildStatCard(
                 'Gastos Mes',
                 expenses,
                 Icons.trending_down_rounded,
                 t.expense,
-              ),
-            ],
+              );
+
+              if (!isNarrowOrScaled) {
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: availableCard),
+                      const SizedBox(width: 8),
+                      Expanded(child: incomeCard),
+                      const SizedBox(width: 8),
+                      Expanded(child: expenseCard),
+                    ],
+                  ),
+                );
+              }
+
+              final fullWidth = constraints.maxWidth;
+              final halfWidth =
+                  isVeryLargeScale ? fullWidth : (fullWidth - 8) / 2;
+
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  SizedBox(width: fullWidth, child: availableCard),
+                  SizedBox(width: halfWidth, child: incomeCard),
+                  SizedBox(width: halfWidth, child: expenseCard),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: healthColor.withValues(alpha: 0.10),
+              color: healthColor.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: healthColor.withValues(alpha: 0.3)),
+              border: Border.all(color: healthColor.withValues(alpha: 0.25)),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(healthIcon, color: healthColor, size: 18),
                 const SizedBox(width: 10),
@@ -1059,8 +1119,9 @@ class _AiChatScreenState extends State<AiChatScreen>
                     healthText,
                     style: GoogleFonts.outfit(
                       color: t.textPrimary,
-                      fontSize: 11.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
+                      height: 1.35,
                     ),
                   ),
                 ),
@@ -1079,64 +1140,71 @@ class _AiChatScreenState extends State<AiChatScreen>
     required String text,
   }) {
     final t = context.appTheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: t.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: () {
-            _messageController.text = text;
-            _onInputChanged();
-          },
+    return MoneoPressableScale(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: Material(
+          color: t.cardBackground,
           borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: t.borderSubtle),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: t.accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: () {
+              _messageController.text = text;
+              _onInputChanged();
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: t.borderSubtle),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: t.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: t.accent, size: 19),
                   ),
-                  child: Icon(icon, color: t.accent, size: 19),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.outfit(
-                          color: t.textPrimary,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                            color: t.textPrimary,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: GoogleFonts.outfit(
-                          color: t.textSecondary,
-                          fontSize: 11.5,
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                            color: t.textSecondary,
+                            fontSize: 11.5,
+                            height: 1.3,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: t.textHint,
-                  size: 13,
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: t.textHint,
+                    size: 13,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1146,7 +1214,6 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   Widget _buildChatBubble(ChatMessage message) {
     final t = context.appTheme;
-    final isDiurno = context.isDiurno;
     final isUser = message.role == 'user';
     final hasSuggestions = !isUser &&
         message.categorySuggestions != null &&
@@ -1155,11 +1222,12 @@ class _AiChatScreenState extends State<AiChatScreen>
         message.transactionSuggestions != null &&
         message.transactionSuggestions!.isNotEmpty;
 
-    final maxBubbleWidth = math.min(
-      MediaQuery.sizeOf(context).width * 0.78,
-      520.0,
-    );
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final maxBubbleWidth = isUser
+        ? math.min(screenWidth * 0.80, 520.0)
+        : math.min(screenWidth * 0.84, 560.0);
     final timeStr = DateFormat('HH:mm').format(message.timestamp);
+    final minContentWidth = MediaQuery.textScalerOf(context).scale(40.0);
 
     final Color userTextColor = t.buttonForeground;
     final Color aiBodyTextColor = t.textPrimary;
@@ -1170,156 +1238,70 @@ class _AiChatScreenState extends State<AiChatScreen>
       bottomRight: Radius.circular(isUser ? 6 : 18),
     );
 
+    final Widget messageBody = (isUser ||
+            !RegExp(r'[*_`#\[\]\n-]').hasMatch(message.content))
+        ? Text(
+            message.content,
+            style: GoogleFonts.outfit(
+              color: isUser ? userTextColor : aiBodyTextColor,
+              fontSize: 14.5,
+              height: isUser ? 1.46 : 1.52,
+            ),
+          )
+        : MarkdownBody(
+            data: message.content,
+            fitContent: true,
+            shrinkWrap: true,
+            styleSheet: _buildMarkdownStyle(
+              isUser: isUser,
+              userTextColor: userTextColor,
+              aiBodyTextColor: aiBodyTextColor,
+              t: t,
+            ),
+          );
+
     final bubbleWidget = Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isUser) ...[
-            Container(
-              width: 28,
-              height: 28,
-              margin: const EdgeInsets.only(bottom: 6),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: t.cardBackground,
-                border: Border.all(
-                  color: t.borderSubtle,
-                  width: 1,
-                ),
-              ),
-              child: Icon(
-                Icons.auto_awesome_rounded,
-                color: t.accent,
-                size: 14,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 5),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  gradient: isUser && isDiurno
-                      ? const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFF0066D6),
-                            Color(0xFF004FA8),
-                          ],
-                        )
-                      : null,
-                  color: !isUser
-                      ? t.cardBackground
-                      : (isDiurno ? null : t.buttonBackground),
-                  borderRadius: bubbleRadius,
-                  border: isUser
-                      ? (isDiurno
-                          ? Border.all(
-                              color: Colors.white.withValues(alpha: 0.35),
-                              width: 1,
-                            )
-                          : null)
-                      : (isDiurno
-                          ? GradientBoxBorder(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.white,
-                                  t.borderSubtle,
-                                ],
-                              ),
-                              width: 1.1,
-                            )
-                          : Border.all(color: t.borderSubtle, width: 1)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isUser && isDiurno
-                          ? const Color(0x220062CC)
-                          : Colors.black.withValues(
-                              alpha: Theme.of(context).brightness == Brightness.light
-                                  ? 0.06
-                                  : 0.16,
-                            ),
-                      blurRadius: isDiurno ? 12 : 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment:
-                      isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                  children: [
-                    if (!isUser) ...[
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Asistente',
-                            style: GoogleFonts.outfit(
-                              color: t.accent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            timeStr,
-                            style: GoogleFonts.outfit(
-                              color: t.textHint,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                    ],
-                    if (isUser ||
-                        !RegExp(r'[*_`#\[\]\n-]').hasMatch(message.content))
-                      Text(
-                        message.content,
-                        style: GoogleFonts.outfit(
-                          color: isUser ? userTextColor : aiBodyTextColor,
-                          fontSize: 14,
-                          height: 1.45,
-                        ),
-                      )
-                    else
-                      MarkdownBody(
-                        data: message.content,
-                        fitContent: true,
-                        shrinkWrap: true,
-                        styleSheet: _buildMarkdownStyle(
-                          isUser: isUser,
-                          userTextColor: userTextColor,
-                          aiBodyTextColor: aiBodyTextColor,
-                          t: t,
-                        ),
-                      ),
-                    if (isUser) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        timeStr,
-                        style: GoogleFonts.outfit(
-                          color: userTextColor.withValues(alpha: 0.78),
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 5),
+          padding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: isUser ? 11 : 12,
           ),
-        ],
+          decoration: BoxDecoration(
+            color: isUser ? t.buttonBackground : t.cardBackground,
+            borderRadius: bubbleRadius,
+            border: isUser
+                ? null
+                : Border.all(color: t.borderSubtle, width: 1.0),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(minWidth: minContentWidth),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: 1.0,
+                  child: messageBody,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                timeStr,
+                style: GoogleFonts.outfit(
+                  color: isUser
+                      ? userTextColor.withValues(alpha: 0.78)
+                      : t.textHint,
+                  fontSize: 10.5,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
 
@@ -1355,39 +1337,40 @@ class _AiChatScreenState extends State<AiChatScreen>
     return MarkdownStyleSheet(
       p: GoogleFonts.outfit(
         color: baseColor,
-        fontSize: 14,
-        height: 1.45,
+        fontSize: 14.5,
+        height: 1.52,
       ),
       strong: GoogleFonts.outfit(
         color: strongColor,
         fontWeight: FontWeight.bold,
-        fontSize: 14,
+        fontSize: 14.5,
       ),
       listBullet: GoogleFonts.outfit(
         color: strongColor,
-        fontSize: 14,
+        fontSize: 14.5,
       ),
       h1: GoogleFonts.outfit(
         color: strongColor,
         fontWeight: FontWeight.bold,
-        fontSize: 17,
-        height: 1.4,
+        fontSize: 17.5,
+        height: 1.38,
       ),
       h2: GoogleFonts.outfit(
         color: strongColor,
         fontWeight: FontWeight.bold,
-        fontSize: 15.5,
-        height: 1.35,
+        fontSize: 16,
+        height: 1.38,
       ),
       h3: GoogleFonts.outfit(
         color: baseColor,
         fontWeight: FontWeight.bold,
-        fontSize: 14.5,
+        fontSize: 15,
+        height: 1.4,
       ),
       blockquote: GoogleFonts.outfit(
         color: isUser ? userTextColor.withValues(alpha: 0.88) : t.textSecondary,
-        fontSize: 13,
-        height: 1.4,
+        fontSize: 13.5,
+        height: 1.45,
       ),
       blockquoteDecoration: BoxDecoration(
         color: isUser
@@ -1406,7 +1389,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       code: GoogleFonts.jetBrainsMono(
         color: strongColor,
         backgroundColor: codeBg,
-        fontSize: 12,
+        fontSize: 12.5,
       ),
       codeblockDecoration: BoxDecoration(
         color: codeBg,
@@ -1421,28 +1404,154 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   Widget _buildSuggestionShell({
     required Widget child,
-    double width = 185,
+    required double width,
   }) {
     final t = context.appTheme;
     return Container(
-      width: width,
-      margin: const EdgeInsets.only(right: 10, top: 4, bottom: 4),
-      padding: const EdgeInsets.all(12),
+      constraints: BoxConstraints(
+        minWidth: width,
+        maxWidth: width,
+        minHeight: 152,
+      ),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: t.cardBackground,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: t.borderSubtle, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: Theme.of(context).brightness == Brightness.light ? 0.06 : 0.16,
-            ),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: child,
+    );
+  }
+
+  Widget _buildSuggestionTypePill(String type, Color accentColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: accentColor.withValues(alpha: 0.28)),
+      ),
+      child: Text(
+        type == 'Income' ? 'INGRESO' : 'GASTO',
+        style: GoogleFonts.outfit(
+          color: accentColor,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestionActionBar({
+    required VoidCallback onDiscard,
+    required VoidCallback onEdit,
+    required VoidCallback onSave,
+  }) {
+    final t = context.appTheme;
+    final isLargeText = MediaQuery.textScalerOf(context).scale(11.5) > 15.0;
+
+    final discardButton = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onDiscard,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Text(
+            'Descartar',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              color: t.textSecondary,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final editButton = Tooltip(
+      message: 'Editar',
+      child: Material(
+        color: t.darkBackground,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onEdit,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: t.borderSubtle),
+            ),
+            child: Icon(
+              Icons.edit_outlined,
+              color: t.textSecondary,
+              size: 15,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final saveButton = MoneoPressableScale(
+      child: Material(
+        color: t.buttonBackground,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onSave,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Text(
+              'Guardar',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.outfit(
+                color: t.buttonForeground,
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return Container(
+      padding: const EdgeInsets.only(top: 10),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: t.borderSubtle)),
+      ),
+      child: isLargeText
+          ? Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                discardButton,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    editButton,
+                    const SizedBox(width: 6),
+                    saveButton,
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                discardButton,
+                const Spacer(),
+                editButton,
+                const SizedBox(width: 6),
+                saveButton,
+              ],
+            ),
     );
   }
 
@@ -1450,114 +1559,111 @@ class _AiChatScreenState extends State<AiChatScreen>
     final t = context.appTheme;
     final suggestions = message.categorySuggestions!;
 
-    return Container(
-      margin: const EdgeInsets.only(left: 36, top: 4, bottom: 10),
-      height: 148,
-      child: ListView.builder(
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 10),
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        itemCount: suggestions.length,
-        itemBuilder: (context, index) {
-          final sug = suggestions[index];
-          final String name = sug['name'] ?? '';
-          final String type = sug['type'] ?? 'Expenses';
-          final int iconCode = sug['icon'] ?? Icons.category.codePoint;
-          final int colorValue = sug['color'] ?? t.accent.toARGB32();
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < suggestions.length; index++) ...[
+                if (index > 0) const SizedBox(width: 10),
+                Builder(
+                  builder: (context) {
+                    final sug = suggestions[index];
+                    final String name = sug['name'] ?? '';
+                    final String type = sug['type'] ?? 'Expenses';
+                    final int iconCode =
+                        sug['icon'] ?? Icons.category.codePoint;
+                    final int colorValue = sug['color'] ?? t.accent.toARGB32();
 
-          final iconData = AppIcons.getIcon(iconCode);
-          final categoryColor =
-              AppColors.getReadableColor(Color(colorValue), context);
-          final typeColor = type == 'Income' ? t.income : t.expense;
+                    final iconData = AppIcons.getIcon(iconCode);
+                    final categoryColor =
+                        AppColors.getReadableColor(Color(colorValue), context);
+                    final typeColor = type == 'Income' ? t.income : t.expense;
 
-          return _buildSuggestionShell(
-            width: 178,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: categoryColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: categoryColor.withValues(alpha: 0.35),
-                        ),
+                    return _buildSuggestionShell(
+                      width: 224,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: categoryColor.withValues(
+                                          alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      iconData,
+                                      color: categoryColor,
+                                      size: 17,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildSuggestionTypePill(type, typeColor),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(
+                                  color: t.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSuggestionActionBar(
+                            onDiscard: () async {
+                              await _chatService.removeCategorySuggestion(
+                                messageIndex,
+                                name,
+                              );
+                            },
+                            onEdit: () {
+                              _showEditSuggestedCategoryDialog(
+                                messageIndex: messageIndex,
+                                type: type,
+                                name: name,
+                                iconCode: iconCode,
+                                colorValue: colorValue,
+                              );
+                            },
+                            onSave: () async {
+                              await _chatService.acceptCategorySuggestion(
+                                messageIndex,
+                                sug,
+                              );
+                              if (!mounted) return;
+                              _showFeedbackSnackBar(
+                                'Categoría "$name" guardada exitosamente.',
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                      child: Icon(iconData, color: categoryColor, size: 16),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        type == 'Income' ? 'INGRESO' : 'GASTO',
-                        style: GoogleFonts.outfit(
-                          color: typeColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: t.textPrimary,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildSuggestionAction(
-                      icon: Icons.close_rounded,
-                      color: t.error,
-                      tooltip: 'Rechazar',
-                      onTap: () async {
-                        await _chatService.removeCategorySuggestion(
-                            messageIndex, name);
-                      },
-                    ),
-                    _buildSuggestionAction(
-                      icon: Icons.edit_rounded,
-                      color: t.accent,
-                      tooltip: 'Editar',
-                      onTap: () {
-                        _showEditSuggestedCategoryDialog(
-                          messageIndex: messageIndex,
-                          type: type,
-                          name: name,
-                          iconCode: iconCode,
-                          colorValue: colorValue,
-                        );
-                      },
-                    ),
-                    _buildSuggestionAction(
-                      icon: Icons.check_rounded,
-                      color: t.success,
-                      tooltip: 'Aceptar',
-                      onTap: () async {
-                        await _chatService.acceptCategorySuggestion(
-                            messageIndex, sug);
-                        _showFeedbackSnackBar(
-                          'Categoría "$name" guardada exitosamente.',
-                        );
-                      },
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ],
-            ),
-          );
-        },
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1567,152 +1673,127 @@ class _AiChatScreenState extends State<AiChatScreen>
     final t = context.appTheme;
     final suggestions = message.transactionSuggestions!;
 
-    return Container(
-      margin: const EdgeInsets.only(left: 36, top: 4, bottom: 10),
-      height: 158,
-      child: ListView.builder(
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 10),
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        itemCount: suggestions.length,
-        itemBuilder: (context, index) {
-          final tx = suggestions[index];
-          final String type = tx['type'] ?? 'Expenses';
-          final double amount = _asDouble(tx['amount']);
-          final String category = tx['category'] ?? 'Otros';
-          final String detail = tx['detail'] ?? '';
-          final String dateStr = tx['date'] ?? '';
-          final String account = tx['account'] ?? 'Efectivo';
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < suggestions.length; index++) ...[
+                if (index > 0) const SizedBox(width: 10),
+                Builder(
+                  builder: (context) {
+                    final tx = suggestions[index];
+                    final String type = tx['type'] ?? 'Expenses';
+                    final double amount = _asDouble(tx['amount']);
+                    final String category = tx['category'] ?? 'Otros';
+                    final String detail = tx['detail'] ?? '';
+                    final String dateStr = tx['date'] ?? '';
+                    final String account = tx['account'] ?? 'Efectivo';
 
-          final accentColor = type == 'Income' ? t.income : t.expense;
+                    final accentColor =
+                        type == 'Income' ? t.income : t.expense;
+                    final displayTitle =
+                        detail.trim().isNotEmpty ? detail : category;
 
-          return _buildSuggestionShell(
-            width: 198,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(8),
+                    return _buildSuggestionShell(
+                      width: 242,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  _buildSuggestionTypePill(type, accentColor),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          CurrencyHelper.format(amount),
+                                          maxLines: 1,
+                                          style: GoogleFonts.outfit(
+                                            color: t.textPrimary,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                displayTitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(
+                                  color: t.textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.25,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '$category • $account',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(
+                                  color: t.textSecondary,
+                                  fontSize: 11.5,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSuggestionActionBar(
+                            onDiscard: () async {
+                              await _chatService.removeTransactionSuggestion(
+                                messageIndex,
+                                detail,
+                              );
+                            },
+                            onEdit: () {
+                              _showEditSuggestedTransactionDialog(
+                                messageIndex: messageIndex,
+                                type: type,
+                                detail: detail,
+                                amount: amount,
+                                category: category,
+                                dateStr: dateStr,
+                                account: account,
+                              );
+                            },
+                            onSave: () async {
+                              await _chatService.acceptTransactionSuggestion(
+                                messageIndex,
+                                tx,
+                              );
+                              if (!mounted) return;
+                              _showFeedbackSnackBar(
+                                'Transacción registrada exitosamente.',
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                      child: Icon(
-                        type == 'Income'
-                            ? Icons.arrow_upward_rounded
-                            : Icons.arrow_downward_rounded,
-                        color: accentColor,
-                        size: 13,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        CurrencyHelper.format(amount),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          color: t.textPrimary,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  detail,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    color: t.textPrimary,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$category • $account',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    color: t.textSecondary,
-                    fontSize: 10.5,
-                  ),
-                ),
-                const Spacer(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildSuggestionAction(
-                      icon: Icons.close_rounded,
-                      color: t.error,
-                      tooltip: 'Rechazar',
-                      onTap: () async {
-                        await _chatService.removeTransactionSuggestion(
-                            messageIndex, detail);
-                      },
-                    ),
-                    _buildSuggestionAction(
-                      icon: Icons.edit_rounded,
-                      color: t.accent,
-                      tooltip: 'Editar',
-                      onTap: () {
-                        _showEditSuggestedTransactionDialog(
-                          messageIndex: messageIndex,
-                          type: type,
-                          detail: detail,
-                          amount: amount,
-                          category: category,
-                          dateStr: dateStr,
-                          account: account,
-                        );
-                      },
-                    ),
-                    _buildSuggestionAction(
-                      icon: Icons.check_rounded,
-                      color: t.success,
-                      tooltip: 'Aceptar',
-                      onTap: () async {
-                        await _chatService.acceptTransactionSuggestion(
-                            messageIndex, tx);
-                        _showFeedbackSnackBar(
-                          'Transacción registrada exitosamente.',
-                        );
-                      },
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSuggestionAction({
-    required IconData icon,
-    required Color color,
-    required String tooltip,
-    required VoidCallback onTap,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: color.withValues(alpha: 0.28)),
-            ),
-            child: Icon(icon, color: color, size: 15),
+            ],
           ),
         ),
       ),
@@ -2050,8 +2131,10 @@ class _AiChatScreenState extends State<AiChatScreen>
                                     await _chatService.removeCategorySuggestion(
                                         messageIndex, name);
 
+                                    if (dialogCtx.mounted) {
+                                      Navigator.pop(dialogCtx);
+                                    }
                                     if (!mounted) return;
-                                    Navigator.pop(dialogCtx);
                                     _showFeedbackSnackBar(
                                       'Categoría "$enteredName" guardada exitosamente.',
                                     );
@@ -2625,12 +2708,15 @@ class _AiChatScreenState extends State<AiChatScreen>
                                         detail,
                                       );
 
+                                      if (dialogCtx.mounted) {
+                                        Navigator.pop(dialogCtx);
+                                      }
                                       if (!mounted) return;
-                                      Navigator.pop(dialogCtx);
                                       _showFeedbackSnackBar(
                                         'Transacción guardada exitosamente.',
                                       );
                                     } else {
+                                      if (!mounted) return;
                                       _showFeedbackSnackBar(
                                         'Error al procesar el saldo de la cuenta',
                                         isError: true,
@@ -2662,28 +2748,11 @@ class _AiChatScreenState extends State<AiChatScreen>
   }
 
   Widget _buildTypingIndicator() {
-    final t = context.appTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: t.cardBackground,
-              border: Border.all(color: t.borderSubtle),
-            ),
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              color: t.accent,
-              size: 14,
-            ),
-          ),
-          const SizedBox(width: 8),
-          const BouncingDotsIndicator(),
-        ],
+    return const Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: BouncingDotsIndicator(),
       ),
     );
   }
@@ -2748,29 +2817,31 @@ class _AiChatScreenState extends State<AiChatScreen>
             GestureDetector(
               key: const Key('ai_chat_send_button'),
               onTap: _isLoading ? null : _handleSend,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _isInputEmpty
-                      ? t.darkBackground
-                      : (isDiurno ? t.accent : t.buttonBackground),
-                  boxShadow: !_isInputEmpty && isDiurno
-                      ? const [
-                          BoxShadow(
-                            color: Color(0x330062CC),
-                            blurRadius: 10,
-                            offset: Offset(0, 3),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Icon(
-                  Icons.arrow_upward_rounded,
-                  color: _isInputEmpty ? t.textHint : t.buttonForeground,
-                  size: 20,
+              child: MoneoPressableScale(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _isInputEmpty
+                        ? t.darkBackground
+                        : (isDiurno ? t.accent : t.buttonBackground),
+                    boxShadow: !_isInputEmpty && isDiurno
+                        ? const [
+                            BoxShadow(
+                              color: Color(0x330062CC),
+                              blurRadius: 10,
+                              offset: Offset(0, 3),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Icon(
+                    Icons.arrow_upward_rounded,
+                    color: _isInputEmpty ? t.textHint : t.buttonForeground,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -2785,9 +2856,10 @@ class _AiChatScreenState extends State<AiChatScreen>
     final categoryExpenses = _chatService.getCategoryExpenses();
     final totalExpenses =
         categoryExpenses.values.fold(0.0, (sum, val) => sum + val);
+    final bottomSafe = MediaQuery.viewPaddingOf(context).bottom;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 28 + bottomSafe),
       children: [
         _buildHealthBannerCard(),
         const SizedBox(height: 14),
@@ -2803,7 +2875,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(10),
                         color: t.secondaryAccent.withValues(alpha: 0.14),
                       ),
                       child: Icon(
@@ -2816,7 +2888,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                     Expanded(
                       child: Text(
                         'Gastos por Categoría (Mes actual)',
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.outfit(
                           color: t.textPrimary,
@@ -2851,7 +2923,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(10),
                       color: t.success.withValues(alpha: 0.14),
                     ),
                     child: Icon(Icons.flag_rounded, color: t.success, size: 20),
@@ -2860,6 +2932,8 @@ class _AiChatScreenState extends State<AiChatScreen>
                   Expanded(
                     child: Text(
                       'Tus Metas Financieras',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
                         color: t.textPrimary,
                         fontSize: 15,
@@ -2872,7 +2946,11 @@ class _AiChatScreenState extends State<AiChatScreen>
               const SizedBox(height: 8),
               Text(
                 'El asistente evaluará la conveniencia de tus consumos basándose en estas metas:',
-                style: GoogleFonts.outfit(color: t.textSecondary, fontSize: 12),
+                style: GoogleFonts.outfit(
+                  color: t.textSecondary,
+                  fontSize: 12,
+                  height: 1.35,
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -2887,36 +2965,38 @@ class _AiChatScreenState extends State<AiChatScreen>
                   fillColor: t.darkBackground,
                   contentPadding: const EdgeInsets.all(12),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: t.borderSubtle),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: t.borderSubtle),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: t.accent, width: 1.5),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.buttonBackground,
-                  foregroundColor: t.buttonForeground,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              MoneoPressableScale(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: t.buttonBackground,
+                    foregroundColor: t.buttonForeground,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    minimumSize: const Size(double.infinity, 42),
                   ),
-                  minimumSize: const Size(double.infinity, 42),
-                ),
-                onPressed: _saveGoals,
-                child: Text(
-                  'Guardar Metas',
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                  onPressed: _saveGoals,
+                  child: Text(
+                    'Guardar Metas',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ),
@@ -2924,67 +3004,70 @@ class _AiChatScreenState extends State<AiChatScreen>
           ),
         ),
         const SizedBox(height: 14),
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: Card(
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
             color: t.cardBackground,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(color: t.borderSubtle),
-            ),
-            child: ExpansionTile(
-              leading: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: t.accent.withValues(alpha: 0.14),
-                ),
-                child: Icon(
-                  Icons.description_outlined,
-                  color: t.accent,
-                  size: 20,
-                ),
-              ),
-              title: Text(
-                'Reporte Analítico Detallado (Markdown)',
-                style: GoogleFonts.outfit(
-                  color: t.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              iconColor: t.accent,
-              collapsedIconColor: t.textHint,
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-              children: [
-                Divider(height: 12, color: t.borderSubtle),
-                const SizedBox(height: 8),
-                MarkdownBody(
-                  data: _chatService.userNotes,
-                  styleSheet: MarkdownStyleSheet(
-                    p: GoogleFonts.outfit(
-                      color: t.textSecondary,
-                      fontSize: 13,
-                      height: 1.5,
-                    ),
-                    strong: GoogleFonts.outfit(
-                      color: t.accent,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                    listBullet: GoogleFonts.outfit(
-                      color: t.accent,
-                      fontSize: 13,
-                    ),
-                    h3: GoogleFonts.outfit(
-                      color: t.accent,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: t.borderSubtle),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: t.accent.withValues(alpha: 0.14),
+                  ),
+                  child: Icon(
+                    Icons.description_outlined,
+                    color: t.accent,
+                    size: 20,
                   ),
                 ),
-              ],
+                title: Text(
+                  'Reporte Analítico Detallado (Markdown)',
+                  style: GoogleFonts.outfit(
+                    color: t.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                iconColor: t.accent,
+                collapsedIconColor: t.textHint,
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [
+                  Divider(height: 12, color: t.borderSubtle),
+                  const SizedBox(height: 8),
+                  MarkdownBody(
+                    data: _chatService.userNotes,
+                    styleSheet: MarkdownStyleSheet(
+                      p: GoogleFonts.outfit(
+                        color: t.textSecondary,
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                      strong: GoogleFonts.outfit(
+                        color: t.accent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                      listBullet: GoogleFonts.outfit(
+                        color: t.accent,
+                        fontSize: 13,
+                      ),
+                      h3: GoogleFonts.outfit(
+                        color: t.accent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -3061,18 +3144,15 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   Widget _buildSectionCard({required Widget child}) {
     final t = context.appTheme;
-    return Card(
-      color: t.cardBackground,
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: t.borderSubtle),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: t.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.borderSubtle),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: child,
-      ),
+      child: child,
     );
   }
 
@@ -3106,59 +3186,47 @@ class _AiChatScreenState extends State<AiChatScreen>
 
     return Container(
       width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: t.cardBackground,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: t.borderSubtle),
       ),
-      child: Stack(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            right: -10,
-            top: -10,
-            child: Icon(
-              icon,
-              size: 90,
-              color: color.withValues(alpha: 0.06),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: color.withValues(alpha: 0.12),
             ),
+            child: Icon(icon, color: color, size: 20),
           ),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: color.withValues(alpha: 0.12),
+                Text(
+                  statusTitle,
+                  style: GoogleFonts.outfit(
+                    color: t.textPrimary,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: Icon(icon, color: color, size: 26),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        statusTitle,
-                        style: GoogleFonts.outfit(
-                          color: t.textPrimary,
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        message.isEmpty
-                            ? 'Analizando tus datos en tiempo real.'
-                            : message,
-                        style: GoogleFonts.outfit(
-                          color: t.textSecondary,
-                          fontSize: 12,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 4),
+                Text(
+                  message.isEmpty
+                      ? 'Analizando tus datos en tiempo real.'
+                      : message,
+                  softWrap: true,
+                  style: GoogleFonts.outfit(
+                    color: t.textSecondary,
+                    fontSize: 12.5,
+                    height: 1.42,
                   ),
                 ),
               ],
@@ -3178,50 +3246,80 @@ class _AiChatScreenState extends State<AiChatScreen>
     final txCount = _chatService.expenseCount.toString();
     final savingsRatio = _chatService.savingsRatio.toStringAsFixed(1);
 
-    return Column(
-      children: [
-        Row(
+    final cards = [
+      _buildMetricCard(
+        title: 'Tasa de Ahorro',
+        value: '$savingsRatio%',
+        subtitle: 'Porcentaje de ingresos netos',
+        icon: Icons.donut_large_rounded,
+        color: t.accent,
+      ),
+      _buildMetricCard(
+        title: 'Gasto Mayoritario',
+        value: topCat.isEmpty ? 'Ninguna' : topCat,
+        subtitle: '$topCatAmt este mes',
+        icon: Icons.pie_chart_rounded,
+        color: t.secondaryAccent,
+      ),
+      _buildMetricCard(
+        title: 'Mayor Transacción',
+        value: maxExpItem.isEmpty ? 'Ninguna' : maxExpItem,
+        subtitle: '$maxExpAmt registrados',
+        icon: Icons.trending_up_rounded,
+        color: t.expense,
+      ),
+      _buildMetricCard(
+        title: 'Total Transacciones',
+        value: '$txCount egresos',
+        subtitle: 'En tu historial registrado',
+        icon: Icons.receipt_long_rounded,
+        color: t.warning,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompactOrScaled = constraints.maxWidth < 380 ||
+            MediaQuery.textScalerOf(context).scale(14) > 16.5;
+
+        if (isCompactOrScaled) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                if (i > 0) const SizedBox(height: 10),
+                cards[i],
+              ],
+            ],
+          );
+        }
+
+        return Column(
           children: [
-            _buildMetricCard(
-              title: 'Tasa de Ahorro',
-              value: '$savingsRatio%',
-              subtitle: 'Porcentaje de ingresos netos',
-              icon: Icons.donut_large_rounded,
-              color: t.accent,
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: cards[0]),
+                  const SizedBox(width: 12),
+                  Expanded(child: cards[1]),
+                ],
+              ),
             ),
-            const SizedBox(width: 12),
-            _buildMetricCard(
-              title: 'Gasto Mayoritario',
-              value: topCat.length > 14 ? '${topCat.substring(0, 12)}...' : topCat,
-              subtitle: '$topCatAmt este mes',
-              icon: Icons.pie_chart_rounded,
-              color: t.secondaryAccent,
+            const SizedBox(height: 12),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: cards[2]),
+                  const SizedBox(width: 12),
+                  Expanded(child: cards[3]),
+                ],
+              ),
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _buildMetricCard(
-              title: 'Mayor Transacción',
-              value: maxExpItem.length > 14
-                  ? '${maxExpItem.substring(0, 12)}...'
-                  : (maxExpItem.isEmpty ? 'Ninguna' : maxExpItem),
-              subtitle: '$maxExpAmt registrados',
-              icon: Icons.trending_up_rounded,
-              color: t.expense,
-            ),
-            const SizedBox(width: 12),
-            _buildMetricCard(
-              title: 'Total Transacciones',
-              value: '$txCount egresos',
-              subtitle: 'En tu historial registrado',
-              icon: Icons.receipt_long_rounded,
-              color: t.warning,
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -3233,58 +3331,62 @@ class _AiChatScreenState extends State<AiChatScreen>
     required Color color,
   }) {
     final t = context.appTheme;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: t.cardBackground,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: t.borderSubtle),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: t.textSecondary,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                    ),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: t.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: t.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: 4),
-                Icon(icon, color: color, size: 17),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
-                color: t.textPrimary,
-                fontSize: 15.5,
-                fontWeight: FontWeight.bold,
               ),
+              const SizedBox(width: 6),
+              Icon(icon, color: color, size: 17),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            maxLines: 2,
+            softWrap: true,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              color: t.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              height: 1.25,
             ),
-            const SizedBox(height: 3),
-            Text(
-              subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
-                color: t.textSecondary,
-                fontSize: 10.5,
-              ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            maxLines: 2,
+            softWrap: true,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              color: t.textSecondary,
+              fontSize: 12,
+              height: 1.3,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -3294,52 +3396,68 @@ class _AiChatScreenState extends State<AiChatScreen>
     final t = context.appTheme;
     final categoryColor = _getCategoryColor(category);
     final formattedAmount = CurrencyHelper.format(amount);
+    final amountLabel = '$formattedAmount (${(percent * 100).toStringAsFixed(0)}%)';
+    final isLargeText = MediaQuery.textScalerOf(context).scale(14) > 16.5;
+
+    final categoryBadge = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: categoryColor,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            category,
+            maxLines: 2,
+            softWrap: true,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              color: t.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final amountText = Text(
+      amountLabel,
+      style: GoogleFonts.outfit(
+        color: t.textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: categoryColor,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        category,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          color: t.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
+          if (isLargeText) ...[
+            categoryBadge,
+            const SizedBox(height: 3),
+            amountText,
+          ] else
+            Row(
+              children: [
+                Expanded(child: categoryBadge),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: amountText,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '$formattedAmount (${(percent * 100).toStringAsFixed(0)}%)',
-                style: GoogleFonts.outfit(
-                  color: t.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 6),
           Container(
             height: 8,
@@ -3375,7 +3493,7 @@ class _AiChatScreenState extends State<AiChatScreen>
 
 /// Indicador animado de escritura del asistente (3 puntos).
 class BouncingDotsIndicator extends StatefulWidget {
-  const BouncingDotsIndicator({Key? key}) : super(key: key);
+  const BouncingDotsIndicator({super.key});
 
   @override
   State<BouncingDotsIndicator> createState() => _BouncingDotsIndicatorState();
@@ -3404,10 +3522,15 @@ class _BouncingDotsIndicatorState extends State<BouncingDotsIndicator>
   Widget build(BuildContext context) {
     final t = context.appTheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: t.cardBackground,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(18),
+          topRight: Radius.circular(18),
+          bottomLeft: Radius.circular(6),
+          bottomRight: Radius.circular(18),
+        ),
         border: Border.all(color: t.borderSubtle),
       ),
       child: Row(
