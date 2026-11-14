@@ -329,9 +329,11 @@ class NotificationPipelineService {
       category: classification.category,
       accountName: classification.accountName,
       destinationAccount: classification.destinationAccount,
-      confidence: classification.confidence,
-      requiresReview: classification.requiresReview,
-      autoProcessable: !classification.requiresReview &&
+      confidence: parseResult.confidence < classification.confidence
+          ? parseResult.confidence
+          : classification.confidence,
+      requiresReview: parseResult.requiresReview || classification.requiresReview,
+      autoProcessable: !(parseResult.requiresReview || classification.requiresReview) &&
           classification.classification != 'sospechosa',
       decisionSource: classification.decisionSource,
       flags: parseResult.flags,

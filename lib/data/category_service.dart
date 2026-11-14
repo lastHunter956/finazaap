@@ -334,6 +334,14 @@ class CategoryService {
     final prefs = await SharedPreferences.getInstance();
     final jsonKey = type == 'Income' ? 'ingresos' : 'gastos';
     final listKey = type == 'Income' ? incomeCategoriesKey : expenseCategoriesKey;
+    final deletedKey = type == 'Income' ? deletedIncomeCategoriesKey : deletedExpenseCategoriesKey;
+
+    // 0. Si estaba marcada como eliminada, restaurarla removiéndola de deleted_*_categories
+    final deletedList = prefs.getStringList(deletedKey) ?? [];
+    if (deletedList.contains(name)) {
+      deletedList.remove(name);
+      await prefs.setStringList(deletedKey, deletedList);
+    }
 
     // 1. Guardar en la lista simple (para compatibilidad)
     final currentList = prefs.getStringList(listKey) ?? [];

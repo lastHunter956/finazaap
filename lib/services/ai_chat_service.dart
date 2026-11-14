@@ -1590,6 +1590,7 @@ class AiChatService extends ChangeNotifier {
       );
       if (!balanceUpdated) {
         AppLogger.warning('acceptTransactionSuggestion: no se pudo actualizar saldo para cuenta "$account"');
+        return;
       }
 
       // Registrar en el historial local de Hive para visualización inmediata y persistencia
