@@ -1,8 +1,8 @@
 # Punto de Continuidad (`docs/audit/CONTINUITY_STATE.md`)
 
-> **Fecha:** 2026-11-14 (Cierre de lote autónomo Wave 1 + T3.4 + T4.1)  
+> **Fecha:** 2026-11-14 (Cierre de lote autónomo Wave 1 + T3.4 + Ola 4 `T4.1`–`T4.3`)  
 > **Estado de cuota:** No consultable desde herramientas (no se inventa valor numérico).  
-> **Rama / HEAD real:** `agent/ui/t1-3c-daily-transactions-delete` @ `82322c8` (base acumulada desde `05379fa` + `fcbb7d6` + `bd9da6e` + `2de9a61` + `aac8c93` + `c43a3ea` + `55b5757` + `82322c8`).  
+> **Rama / HEAD real:** `agent/ui/t1-3c-daily-transactions-delete` @ `db75c35` (base `05379fa` + `fcbb7d6` + `bd9da6e` + `2de9a61` + `aac8c93` + `c43a3ea` + `55b5757` + `82322c8` + `561f0fd` + `38b6992` + `db75c35`).  
 > **Git status:** Limpio tras commit documental.  
 > **Agentes / Tareas activas:** `0` subagentes activos; contenedor `finazaap-flutter` activo montando `/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap -> /app`.
 
@@ -97,7 +97,7 @@
 
 ---
 
-## 6. Estado Actualizado tras Ejecución Autónoma (`c43a3ea`)
+## 6. Estado Actualizado tras Ejecución Autónoma (`db75c35`)
 - **Rama y commits verificados (`agent/ui/t1-3c-daily-transactions-delete`):**
   - `fcbb7d6`: **L1.1** — `lib/Screens/daily_transactions.dart` delega `_deleteTransaction` a `TransactionService.deleteTransaction(transaction)`; `lib/widgets/show_transaction_options.dart` corrige overflow en `"Sin interés"`; `test/audit/t1_3c_ui_deletion_test.dart` (`6/6` pasan: cancelar, ingreso, gasto, transferencia, duplicados por key, compra TC en cuotas).
   - `bd9da6e`: **T1.3c cuentas (`L1.3`, `L1.8`, `L2.2`, `L5.1`)** — `add_account_dialogs.dart` desactiva `includeInTotal` por defecto en TC y rechaza `' > '`; `edit_account_dialogs.dart` rechaza `' > '` y preserva `creditLimit` original; `selecctaccount.dart` excluye TC del saldo total e invoca `AccountService.markAccountAsDeleted`; `test/audit/t1_3c_accounts_consistency_test.dart` (`3/3` pasan).
@@ -105,12 +105,16 @@
   - `aac8c93`: **T1.4** — `notification_pipeline_service.dart` combina `parseResult.requiresReview || classification.requiresReview` y `min(confidence)`; `category_service.dart` limpia `deleted_*_categories` al recrear categoría; `ai_chat_service.dart` aborta escritura en Hive si `processTransaction` devuelve `false`; `test/audit/t1_4_notifications_categories_test.dart` (`3/3` pasan).
   - `c43a3ea`: **T3.4 (seguridad no disruptiva)** — `notification_parser.dart` trunca `title` (200) y `body` (1000) en `parseRaw`; `ai_chat_screen.dart` exige `https://` para descarga de modelo; `test/audit/t3_4_llm_and_antifraud_test.dart` (`2/2` pasan).
   - `82322c8`: **T4.1 (arranque y lazy tabs)** — `main.dart` paraleliza init esencial y difiere `FlutterGemma`/`NotificationService`/`NotificationPipelineService` a `addPostFrameCallback`; `main_container.dart` monta pestañas de forma diferida (`_loadedTabs = {0}`); `test/audit/t4_1_lazy_tabs_test.dart` (`1/1` pasa).
-- **Suite completa verificada en Docker (`finazaap-flutter`):**
-  - `docker-compose exec -T flutter-env flutter test --no-pub -j 1` → **165/165 All tests passed!** (`RC=0`).
+  - `561f0fd`: **T4.1 + L1.1 endurecimiento** — `AiChatService.ensureGemmaInitialized` enlazado a `_ensureGemmaInitialized` en `main.dart` para acceso temprano al chat; guardia `if (!transaction.isInBox) return;` en `DailyTransactionsScreen._deleteTransaction`; `test/audit/t1_3c_ui_deletion_test.dart` ampliado a `7/7` (verificando segundo borrado sin doble reversión y ausencia de planes huérfanos tras compra TC). Nota: `TransactionService.deleteTransaction` (archivo protegido) carece de guardia `!isInBox` interna.
+  - `38b6992`: **T4.2 (optimización Home y Statistics)** — `total_balance_widget.dart` inicializa fecha síncronamente sin `initializeDateFormatting` ni `onDateSelected` en `initState`; `statistics.dart` preserva año/mes seleccionados tras actualizaciones Hive (`L5.4`), cachea series en `_updateData()`, reemplaza `TweenAnimationBuilder` de 20s por `CustomPaint` estático y envuelve gráficos Syncfusion en `RepaintBoundary`; `home.dart` cachea `_groupedTransactionsCache`, precalcula fechas al ordenar y aplica debounce de 500ms a `WidgetService.refreshWidgetFromData()`. Verificación funcional/estructural en `test/audit/t4_2_home_statistics_perf_test.dart` (`2/2`) + `test/widgets/ui_layout_and_navigation_test.dart` (`6/6`), sin benchmark en dispositivo físico.
+  - `db75c35`: **T4.3 (blur GPU, virtualización y dispose)** — `floating_action_menu_screen.dart` reemplaza `Opacity`+blur animado por `FadeTransition`+blur estático; `selecctaccount.dart` migra a `ListView.builder`; `responsibilities_screen.dart` y `responsibility_list_item.dart` cachean `listenable()` y precalculan métricas de tarjetas; `add.dart` y `transfer.dart` añaden `dispose()` de controladores y eliminan `Future.delayed(100ms)` previo a `pop`; `ai_chat_screen.dart` envuelve burbujas en `RepaintBoundary` y pasa `messageIndex`; `main.dart` fija `GoogleFonts.config.allowRuntimeFetching = false`. Verificación funcional/estructural en `test/audit/t4_3_perf_and_dispose_test.dart` (`3/3`), sin benchmark en dispositivo físico.
+- **Notas de verificación:**
+  - `docs/audit/repro/accounting_repro_test.dart` conserva `L3.2` (caso que pasó en baseline `T0.1` sin reproducir fallo).
+  - La procedencia exacta de warnings de `dart analyze` respecto a la base `05379fa` no se comparó contra un baseline de esa rama.
 - **Cola priorizada de permisos/decisiones pendientes:**
   1. `T0.3` (Kotlin `1.9.22` -> `2.0.0` / Gradle) — desbloquea `T3.3` y verificación de manifest `--release`.
   2. `T3.1` (`lib/core/security/*`, migración de cajas Hive `data`/`responsibilities` a AES-GCM) — desbloquea `T3.2` (`D6`).
   3. `D1` (elección de modelo Gemma) — desbloquea `T2.1` y `T2.2`.
   4. Decisión de precisión monetaria / `currencyCode` por cuenta (`AccountItem`, `Responsibility.isAmountCovered`).
   5. Revisión humana para `merge` a `main`, `git push` y `adb install`.
-- **Siguiente tarea elegible sin permisos pendientes:** Ola 4 (`T4.1`–`T4.3` rendimiento) o limpieza menor de `T1.3c` (`L1.6`/`L1.7` código muerto en `add`/`add_expense`/`transfer`/`home`).
+- **Siguiente tarea elegible sin permisos pendientes:** Limpieza menor de `T1.3c` (`L1.6`/`L1.7` código muerto en `add`/`add_expense`/`transfer`/`home`) si se autoriza nueva iteración, o cierre para revisión humana.

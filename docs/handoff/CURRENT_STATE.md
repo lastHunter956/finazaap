@@ -1,6 +1,6 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-14 (Cierre de lote autónomo en `agent/ui/t1-3c-daily-transactions-delete` @ `c43a3ea` con `164/164` tests en verde; ver detalle en `docs/audit/CONTINUITY_STATE.md`)  
+> **Última actualización:** 2026-11-14 (Cierre de lote autónomo en `agent/ui/t1-3c-daily-transactions-delete` @ `db75c35` con Wave 1 + `T3.4` + Ola 4 `T4.1`–`T4.3`; ver detalle en `docs/audit/CONTINUITY_STATE.md`)  
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
