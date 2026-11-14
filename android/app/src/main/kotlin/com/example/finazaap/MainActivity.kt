@@ -1,6 +1,7 @@
 package com.example.finazaap
 
 import android.app.ActivityManager
+import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,6 +14,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.PowerManager
+import android.os.Process
 import android.os.StatFs
 import android.provider.Settings
 import android.view.WindowManager
@@ -165,13 +167,45 @@ class MainActivity : FlutterFragmentActivity() {
                         } else {
                             true
                         }
+                        val restrictedSettingsBlocked = isRestrictedSettingsBlocked()
                         result.success(
                             mapOf(
                                 "permissionGranted" to granted,
                                 "listenerConnected" to MoneoNotificationListenerService.isListenerConnected(),
-                                "batteryOptimizationIgnored" to ignoringBatteryOpt
+                                "batteryOptimizationIgnored" to ignoringBatteryOpt,
+                                "restrictedSettingsBlocked" to restrictedSettingsBlocked
                             )
                         )
+                    }
+                    "openAppNotificationSettings" -> {
+                        try {
+                            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                    putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                                }
+                            } else {
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", packageName, null)
+                                }
+                            }
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("SETTINGS_ERROR", e.message, null)
+                        }
+                    }
+                    "openAppDetailsSettings" -> {
+                        try {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", packageName, null)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("SETTINGS_ERROR", e.message, null)
+                        }
                     }
                     "openNotificationAccessSettings" -> {
                         try {
@@ -312,5 +346,21 @@ class MainActivity : FlutterFragmentActivity() {
         val stream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 90, stream)
         return stream.toByteArray()
+    }
+
+    private fun isRestrictedSettingsBlocked(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+        return try {
+            val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
+                ?: return false
+            val mode = appOps.unsafeCheckOpNoThrow(
+                "android:access_restricted_settings",
+                Process.myUid(),
+                packageName
+            )
+            mode != AppOpsManager.MODE_ALLOWED
+        } catch (_: Throwable) {
+            false
+        }
     }
 }

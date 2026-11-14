@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -7,6 +8,18 @@ import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/core/utils/app_logger.dart';
 
+class NotificationPermissionResult {
+  final bool notificationsGranted;
+  final bool exactAlarmsGranted;
+
+  const NotificationPermissionResult({
+    required this.notificationsGranted,
+    required this.exactAlarmsGranted,
+  });
+
+  bool get isGranted => notificationsGranted;
+}
+
 /// Servicio singleton para manejar notificaciones locales de responsabilidades
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -15,6 +28,15 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
+
+  @visibleForTesting
+  Future<bool> Function()? testCheckNotificationsEnabled;
+  @visibleForTesting
+  Future<bool?> Function()? testRequestNotificationsPermission;
+  @visibleForTesting
+  Future<bool?> Function()? testCanScheduleExactAlarms;
+  @visibleForTesting
+  Future<bool?> Function()? testRequestExactAlarmsPermission;
 
   // Keys de preferencias
   static const String _prefsKeyEnabled = 'notifications_enabled';
@@ -56,44 +78,118 @@ class NotificationService {
     AppLogger.success('NotificationService inicializado');
   }
 
-  /// Solicitar permiso de notificaciones
+  /// Solicitar permiso de notificaciones (retorna true si POST_NOTIFICATIONS quedó activo)
   Future<bool> requestPermission() async {
+    final result = await requestPermissionDetailed();
+    return result.notificationsGranted;
+  }
+
+  /// Solicita permisos distinguiendo POST_NOTIFICATIONS y SCHEDULE_EXACT_ALARM.
+  Future<NotificationPermissionResult> requestPermissionDetailed() async {
+    if (testCheckNotificationsEnabled == null && !_isInitialized) {
+      await init();
+    }
+
+    var notificationsGranted = await checkPermissionStatus();
+    if (!notificationsGranted) {
+      if (testRequestNotificationsPermission != null) {
+        notificationsGranted =
+            (await testRequestNotificationsPermission!()) ?? false;
+      } else {
+        final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        if (androidPlugin != null) {
+          final bool? requested =
+              await androidPlugin.requestNotificationsPermission();
+          AppLogger.info(
+            'Permiso de notificaciones Android (POST_NOTIFICATIONS): $requested',
+          );
+          notificationsGranted = requested ?? false;
+        } else {
+          final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>();
+          if (iosPlugin != null) {
+            final bool? granted = await iosPlugin.requestPermissions(
+              alert: true,
+              badge: true,
+              sound: true,
+            );
+            AppLogger.info('Permiso de notificaciones iOS: $granted');
+            notificationsGranted = granted ?? false;
+          } else {
+            notificationsGranted = true;
+          }
+        }
+      }
+
+      // Re-validar contra el estado real del sistema tras la solicitud.
+      if (!notificationsGranted) {
+        notificationsGranted = await checkPermissionStatus();
+      }
+    }
+
+    // No abrir "Alarmas y recordatorios" si POST_NOTIFICATIONS sigue denegado.
+    if (!notificationsGranted) {
+      return const NotificationPermissionResult(
+        notificationsGranted: false,
+        exactAlarmsGranted: false,
+      );
+    }
+
+    var exactAlarmsGranted = await _canScheduleExactAlarms();
+    if (!exactAlarmsGranted) {
+      try {
+        if (testRequestExactAlarmsPermission != null) {
+          exactAlarmsGranted =
+              (await testRequestExactAlarmsPermission!()) ?? false;
+        } else {
+          final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+          if (androidPlugin != null) {
+            final bool? requestedExact =
+                await androidPlugin.requestExactAlarmsPermission();
+            AppLogger.info(
+              'Permiso de alarmas exactas Android (SCHEDULE_EXACT_ALARM): $requestedExact',
+            );
+            exactAlarmsGranted =
+                requestedExact ?? await _canScheduleExactAlarms();
+          } else {
+            exactAlarmsGranted = true;
+          }
+        }
+      } catch (e) {
+        AppLogger.warning(
+          'No se pudo solicitar el permiso de alarmas exactas',
+          error: e,
+        );
+      }
+    }
+
+    return NotificationPermissionResult(
+      notificationsGranted: true,
+      exactAlarmsGranted: exactAlarmsGranted,
+    );
+  }
+
+  Future<bool> _canScheduleExactAlarms() async {
+    if (testCanScheduleExactAlarms != null) {
+      return (await testCanScheduleExactAlarms!()) ?? false;
+    }
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    
-    if (androidPlugin != null) {
-      final bool? notificationsGranted = await androidPlugin.requestNotificationsPermission();
-      AppLogger.info('Permiso de notificaciones Android (POST_NOTIFICATIONS): $notificationsGranted');
-      
-      // Intentar solicitar permiso de Alarmas Exactas para Android 13/14+
-      try {
-        final bool? exactAlarmsGranted = await androidPlugin.requestExactAlarmsPermission();
-        AppLogger.info('Permiso de alarmas exactas Android (SCHEDULE_EXACT_ALARM): $exactAlarmsGranted');
-      } catch (e) {
-        AppLogger.warning('No se pudo solicitar el permiso de alarmas exactas', error: e);
-      }
-      
-      return notificationsGranted ?? false;
+    if (androidPlugin == null) return true;
+    try {
+      return (await androidPlugin.canScheduleExactNotifications()) ?? false;
+    } catch (_) {
+      return false;
     }
-
-    final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
-    
-    if (iosPlugin != null) {
-      final bool? granted = await iosPlugin.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-      AppLogger.info('Permiso de notificaciones iOS: $granted');
-      return granted ?? false;
-    }
-
-    return true;
   }
 
   /// Verificar estado del permiso de notificaciones
   Future<bool> checkPermissionStatus() async {
+    if (testCheckNotificationsEnabled != null) {
+      return await testCheckNotificationsEnabled!();
+    }
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     
@@ -362,13 +458,16 @@ class NotificationService {
       iOS: iosDetails,
     );
 
+    final useExact = await _canScheduleExactAlarms();
     await _plugin.zonedSchedule(
       id,
       title,
       body,
       tz.TZDateTime.from(scheduledDate, tz.local),
       details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: useExact
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
   

@@ -365,6 +365,8 @@ class BankWhitelistService {
           'listenerConnected': raw['listenerConnected'] as bool? ?? false,
           'batteryOptimizationIgnored':
               raw['batteryOptimizationIgnored'] as bool? ?? true,
+          'restrictedSettingsBlocked':
+              raw['restrictedSettingsBlocked'] as bool? ?? false,
         };
       }
     } catch (_) {}
@@ -374,7 +376,32 @@ class BankWhitelistService {
       'permissionGranted': granted,
       'listenerConnected': granted,
       'batteryOptimizationIgnored': true,
+      'restrictedSettingsBlocked': false,
     };
+  }
+
+  /// Abre los ajustes de notificaciones de la app en Android.
+  Future<bool> openAppNotificationSettings() async {
+    try {
+      final opened = await _appsChannel.invokeMethod<bool>(
+        'openAppNotificationSettings',
+      );
+      return opened ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Abre la pantalla "Info. de la app" (útil para habilitar Ajustes restringidos en Android 13+).
+  Future<bool> openAppDetailsSettings() async {
+    try {
+      final opened = await _appsChannel.invokeMethod<bool>(
+        'openAppDetailsSettings',
+      );
+      return opened ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Abre la pantalla del sistema Android para habilitar el acceso a notificaciones.

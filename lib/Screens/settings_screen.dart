@@ -34,11 +34,13 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
   bool _notificationsEnabled = false;
+  bool _pendingReminderActivation = false;
   bool _bankCaptureEnabled = false;
   bool _autoAcceptFutureEnabled = false;
   bool _notificationAccessGranted = false;
   bool _listenerConnected = false;
   bool _batteryOptimizationIgnored = true;
+  bool _restrictedSettingsBlocked = false;
   String _selectedCurrency = 'COP';
   
   // Configuración de notificaciones
@@ -92,14 +94,30 @@ class _SettingsScreenState extends State<SettingsScreen>
     final status = await _pipeline.source.checkStatus();
     final granted = (diagnostics['permissionGranted'] ?? false) ||
         status.permissionStatus == NotificationPermissionStatus.granted;
+    final restrictedBlocked =
+        diagnostics['restrictedSettingsBlocked'] ?? false;
+    final remindersPermGranted = await _notificationService.checkPermissionStatus();
+    var activatedPendingReminders = false;
+    if (_pendingReminderActivation && remindersPermGranted) {
+      _pendingReminderActivation = false;
+      await _notificationService.setEnabled(true);
+      activatedPendingReminders = true;
+    }
     if (!mounted) return;
     setState(() {
       _notificationAccessGranted = granted;
       _listenerConnected = diagnostics['listenerConnected'] ?? granted;
       _batteryOptimizationIgnored =
           diagnostics['batteryOptimizationIgnored'] ?? true;
+      _restrictedSettingsBlocked = restrictedBlocked;
       _bankCaptureEnabled = _pipeline.isCaptureEnabled;
+      if (activatedPendingReminders) {
+        _notificationsEnabled = true;
+      }
     });
+    if (activatedPendingReminders) {
+      AlertHelper.success(context, 'Recordatorios activados');
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -225,31 +243,56 @@ class _SettingsScreenState extends State<SettingsScreen>
   /// Activar/desactivar notificaciones con solicitud de permiso
   Future<void> _toggleNotifications(bool value) async {
     if (value) {
-      // Solicitar permiso primero
-      final granted = await _notificationService.requestPermission();
-      
-      if (!granted) {
+      final result = await _notificationService.requestPermissionDetailed();
+
+      if (!result.isGranted) {
+        _pendingReminderActivation = true;
         if (mounted) {
-          AlertHelper.warning(
-            context,
-            'Debes conceder el permiso de notificaciones para activar los recordatorios'
+          final openSettings = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Permiso de notificaciones requerido'),
+              content: const Text(
+                'Debes habilitar las notificaciones para la app en Ajustes de Android para activar los recordatorios de pagos.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Abrir Ajustes'),
+                ),
+              ],
+            ),
           );
+          if (openSettings == true) {
+            await _whitelistService.openAppNotificationSettings();
+          } else {
+            _pendingReminderActivation = false;
+            if (mounted) {
+              AlertHelper.warning(
+                context,
+                'Debes conceder el permiso de notificaciones para activar los recordatorios',
+              );
+            }
+          }
         }
         return; // No activar si no se concedió el permiso
       }
     }
-    
+
+    _pendingReminderActivation = false;
     setState(() {
       _notificationsEnabled = value;
     });
     await _notificationService.setEnabled(value);
-    
+
     if (mounted) {
       AlertHelper.success(
-        context, 
-        value 
-          ? 'Recordatorios activados' 
-          : 'Recordatorios desactivados'
+        context,
+        value ? 'Recordatorios activados' : 'Recordatorios desactivados',
       );
     }
   }
@@ -873,6 +916,33 @@ class _SettingsScreenState extends State<SettingsScreen>
                           onTap: () => _whitelistService
                               .openNotificationAccessSettings(),
                         ),
+                        if (_restrictedSettingsBlocked) ...[
+                          Divider(height: 1, color: context.appTheme.borderSubtle),
+                          ListTile(
+                            key: const Key('settings_restricted_settings_tile'),
+                            leading: Icon(
+                              Icons.admin_panel_settings_outlined,
+                              color: context.appTheme.warning,
+                            ),
+                            title: Text(
+                              'Desbloquear ajustes restringidos',
+                              style: TextStyle(color: context.appTheme.textPrimary),
+                            ),
+                            subtitle: Text(
+                              'En Info. de la app, toca menú (⋮) > "Permitir ajustes restringidos" si Android bloquea el acceso',
+                              style: TextStyle(
+                                color: context.appTheme.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                            trailing: Icon(
+                              Icons.open_in_new,
+                              color: context.appTheme.warning,
+                            ),
+                            onTap: () =>
+                                _whitelistService.openAppDetailsSettings(),
+                          ),
+                        ],
                       ],
 
                       if (_bankCaptureEnabled &&
