@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:finazaap/providers/pin_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,12 +10,14 @@ class PinCodeScreen extends StatefulWidget {
   final PinMode mode;
   final Function? onSuccess; // Relaxed type to handle both signatures
   final VoidCallback? onCancel;
+  final PinProvider? pinProvider;
 
   const PinCodeScreen({
     Key? key,
     required this.mode,
     this.onSuccess,
     this.onCancel,
+    this.pinProvider,
   }) : super(key: key);
 
   @override
@@ -26,17 +30,71 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
   String _title = 'Ingrese su PIN';
   bool _isConfirming = false;
   String? _errorMessage;
-  final PinProvider _pinProvider = PinProvider();
-  
+  late final PinProvider _pinProvider;
+  Timer? _lockoutTimer;
+  int _lockoutSecondsRemaining = 0;
+
+  bool get _isLockedOut => _lockoutSecondsRemaining > 0;
+
   @override
   void initState() {
     super.initState();
+    _pinProvider = widget.pinProvider ?? PinProvider();
     _updateTitle();
+    _syncLockoutState();
   }
 
   @override
   void dispose() {
+    _lockoutTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _syncLockoutState() async {
+    await _pinProvider.ensureInitialized();
+    if (!mounted) return;
+    if (_pinProvider.isLockedOut) {
+      _startLockoutTimer();
+    }
+  }
+
+  void _startLockoutTimer() {
+    _lockoutTimer?.cancel();
+    final initialSeconds = _pinProvider.remainingLockoutSeconds;
+    if (initialSeconds <= 0) {
+      if (mounted) {
+        setState(() {
+          _lockoutSecondsRemaining = 0;
+          _errorMessage = null;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _lockoutSecondsRemaining = initialSeconds;
+      _errorMessage = 'Demasiados intentos. Espera ${initialSeconds}s';
+    });
+
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final remaining = _pinProvider.remainingLockoutSeconds;
+      if (remaining <= 0) {
+        timer.cancel();
+        setState(() {
+          _lockoutSecondsRemaining = 0;
+          _errorMessage = null;
+        });
+      } else {
+        setState(() {
+          _lockoutSecondsRemaining = remaining;
+          _errorMessage = 'Demasiados intentos. Espera ${remaining}s';
+        });
+      }
+    });
   }
 
   void _updateTitle() {
@@ -52,6 +110,10 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
   }
 
   void _onDigitPress(String digit) {
+    if (_isLockedOut || _pinProvider.isLockedOut) {
+      if (!_isLockedOut) _startLockoutTimer();
+      return;
+    }
     if (_currentPin.length < 4) {
       HapticFeedback.selectionClick();
       setState(() {
@@ -74,6 +136,7 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
   }
 
   void _onDeletePress() {
+    if (_isLockedOut) return;
     if (_currentPin.isNotEmpty) {
       HapticFeedback.lightImpact();
       setState(() {
@@ -134,7 +197,11 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
             _callOnSuccess(context);
           }
         } else {
-          _showError('PIN incorrecto');
+          if (_pinProvider.isLockedOut) {
+            _startLockoutTimer();
+          } else {
+            _showError('PIN incorrecto');
+          }
           _shakeError();
           setState(() {
             _currentPin = '';
@@ -174,7 +241,15 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final bool canPop = widget.mode != PinMode.verify || widget.onCancel != null;
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && widget.onCancel != null) {
+          widget.onCancel!();
+        }
+      },
+      child: Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -265,6 +340,7 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
           ),
         ),
       ),
+    ),
     );
   }
 

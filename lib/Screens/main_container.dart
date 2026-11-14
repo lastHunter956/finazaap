@@ -9,9 +9,18 @@ import 'package:finazaap/Screens/categories_screen.dart';
 import 'package:finazaap/Screens/settings_screen.dart';
 import 'package:finazaap/widgets/custom_pill_bottom_nav_bar.dart';
 import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
+import 'package:finazaap/providers/pin_provider.dart';
+import 'package:finazaap/Screens/pin_code_screen.dart';
 
 class MainContainer extends StatefulWidget {
-  const MainContainer({super.key});
+  final PinProvider? pinProvider;
+  final Duration relockThreshold;
+
+  const MainContainer({
+    super.key,
+    this.pinProvider,
+    this.relockThreshold = const Duration(seconds: 30),
+  });
 
   @override
   State<MainContainer> createState() => _MainContainerState();
@@ -21,10 +30,14 @@ class _MainContainerState extends State<MainContainer>
     with WidgetsBindingObserver {
   int _currentIndex = 0;
   final Set<int> _loadedTabs = {0};
+  late final PinProvider _pinProvider;
+  DateTime? _pausedAt;
+  bool _isLockScreenVisible = false;
 
   @override
   void initState() {
     super.initState();
+    _pinProvider = widget.pinProvider ?? PinProvider();
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -36,8 +49,45 @@ class _MainContainerState extends State<MainContainer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.paused) {
+      _pausedAt ??= DateTime.now();
+    } else if (state == AppLifecycleState.resumed) {
       NotificationPipelineService.instance.syncOnResume();
+      final pausedAt = _pausedAt;
+      _pausedAt = null;
+      if (pausedAt != null &&
+          DateTime.now().difference(pausedAt) >= widget.relockThreshold) {
+        _enforcePinOnResume();
+      }
+    }
+  }
+
+  Future<void> _enforcePinOnResume() async {
+    if (_isLockScreenVisible || !mounted) return;
+    await _pinProvider.ensureInitialized();
+    if (!mounted || !_pinProvider.isPinEnabled || _isLockScreenVisible) return;
+
+    _isLockScreenVisible = true;
+    try {
+      if (_pinProvider.isBiometricEnabled) {
+        final ok = await _pinProvider.authenticateWithBiometrics();
+        if (ok) return;
+      }
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => PinCodeScreen(
+            mode: PinMode.verify,
+            pinProvider: _pinProvider,
+            onSuccess: (ctx) {
+              Navigator.of(ctx).pop();
+            },
+          ),
+        ),
+      );
+    } finally {
+      _isLockScreenVisible = false;
     }
   }
 
