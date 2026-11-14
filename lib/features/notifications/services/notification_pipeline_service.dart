@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/data/models/account_item.dart';
 import 'package:finazaap/features/notifications/adapters/android_notification_source.dart';
 import 'package:finazaap/features/notifications/adapters/real_transaction_execution_adapter.dart';
 import 'package:finazaap/features/notifications/domain/models/notification_event.dart';
@@ -111,6 +113,10 @@ class NotificationPipelineService {
   late final PendingTransactionsNotifier _pendingNotifier;
 
   StreamSubscription<NotificationEvent>? _ingestedSubscription;
+  Future<void> _processingChain = Future<void>.value();
+  List<AccountItem>? _cachedAccounts;
+  DateTime? _cachedAccountsAt;
+  static const Duration _accountsCacheTtl = Duration(seconds: 5);
   bool _initialized = false;
   bool _captureEnabled = false;
   bool _autoAcceptFutureEnabled = false;
@@ -151,10 +157,14 @@ class NotificationPipelineService {
     _captureEnabled = prefs.getBool(captureEnabledPrefsKey) ?? false;
     _autoAcceptFutureEnabled = prefs.getBool(autoAcceptFuturePrefsKey) ?? false;
 
-    await _pendingNotifier.initialize();
+    try {
+      await _pendingNotifier.initialize();
+    } catch (_) {
+      // Permite continuar en entornos de prueba sin plugin de FlutterSecureStorage.
+    }
 
     _ingestedSubscription ??=
-        _ingestionService.ingestedStream.listen(_processIngestedEvent);
+        _ingestionService.ingestedStream.listen(_enqueueEvent);
     _ingestionService.attachSource(_source);
 
     await _syncNativeConfig();
@@ -202,6 +212,8 @@ class NotificationPipelineService {
 
   /// Drena eventos acumulados cuando la app regresa a primer plano.
   Future<void> syncOnResume() async {
+    _cachedAccounts = null;
+    _cachedAccountsAt = null;
     if (!_initialized) {
       await initialize();
     }
@@ -229,6 +241,45 @@ class NotificationPipelineService {
     return _boxEncryption.openEncryptedBox(dedupHistoryBoxName);
   }
 
+  /// Espera a que termine cualquier evento actualmente en la cola de procesamiento.
+  Future<void> flushPendingProcessing() => _processingChain;
+
+  void _enqueueEvent(NotificationEvent event) {
+    _processingChain = _processingChain
+        .then((_) => _processIngestedEvent(event))
+        .catchError((_) {});
+  }
+
+  Future<List<AccountItem>> _getRecentAccounts() async {
+    final now = DateTime.now();
+    if (_cachedAccounts != null &&
+        _cachedAccountsAt != null &&
+        now.difference(_cachedAccountsAt!) < _accountsCacheTtl) {
+      return _cachedAccounts!;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawList = prefs.getStringList('accounts') ?? const <String>[];
+      final parsed = rawList
+          .map((raw) {
+            try {
+              final map = jsonDecode(raw) as Map<String, dynamic>;
+              return AccountItem.fromJson(map);
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<AccountItem>()
+          .toList();
+      _cachedAccounts = parsed;
+      _cachedAccountsAt = now;
+      return parsed;
+    } catch (_) {
+      return _cachedAccounts ?? const <AccountItem>[];
+    }
+  }
+
   Future<void> _processIngestedEvent(NotificationEvent event) async {
     final dedupHash = _ingestionService.computeDedupHash(event);
     final dedupBox = await _getDedupBox();
@@ -248,9 +299,11 @@ class NotificationPipelineService {
         .where((s) => s.isNotEmpty)
         .join('. ');
 
+    final accounts = await _getRecentAccounts();
     final classification = await _classifier.classify(
       parseResult: parseResult,
       rawText: rawText,
+      userAccounts: accounts,
     );
 
     final double? amount =
@@ -294,6 +347,8 @@ class NotificationPipelineService {
   /// Elimina todos los datos locales de notificaciones (bandeja, historial dedup,
   /// patrones aprendidos y cola nativa).
   Future<void> wipeAllNotificationData() async {
+    _cachedAccounts = null;
+    _cachedAccountsAt = null;
     await _pendingNotifier.clearAll();
     await _patternsService.clearAll();
 

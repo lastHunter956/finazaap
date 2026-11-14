@@ -7,8 +7,14 @@
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual de configuración:** `agent/config/contexto-y-seguridad` (creada desde `integration/notificaciones-reales` en commit `0ac3c1c`).
+- **Rama actual:** `agent/notifications/ux-y-optimizacion` (creada desde `agent/config/contexto-y-seguridad` `378ed92`, que parte de `integration/notificaciones-reales` `0ac3c1c`).
 - **Commit de configuración de hooks y `.gitignore`:** `b45b31a` (`chore(security): configure fail-closed hooks, SessionStart handoff and gitignore rules`).
+- **Mejoras recientes (Fases 1 a 3 — notificaciones reales UX y optimización):**
+  - Nativo Android: `MoneoNotificationListenerService.kt` (`isListenerConnected`, `ensureServiceBound`/`requestRebind`, TTL de 7 días y tope de 200 eventos en `moneo_notif_queue.json`) y `MainActivity.kt` (`getListenerDiagnostics`, `openBatteryOptimizationSettings`, caché de apps instaladas con TTL de 5 min).
+  - Pipeline y servicios Dart: `BankWhitelistService` y `AndroidNotificationSource` exponen `getListenerDiagnostics`; `NotificationPipelineService` procesa eventos en cola FIFO secuencial con caché de cuentas de 5 s.
+  - UX: `SettingsScreen` refresca estado/diagnóstico al volver de Ajustes (`resumed`), guía exención de batería y resincroniza al restablecer; `Home` muestra botón AppBar con badge y banner directo a pendientes; `CustomPillBottomNavBar` muestra punto indicador en Ajustes.
+  - Verificación Docker: `dart analyze lib/features/notifications/ test/features/notifications/` → `No issues found!`; `flutter test -j 1 --timeout 60s test/` → `94/94` pasando (`0` fallos).
+  - APK debug compilado en Docker (`/tmp/finazaap_debug_build/build/app/outputs/flutter-apk/app-debug.apk`): `SHA-256: 662cc1f50d848a79b54a88634aecc575fa1a2064961a7158d24f62ea3df885bf`, firma Android Debug `SHA-256: 1103fe225bd22694fb0ffc2e3d94ecd1cbb8f5a27712167b1eccab3a1f679e61`, `applicationId: com.example.finazaap`, `versionCode: 1`, `versionName: 1.0.0`. Pendiente autorización explícita para instalar en `R5CY21GE9YY`.
 - **Ramas observadas en el repositorio:**
   - `main` (intacta; sin commits ni merges aplicados)
   - `integration/sprint-1`
@@ -59,6 +65,6 @@
 
 ## 4. Próximos Pasos Pendientes
 
-- Revisión humana de `agent/config/contexto-y-seguridad` y decisión de merge (sin merge automático a `main`).
-- Revisión e integración de `integration/notificaciones-reales` vs `integration/sprint-1` (pendiente de decisión del usuario).
+- Revisión e integración de `agent/notifications/ux-y-optimizacion` y `agent/config/contexto-y-seguridad` (sin merge automático a `main`).
+- Autorización explícita del usuario para actualizar e instalar el APK (`SHA-256: 662cc1f50d848a79b54a88634aecc575fa1a2064961a7158d24f62ea3df885bf`) vía `adb -s R5CY21GE9YY install -r` y validación manual con notificación bancaria real.
 - Ejecución E2E Maestro en emulador/dispositivo físico (`.maestro/sprint_1_notificaciones.yaml`), actualmente pendiente de dispositivo/JRE.

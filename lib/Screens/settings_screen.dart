@@ -37,6 +37,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool _bankCaptureEnabled = false;
   bool _autoAcceptFutureEnabled = false;
   bool _notificationAccessGranted = false;
+  bool _listenerConnected = false;
+  bool _batteryOptimizationIgnored = true;
   String _selectedCurrency = 'COP';
   
   // Configuración de notificaciones
@@ -74,27 +76,46 @@ class _SettingsScreenState extends State<SettingsScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshNotificationPermission();
+      _onAppResumed();
     }
   }
 
+  Future<void> _onAppResumed() async {
+    try {
+      await _pipeline.syncOnResume();
+    } catch (_) {}
+    await _refreshNotificationPermission();
+  }
+
   Future<void> _refreshNotificationPermission() async {
+    final diagnostics = await _whitelistService.getListenerDiagnostics();
     final status = await _pipeline.source.checkStatus();
+    final granted = (diagnostics['permissionGranted'] ?? false) ||
+        status.permissionStatus == NotificationPermissionStatus.granted;
     if (!mounted) return;
     setState(() {
-      _notificationAccessGranted =
-          status.permissionStatus == NotificationPermissionStatus.granted;
+      _notificationAccessGranted = granted;
+      _listenerConnected = diagnostics['listenerConnected'] ?? granted;
+      _batteryOptimizationIgnored =
+          diagnostics['batteryOptimizationIgnored'] ?? true;
+      _bankCaptureEnabled = _pipeline.isCaptureEnabled;
     });
   }
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     var accessGranted = false;
+    var listenerConnected = false;
+    var batteryIgnored = true;
     try {
       await _pipeline.initialize();
       final sourceStatus = await _pipeline.source.checkStatus();
-      accessGranted =
+      final diagnostics = await _whitelistService.getListenerDiagnostics();
+      accessGranted = (diagnostics['permissionGranted'] ?? false) ||
           sourceStatus.permissionStatus == NotificationPermissionStatus.granted;
+      listenerConnected =
+          diagnostics['listenerConnected'] ?? accessGranted;
+      batteryIgnored = diagnostics['batteryOptimizationIgnored'] ?? true;
     } catch (_) {
       await _whitelistService.loadFromPrefs();
     }
@@ -117,6 +138,8 @@ class _SettingsScreenState extends State<SettingsScreen>
       _bankCaptureEnabled = _pipeline.isCaptureEnabled;
       _autoAcceptFutureEnabled = _pipeline.isAutoAcceptFutureEnabled;
       _notificationAccessGranted = accessGranted;
+      _listenerConnected = listenerConnected;
+      _batteryOptimizationIgnored = batteryIgnored;
       _selectedCurrency = prefs.getString('default_currency') ?? 'COP';
       _daysBefore = prefs.getInt('notification_days_before') ?? 1;
       _sameDay = prefs.getBool('notification_same_day') ?? true;
@@ -499,6 +522,23 @@ class _SettingsScreenState extends State<SettingsScreen>
     return '$hour:$minute $period';
   }
 
+  String _buildBankCaptureSubtitle() {
+    if (!_bankCaptureEnabled) {
+      return 'Desactivada • Solo procesa apps seleccionadas, 100% offline';
+    }
+    if (!_notificationAccessGranted) {
+      return 'Falta permiso de acceso a notificaciones en Android';
+    }
+    final activeAppsCount = _whitelistService.whitelistedPackages.length;
+    if (activeAppsCount == 0) {
+      return 'Permiso activo • Selecciona al menos 1 app permitida';
+    }
+    if (_listenerConnected) {
+      return 'Activa y conectada • Escuchando $activeAppsCount apps (AES-256)';
+    }
+    return 'Activa • Permiso concedido, reconectando servicio en segundo plano...';
+  }
+
   Future<void> _showBankAppsSheet() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -514,6 +554,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         },
       ),
     );
+    await _refreshNotificationPermission();
   }
 
   @override
@@ -709,13 +750,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                           style: TextStyle(color: context.appTheme.textPrimary),
                         ),
                         subtitle: Text(
-                          _bankCaptureEnabled
-                              ? (_notificationAccessGranted
-                                  ? 'Activa • Permiso Android concedido (cifrado local AES-256)'
-                                  : 'Falta permiso de acceso a notificaciones en Android')
-                              : 'Desactivada • Solo procesa apps seleccionadas, 100% offline',
+                          _buildBankCaptureSubtitle(),
                           style: TextStyle(
-                            color: _bankCaptureEnabled && !_notificationAccessGranted
+                            color: _bankCaptureEnabled &&
+                                    (!_notificationAccessGranted ||
+                                        _whitelistService
+                                            .whitelistedPackages.isEmpty)
                                 ? context.appTheme.warning
                                 : context.appTheme.textSecondary,
                             fontSize: 12,
@@ -751,6 +791,36 @@ class _SettingsScreenState extends State<SettingsScreen>
                           ),
                           onTap: () => _whitelistService
                               .openNotificationAccessSettings(),
+                        ),
+                      ],
+
+                      if (_bankCaptureEnabled &&
+                          _notificationAccessGranted &&
+                          !_batteryOptimizationIgnored) ...[
+                        Divider(height: 1, color: context.appTheme.borderSubtle),
+                        ListTile(
+                          key: const Key('settings_battery_optimization_tile'),
+                          leading: Icon(
+                            Icons.battery_saver_outlined,
+                            color: context.appTheme.warning,
+                          ),
+                          title: Text(
+                            'Permitir ejecución sin restricciones de batería',
+                            style: TextStyle(color: context.appTheme.textPrimary),
+                          ),
+                          subtitle: Text(
+                            'Recomendado en Samsung/Android para detectar notificaciones con la app cerrada',
+                            style: TextStyle(
+                              color: context.appTheme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.open_in_new,
+                            color: context.appTheme.warning,
+                          ),
+                          onTap: () => _whitelistService
+                              .openBatteryOptimizationSettings(),
                         ),
                       ],
 
@@ -1483,10 +1553,14 @@ class _AllowedAppsSheetState extends State<_AllowedAppsSheet>
   }
 
   Future<void> _refreshPermissionOnly() async {
+    try {
+      await NotificationPipelineService.instance.syncOnResume();
+    } catch (_) {}
     final granted =
         await widget.whitelistService.isNotificationAccessGranted();
     if (!mounted) return;
     setState(() => _hasPermission = granted);
+    widget.onChanged();
   }
 
   Future<void> _loadData() async {
@@ -1602,6 +1676,8 @@ class _AllowedAppsSheetState extends State<_AllowedAppsSheet>
                       onPressed: () async {
                         widget.whitelistService.resetToDefaults();
                         await widget.whitelistService.saveToPrefs();
+                        await NotificationPipelineService.instance
+                            .syncWhitelistToNative();
                         setState(() {});
                         widget.onChanged();
                       },

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 
 class CustomPillBottomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -60,14 +61,51 @@ class CustomPillBottomNavBar extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Icono
-                  Icon(
-                    isSelected ? item.activeIcon : item.icon,
-                    color: isSelected
-                        ? context.appTheme.textPrimary
-                        : context.appTheme.textHint,
-                    size: 24,
-                  ),
+                  // Icono (con badge en Ajustes si hay notificaciones pendientes)
+                  if (index == 4)
+                    ListenableBuilder(
+                      listenable:
+                          NotificationPipelineService.instance.pendingNotifier,
+                      builder: (context, _) {
+                        final count = NotificationPipelineService
+                            .instance.pendingNotifier.count;
+                        final iconWidget = Icon(
+                          isSelected ? item.activeIcon : item.icon,
+                          color: isSelected
+                              ? context.appTheme.textPrimary
+                              : context.appTheme.textHint,
+                          size: 24,
+                        );
+                        if (count <= 0) return iconWidget;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            iconWidget,
+                            Positioned(
+                              right: -2,
+                              top: -2,
+                              child: Container(
+                                key: const Key('nav_settings_pending_dot'),
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: context.appTheme.accent,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    )
+                  else
+                    Icon(
+                      isSelected ? item.activeIcon : item.icon,
+                      color: isSelected
+                          ? context.appTheme.textPrimary
+                          : context.appTheme.textHint,
+                      size: 24,
+                    ),
                   
                   // Texto (solo visible si está seleccionado)
                   if (isSelected) ...[

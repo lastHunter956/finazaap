@@ -64,6 +64,39 @@ class AndroidNotificationSource implements NotificationSourcePort {
     }
   }
 
+  /// Consulta diagnósticos nativos del listener (permiso, conexión activa y batería).
+  Future<Map<String, bool>> getListenerDiagnostics() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return const {
+        'permissionGranted': false,
+        'listenerConnected': false,
+        'batteryOptimizationIgnored': true,
+      };
+    }
+
+    try {
+      final raw = await _methodChannel.invokeMapMethod<String, dynamic>(
+        'getListenerDiagnostics',
+      );
+      if (raw != null) {
+        return {
+          'permissionGranted': raw['permissionGranted'] as bool? ?? false,
+          'listenerConnected': raw['listenerConnected'] as bool? ?? false,
+          'batteryOptimizationIgnored':
+              raw['batteryOptimizationIgnored'] as bool? ?? true,
+        };
+      }
+    } catch (_) {}
+
+    final status = await checkStatus();
+    final granted = status.permissionStatus == NotificationPermissionStatus.granted;
+    return {
+      'permissionGranted': granted,
+      'listenerConnected': granted,
+      'batteryOptimizationIgnored': true,
+    };
+  }
+
   /// Sincroniza con la capa nativa si la captura está habilitada y qué paquetes
   /// seleccionó el usuario.
   Future<void> syncConfig({

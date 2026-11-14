@@ -8,8 +8,10 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.PowerManager
 import android.os.StatFs
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
@@ -20,6 +22,14 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
 
 class MainActivity : FlutterFragmentActivity() {
+    @Volatile
+    private var cachedInstalledApps: List<Map<String, Any?>>? = null
+
+    @Volatile
+    private var cachedAppsTimestampMs: Long = 0L
+
+    private val appsCacheTtlMs = 5L * 60 * 1000
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
@@ -49,9 +59,19 @@ class MainActivity : FlutterFragmentActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getInstalledApps" -> {
+                        val forceRefresh = call.argument<Boolean>("forceRefresh") ?: false
+                        val cached = cachedInstalledApps
+                        val isCacheFresh = cached != null &&
+                            (System.currentTimeMillis() - cachedAppsTimestampMs) < appsCacheTtlMs
+                        if (!forceRefresh && isCacheFresh) {
+                            result.success(cached)
+                            return@setMethodCallHandler
+                        }
                         Thread {
                             try {
                                 val apps = loadLaunchableApps()
+                                cachedInstalledApps = apps
+                                cachedAppsTimestampMs = System.currentTimeMillis()
                                 runOnUiThread { result.success(apps) }
                             } catch (e: Exception) {
                                 runOnUiThread {
@@ -62,7 +82,31 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                     "isNotificationAccessGranted" -> {
                         val enabledPackages = NotificationManagerCompat.getEnabledListenerPackages(this)
-                        result.success(enabledPackages.contains(packageName))
+                        val granted = enabledPackages.contains(packageName)
+                        if (granted && !MoneoNotificationListenerService.isListenerConnected()) {
+                            MoneoNotificationListenerService.ensureServiceBound(this)
+                        }
+                        result.success(granted)
+                    }
+                    "getListenerDiagnostics" -> {
+                        val enabledPackages = NotificationManagerCompat.getEnabledListenerPackages(this)
+                        val granted = enabledPackages.contains(packageName)
+                        if (granted && !MoneoNotificationListenerService.isListenerConnected()) {
+                            MoneoNotificationListenerService.ensureServiceBound(this)
+                        }
+                        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+                        val ignoringBatteryOpt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            pm?.isIgnoringBatteryOptimizations(packageName) ?: true
+                        } else {
+                            true
+                        }
+                        result.success(
+                            mapOf(
+                                "permissionGranted" to granted,
+                                "listenerConnected" to MoneoNotificationListenerService.isListenerConnected(),
+                                "batteryOptimizationIgnored" to ignoringBatteryOpt
+                            )
+                        )
                     }
                     "openNotificationAccessSettings" -> {
                         try {
@@ -73,6 +117,31 @@ class MainActivity : FlutterFragmentActivity() {
                             result.success(true)
                         } catch (e: Exception) {
                             result.error("SETTINGS_ERROR", e.message, null)
+                        }
+                    }
+                    "openBatteryOptimizationSettings" -> {
+                        try {
+                            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            } else {
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", packageName, null)
+                                }
+                            }
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (_: Exception) {
+                            try {
+                                val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", packageName, null)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(fallback)
+                                result.success(true)
+                            } catch (e2: Exception) {
+                                result.error("BATTERY_SETTINGS_ERROR", e2.message, null)
+                            }
                         }
                     }
                     "syncCaptureConfig" -> {

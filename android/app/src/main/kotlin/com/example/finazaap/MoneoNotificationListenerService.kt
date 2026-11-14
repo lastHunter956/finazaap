@@ -1,9 +1,12 @@
 package com.example.finazaap
 
 import android.app.Notification
+import android.content.ComponentName
 import android.content.Context
+import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import androidx.core.app.NotificationManagerCompat
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -26,7 +29,8 @@ class MoneoNotificationListenerService : NotificationListenerService() {
         const val KEY_CAPTURE_ENABLED = "capture_enabled"
         const val KEY_ALLOWED_PACKAGES = "allowed_packages"
         private const val QUEUE_FILE_NAME = "moneo_notif_queue.json"
-        private const val MAX_QUEUE_SIZE = 500
+        private const val MAX_QUEUE_SIZE = 200
+        private const val MAX_ITEM_AGE_MS = 7L * 24 * 60 * 60 * 1000
 
         private val queueLock = Any()
 
@@ -35,6 +39,24 @@ class MoneoNotificationListenerService : NotificationListenerService() {
 
         @Volatile
         private var eventListener: ((Map<String, Any?>) -> Unit)? = null
+
+        fun isListenerConnected(): Boolean = activeInstance?.get() != null
+
+        fun ensureServiceBound(context: Context): Boolean {
+            val appCtx = context.applicationContext
+            val granted = NotificationManagerCompat
+                .getEnabledListenerPackages(appCtx)
+                .contains(appCtx.packageName)
+            if (granted && activeInstance?.get() == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                try {
+                    NotificationListenerService.requestRebind(
+                        ComponentName(appCtx, MoneoNotificationListenerService::class.java)
+                    )
+                } catch (_: Exception) {
+                }
+            }
+            return isListenerConnected()
+        }
 
         fun setEventListener(listener: ((Map<String, Any?>) -> Unit)?) {
             eventListener = listener
@@ -49,6 +71,9 @@ class MoneoNotificationListenerService : NotificationListenerService() {
                 .putBoolean(KEY_CAPTURE_ENABLED, enabled)
                 .putStringSet(KEY_ALLOWED_PACKAGES, allowedPackages)
                 .apply()
+            if (enabled) {
+                ensureServiceBound(context)
+            }
         }
 
         fun isCaptureEnabled(context: Context): Boolean {
@@ -67,13 +92,30 @@ class MoneoNotificationListenerService : NotificationListenerService() {
             return prefs.getStringSet(KEY_ALLOWED_PACKAGES, emptySet()) ?: emptySet()
         }
 
+        private fun isExpiredLocked(obj: JSONObject, nowMs: Long): Boolean {
+            val ts = obj.optLong("timestampMs", 0L)
+            return ts > 0L && (nowMs - ts) > MAX_ITEM_AGE_MS
+        }
+
         fun peekQueue(context: Context): List<Map<String, Any?>> {
             synchronized(queueLock) {
-                val array = readQueueArrayLocked(context.applicationContext)
+                val appCtx = context.applicationContext
+                val array = readQueueArrayLocked(appCtx)
+                val nowMs = System.currentTimeMillis()
+                val validArray = JSONArray()
                 val result = ArrayList<Map<String, Any?>>(array.length())
+                var droppedExpired = false
                 for (i in 0 until array.length()) {
                     val obj = array.optJSONObject(i) ?: continue
+                    if (isExpiredLocked(obj, nowMs)) {
+                        droppedExpired = true
+                        continue
+                    }
+                    validArray.put(obj)
                     result.add(jsonObjectToMap(obj))
+                }
+                if (droppedExpired) {
+                    writeQueueArrayLocked(appCtx, validArray)
                 }
                 return result
             }
@@ -174,12 +216,24 @@ class MoneoNotificationListenerService : NotificationListenerService() {
             synchronized(queueLock) {
                 val array = readQueueArrayLocked(context)
                 val targetId = item["id"]?.toString() ?: return
+                val nowMs = System.currentTimeMillis()
 
+                val filtered = JSONArray()
                 for (i in 0 until array.length()) {
                     val existing = array.optJSONObject(i) ?: continue
+                    if (isExpiredLocked(existing, nowMs)) continue
                     if (existing.optString("id") == targetId) {
+                        writeQueueArrayLocked(context, filtered.also {
+                            for (j in i until array.length()) {
+                                val rest = array.optJSONObject(j) ?: continue
+                                if (!isExpiredLocked(rest, nowMs)) {
+                                    it.put(rest)
+                                }
+                            }
+                        })
                         return
                     }
+                    filtered.put(existing)
                 }
 
                 val jsonObj = JSONObject()
@@ -188,19 +242,19 @@ class MoneoNotificationListenerService : NotificationListenerService() {
                 jsonObj.put("packageName", item["packageName"]?.toString() ?: "")
                 jsonObj.put("title", item["title"]?.toString() ?: "")
                 jsonObj.put("body", item["body"]?.toString() ?: "")
-                jsonObj.put("timestampMs", (item["timestampMs"] as? Number)?.toLong() ?: System.currentTimeMillis())
+                jsonObj.put("timestampMs", (item["timestampMs"] as? Number)?.toLong() ?: nowMs)
 
-                array.put(jsonObj)
+                filtered.put(jsonObj)
 
-                val trimmed = if (array.length() > MAX_QUEUE_SIZE) {
+                val trimmed = if (filtered.length() > MAX_QUEUE_SIZE) {
                     val next = JSONArray()
-                    val start = array.length() - MAX_QUEUE_SIZE
-                    for (i in start until array.length()) {
-                        next.put(array.get(i))
+                    val start = filtered.length() - MAX_QUEUE_SIZE
+                    for (i in start until filtered.length()) {
+                        next.put(filtered.get(i))
                     }
                     next
                 } else {
-                    array
+                    filtered
                 }
 
                 writeQueueArrayLocked(context, trimmed)

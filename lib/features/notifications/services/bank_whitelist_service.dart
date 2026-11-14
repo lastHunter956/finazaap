@@ -303,11 +303,18 @@ class BankWhitelistService {
   }
 
   /// Obtiene la lista real de apps instaladas en Android; retorna lista vacía en Web/tests.
-  Future<List<InstalledAppInfo>> getInstalledApps() async {
+  Future<List<InstalledAppInfo>> getInstalledApps({
+    bool forceRefresh = false,
+  }) async {
     try {
-      final raw = await _appsChannel.invokeMethod<List<dynamic>>(
-        'getInstalledApps',
-      );
+      final raw = forceRefresh
+          ? await _appsChannel.invokeMethod<List<dynamic>>(
+              'getInstalledApps',
+              <String, dynamic>{'forceRefresh': true},
+            )
+          : await _appsChannel.invokeMethod<List<dynamic>>(
+              'getInstalledApps',
+            );
       if (raw == null) return const [];
       return raw.whereType<Map>().map((entry) {
         final rawIcon = entry['iconBytes'];
@@ -340,11 +347,47 @@ class BankWhitelistService {
     }
   }
 
+  /// Consulta diagnósticos nativos del servicio de notificaciones y batería.
+  Future<Map<String, bool>> getListenerDiagnostics() async {
+    try {
+      final raw = await _appsChannel.invokeMapMethod<String, dynamic>(
+        'getListenerDiagnostics',
+      );
+      if (raw != null) {
+        return <String, bool>{
+          'permissionGranted': raw['permissionGranted'] as bool? ?? false,
+          'listenerConnected': raw['listenerConnected'] as bool? ?? false,
+          'batteryOptimizationIgnored':
+              raw['batteryOptimizationIgnored'] as bool? ?? true,
+        };
+      }
+    } catch (_) {}
+
+    final granted = await isNotificationAccessGranted();
+    return <String, bool>{
+      'permissionGranted': granted,
+      'listenerConnected': granted,
+      'batteryOptimizationIgnored': true,
+    };
+  }
+
   /// Abre la pantalla del sistema Android para habilitar el acceso a notificaciones.
   Future<bool> openNotificationAccessSettings() async {
     try {
       final opened = await _appsChannel.invokeMethod<bool>(
         'openNotificationAccessSettings',
+      );
+      return opened ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Abre los ajustes de batería en Android para evitar restricciones en segundo plano.
+  Future<bool> openBatteryOptimizationSettings() async {
+    try {
+      final opened = await _appsChannel.invokeMethod<bool>(
+        'openBatteryOptimizationSettings',
       );
       return opened ?? false;
     } catch (_) {

@@ -34,6 +34,8 @@ import 'package:finazaap/Screens/ai_chat_screen.dart';
 import 'package:finazaap/services/widget_service.dart';
 import 'dart:async'; // Necesario para StreamSubscription
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
+import 'package:finazaap/features/notifications/presentation/screens/pending_transactions_screen.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -287,6 +289,22 @@ class _HomeState extends State<Home> {
     });
   }
 
+  Future<void> _openPendingInbox() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PendingTransactionsScreen(
+          notifier: NotificationPipelineService.instance.pendingNotifier,
+        ),
+      ),
+    );
+    if (mounted) {
+      setState(() {});
+      await _updateAvailableBalance();
+      await _loadCategoryMetadata();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -310,6 +328,69 @@ class _HomeState extends State<Home> {
             ),
           ),
           actions: [
+            ListenableBuilder(
+              listenable: NotificationPipelineService.instance.pendingNotifier,
+              builder: (context, _) {
+                final count = NotificationPipelineService
+                    .instance.pendingNotifier.count;
+                if (count <= 0) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: InkWell(
+                    key: const Key('home_pending_inbox_appbar_button'),
+                    onTap: _openPendingInbox,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: context.appTheme.accent
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: context.appTheme.accent
+                                  .withValues(alpha: 0.4),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.move_to_inbox_rounded,
+                            color: context.appTheme.accent,
+                            size: 24,
+                          ),
+                        ),
+                        Positioned(
+                          right: -4,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: context.appTheme.accent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            constraints: const BoxConstraints(minWidth: 18),
+                            child: Text(
+                              count > 99 ? '99+' : '$count',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: context.appTheme.buttonForeground,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: InkWell(
@@ -360,6 +441,91 @@ class _HomeState extends State<Home> {
             return CustomScrollView(
               slivers: [
                 const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  SliverToBoxAdapter(
+                    child: ListenableBuilder(
+                      listenable:
+                          NotificationPipelineService.instance.pendingNotifier,
+                      builder: (context, _) {
+                        final count = NotificationPipelineService
+                            .instance.pendingNotifier.count;
+                        if (count <= 0) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: Material(
+                            key: const Key('home_pending_notifications_banner'),
+                            color: context.appTheme.cardBackground,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
+                              onTap: _openPendingInbox,
+                              borderRadius: BorderRadius.circular(14),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: context.appTheme.accent
+                                        .withValues(alpha: 0.35),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: context.appTheme.accent
+                                            .withValues(alpha: 0.14),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.notifications_active_rounded,
+                                        color: context.appTheme.accent,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            count == 1
+                                                ? '1 movimiento por revisar'
+                                                : '$count movimientos por revisar',
+                                            style: TextStyle(
+                                              color:
+                                                  context.appTheme.textPrimary,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Detectados en tus notificaciones bancarias',
+                                            style: TextStyle(
+                                              color: context
+                                                  .appTheme.textSecondary,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: context.appTheme.accent,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                   // Contenedor con TotalBalanceWidget
                   SliverToBoxAdapter(
                     child: Padding(
