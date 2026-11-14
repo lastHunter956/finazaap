@@ -1,8 +1,8 @@
 # Punto de Continuidad (`docs/audit/CONTINUITY_STATE.md`)
 
-> **Fecha:** 2026-11-14 (Cierre de lote autónomo Wave 1 + T3.4)  
+> **Fecha:** 2026-11-14 (Cierre de lote autónomo Wave 1 + T3.4 + T4.1)  
 > **Estado de cuota:** No consultable desde herramientas (no se inventa valor numérico).  
-> **Rama / HEAD real:** `agent/ui/t1-3c-daily-transactions-delete` @ `c43a3ea` (base acumulada desde `05379fa` + `fcbb7d6` + `bd9da6e` + `2de9a61` + `aac8c93` + `c43a3ea`).  
+> **Rama / HEAD real:** `agent/ui/t1-3c-daily-transactions-delete` @ `82322c8` (base acumulada desde `05379fa` + `fcbb7d6` + `bd9da6e` + `2de9a61` + `aac8c93` + `c43a3ea` + `55b5757` + `82322c8`).  
 > **Git status:** Limpio tras commit documental.  
 > **Agentes / Tareas activas:** `0` subagentes activos; contenedor `finazaap-flutter` activo montando `/Volumes/ADATA SD620/Programacion 7.0/moneo/finazaap -> /app`.
 
@@ -104,8 +104,9 @@
   - `2de9a61`: **T1.3c proyección/gastos/home (`L1.3`, `L2.1`, `L3.1`)** — `home.dart` excluye TC en `_updateAvailableBalance`; `add_expense.dart` excluye obligaciones `'tarjeta'` del selector de vinculación y envuelve `CheckboxListTile` en `Material`; `annual_projection_screen.dart` alinea pago de `'tarjeta'` con `'Transfer'`; `test/audit/t1_3c_annual_projection_test.dart` (`2/2` pasan).
   - `aac8c93`: **T1.4** — `notification_pipeline_service.dart` combina `parseResult.requiresReview || classification.requiresReview` y `min(confidence)`; `category_service.dart` limpia `deleted_*_categories` al recrear categoría; `ai_chat_service.dart` aborta escritura en Hive si `processTransaction` devuelve `false`; `test/audit/t1_4_notifications_categories_test.dart` (`3/3` pasan).
   - `c43a3ea`: **T3.4 (seguridad no disruptiva)** — `notification_parser.dart` trunca `title` (200) y `body` (1000) en `parseRaw`; `ai_chat_screen.dart` exige `https://` para descarga de modelo; `test/audit/t3_4_llm_and_antifraud_test.dart` (`2/2` pasan).
+  - `82322c8`: **T4.1 (arranque y lazy tabs)** — `main.dart` paraleliza init esencial y difiere `FlutterGemma`/`NotificationService`/`NotificationPipelineService` a `addPostFrameCallback`; `main_container.dart` monta pestañas de forma diferida (`_loadedTabs = {0}`); `test/audit/t4_1_lazy_tabs_test.dart` (`1/1` pasa).
 - **Suite completa verificada en Docker (`finazaap-flutter`):**
-  - `docker-compose exec -T flutter-env flutter test --no-pub -j 1` → **164/164 All tests passed!** (`RC=0`).
+  - `docker-compose exec -T flutter-env flutter test --no-pub -j 1` → **165/165 All tests passed!** (`RC=0`).
 - **Cola priorizada de permisos/decisiones pendientes:**
   1. `T0.3` (Kotlin `1.9.22` -> `2.0.0` / Gradle) — desbloquea `T3.3` y verificación de manifest `--release`.
   2. `T3.1` (`lib/core/security/*`, migración de cajas Hive `data`/`responsibilities` a AES-GCM) — desbloquea `T3.2` (`D6`).
