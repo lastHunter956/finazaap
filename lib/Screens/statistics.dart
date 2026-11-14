@@ -57,8 +57,14 @@ class _StatisticsState extends State<Statistics> {
   // Año y mes seleccionados
   int selectedYear = DateTime.now().year;
   int selectedMonth = DateTime.now().month;
+  bool _hasPickedInitialDate = false;
 
   List<AccountItem> _accountsList = [];
+  List<ChartData> _categoryData = [];
+  List<ChartData> _accountData = [];
+  List<ChartData> _monthDataForYear = [];
+  List<ChartData> _historicalData = [];
+  List<ChartData> _groupedDetailData = [];
 
   @override
   void initState() {
@@ -68,13 +74,6 @@ class _StatisticsState extends State<Statistics> {
     
     // Escuchar cambios en la caja de datos para actualizar automáticamente
     Hive.box<Add_data>('data').listenable().addListener(_onDataChanged);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Recargar datos cada vez que la pantalla vuelve a ser visible
-    _loadData();
   }
 
   void _onDataChanged() {
@@ -129,7 +128,20 @@ class _StatisticsState extends State<Statistics> {
 
   /// Selecciona por defecto el año y mes actual si existen en los datos.
   /// Si no existen, selecciona el primero disponible en `availableYears`.
+  /// Preserva la selección del usuario si sigue siendo válida tras recargas de Hive.
   void _pickInitialDate() {
+    if (_hasPickedInitialDate && availableYears.contains(selectedYear)) {
+      final availableMonths = yearToMonths[selectedYear];
+      if (!isMonthly ||
+          (availableMonths != null && availableMonths.contains(selectedMonth))) {
+        return;
+      }
+      if (availableMonths != null && availableMonths.isNotEmpty) {
+        selectedMonth = availableMonths.first;
+        return;
+      }
+    }
+
     final now = DateTime.now();
     if (availableYears.contains(now.year)) {
       // Si el año actual tiene registros
@@ -153,6 +165,7 @@ class _StatisticsState extends State<Statistics> {
       // Si no hay datos, no hacemos nada especial
       // (filteredData quedará vacío)
     }
+    _hasPickedInitialDate = true;
   }
 
   /// Actualiza `filteredData` según el modo (mensual/anual) y “Ingresos/Gastos”.
@@ -178,6 +191,13 @@ class _StatisticsState extends State<Statistics> {
     } else {
       filteredData = baseData.where((item) => item.safeType == 'Expenses').toList();
     }
+
+    _categoryData = _getCategoryData();
+    _accountData = _getAccountData();
+    _monthDataForYear = !isMonthly ? _getMonthDataForYear() : [];
+    _historicalData = _getHistoricalData();
+    _groupedDetailData =
+        isIncomeSelected ? _getIncomeGrouped() : _getExpensesGrouped();
 
     setState(() {});
   }
@@ -744,7 +764,7 @@ class _StatisticsState extends State<Statistics> {
 
 // Widget para mostrar la gráfica histórica
   Widget _buildHistoricalChart() {
-    final data = _getHistoricalData();
+    final data = _historicalData;
 
     if (data.isEmpty) {
       return _buildEmptyDataIndicator(
@@ -904,24 +924,19 @@ class _StatisticsState extends State<Statistics> {
                 borderRadius: BorderRadius.circular(16),
                 child: Stack(
                   children: [
-                    // Fondo degradado sutilmente animado para dar profundidad
+                    // Fondo degradado estático para evitar repintados continuos de 20s
                     Positioned.fill(
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0, end: 1),
-                        duration: const Duration(seconds: 20),
-                        builder: (context, value, child) {
-                          return CustomPaint(
-                            painter: BackgroundGradientPainter(
-                              color: primaryColor,
-                              progress: value,
-                            ),
-                          );
-                        },
+                      child: CustomPaint(
+                        painter: BackgroundGradientPainter(
+                          color: primaryColor,
+                          progress: 1.0,
+                        ),
                       ),
                     ),
 
                     // Gráfico principal
-                    SfCartesianChart(
+                    RepaintBoundary(
+                      child: SfCartesianChart(
                       backgroundColor: Colors.transparent,
                       plotAreaBorderWidth: 0,
                       margin: const EdgeInsets.symmetric(
@@ -1255,6 +1270,7 @@ class _StatisticsState extends State<Statistics> {
                         lineWidth: 1,
                         lineColor: isLight ? context.appTheme.textSecondary : Colors.white54,
                       ),
+                    ),
                     ),
                   ],
                 ),
@@ -1606,7 +1622,7 @@ class _StatisticsState extends State<Statistics> {
               _buildCard(
                 title:
                     '${isIncomeSelected ? 'Ingresos' : 'Gastos'} por categoría',
-                child: _buildDoughnutChart(_getCategoryData(),
+                child: _buildDoughnutChart(_categoryData,
                     chartType: 'categoría'),
               ),
 
@@ -1615,14 +1631,14 @@ class _StatisticsState extends State<Statistics> {
                 title:
                     '${isIncomeSelected ? 'Ingresos' : 'Gastos'} por cuentas',
                 child:
-                    _buildDoughnutChart(_getAccountData(), chartType: 'cuenta'),
+                    _buildDoughnutChart(_accountData, chartType: 'cuenta'),
               ),
 
               // Gráfico de barras por mes (solo en modo Anual)
               if (!isMonthly)
                 _buildCard(
                   title: '${isIncomeSelected ? 'Ingresos' : 'Gastos'} por mes',
-                  child: _buildBarChart(_getMonthDataForYear()),
+                  child: _buildBarChart(_monthDataForYear),
                 ),
 
               // Lista detallada
@@ -1920,7 +1936,8 @@ class _StatisticsState extends State<Statistics> {
               ),
 
               // 3. SfCircularChart
-              SfCircularChart(
+              RepaintBoundary(
+                child: SfCircularChart(
                 backgroundColor: Colors.transparent,
                 margin: EdgeInsets.zero,
                 annotations: [
@@ -1992,6 +2009,7 @@ class _StatisticsState extends State<Statistics> {
                     explodeGesture: ActivationMode.singleTap,
                   )
                 ],
+              ),
               ),
             ],
           ),
@@ -2221,7 +2239,8 @@ class _StatisticsState extends State<Statistics> {
     return Container(
       height: 240,
       padding: const EdgeInsets.only(top: 10, right: 10, bottom: 20),
-      child: SfCartesianChart(
+      child: RepaintBoundary(
+        child: SfCartesianChart(
         backgroundColor: Colors.transparent,
         plotAreaBorderWidth: 0,
         margin: const EdgeInsets.all(0),
@@ -2303,14 +2322,14 @@ class _StatisticsState extends State<Statistics> {
           enableDoubleTapZooming: true,
         ),
       ),
+      ),
     );
   }
 
 // Mejora de _buildDetailCard para una apariencia más premium
   Widget _buildDetailCard() {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final List<ChartData> data =
-        isIncomeSelected ? _getIncomeGrouped() : _getExpensesGrouped();
+    final List<ChartData> data = _groupedDetailData;
 
     final Color accentColor =
         isIncomeSelected ? const Color(0xFF2E9E5B) : const Color(0xFFE53935);

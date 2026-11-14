@@ -57,35 +57,25 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
   @override
   void initState() {
     super.initState();
-    
-    // Inicializar los datos de localización antes de formatear fechas
-    initializeDateFormatting('es').then((_) {
-      setState(() {
-        _isLocaleInitialized = true;
-        
-        // Inicializar con la fecha actual
-        final now = DateTime.now();
-        _selectedMonth = now.month;
-        _selectedYear = now.year;
-        _selectedMonthYear = _formatDate(now);
-        
-        // Notificar al padre sobre la selección inicial
-        if (widget.onDateSelected != null) {
-          widget.onDateSelected!(_selectedMonth, _selectedYear);
-        }
-      });
-    });
+    _isLocaleInitialized = true;
+    final now = DateTime.now();
+    _selectedMonth = now.month;
+    _selectedYear = now.year;
+    _selectedMonthYear = _formatDate(now);
   }
 
   // Método para formatear fecha con seguridad
   String _formatDate(DateTime date) {
     if (!_isLocaleInitialized) {
-      // Retornar un valor predeterminado mientras se inicializa
       return widget.selectedMonthYear;
     }
-    final formatted = DateFormat('MMM yyyy', 'es').format(date).replaceAll('.', '');
-    if (formatted.isEmpty) return formatted;
-    return formatted[0].toUpperCase() + formatted.substring(1);
+    try {
+      final formatted = DateFormat('MMM yyyy', 'es').format(date).replaceAll('.', '');
+      if (formatted.isEmpty) return formatted;
+      return formatted[0].toUpperCase() + formatted.substring(1);
+    } catch (_) {
+      return widget.selectedMonthYear;
+    }
   }
 
   // Método mejorado para mostrar el selector de mes/año con diseño premium

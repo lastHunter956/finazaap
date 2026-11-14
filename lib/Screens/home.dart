@@ -79,6 +79,8 @@ class _HomeState extends State<Home> {
   late final VoidCallback _boxListener;
   late final ValueListenable<Box<Add_data>> _boxListenable;
   StreamSubscription? _widgetSubscription;
+  Timer? _widgetRefreshTimer;
+  Map<String, List<Add_data>>? _groupedTransactionsCache;
 
   @override
   void initState() {
@@ -95,6 +97,7 @@ class _HomeState extends State<Home> {
     _boxListenable = box.listenable();
     _boxListener = () {
       if (mounted) {
+        _groupedTransactionsCache = null;
         setState(() {});
         _updateAvailableBalance();
         _loadCategoryMetadata();
@@ -120,6 +123,7 @@ class _HomeState extends State<Home> {
   @override
   void dispose() {
     // Limpiar listeners para evitar memory leaks
+    _widgetRefreshTimer?.cancel();
     if (_widgetSubscription != null) _widgetSubscription!.cancel();
     _boxListenable.removeListener(_boxListener);
     availableBalanceNotifier.dispose();
@@ -275,7 +279,10 @@ class _HomeState extends State<Home> {
         }
       }
       availableBalanceNotifier.value = totalBalance;
-      await WidgetService.refreshWidgetFromData();
+      _widgetRefreshTimer?.cancel();
+      _widgetRefreshTimer = Timer(const Duration(milliseconds: 500), () {
+        WidgetService.refreshWidgetFromData();
+      });
     }
   }
 
@@ -285,6 +292,7 @@ class _HomeState extends State<Home> {
       _selectedMonth = month;
       _selectedYear = year;
       _filterByDate = true;
+      _groupedTransactionsCache = null;
       
       // Actualizar inmediatamente los valores en la UI
       // No es necesario llamar a estos métodos explícitamente
@@ -465,7 +473,8 @@ class _HomeState extends State<Home> {
               child: ValueListenableBuilder(
                 valueListenable: _boxListenable,
                 builder: (context, value, child) {
-                  final transactionsByDate = _getTransactionsGroupedByDate();
+                  final transactionsByDate =
+                      _groupedTransactionsCache ??= _getTransactionsGroupedByDate();
 
                   return CustomScrollView(
                     slivers: [
@@ -581,16 +590,19 @@ class _HomeState extends State<Home> {
                         onShowAll: () {
                           setState(() {
                             filter = 'Todos';
+                            _groupedTransactionsCache = null;
                           });
                         },
                         onShowExpenses: () {
                           setState(() {
                             filter = 'Gastos';
+                            _groupedTransactionsCache = null;
                           });
                         },
                         onShowIncome: () {
                           setState(() {
                             filter = 'Ingresos';
+                            _groupedTransactionsCache = null;
                           });
                         },
                         selectedMonthYear: DateFormat.yMMMM('es').format(
@@ -666,14 +678,17 @@ class _HomeState extends State<Home> {
     
     // Creamos un mapa para agrupar por fecha (fecha -> lista de transacciones)
     final Map<String, List<Add_data>> grouped = {};
+    final Map<String, DateTime> keyDates = {};
     
     for (var transaction in transactions) {
+      final date = transaction.safeDate;
       // Creamos una clave de fecha: "dd/mm/yyyy"
-      final dateKey = "${transaction.safeDate.day.toString().padLeft(2, '0')}/${transaction.safeDate.month.toString().padLeft(2, '0')}/${transaction.safeDate.year}";
+      final dateKey = "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
       
       // Si la fecha no existe como clave, la inicializamos
       if (!grouped.containsKey(dateKey)) {
         grouped[dateKey] = [];
+        keyDates[dateKey] = DateTime(date.year, date.month, date.day);
       }
       
       // Añadimos la transacción al grupo correspondiente
@@ -682,26 +697,7 @@ class _HomeState extends State<Home> {
     
     // Ordenamos las claves por fecha (más reciente primero)
     final sortedKeys = grouped.keys.toList()
-      ..sort((a, b) {
-        // Convertimos las fechas en formato dd/mm/yyyy a objetos DateTime
-        final parts1 = a.split('/');
-        final parts2 = b.split('/');
-        
-        final date1 = DateTime(
-          int.parse(parts1[2]), // año
-          int.parse(parts1[1]), // mes
-          int.parse(parts1[0])  // día
-        );
-        
-        final date2 = DateTime(
-          int.parse(parts2[2]), // año
-          int.parse(parts2[1]), // mes
-          int.parse(parts2[0])  // día
-        );
-        
-        // Ordenar de más reciente a más antigua
-        return date2.compareTo(date1);
-      });
+      ..sort((a, b) => keyDates[b]!.compareTo(keyDates[a]!));
     
     // Ordenar las transacciones dentro de cada día (más reciente primero)
     for (var key in grouped.keys) {
