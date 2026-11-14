@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/model/responsibility.dart';
@@ -26,6 +27,7 @@ import 'package:finazaap/features/notifications/services/notification_pipeline_s
 void main() async {
   // Asegurar que los bindings de Flutter estén inicializados
   WidgetsFlutterBinding.ensureInitialized();
+  GoogleFonts.config.allowRuntimeFetching = false;
   
   try {
     AppLogger.start('Iniciando FinazaApp');

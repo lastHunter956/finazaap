@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:finazaap/data/credit_card_calculator.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:finazaap/data/model/responsibility.dart';
@@ -35,16 +37,21 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
   
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
+  ValueListenable<Box<Responsibility>>? _responsibilitiesListenable;
   
   @override
   void initState() {
     super.initState();
+    if (Hive.isBoxOpen('responsibilities')) {
+      _responsibilitiesListenable = ResponsibilityService.getBox().listenable();
+    }
     _initializeData();
   }
 
   Future<void> _initializeData() async {
     try {
       await ResponsibilityService.init();
+      _responsibilitiesListenable ??= ResponsibilityService.getBox().listenable();
       // Purge sample data once if they exist
       final box = ResponsibilityService.getBox();
       final sampleNames = {'Netflix', 'Luz', 'Internet', 'Manejo Visa', 'Gym', 'Spotify'};
@@ -52,7 +59,9 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
       for (var r in toDelete) {
         await r.delete();
       }
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     } catch (e) {
       debugPrint('Error initializing responsibilities: $e');
     }
@@ -70,8 +79,10 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
         children: [
           MoneoHeaderBar.primaryTab(title: 'Responsabilidades'),
           Expanded(
-            child: ValueListenableBuilder(
-              valueListenable: ResponsibilityService.getBox().listenable(),
+            child: _responsibilitiesListenable == null
+                ? const Center(child: CircularProgressIndicator())
+                : ValueListenableBuilder(
+              valueListenable: _responsibilitiesListenable!,
               builder: (context, Box<Responsibility> box, _) {
                 final list = box.values.toList();
                 return CustomScrollView(
@@ -550,6 +561,20 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
         ? responsibilities 
         : responsibilities.take(displayLimit).toList();
 
+    final Map<String, ({double paidInMonth, double pending})> cardMetrics = {};
+    for (final item in displayItems) {
+      if (item.safeCategory == 'tarjeta') {
+        final quota = item.getAmountForDate(_selectedMonth, _selectedYear);
+        final paidInMonth = CreditCardCalculator.calculatePaidInMonth(
+          item.safeName,
+          _selectedMonth,
+          _selectedYear,
+        );
+        final pending = (quota - paidInMonth) > 0 ? (quota - paidInMonth) : 0.0;
+        cardMetrics[item.safeId] = (paidInMonth: paidInMonth, pending: pending);
+      }
+    }
+
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
@@ -559,11 +584,14 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
           }
           
           final responsibility = displayItems[index];
+          final metrics = cardMetrics[responsibility.safeId];
           return ResponsibilityListItem(
             responsibility: responsibility,
             month: _selectedMonth,
             year: _selectedYear,
             day: null,
+            precomputedPaidInMonth: metrics?.paidInMonth,
+            precomputedPending: metrics?.pending,
             onTap: () => _handleResponsibilityTap(responsibility),
             onEdit: () => _showAddResponsibilityDialog(responsibility: responsibility),
             onDelete: () => _confirmDeleteResponsibility(responsibility),

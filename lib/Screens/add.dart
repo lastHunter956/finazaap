@@ -78,6 +78,14 @@ class _Add_ScreenState extends State<Add_Screen> {
     }
   }
 
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _detailCtrl.dispose();
+    _installmentsCtrl.dispose();
+    super.dispose();
+  }
+
   // Método para cargar los datos de la transacción
   void _loadTransactionData() {
     final transaction = widget.transaction!;
@@ -297,9 +305,6 @@ class _Add_ScreenState extends State<Add_Screen> {
       if (widget.onTransactionUpdated != null) {
         widget.onTransactionUpdated!();
       }
-
-      // Pequeño retraso para asegurar que los datos se han guardado
-      await Future.delayed(const Duration(milliseconds: 100));
 
       // Navegar de vuelta
       if (mounted) {

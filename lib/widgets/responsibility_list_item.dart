@@ -17,6 +17,8 @@ class ResponsibilityListItem extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onTogglePaid;
   final VoidCallback? onPayMonth; // Nuevo callback opcional
+  final double? precomputedPaidInMonth;
+  final double? precomputedPending;
 
   const ResponsibilityListItem({
     Key? key,
@@ -29,6 +31,8 @@ class ResponsibilityListItem extends StatelessWidget {
     required this.onDelete,
     required this.onTogglePaid,
     this.onPayMonth,
+    this.precomputedPaidInMonth,
+    this.precomputedPending,
   }) : super(key: key);
 
   @override
@@ -68,8 +72,11 @@ class ResponsibilityListItem extends StatelessWidget {
     double pending = 0;
     
     if (responsibility.safeCategory == 'tarjeta') {
-      paidInMonth = CreditCardCalculator.calculatePaidInMonth(responsibility.safeName, month, year);
-      pending = (quota - paidInMonth) > 0 ? (quota - paidInMonth) : 0.0;
+      paidInMonth = precomputedPaidInMonth ??
+          CreditCardCalculator.calculatePaidInMonth(
+              responsibility.safeName, month, year);
+      pending = precomputedPending ??
+          ((quota - paidInMonth) > 0 ? (quota - paidInMonth) : 0.0);
     }
 
     return Dismissible(

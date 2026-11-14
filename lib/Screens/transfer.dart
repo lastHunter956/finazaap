@@ -77,6 +77,13 @@ class _TransferScreenState extends State<TransferScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _detailCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadAccounts() async {
     final prefs = await SharedPreferences.getInstance();
     List<String>? accountsData = prefs.getStringList('accounts');
@@ -183,9 +190,6 @@ Future<void> _saveTransfer() async {
       _isProcessing = false;
     });
 
-    // Pequeña espera para asegurar que todo se ha guardado
-    await Future.delayed(const Duration(milliseconds: 100));
-    
     // Volver a la pantalla anterior
     if (mounted) {
       Navigator.of(context).pop();

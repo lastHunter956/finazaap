@@ -40,7 +40,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
     
     _fadeAnimation = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.1, 0.8, curve: Curves.easeOutBack), // Curva más suave
+      curve: const Interval(0.1, 0.8, curve: Curves.easeOut),
     );
     
     // Iniciar la animación automáticamente
@@ -71,49 +71,28 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Backdrop con blur y oscurecimiento con animación
-            AnimatedBuilder(
-              animation: _fadeAnimation,
-              builder: (context, child) {
-                return Opacity(
-                  opacity: _fadeAnimation.value.clamp(0.0, 1.0),
-                  child: GestureDetector(
-                    onTap: _animatedDismiss,
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(
-                        sigmaX: 8.0 * _fadeAnimation.value,
-                        sigmaY: 8.0 * _fadeAnimation.value,
-                      ),
-                      child: Container(
-                        color: Color.lerp(
-                          Colors.transparent,
-                          context.appTheme.primaryBackground.withOpacity(0.9),
-                          _fadeAnimation.value,
-                        ),
-                      ),
-                    ),
+            // Backdrop con blur estático y transición de opacidad sin recomputar shader por frame
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: GestureDetector(
+                onTap: _animatedDismiss,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+                  child: Container(
+                    color: context.appTheme.primaryBackground.withOpacity(0.9),
                   ),
-                );
-              },
+                ),
+              ),
             ),
             
             // Menú centrado con animaciones
             SafeArea(
-              child: AnimatedBuilder(
-                animation: _scaleAnimation,
-                builder: (context, child) {
-                  return Center(
-                    child: Transform.scale(
-                      scale: _scaleAnimation.value,
-                      child: Opacity(
-                        opacity: _scaleAnimation.value.clamp(0.0, 1.0),
-                        child: child,
-                      ),
-                    ),
-                  );
-                },
-                child: Center(
-                  child: Column(
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: Center(
+                    child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Contenedor principal con diseño de tarjeta premium
@@ -361,6 +340,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                   ),
                 ),
               ),
+              ),
             ),
           ],
         ),
@@ -384,18 +364,18 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
       ),
     );
 
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, 15 * (1 - animation.value)), // Menos desplazamiento
-          child: Opacity(
-            opacity: animation.value.clamp(0.0, 1.0),
+    return FadeTransition(
+      opacity: animation,
+      child: AnimatedBuilder(
+        animation: animation,
+        builder: (context, child) {
+          return Transform.translate(
+            offset: Offset(0, 15 * (1 - animation.value)),
             child: child,
-          ),
-        );
-      },
-      child: child,
+          );
+        },
+        child: child,
+      ),
     );
   }
 

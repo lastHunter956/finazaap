@@ -416,25 +416,27 @@ class _MyHomePageState extends State<MyHomePage> {
                           ),
                       ],
                     )
-                  : SingleChildScrollView(
+                  : ListView.builder(
                       padding: const EdgeInsets.only(bottom: 80),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildTotalBalanceSection(totalBalance),
-                          Divider(
+                      itemCount: accountItems.length + 2,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return _buildTotalBalanceSection(totalBalance);
+                        }
+                        if (index == 1) {
+                          return const Divider(
                             color: Colors.transparent,
                             thickness: 1,
                             height: 32,
                             indent: 16,
                             endIndent: 16,
-                          ),
-                          // Lista de cuentas (Modo Vista)
-                          ...accountItems
-                              .map((item) => _buildAccountItem(item, isReorderMode: false))
-                              .toList(),
-                        ],
-                      ),
+                          );
+                        }
+                        return _buildAccountItem(
+                          accountItems[index - 2],
+                          isReorderMode: false,
+                        );
+                      },
                     ),
             ),
           ),

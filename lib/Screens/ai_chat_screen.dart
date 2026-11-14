@@ -543,7 +543,12 @@ class _AiChatScreenState extends State<AiChatScreen>
                     if (_isLoading && offsetIndex == messages.length) {
                       return _buildTypingIndicator();
                     }
-                    return _buildChatBubble(messages[offsetIndex]);
+                    return RepaintBoundary(
+                      child: _buildChatBubble(
+                        messages[offsetIndex],
+                        messageIndex: offsetIndex,
+                      ),
+                    );
                   },
                 ),
         ),
@@ -1212,7 +1217,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     );
   }
 
-  Widget _buildChatBubble(ChatMessage message) {
+  Widget _buildChatBubble(ChatMessage message, {int? messageIndex}) {
     final t = context.appTheme;
     final isUser = message.role == 'user';
     final hasSuggestions = !isUser &&
@@ -1306,7 +1311,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     );
 
     if (hasSuggestions || hasTxSuggestions) {
-      final msgIdx = _chatService.messages.indexOf(message);
+      final msgIdx = messageIndex ?? _chatService.messages.indexOf(message);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
