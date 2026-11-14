@@ -1,6 +1,8 @@
 import 'package:hive/hive.dart';
 import 'dart:convert';
+import 'dart:math';
 import 'package:finazaap/data/credit_card_calculator.dart';
+import 'package:finazaap/utils/currency_helper.dart';
 
 part 'responsibility.g.dart';
 
@@ -146,6 +148,17 @@ class Responsibility extends HiveObject {
     return getDynamicQuota(now.month, now.year);
   }
 
+  /// Compara si [paid] cubre [expected] a la precisión decimal de la moneda activa.
+  /// Nunca liquida deuda cero (expected <= 0) ni usa porcentajes arbitrarios.
+  static bool isAmountCovered(double paid, double expected) {
+    final decimals = CurrencyHelper.getFormatter().maximumFractionDigits;
+    final scale = pow(10, decimals).toDouble();
+    final expectedUnits = (expected * scale).round();
+    if (expectedUnits <= 0) return false;
+    final paidUnits = (paid * scale).round();
+    return paidUnits >= expectedUnits;
+  }
+
   /// Calcula la cuota dinámica para un mes y año específicos
   double getDynamicQuota(int month, int year) {
     if (safeCategory != 'tarjeta') {
@@ -227,11 +240,13 @@ class Responsibility extends HiveObject {
        int d1 = safeDueDay;
        int d2 = d1 + 15;
        
-       // Generar candidatos para este mes y el próximo
+       // Generar candidatos para este mes y el próximo (ajustando días al fin de mes, ej. febrero)
        List<DateTime> candidates = [];
-       for (int m = 0; m <= 1; m++) { // Este mes y el siguiente
-         try { candidates.add(DateTime(now.year, now.month + m, d1)); } catch (_) {}
-         try { candidates.add(DateTime(now.year, now.month + m, d2)); } catch (_) {}
+       for (int m = 0; m <= 1; m++) {
+         final base = DateTime(now.year, now.month + m, 1);
+         final lastDay = DateTime(base.year, base.month + 1, 0).day;
+         candidates.add(DateTime(base.year, base.month, d1.clamp(1, lastDay)));
+         candidates.add(DateTime(base.year, base.month, d2.clamp(1, lastDay)));
        }
        candidates.sort();
        
@@ -255,46 +270,30 @@ class Responsibility extends HiveObject {
        return 15; // Fallback
     }
 
-    // 4. MENSUAL / OTROS (Lógica original)
+    // 4. MENSUAL / OTROS (Lógica original con ajuste real de fin de mes en febrero)
     final currentMonth = now.month;
     final currentYear = now.year;
-    
-    final dDay = safeDueDay;
-    
-    // Crear fecha de vencimiento para este mes
-    DateTime dueDate;
-    try {
-      dueDate = DateTime(currentYear, currentMonth, dDay);
-    } catch (e) {
-      // Si el día no existe en este mes (ej: 31 en febrero), usar último día del mes
-      dueDate = DateTime(currentYear, currentMonth + 1, 0);
-    }
-    
+
+    DateTime dueDate = getDueDateForMonth(currentMonth, currentYear);
+
     // Si ya pasó este mes, calcular para el próximo
     if (dueDate.isBefore(today)) {
-      try {
-        dueDate = DateTime(currentYear, currentMonth + 1, dDay);
-      } catch (e) {
-        dueDate = DateTime(currentYear, currentMonth + 2, 0);
-      }
+      dueDate = getDueDateForMonth(currentMonth + 1, currentYear);
     }
-    
+
     // Si ya está pagado en este ciclo mensual, mostrar vencimiento del próximo mes
-    if (isPaidInMonth(now.month, now.year)) {
-       // Calcular fecha del próximo mes (o subsiguiente si dueDate era este mes)
-       // Simplificación: si next due date is future from today, use it.
-       // But if isPaidInMonth is TRUE, we shouldn't show "Due in 5 days" for THIS month.
-       // We should show days until NEXT month.
-       if (dueDate.month == now.month) {
-          try {
-            dueDate = DateTime(currentYear, currentMonth + 1, dDay);
-          } catch (e) {
-            dueDate = DateTime(currentYear, currentMonth + 2, 0);
-          }
-       }
+    if (isPaidInMonth(now.month, now.year) && dueDate.month == now.month) {
+      dueDate = getDueDateForMonth(currentMonth + 1, currentYear);
     }
-    
+
     return dueDate.difference(today).inDays;
+  }
+
+  /// Retorna la fecha de vencimiento de [month]/[year] ajustando días > último día del mes (ej. 31 en febrero).
+  DateTime getDueDateForMonth(int month, int year) {
+    final normalized = DateTime(year, month, 1);
+    final lastDay = DateTime(normalized.year, normalized.month + 1, 0).day;
+    return DateTime(normalized.year, normalized.month, safeDueDay.clamp(1, lastDay));
   }
 
   // Obtener el monto mensual equivalente según frecuencia
@@ -449,30 +448,87 @@ class Responsibility extends HiveObject {
 
   // Verificar si está pagado en un mes específico
   bool isPaidInMonth(int month, int year) {
-    // CASO SPECIAL: Frecuencias cortas
-    if (safeFrequency == 'diario' || safeFrequency == 'semanal' || safeFrequency == 'quincenal') {
-      final now = DateTime.now();
-      if (month == now.month && year == now.year) {
-        return safeIsPaid;
+    final List<DateTime> recordedDates = <DateTime>[
+      if (paymentDates != null) ...paymentDates!,
+      if (lastPaymentDate != null) lastPaymentDate!,
+    ];
+
+    // 1. Frecuencias multi-mes: cubren N meses desde el mes de pago registrado
+    final int? multiMonthSpan = switch (safeFrequency) {
+      'bimestral' => 2,
+      'trimestral' => 3,
+      'anual' => 12,
+      _ => null,
+    };
+    if (multiMonthSpan != null) {
+      for (final p in recordedDates) {
+        final diffMonths = (year - p.year) * 12 + (month - p.month);
+        if (diffMonths >= 0 && diffMonths < multiMonthSpan) {
+          if (lastPaymentMonth == p.month &&
+              lastPaymentYear == p.year &&
+              paidAmountThisMonth != null &&
+              safeAmount > 0 &&
+              !isAmountCovered(paidAmountThisMonth!, safeAmount)) {
+            continue;
+          }
+          return true;
+        }
       }
+      return false;
     }
 
-    // CASO 1: Tiene fecha de último pago que coincide con el mes/año consultado
-    if (lastPaymentDate != null && lastPaymentDate!.month == month && lastPaymentDate!.year == year) {
-      return true;
+    // 2. Frecuencias cortas (diario / semanal / quincenal): consultar el período pedido
+    if (safeFrequency == 'diario' || safeFrequency == 'semanal' || safeFrequency == 'quincenal') {
+      final int distinctDaysInMonth = recordedDates
+          .where((p) => p.year == year && p.month == month)
+          .map((p) => p.day)
+          .toSet()
+          .length;
+
+      final int requiredOccurrences = switch (safeFrequency) {
+        'diario' => DateTime(year, month + 1, 0).day,
+        'semanal' => 4,
+        'quincenal' => 2,
+        _ => 1,
+      };
+      if (distinctDaysInMonth >= requiredOccurrences) {
+        return true;
+      }
+
+      if (lastPaymentMonth == month &&
+          lastPaymentYear == year &&
+          paidAmountThisMonth != null &&
+          isAmountCovered(paidAmountThisMonth!, getMonthlyAmount())) {
+        return true;
+      }
+      return false;
     }
-    
-    // CASO 2: TARJETAS DE CRÉDITO - Lógica 100% DINÁMICA desde transacciones
+
+    // 3. Tarjetas de crédito: dinámica desde transacciones o pago completo registrado en el mes
     if (safeCategory == 'tarjeta') {
+      if (lastPaymentDate != null && lastPaymentDate!.month == month && lastPaymentDate!.year == year) {
+        return true;
+      }
       return CreditCardCalculator.isMonthPaid(
-        safeName, 
-        month, 
-        year, 
-        cutoffDay: cutoffDay
+        safeName,
+        month,
+        year,
+        cutoffDay: cutoffDay,
       );
     }
 
-    return false;
+    // 4. Mensual / otros
+    final bool hasDateInMonth = recordedDates.any((p) => p.year == year && p.month == month);
+    if (!hasDateInMonth) {
+      return false;
+    }
+    if (lastPaymentMonth == month && lastPaymentYear == year && paidAmountThisMonth != null) {
+      final expected = getAmountForDate(month, year);
+      if (expected > 0) {
+        return isAmountCovered(paidAmountThisMonth!, expected);
+      }
+    }
+    return true;
   }
 
   // Verificar si está pagado en una fecha específica (incluyendo Día)
@@ -492,12 +548,26 @@ class Responsibility extends HiveObject {
     }
     
     // 2. Fallback a lógica legacy si no hay historial
-    // (Para compatibilidad con datos viejos o frecuencias mensuales)
     if (safeFrequency == 'mensual' || safeFrequency == 'bimestral' || safeFrequency == 'trimestral' || safeFrequency == 'anual') {
       return isPaidInMonth(date.month, date.year);
     }
     
-    // 3. Fallback Legacy para diario/semanal (solo mira última fecha)
+    if (safeFrequency == 'semanal') {
+      if (lastPaymentDate == null) return false;
+      final target = DateTime(date.year, date.month, date.day);
+      final startOfWeek = target.subtract(Duration(days: target.weekday - 1));
+      final endOfWeek = startOfWeek.add(const Duration(days: 6));
+      final last = DateTime(lastPaymentDate!.year, lastPaymentDate!.month, lastPaymentDate!.day);
+      return !last.isBefore(startOfWeek) && !last.isAfter(endOfWeek);
+    }
+
+    if (safeFrequency == 'quincenal') {
+      if (lastPaymentDate == null) return false;
+      if (lastPaymentDate!.year != date.year || lastPaymentDate!.month != date.month) return false;
+      return (lastPaymentDate!.day <= 15) == (date.day <= 15);
+    }
+
+    // 3. Fallback Legacy para diario (solo mira última fecha)
     if (safeFrequency == 'diario') {
        if (lastPaymentDate == null) return false;
        return lastPaymentDate!.year == date.year && 

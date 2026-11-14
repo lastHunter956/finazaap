@@ -98,15 +98,13 @@ class ResponsibilityService {
       final targetMonth = month ?? now.month;
       final targetYear = year ?? now.year;
       
-      // Construir fecha de pago relativa al mes objetivo
-      // Si estamos pagando "Enero", la fecha debe ser Enero (para consistencia)
-      // Usamos el día actual o el 1ro si el día actual no existe en ese mes
-      DateTime paymentDate;
-      try {
-        paymentDate = DateTime(targetYear, targetMonth, now.day);
-      } catch (e) {
-        paymentDate = DateTime(targetYear, targetMonth + 1, 0); // Último día del mes
-      }
+      // Construir fecha de pago relativa al mes objetivo sin desbordar a mes siguiente (ej. 31 en febrero)
+      final lastDayOfTargetMonth = DateTime(targetYear, targetMonth + 1, 0).day;
+      final DateTime paymentDate = DateTime(
+        targetYear,
+        targetMonth,
+        now.day.clamp(1, lastDayOfTargetMonth),
+      );
       
       AppLogger.info(' Toggling $id: $wasAlreadyPaid -> $willBePaid for $targetMonth/$targetYear');
 
@@ -258,8 +256,11 @@ class ResponsibilityService {
 
   // Crear responsabilidad automáticamente desde una cuenta
   static Future<void> createFromAccount(AccountItem account) async {
-    // Verificar si ya existe una responsabilidad con ese nombre
-    final existing = getAllResponsibilities().any((r) => r.safeName == account.title);
+    // Verificar si ya existe una responsabilidad con ese nombre (insensible a mayúsculas/espacios)
+    final normalizedTitle = account.title.trim().toLowerCase();
+    final existing = getAllResponsibilities().any(
+      (r) => r.safeName.trim().toLowerCase() == normalizedTitle && r.safeCategory == 'tarjeta',
+    );
     if (existing) return;
 
     // Calcular el balance inicial (deuda)
@@ -284,7 +285,7 @@ class ResponsibilityService {
       dueDay: account.paymentDay ?? 1,
       category: 'tarjeta',
       frequency: 'mensual',
-      isPaid: true, // Si deuda es 0, está "pagada"
+      isPaid: false,
       iconCode: account.icon.codePoint,
       cardLimit: limit,
       cardBalance: initialDebt, // Deuda actual
@@ -563,6 +564,7 @@ class ResponsibilityService {
       }
       
       // 6. Crear la responsabilidad actualizada
+      final bool quotaCovered = Responsibility.isAmountCovered(totalPaidInCycle, expectedQuota);
       final updated = Responsibility(
         id: responsibility.safeId,
         name: responsibility.safeName,
@@ -571,9 +573,9 @@ class ResponsibilityService {
         category: responsibility.safeCategory,
         frequency: responsibility.safeFrequency,
         iconCode: responsibility.safeIconCode,
-        isPaid: newDebt <= 0,
-        // Marcar como pagado si se cubrió la cuota
-        lastPaymentDate: (totalPaidInCycle >= expectedQuota * 0.95) ? now : responsibility.lastPaymentDate,
+        isPaid: newDebt <= 0 && totalPaidInCycle > 0,
+        // Marcar como pagado solo si se cubrió la cuota exacta a precisión de moneda
+        lastPaymentDate: quotaCovered ? now : responsibility.lastPaymentDate,
         cardLimit: responsibility.cardLimit,
         cardBalance: newDebt,
         interestRate: responsibility.interestRate,
@@ -590,8 +592,8 @@ class ResponsibilityService {
       
       await box.putAt(index, updated);
       
-      String paymentType = totalPaidInCycle >= expectedQuota * 0.95 ? 'CUOTA COMPLETA' : 'PAGO PARCIAL';
-      if (newDebt <= 0) paymentType = 'PAGO TOTAL';
+      String paymentType = quotaCovered ? 'CUOTA COMPLETA' : 'PAGO PARCIAL';
+      if (newDebt <= 0 && totalPaidInCycle > 0) paymentType = 'PAGO TOTAL';
       AppLogger.success(' $paymentType en $accountName: \$${amount.toStringAsFixed(0)}. Deuda restante: \$${newDebt.toStringAsFixed(0)}');
     } catch (e) {
       AppLogger.warning(' Error al procesar pago de tarjeta: $e');
@@ -625,7 +627,7 @@ class ResponsibilityService {
       // 3. Verificar si ya no cubre la cuota
       double expectedQuota = responsibility.getAmountForDate(paymentMonth, paymentYear);
       DateTime? lastPaymentDate = responsibility.lastPaymentDate;
-      if (paidInCycle < expectedQuota * 0.95) {
+      if (!Responsibility.isAmountCovered(paidInCycle, expectedQuota)) {
         // Ya no cubre la cuota, limpiar la fecha de pago si era del mismo mes
         if (lastPaymentDate != null && lastPaymentDate.month == paymentMonth && lastPaymentDate.year == paymentYear) {
           lastPaymentDate = null;
@@ -717,22 +719,43 @@ class ResponsibilityService {
     AppLogger.success(' Responsibility ${responsibility.safeName} marked as paid for full month ($month/$year)');
   }
 
-  // Actualizar responsabilidad desde cuenta editada
-  static Future<void> updateResponsibilityFromAccount(String oldName, AccountItem newAccount) async {
+  // Actualizar responsabilidad desde cuenta editada (prioriza id estable si está disponible)
+  static Future<void> updateResponsibilityFromAccount(
+    String oldName,
+    AccountItem newAccount, {
+    String? responsibilityId,
+  }) async {
     final box = getBox();
     try {
-      final responsibility = box.values.firstWhere((r) => r.safeName == oldName && r.safeCategory == 'tarjeta');
-      
+      final list = box.values.toList();
+      final normalizedOld = oldName.trim().toLowerCase();
+      final normalizedNew = newAccount.title.trim().toLowerCase();
+
+      int index = -1;
+      if (responsibilityId != null && responsibilityId.isNotEmpty) {
+        index = list.indexWhere((r) => r.safeId == responsibilityId);
+      }
+      if (index == -1) {
+        index = list.indexWhere(
+          (r) => r.safeName.trim().toLowerCase() == normalizedOld && r.safeCategory == 'tarjeta',
+        );
+      }
+      if (index == -1) {
+        index = list.indexWhere(
+          (r) => r.safeName.trim().toLowerCase() == normalizedNew && r.safeCategory == 'tarjeta',
+        );
+      }
+      if (index == -1) return;
+
+      final responsibility = box.getAt(index);
+      if (responsibility == null) return;
+
       responsibility.name = newAccount.title;
       responsibility.cardLimit = double.tryParse(newAccount.creditLimit ?? newAccount.balance) ?? 0.0;
       responsibility.cutoffDay = newAccount.cutoffDay;
       responsibility.paymentDay = newAccount.paymentDay;
       responsibility.interestRate = newAccount.interestRate;
-      
-      // Update icon if changed
-      if (newAccount.icon != null) {
-        responsibility.iconCode = newAccount.icon.codePoint;
-      }
+      responsibility.iconCode = newAccount.icon.codePoint;
 
       await responsibility.save();
       AppLogger.success(' Responsabilidad actualizada por sync: $oldName -> ${newAccount.title}');
@@ -810,8 +833,8 @@ class ResponsibilityService {
         responsibility.cardBalance = newDebt;
       }
       
-      // Marcar como pagada si se forzó o si el total acumulado cubre la cuota
-      bool isPaid = forcePaidComplete || (totalPaidInCycle >= expectedAmount * 0.98);
+      // Marcar como pagada si se forzó o si el total acumulado cubre el exigible exacto a precisión de moneda
+      bool isPaid = forcePaidComplete || Responsibility.isAmountCovered(totalPaidInCycle, expectedAmount);
       
       // Crear copia actualizada
       final updated = Responsibility(
@@ -875,7 +898,7 @@ class ResponsibilityService {
       }
       
       double expectedAmount = responsibility.getAmountForDate(currentMonth, currentYear);
-      bool isPaid = totalPaidInCycle >= expectedAmount * 0.98;
+      bool isPaid = Responsibility.isAmountCovered(totalPaidInCycle, expectedAmount);
       
       // Si ya no está completado, limpiar la fecha de último pago si coincide con el mes de la transacción
       DateTime? lastPaymentDate = responsibility.lastPaymentDate;
