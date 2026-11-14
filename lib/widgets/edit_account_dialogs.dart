@@ -226,12 +226,15 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Text(
-                        'Editar Cuenta',
-                        style: TextStyle(
-                          color: context.appTheme.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          'Editar Cuenta',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: context.appTheme.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -276,70 +279,63 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Saldo y Tipo de cuenta
-                        Row(
+                        // Saldo actual / Cupo total en su propia fila con ancho completo
+                        Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              flex: 3,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildInputLabel(isCreditCard ? 'Cupo total' : 'Saldo actual'),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: context.appTheme.darkBackground.withOpacity(0.9),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: iconColor.withOpacity(0.2)),
-                                    ),
-                                    child: TextField(
-                                      controller: balanceController,
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      inputFormatters: [
-                                         ThousandsSeparatorInputFormatter(),
-                                       ],
-                                      style: TextStyle(color: context.appTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
-                                      decoration: InputDecoration(
-                                        hintText: '0.00',
-                                        hintStyle: TextStyle(color: context.appTheme.textHint, fontSize: 13),
-                                        border: InputBorder.none,
-                                        prefixIcon: Icon(isCreditCard ? Icons.credit_card : Icons.monetization_on_outlined, color: iconColor, size: 20),
-                                        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-                                        suffixText: '\$',
-                                        suffixStyle: TextStyle(color: iconColor, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                            _buildInputLabel(isCreditCard ? 'Cupo total' : 'Saldo actual'),
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: context.appTheme.darkBackground.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: iconColor.withOpacity(0.2)),
+                              ),
+                              child: TextField(
+                                controller: balanceController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                inputFormatters: [
+                                   ThousandsSeparatorInputFormatter(),
+                                 ],
+                                style: TextStyle(color: context.appTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
+                                decoration: InputDecoration(
+                                  hintText: '0.00',
+                                  hintStyle: TextStyle(color: context.appTheme.textHint, fontSize: 13),
+                                  border: InputBorder.none,
+                                  prefixIcon: Icon(isCreditCard ? Icons.credit_card : Icons.monetization_on_outlined, color: iconColor, size: 20),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                                  suffixText: '\$',
+                                  suffixStyle: TextStyle(color: iconColor, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildInputLabel('Tipo'),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                                    decoration: BoxDecoration(
-                                      color: context.appTheme.darkBackground.withOpacity(0.9),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: iconColor.withOpacity(0.2)),
-                                    ),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<String>(
-                                        value: selectedAccountType,
-                                        isExpanded: true,
-                                        icon: Icon(Icons.keyboard_arrow_down_rounded, color: iconColor.withOpacity(0.7), size: 20),
-                                        dropdownColor: AppColors.cardBackground,
-                                        style: TextStyle(color: context.appTheme.textPrimary, fontSize: 13),
-                                        items: accountTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
-                                        onChanged: (v) => v != null ? setState(() => selectedAccountType = v) : null,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Tipo de cuenta en su propia fila
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildInputLabel('Tipo'),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(
+                                color: context.appTheme.darkBackground.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: iconColor.withOpacity(0.2)),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: selectedAccountType,
+                                  isExpanded: true,
+                                  icon: Icon(Icons.keyboard_arrow_down_rounded, color: iconColor.withOpacity(0.7), size: 20),
+                                  dropdownColor: AppColors.cardBackground,
+                                  style: TextStyle(color: context.appTheme.textPrimary, fontSize: 13),
+                                  items: accountTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
+                                  onChanged: (v) => v != null ? setState(() => selectedAccountType = v) : null,
+                                ),
                               ),
                             ),
                           ],
@@ -486,7 +482,9 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: includeInTotal ? iconColor.withOpacity(0.3) : context.appTheme.borderSubtle),
                           ),
-                          child: SwitchListTile(
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: SwitchListTile(
                             value: includeInTotal,
                             onChanged: (v) => setState(() => includeInTotal = v),
                             activeColor: iconColor,
@@ -496,6 +494,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
                               style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
                             ),
                             secondary: Icon(includeInTotal ? Icons.visibility : Icons.visibility_off, color: includeInTotal ? iconColor : Colors.white.withOpacity(0.3)),
+                          ),
                           ),
                         ),
                       ],
@@ -642,15 +641,19 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildInputLabel(title),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6, right: 4),
-            child: Text(
-              'Desplázate para ver más >>',
-              style: TextStyle(
-                color: context.appTheme.textSecondary,
-                fontSize: 11,
-                fontStyle: FontStyle.italic,
+          Flexible(child: _buildInputLabel(title)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 6, right: 4),
+              child: Text(
+                'Desplázate para ver más >>',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: context.appTheme.textSecondary,
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
           ),

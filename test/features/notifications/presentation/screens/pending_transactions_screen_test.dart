@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/features/notifications/adapters/mock_transaction_execution_adapter.dart';
 import 'package:finazaap/features/notifications/adapters/simulated_notification_source.dart';
 import 'package:finazaap/features/notifications/domain/models/pending_transaction_item.dart';
@@ -17,6 +19,16 @@ void main() {
   late PendingTransactionsNotifier notifier;
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({
+      'gastos': [
+        jsonEncode({'text': 'Comida', 'icon': 0xe532, 'color': 0xFF2196F3}),
+        jsonEncode({'text': 'Otros', 'icon': 0xe148, 'color': 0xFF9E9E9E}),
+      ],
+      'ingresos': [
+        jsonEncode({'text': 'Salario', 'icon': 0xe227, 'color': 0xFF4CAF50}),
+        jsonEncode({'text': 'Otros', 'icon': 0xe148, 'color': 0xFF9E9E9E}),
+      ],
+    });
     pendingBox = InMemoryDemoBox();
     patternsBox = InMemoryDemoBox();
 

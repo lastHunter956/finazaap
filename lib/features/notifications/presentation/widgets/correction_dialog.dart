@@ -68,7 +68,7 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
   final _formKey = GlobalKey<FormState>();
 
   late String _classification;
-  late String _selectedCategory;
+  String? _selectedCategory;
   late String _selectedAccount;
   String? _selectedDestinationAccount;
   late DateTime _selectedDate;
@@ -79,28 +79,6 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
   List<String> _accounts = [];
   List<String> _expenseCategories = [];
   List<String> _incomeCategories = [];
-
-  static const _defaultExpenseCategories = [
-    'Alimentación',
-    'Transporte',
-    'Servicios',
-    'Salud',
-    'Educación',
-    'Entretenimiento',
-    'Compras',
-    'Suscripciones',
-    'Hogar',
-    'Otros',
-  ];
-
-  static const _defaultIncomeCategories = [
-    'Salario',
-    'Freelance',
-    'Inversiones',
-    'Bonificación',
-    'Reembolso',
-    'Otros',
-  ];
 
   final ScrollController _scrollController = ScrollController();
   bool _showScrollIndicator = false;
@@ -173,12 +151,12 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
       _selectedDestinationAccount = other.isNotEmpty ? other.first : null;
     }
 
-    _expenseCategories = List<String>.from(
-      widget.availableCategories ?? _defaultExpenseCategories,
-    );
-    _incomeCategories = List<String>.from(
-      widget.availableCategories ?? _defaultIncomeCategories,
-    );
+    _expenseCategories = widget.availableCategories != null
+        ? List<String>.from(widget.availableCategories!)
+        : [];
+    _incomeCategories = widget.availableCategories != null
+        ? List<String>.from(widget.availableCategories!)
+        : [];
 
     _syncSelectedCategory();
 
@@ -223,32 +201,64 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
 
   Future<void> _loadUserCategories() async {
     try {
-      final expenses = await CategoryService.getCategories('Expenses');
-      final incomes = await CategoryService.getCategories('Income');
+      final expensesMeta =
+          await CategoryService.getCategoriesWithMetadata('Expenses');
+      final incomesMeta =
+          await CategoryService.getCategoriesWithMetadata('Income');
       if (!mounted) return;
 
+      final expenses = _extractUniqueCategoryNames(expensesMeta);
+      final incomes = _extractUniqueCategoryNames(incomesMeta);
+
       setState(() {
-        if (expenses.isNotEmpty) _expenseCategories = expenses;
-        if (incomes.isNotEmpty) _incomeCategories = incomes;
+        _expenseCategories = expenses;
+        _incomeCategories = incomes;
         _syncSelectedCategory();
       });
     } catch (_) {
-      // Mantiene categorías por defecto
+      // Mantiene lista actual en entornos sin SharedPreferences inicializado
     }
+  }
+
+  List<String> _extractUniqueCategoryNames(
+      List<Map<String, dynamic>> rawCategories) {
+    final seen = <String>{};
+    final result = <String>[];
+    for (final cat in rawCategories) {
+      final name = (cat['text'] ?? '').toString().trim();
+      if (name.isNotEmpty && seen.add(name)) {
+        result.add(name);
+      }
+    }
+    return result;
   }
 
   List<String> get _currentCategories =>
       _classification == 'ingreso' ? _incomeCategories : _expenseCategories;
 
   void _syncSelectedCategory() {
+    if (_classification == 'transferencia-propia') {
+      _selectedCategory = null;
+      return;
+    }
+
     final list = _currentCategories;
+    if (_selectedCategory != null && list.contains(_selectedCategory)) {
+      return;
+    }
+
     final itemCat = widget.item.category?.trim();
-    if (itemCat != null && itemCat.isNotEmpty && list.contains(itemCat)) {
+    final itemMatchesCurrentType =
+        (widget.item.classification == _classification) ||
+            (widget.item.classification == 'sospechosa' &&
+                _classification == 'gasto');
+    if (itemMatchesCurrentType &&
+        itemCat != null &&
+        itemCat.isNotEmpty &&
+        list.contains(itemCat)) {
       _selectedCategory = itemCat;
-    } else if (list.contains('Otros')) {
-      _selectedCategory = 'Otros';
     } else {
-      _selectedCategory = list.first;
+      _selectedCategory = null;
     }
   }
 
@@ -297,11 +307,21 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
       return;
     }
 
+    final selectedCategory = _selectedCategory;
+    if (_classification != 'transferencia-propia' &&
+        (selectedCategory == null ||
+            !_currentCategories.contains(selectedCategory))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona una categoría válida')),
+      );
+      return;
+    }
+
     final result = CorrectionData(
       classification: _classification,
       category: _classification == 'transferencia-propia'
           ? 'Transferencia'
-          : _selectedCategory,
+          : selectedCategory!,
       accountName: _selectedAccount,
       destinationAccount: dest,
       amount: parsedAmount,
@@ -937,15 +957,23 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
   }
 
   Widget _buildCategoryDropdown(AppTheme theme, Color headerColor) {
-    final currentCat = _currentCategories.contains(_selectedCategory)
-        ? _selectedCategory
-        : _currentCategories.first;
+    final currentCat =
+        (_selectedCategory != null && _currentCategories.contains(_selectedCategory))
+            ? _selectedCategory
+            : null;
 
     return _buildMoneoField(
       theme,
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: currentCat,
+          hint: Text(
+            _currentCategories.isEmpty
+                ? 'Sin categorías'
+                : 'Elige categoría',
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: theme.textHint, fontSize: 14),
+          ),
           dropdownColor: theme.secondaryCardBackground,
           icon: Icon(
             Icons.arrow_drop_down_rounded,

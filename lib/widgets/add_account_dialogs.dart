@@ -277,100 +277,91 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             ),
                             const SizedBox(height: 16),
         
-                            // Fila con tipo de cuenta y saldo
-                            Row(
+                            // Tipo de cuenta en su propia fila
+                            Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildInputLabel('Tipo de cuenta'),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                                        decoration: BoxDecoration(
-                                          color: context.appTheme.darkBackground,
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: Theme.of(context).brightness == Brightness.light
-                                                ? context.appTheme.borderSubtle
-                                                : Colors.white.withOpacity(0.1),
-                                          ),
-                                        ),
-                                        child: DropdownButtonHideUnderline(
-                                          child: DropdownButton<String>(
-                                            value: selectedAccountType,
-                                            isExpanded: true,
-                                            icon: Icon(
-                                              Icons.keyboard_arrow_down_rounded,
-                                              color: iconColor.withOpacity(0.7),
-                                            ),
-                                            dropdownColor: AppColors.cardBackground,
-                                            style: TextStyle(
-                                              color: context.appTheme.textPrimary,
-                                              fontSize: 13, 
-                                            ),
-                                            items: accountTypes.map((String type) {
-                                              return DropdownMenuItem<String>(
-                                                value: type,
-                                                child: Text(
-                                                  type,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  maxLines: 2,
-                                                ),
-                                              );
-                                            }).toList(),
-                                            onChanged: (String? newValue) {
-                                              if (newValue != null) {
-                                                setState(() {
-                                                  selectedAccountType = newValue;
-                                                });
-                                              }
-                                            },
-                                          ),
-                                        ),
+                                _buildInputLabel('Tipo de cuenta'),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: context.appTheme.darkBackground,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Theme.of(context).brightness == Brightness.light
+                                          ? context.appTheme.borderSubtle
+                                          : Colors.white.withOpacity(0.1),
+                                    ),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: selectedAccountType,
+                                      isExpanded: true,
+                                      icon: Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        color: iconColor.withOpacity(0.7),
                                       ),
-                                    ],
+                                      dropdownColor: AppColors.cardBackground,
+                                      style: TextStyle(
+                                        color: context.appTheme.textPrimary,
+                                        fontSize: 13,
+                                      ),
+                                      items: accountTypes.map((String type) {
+                                        return DropdownMenuItem<String>(
+                                          value: type,
+                                          child: Text(
+                                            type,
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 2,
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (String? newValue) {
+                                        if (newValue != null) {
+                                          setState(() {
+                                            selectedAccountType = newValue;
+                                          });
+                                        }
+                                      },
+                                    ),
                                   ),
                                 ),
-                                
-                                const SizedBox(width: 16),
-                                
-                                Expanded(
-                                  flex: 2,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildInputLabel(isCreditCard ? 'Cupo total' : 'Saldo inicial'),
-                                      buildInputField(
-                                        context: context,
-                                        child: TextField(
-                                          controller: balanceController,
-                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                          inputFormatters: [
-                                            ThousandsSeparatorInputFormatter(),
-                                          ],
-                                          style: TextStyle(
-                                            color: context.appTheme.textPrimary,
-                                            fontSize: 15,
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText: '0.00',
-                                            hintStyle: TextStyle(
-                                              color: context.appTheme.textHint,
-                                            ),
-                                            border: InputBorder.none,
-                                            prefixIcon: Icon(
-                                              isCreditCard ? Icons.credit_card : Icons.monetization_on_outlined,
-                                              color: iconColor.withOpacity(0.7),
-                                              size: 20,
-                                            ),
-                                            contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                                          ),
-                                        ),
-                                      ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Saldo inicial / Cupo total en su propia fila con ancho completo
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildInputLabel(isCreditCard ? 'Cupo total' : 'Saldo inicial'),
+                                buildInputField(
+                                  context: context,
+                                  child: TextField(
+                                    controller: balanceController,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    inputFormatters: [
+                                      ThousandsSeparatorInputFormatter(),
                                     ],
+                                    style: TextStyle(
+                                      color: context.appTheme.textPrimary,
+                                      fontSize: 15,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: '0.00',
+                                      hintStyle: TextStyle(
+                                        color: context.appTheme.textHint,
+                                      ),
+                                      border: InputBorder.none,
+                                      prefixIcon: Icon(
+                                        isCreditCard ? Icons.credit_card : Icons.monetization_on_outlined,
+                                        color: iconColor.withOpacity(0.7),
+                                        size: 20,
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -520,7 +511,9 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                   width: 1,
                                 ),
                               ),
-                              child: SwitchListTile(
+                              child: Material(
+                                type: MaterialType.transparency,
+                                child: SwitchListTile(
                                 value: includeInTotal,
                                 activeColor: iconColor,
                                 title: Text(
@@ -547,6 +540,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                                   Icons.visibility_outlined,
                                   color: iconColor.withOpacity(0.8),
                                 ),
+                              ),
                               ),
                             ),
                           ],
@@ -674,9 +668,12 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             children: const [
                               Icon(Icons.add_rounded, size: 18),
                               SizedBox(width: 8),
-                              Text(
-                                'Crear Cuenta',
-                                style: TextStyle(fontWeight: FontWeight.w600),
+                              Flexible(
+                                child: Text(
+                                  'Crear Cuenta',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
                               ),
                             ],
                           ),
@@ -713,15 +710,19 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildInputLabel(title),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8, right: 4),
-            child: Text(
-              'Desplázate para ver más >>',
-              style: TextStyle(
-                color: context.appTheme.textSecondary,
-                fontSize: 11,
-                fontStyle: FontStyle.italic,
+          Flexible(child: _buildInputLabel(title)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8, right: 4),
+              child: Text(
+                'Desplázate para ver más >>',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: context.appTheme.textSecondary,
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
           ),
