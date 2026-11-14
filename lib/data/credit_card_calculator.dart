@@ -20,12 +20,19 @@ class CreditCardCalculator {
   /// Calcula la deuda total de una tarjeta de crédito desde las transacciones.
   /// Suma todos los gastos y resta todos los pagos/ingresos.
   static double calculateTotalDebt(String cardName) {
+    return _calculateDebt(cardName);
+  }
+
+  /// Calcula la deuda acumulada de [cardName] hasta [upTo] (inclusive), o total si [upTo] es null.
+  static double _calculateDebt(String cardName, {DateTime? upTo}) {
     try {
       final box = _getTransactionBox();
       double totalDebt = 0.0;
-      int txCount = 0;
       
       for (var tx in box.values) {
+        if (upTo != null && tx.datetime != null && tx.datetime!.isAfter(upTo)) {
+          continue;
+        }
         final amount = double.tryParse(tx.safeAmount) ?? 0.0;
         
         // 1. Caso estándar: Ingreso/Gasto directo en la cuenta
@@ -55,7 +62,6 @@ class CreditCardCalculator {
         }
       }
       
-      
       // La deuda no puede ser negativa
       return totalDebt < 0 ? 0 : totalDebt;
     } catch (e) {
@@ -71,7 +77,8 @@ class CreditCardCalculator {
   /// @param interestRate Tasa de interés mensual (opcional, para cálculos con interés)
   static double calculateMonthlyPayment(String cardName, int month, int year, {int? cutoffDay, double? interestRate}) {
     try {
-      if (calculateTotalDebt(cardName) <= 0) return 0.0;
+      final periodEnd = DateTime(year, month + 1, 0, 23, 59, 59, 999);
+      if (_calculateDebt(cardName, upTo: periodEnd) <= 0) return 0.0;
       final box = _getTransactionBox();
       double monthlyPayment = 0.0;
       int activeInstallments = 0;
@@ -184,13 +191,12 @@ class CreditCardCalculator {
     }
   }
   
-  /// Verifica si la cuota del mes está pagada
+  /// Verifica si la cuota calculada del mes está cubierta
   static bool isMonthPaid(String cardName, int month, int year, {int? cutoffDay}) {
     final monthlyPayment = calculateMonthlyPayment(cardName, month, year, cutoffDay: cutoffDay);
+    if (monthlyPayment <= 0) return false;
     final paidAmount = calculatePaidInMonth(cardName, month, year);
-    
-    // Consideramos pagado si se pagó al menos 95% de la cuota
-    return paidAmount >= monthlyPayment * 0.95;
+    return paidAmount >= monthlyPayment;
   }
   
   /// Verifica si una tarjeta de crédito es "huérfana" (su cuenta fue eliminada del administrador)

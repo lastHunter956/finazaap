@@ -170,30 +170,40 @@ void main() {
       expect(CreditCardCalculator.calculateTotalDebt('Visa'), closeTo(200000.0, 0.01));
     });
 
-    test('Pago parcial (95%) no cubre importe exigible en Responsibility.isAmountCovered (isMonthPaid aún usa 0.95)', () async {
+    test('Pago parcial (95%) no cubre cuota completa en isMonthPaid; pago completo sí', () async {
       final dataBox = Hive.box<Add_data>('data');
       await dataBox.add(Add_data('Expenses', '300000', DateTime(2026, 11, 5), 'Compra', 'Compras', 'Visa', 0, '3', true));
       await dataBox.add(Add_data('Transfer', '95000', DateTime(2026, 11, 15), 'Pago parcial', 'Ahorros > Visa', ''));
 
-      final quota = CreditCardCalculator.calculateMonthlyPayment('Visa', 11, 2026);
-      final paid = CreditCardCalculator.calculatePaidInMonth('Visa', 11, 2026);
-      expect(quota, closeTo(100000.0, 0.01));
-      expect(paid, closeTo(95000.0, 0.01));
-      expect(Responsibility.isAmountCovered(paid, quota), isFalse);
-      // Evidencia del umbral 0.95 aún pendiente en CreditCardCalculator.isMonthPaid:
+      expect(CreditCardCalculator.calculateMonthlyPayment('Visa', 11, 2026), closeTo(100000.0, 0.01));
+      expect(CreditCardCalculator.calculatePaidInMonth('Visa', 11, 2026), closeTo(95000.0, 0.01));
+      expect(CreditCardCalculator.isMonthPaid('Visa', 11, 2026), isFalse);
+
+      // Completar los 5000 faltantes -> cuota cubierta
+      await dataBox.add(Add_data('Transfer', '5000', DateTime(2026, 11, 20), 'Saldo cuota', 'Ahorros > Visa', ''));
       expect(CreditCardCalculator.isMonthPaid('Visa', 11, 2026), isTrue);
     });
 
-    test('Consulta histórica: calculatePaidInMonth preserva el mes, pero calculateMonthlyPayment depende de deuda actual', () async {
+    test('Deuda realmente inexistente: calculateMonthlyPayment es 0.0 e isMonthPaid es false', () {
+      expect(CreditCardCalculator.calculateTotalDebt('Visa'), closeTo(0.0, 0.01));
+      expect(CreditCardCalculator.calculateMonthlyPayment('Visa', 11, 2026), closeTo(0.0, 0.01));
+      expect(CreditCardCalculator.isMonthPaid('Visa', 11, 2026), isFalse);
+    });
+
+    test('Consulta histórica después de liquidar la deuda conserva cuota e historial del período pasado', () async {
       final dataBox = Hive.box<Add_data>('data');
       await dataBox.add(Add_data('Expenses', '300000', DateTime(2026, 10, 5), 'Compra', 'Compras', 'Visa', 0, '3', true));
       await dataBox.add(Add_data('Transfer', '100000', DateTime(2026, 10, 15), 'Cuota Oct', 'Ahorros > Visa', ''));
       await dataBox.add(Add_data('Transfer', '200000', DateTime(2026, 11, 10), 'Pago total Nov', 'Ahorros > Visa', ''));
 
-      expect(CreditCardCalculator.calculatePaidInMonth('Visa', 10, 2026), closeTo(100000.0, 0.01));
       expect(CreditCardCalculator.calculateTotalDebt('Visa'), closeTo(0.0, 0.01));
-      // Limitación documentada: al liquidarse la deuda en Nov, calculateMonthlyPayment(10, 2026) retorna 0.0
-      expect(CreditCardCalculator.calculateMonthlyPayment('Visa', 10, 2026), closeTo(0.0, 0.01));
+      // Octubre tuvo deuda activa de 200k al cierre y pagó su cuota de 100k:
+      expect(CreditCardCalculator.calculateMonthlyPayment('Visa', 10, 2026), closeTo(100000.0, 0.01));
+      expect(CreditCardCalculator.calculatePaidInMonth('Visa', 10, 2026), closeTo(100000.0, 0.01));
+      expect(CreditCardCalculator.isMonthPaid('Visa', 10, 2026), isTrue);
+      // Noviembre quedó con deuda 0 al cierre:
+      expect(CreditCardCalculator.calculateMonthlyPayment('Visa', 11, 2026), closeTo(0.0, 0.01));
+      expect(CreditCardCalculator.isMonthPaid('Visa', 11, 2026), isFalse);
     });
   });
 }
