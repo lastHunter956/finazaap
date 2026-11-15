@@ -2,27 +2,26 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MAESTRO_ENV_DIR="${REPO_ROOT}/.maestro-env"
-
-# Si corre dentro de un worktree, resolver el .maestro-env del repositorio principal
-if [ ! -d "${MAESTRO_ENV_DIR}/maestro" ]; then
-  GIT_COMMON="$(git rev-parse --git-common-dir 2>/dev/null || true)"
-  if [ -n "$GIT_COMMON" ]; then
-    MAIN_ROOT="$(cd "${GIT_COMMON}/.." 2>/dev/null && pwd)"
-    if [ -d "${MAIN_ROOT}/.maestro-env/maestro" ]; then
-      MAESTRO_ENV_DIR="${MAIN_ROOT}/.maestro-env"
-    fi
-  fi
+GIT_COMMON="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+if [ -n "$GIT_COMMON" ]; then
+  MAIN_ROOT="$(cd "${GIT_COMMON}/.." 2>/dev/null && pwd)"
+else
+  MAIN_ROOT="$REPO_ROOT"
 fi
-
+MAESTRO_ENV_DIR="${MAIN_ROOT}/.maestro-env"
 mkdir -p "${MAESTRO_ENV_DIR}/cache" "${MAESTRO_ENV_DIR}/evidence" "${MAESTRO_ENV_DIR}/home"
 
-# Asegurar detección de Docker host en macOS / perfil local
+# Asegurar detección de Docker host en macOS dinámicamente sin fijar perfiles
 if [ -z "${DOCKER_HOST:-}" ]; then
-  if [ -S "/Users/jesusmartinez/.agys/profiles/karoll/.docker/run/docker.sock" ]; then
-    export DOCKER_HOST="unix:///Users/jesusmartinez/.agys/profiles/karoll/.docker/run/docker.sock"
-  elif [ -S "/var/run/docker.sock" ]; then
+  if [ -S "/var/run/docker.sock" ]; then
     export DOCKER_HOST="unix:///var/run/docker.sock"
+  elif [ -S "${HOME}/.docker/run/docker.sock" ]; then
+    export DOCKER_HOST="unix://${HOME}/.docker/run/docker.sock"
+  else
+    SOCKET_FOUND=$(lsof -U 2>/dev/null | grep -oE '/.*docker\.sock' | head -n 1 || true)
+    if [ -n "$SOCKET_FOUND" ] && [ -S "$SOCKET_FOUND" ]; then
+      export DOCKER_HOST="unix://$SOCKET_FOUND"
+    fi
   fi
 fi
 

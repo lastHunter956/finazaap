@@ -57,35 +57,51 @@ fi
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 cd "$ROOT" || true
 
-# Asegurar detección de Docker host en macOS / perfil local
+# Asegurar detección de Docker host en macOS dinámicamente sin fijar perfiles
 if [ -z "${DOCKER_HOST:-}" ]; then
-  if [ -S "/Users/jesusmartinez/.agys/profiles/karoll/.docker/run/docker.sock" ]; then
-    export DOCKER_HOST="unix:///Users/jesusmartinez/.agys/profiles/karoll/.docker/run/docker.sock"
-  elif [ -S "/var/run/docker.sock" ]; then
+  if [ -S "/var/run/docker.sock" ]; then
     export DOCKER_HOST="unix:///var/run/docker.sock"
+  elif [ -S "${HOME}/.docker/run/docker.sock" ]; then
+    export DOCKER_HOST="unix://${HOME}/.docker/run/docker.sock"
+  else
+    SOCKET_FOUND=$(lsof -U 2>/dev/null | grep -oE '/.*docker\.sock' | head -n 1 || true)
+    if [ -n "$SOCKET_FOUND" ] && [ -S "$SOCKET_FOUND" ]; then
+      export DOCKER_HOST="unix://$SOCKET_FOUND"
+    fi
   fi
 fi
 
-# En ramas de Maestro, ejecutar la suite de seguridad de Maestro
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-case "$CURRENT_BRANCH" in
-  *maestro*)
-    if [ -f ".maestro/tests/test_maestro_security_suite.py" ]; then
-      python3 .maestro/tests/test_maestro_security_suite.py >&2
-      echo "[pre_stop_test] OK: Suite de seguridad de Maestro completada con éxito." >&2
-      printf '{}\n'
+# Detectar cambios reales acumulados en la sesión (working tree o último commit si está limpio)
+WORKTREE_FILES=$(git status --porcelain 2>/dev/null | awk '{print $2}')
+if [ -n "$WORKTREE_FILES" ]; then
+  ALL_CHANGED="$WORKTREE_FILES"
+else
+  ALL_CHANGED=$(git diff --name-only HEAD~1 2>/dev/null || true)
+fi
+
+HAS_FLUTTER_CHANGES=$(printf '%s\n' "$ALL_CHANGED" | grep -E '\.(dart)$|^pubspec\.(yaml|lock)$|^analysis_options\.yaml$|^android/|^ios/' || true)
+HAS_MAESTRO_CHANGES=$(printf '%s\n' "$ALL_CHANGED" | grep -E '^\.maestro/|^\.agents/skills/moneo-maestro-e2e/' || true)
+
+# 1. Si hay cambios en Maestro, ejecutar y exigir suite de Maestro
+if [ -n "$HAS_MAESTRO_CHANGES" ]; then
+  if [ -f ".maestro/tests/test_maestro_security_suite.py" ]; then
+    MAESTRO_EXIT=0
+    python3 .maestro/tests/test_maestro_security_suite.py >&2 || MAESTRO_EXIT=$?
+    if [ "$MAESTRO_EXIT" -ne 0 ]; then
+      printf '{"decision": "continue", "reason": "La suite de seguridad de Maestro (.maestro/tests/test_maestro_security_suite.py) falló (código %s). Corrige los fallos antes de finalizar."}\n' "$MAESTRO_EXIT"
       exit 0
     fi
-    ;;
-esac
+    echo "[pre_stop_test] OK: Suite de seguridad de Maestro completada con éxito." >&2
+  fi
+fi
 
-# Verificar si la sesión actual modificó código Dart/Flutter
-DART_CHANGES=$(git diff --name-only HEAD~1 2>/dev/null | grep -E '\.(dart)$|pubspec\.(yaml|lock)' || true)
-STAGED_DART=$(git diff --cached --name-only 2>/dev/null | grep -E '\.(dart)$|pubspec\.(yaml|lock)' || true)
-UNSTAGED_DART=$(git diff --name-only 2>/dev/null | grep -E '\.(dart)$|pubspec\.(yaml|lock)' || true)
-
-if [ -z "$DART_CHANGES" ] && [ -z "$STAGED_DART" ] && [ -z "$UNSTAGED_DART" ]; then
-  echo "[pre_stop_test] Omitido con motivo: no se modificaron archivos Dart/Flutter en esta rama/sesión." >&2
+# 2. Si no hay cambios en Flutter, no ejecutar suite de Flutter
+if [ -z "$HAS_FLUTTER_CHANGES" ]; then
+  if [ -n "$HAS_MAESTRO_CHANGES" ]; then
+    echo "[pre_stop_test] OK: Verificación de Maestro completada (sin cambios pendientes en código Flutter)." >&2
+  else
+    echo "[pre_stop_test] Omitido: no se detectaron cambios en archivos de Flutter ni de Maestro en esta sesión." >&2
+  fi
   printf '{}\n'
   exit 0
 fi
