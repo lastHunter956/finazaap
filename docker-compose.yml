@@ -1,9 +1,12 @@
 services:
   flutter-env:
     platform: linux/amd64
+    image: finazaap-flutter-env:3.44.2
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        FLUTTER_VERSION: "3.44.2"
     container_name: finazaap-flutter
     volumes:
       - .:/app

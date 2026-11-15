@@ -36,10 +36,12 @@ RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
 RUN yes | sdkmanager --licenses && \
     sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-# Instalar Flutter SDK (versión estable compatible con Dart >=3.0.0 <4.0.0)
+# Instalar Flutter SDK (versión fijada para compilación reproducible)
+ARG FLUTTER_VERSION=3.44.2
 ENV FLUTTER_HOME=/opt/flutter
 ENV PATH=${PATH}:${FLUTTER_HOME}/bin
-RUN git clone -b stable https://github.com/flutter/flutter.git ${FLUTTER_HOME}
+RUN git clone --branch ${FLUTTER_VERSION} --depth 1 https://github.com/flutter/flutter.git ${FLUTTER_HOME} && \
+    git config --global --add safe.directory ${FLUTTER_HOME}
 
 # Ejecutar flutter doctor para verificar y descargar dependencias iniciales
 RUN flutter doctor --android-licenses || true
