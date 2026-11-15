@@ -198,7 +198,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 60));
         }
 
-        expect(find.text('RAM disponible'), findsOneWidget);
+        expect(find.textContaining('RAM disponible: 1.4 GB'), findsOneWidget);
         expect(
           find.text('RAM disponible insuficiente en este momento'),
           findsOneWidget,
