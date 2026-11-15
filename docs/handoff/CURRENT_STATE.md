@@ -1,13 +1,18 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-15 (Integración en `main` del lote correctivo `agent/maestro/audit-fixes` validado en `R5CY21GE9YY` y Docker Flutter `3.44.2`: `221/221` tests pasaron)
+> **Última actualización:** 2026-11-15 (Integración en `main` de `integration/onboarding-y-mejoras-ui` — `b8a00ba`, validada en `R5CY21GE9YY` con Maestro y en Docker Flutter `3.44.2`: `236/236` tests pasaron)
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `main` (fusionada mediante `--ff-only` tras validación en dispositivo `R5CY21GE9YY` y suite completa en Docker; **sin `git push`**).
+- **Rama actual:** `main` (fusionada mediante `--ff-only` hasta `b8a00ba` tras validación en dispositivo `R5CY21GE9YY` y suite completa en Docker; **sin `git push`**).
+- **Onboarding e Incremental UI (`integration/onboarding-y-mejoras-ui`, fusionada en `main`):**
+  - Spec y diseño en `.specify/onboarding-y-mejoras-ui/` + `.agents/skills/moneo-ui-design/SKILL.md` (100% offline).
+  - Lote 1 (mejoras UI incrementales): `AnnualProjectionScreen` (FAB `Semantics`/`tooltip`, bottom clearance), `Statistics` (fecha sin truncamiento), `PendingTransactionsScreen` (padding inferior), `CategoriesScreen` (estado vacío accionable sin auto-siembra), y validación consistente en formularios (`add_expense.dart`, `transfer.dart`, `add_account_dialogs.dart`).
+  - Lote 2 (onboarding): `OnboardingService` (`onboarding_completed`, `onboarding_skipped`, `onboarding_last_step`, detección de usuario existente sin mutar datos), `OnboardingScreen` de 5 pasos (sin `'Tarjeta de crédito'` en Paso 3, diálogo `_CreateCategoryDialog` sin `LayoutBuilder` en `AlertDialog`, `excludeSemantics: true` en indicador de paso), `AuthSplashScreen` y entrada `"Guía inicial"` en `SettingsScreen`.
+  - Validación: `236/236` tests en Docker (`finazaap-flutter-env:3.44.2`), flujo E2E Maestro `.maestro/onboarding_y_mejoras_ui_validation.yaml` aprobado en `R5CY21GE9YY` (`com.example.finazaap.validation`). Worktree `wt-onboarding-ui` y ramas `integration/onboarding-y-mejoras-ui` / `agent/ui/onboarding-y-mejoras` eliminados.
 - **Entorno Docker reproducible:** `Dockerfile` y `docker-compose.yml` fijados en `FLUTTER_VERSION=3.44.2` (`image: finazaap-flutter-env:3.44.2`).
 - **Correcciones integradas en `main` (`agent/maestro/audit-fixes`):**
   - Formularios (`add_expense.dart`, `add.dart`, `transfer.dart`): conservan estado ante validación inválida, muestran `'Sin categorías · Crear'` navegando a `CategoriesScreen` y preservan fecha completa.
