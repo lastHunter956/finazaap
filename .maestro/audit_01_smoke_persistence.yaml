@@ -1,0 +1,133 @@
+appId: com.example.finazaap.validation
+---
+# Recorrido sintético mínimo:
+# estado inicial ($ 330.000,00) -> crear cuenta SmokeCta50k (+50.000)
+# -> crear ingreso (+25.000) -> crear gasto (-15.000)
+# -> verificar Disponible ($ 390.000,00) -> stopApp/launchApp y verificar persistencia.
+
+- stopApp: com.example.finazaap.validation
+- launchApp:
+    appId: com.example.finazaap.validation
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 15000
+
+- assertVisible: "Disponible"
+- assertVisible: "\\$ 330\\.000,00"
+
+# 1. Crear cuenta sintética SmokeCta50k con saldo 50000
+- tapOn: "Gestionar cuentas"
+- extendedWaitUntil:
+    visible: "Cuentas"
+    timeout: 10000
+
+# Fallback por coordenadas: el FAB '+' de Cuentas no expone Semantics label/id
+- tapOn:
+    point: "87%,91%"
+
+- extendedWaitUntil:
+    visible: ".*Nueva Cuenta.*"
+    timeout: 5000
+
+- tapOn: "Ej: Cuenta Principal"
+- inputText: "SmokeCta50k"
+- hideKeyboard
+
+- tapOn: "0.00"
+- inputText: "50000"
+- hideKeyboard
+
+- tapOn: "Crear Cuenta"
+- extendedWaitUntil:
+    visible: ".*SmokeCta50k.*"
+    timeout: 8000
+
+# Volver a Home y verificar Disponible = $ 380.000,00
+- back
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+- assertVisible: "\\$ 380\\.000,00"
+
+# 2. Crear Ingreso sintético (+25.000 en SmokeCta50k)
+- tapOn:
+    point: "87%,83%"
+- extendedWaitUntil:
+    visible: "Nueva Operación"
+    timeout: 5000
+- tapOn: "Ingreso"
+- extendedWaitUntil:
+    visible: "Nuevo Ingreso"
+    timeout: 5000
+
+- tapOn: "0.00"
+- inputText: "25000"
+- hideKeyboard
+
+- tapOn:
+    text: ".*"
+    below: "Cuenta"
+- tapOn: "SmokeCta50k"
+
+- tapOn: "Categoría"
+- tapOn: "CatIngresoAudit"
+
+- tapOn: "Detalles..."
+- inputText: "SmokeIngreso25k"
+- hideKeyboard
+
+- tapOn: "Guardar"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+- assertVisible: "\\$ 405\\.000,00"
+- assertVisible: ".*SmokeIngreso25k.*"
+
+# 3. Crear Gasto sintético (-15.000 en SmokeCta50k)
+- tapOn:
+    point: "87%,83%"
+- extendedWaitUntil:
+    visible: "Nueva Operación"
+    timeout: 5000
+- tapOn: "Egreso"
+- extendedWaitUntil:
+    visible: "Nuevo Egreso"
+    timeout: 5000
+
+- tapOn: "0.00"
+- inputText: "15000"
+- hideKeyboard
+
+- tapOn:
+    text: ".*"
+    below: "Cuenta"
+- tapOn: "SmokeCta50k"
+
+- tapOn: "Categoría"
+- tapOn: "CatGastoAudit"
+
+- tapOn: "Detalles..."
+- inputText: "SmokeGasto15k"
+- hideKeyboard
+
+- tapOn: "Guardar"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+- assertVisible: "\\$ 390\\.000,00"
+- assertVisible: ".*SmokeGasto15k.*"
+
+# 4. Cerrar y reabrir app para comprobar persistencia
+- stopApp: com.example.finazaap.validation
+- launchApp:
+    appId: com.example.finazaap.validation
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 15000
+- assertVisible: "\\$ 390\\.000,00"
+- assertVisible: ".*SmokeGasto15k.*"
+- takeScreenshot: audit_01_smoke_persistence

@@ -1,0 +1,64 @@
+appId: com.example.finazaap.validation
+---
+# Lote 5b: Verificar RespAudit30k pagada (100% / 30 mil $), deuda TC = 90k,
+# validación de formulario vacío en Nuevo Egreso, y estado visual de Chat (sin descarga)
+
+- stopApp: com.example.finazaap.validation
+- launchApp:
+    appId: com.example.finazaap.validation
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 15000
+- assertVisible: "\\$ 405\\.000,00"
+
+# 1. Verificar estado de RespAudit30k pagada en Pagos
+- tapOn: "Pagos"
+- extendedWaitUntil:
+    visible: "Responsabilidades"
+    timeout: 8000
+- assertVisible: ".*100%.*"
+- assertVisible: ".*Deuda Total: \\$ 90\\.000,00.*"
+- takeScreenshot: audit_06b_pagos_100pct
+
+# 2. Volver a Inicio y probar validación formulario vacío en Nuevo Egreso
+- tapOn: "Inicio"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+
+- tapOn:
+    point: "87%,83%"
+- extendedWaitUntil:
+    visible: "Nueva Operación"
+    timeout: 5000
+- tapOn: "Egreso"
+- extendedWaitUntil:
+    visible: "Nuevo Egreso"
+    timeout: 5000
+- tapOn: "Guardar"
+- takeScreenshot: audit_06b_empty_egreso_after_save
+
+# Si salió a Home, continuar; si sigue en Nuevo Egreso, volver
+- runFlow:
+    when:
+      visible: "Nuevo Egreso"
+    commands:
+      - back
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+
+# 3. Navegación a Chat (solo estado visual, SIN descargar modelo ni enviar consulta)
+- tapOn:
+    point: "89%,8%"
+- extendedWaitUntil:
+    visible: ".*Asistente.*|.*Gemma.*|.*Chat.*|.*Modelo.*|.*IA.*"
+    timeout: 8000
+- takeScreenshot: audit_06b_chat_state
+- back
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000

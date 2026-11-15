@@ -1,0 +1,14 @@
+FROM finazaap-flutter-env
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends iptables && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/maestro-env/maestro/bin:${PATH}"
+ENV HOME="/maestro-env/home"
+ENV MAESTRO_CLI_NO_ANALYTICS="true"
+ENV MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED="true"
+ENV ANDROID_ADB_SERVER_ADDRESS="host.docker.internal"
+ENV ANDROID_ADB_SERVER_PORT="5037"
+
+WORKDIR /workspace

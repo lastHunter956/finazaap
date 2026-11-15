@@ -1,0 +1,57 @@
+appId: com.example.finazaap.validation
+---
+# Lote 1b: Eliminación simétrica de SmokeGasto15k (-15.000 -> +15.000 = $ 405.000,00)
+# + UI de Tarjeta de Crédito en Nueva Cuenta
+
+- stopApp: com.example.finazaap.validation
+- launchApp:
+    appId: com.example.finazaap.validation
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 15000
+- assertVisible: "\\$ 390\\.000,00"
+
+# 1. Buscar SmokeGasto15k con scrollUntilVisible y eliminarlo
+- scrollUntilVisible:
+    element: ".*SmokeGasto15k.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: ".*SmokeGasto15k.*"
+- extendedWaitUntil:
+    visible: ".*Eliminar.*"
+    timeout: 5000
+- tapOn: ".*Eliminar.*"
+- runFlow:
+    when:
+      visible: "Confirmar|Sí|Eliminar"
+    commands:
+      - tapOn:
+          text: "Confirmar|Sí|Eliminar"
+          index: 0
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+- assertVisible: "\\$ 405\\.000,00"
+- takeScreenshot: audit_02_after_delete_expense
+
+# 2. Verificar UI de Tarjeta de Crédito en Nueva Cuenta (Incluir en saldo total deshabilitado)
+- tapOn: "Gestionar cuentas"
+- extendedWaitUntil:
+    visible: "Cuentas"
+    timeout: 8000
+- tapOn:
+    point: "87%,91%"
+- extendedWaitUntil:
+    visible: ".*Nueva Cuenta.*"
+    timeout: 5000
+
+- tapOn: "Cuenta de Ahorros"
+- tapOn: "Tarjeta de Crédito"
+- scroll
+- assertVisible: ".*Excluida: el cupo de TC no es dinero propio.*"
+- takeScreenshot: audit_02_cc_include_disabled
+- tapOn: "Cancelar"
+- back

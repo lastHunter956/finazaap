@@ -1,0 +1,83 @@
+appId: com.example.finazaap.validation
+---
+# Lote 5: Pagar Responsabilidad RespAudit30k + validación formulario vacío + navegación Chat (sin descarga/inferencia)
+
+- stopApp: com.example.finazaap.validation
+- launchApp:
+    appId: com.example.finazaap.validation
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 15000
+
+# 1. Marcar RespAudit30k como pagada en Pagos
+- tapOn: "Pagos"
+- extendedWaitUntil:
+    visible: "Responsabilidades"
+    timeout: 8000
+- tapOn: ".*Servicio.*"
+- extendedWaitUntil:
+    visible: ".*RespAudit30k.*"
+    timeout: 5000
+- tapOn: ".*PENDIENTE.*"
+- extendedWaitUntil:
+    visible: "Pagar"
+    timeout: 5000
+- tapOn: "Pagar"
+- takeScreenshot: audit_06_resp_pay_dialog
+- runFlow:
+    when:
+      visible: ".*SmokeCta50k.*|.*Cuenta.*|.*Confirmar.*"
+    commands:
+      - tapOn:
+          text: ".*SmokeCta50k.*"
+          optional: true
+      - tapOn:
+          text: "Confirmar|Pagar|Guardar"
+          optional: true
+- back
+- runFlow:
+    when:
+      notVisible: "Inicio"
+    commands:
+      - back
+
+- tapOn: "Inicio"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+
+# 2. Validación formulario vacío en Nuevo Egreso (Monto 0.00 -> Guardar)
+- tapOn:
+    point: "87%,83%"
+- extendedWaitUntil:
+    visible: "Nueva Operación"
+    timeout: 5000
+- tapOn: "Egreso"
+- extendedWaitUntil:
+    visible: "Nuevo Egreso"
+    timeout: 5000
+- tapOn: "Guardar"
+- takeScreenshot: audit_06_empty_egreso_after_save
+
+# Si salió a Home, reentrar no es necesario; si sigue en Nuevo Egreso, volver
+- runFlow:
+    when:
+      visible: "Nuevo Egreso"
+    commands:
+      - back
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+
+# 3. Navegación a Chat (solo estado visual, SIN descargar modelo ni enviar consulta)
+- tapOn:
+    point: "89%,8%"
+- runFlow:
+    when:
+      visible: ".*Asistente.*|.*Gemma.*|.*Chat.*|.*Modelo.*"
+    commands:
+      - takeScreenshot: audit_06_chat_state
+      - back

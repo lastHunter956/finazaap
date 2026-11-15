@@ -1,0 +1,99 @@
+appId: com.example.finazaap.validation
+---
+# Lote 1: Transferencias, Filtros Home, Edición/Eliminación de transacción, y Tarjeta de Crédito UI
+# Estado inicial esperado: Disponible = $ 390.000,00
+
+- stopApp: com.example.finazaap.validation
+- launchApp:
+    appId: com.example.finazaap.validation
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 15000
+- assertVisible: "\\$ 390\\.000,00"
+
+# 1. Transferencia SmokeCta50k -> rappy por 10.000
+- tapOn:
+    point: "87%,83%"
+- extendedWaitUntil:
+    visible: "Nueva Operación"
+    timeout: 5000
+- tapOn: "Transferencia"
+- extendedWaitUntil:
+    visible: "Nueva Transferencia"
+    timeout: 5000
+
+- tapOn: "0.00"
+- inputText: "10000"
+- hideKeyboard
+
+- tapOn: "Seleccionar origen"
+- tapOn: "SmokeCta50k"
+- assertVisible: "Saldo disponible: \\$ 60\\.000,00"
+
+- tapOn: "Seleccionar destino"
+- tapOn: "rappy"
+
+- tapOn: "Detalle \\(opcional\\)"
+- inputText: "TransfAudit10k"
+- hideKeyboard
+
+- tapOn: "Transferir"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+# Disponible no debe cambiar tras transferencia entre cuentas incluidas
+- assertVisible: "\\$ 390\\.000,00"
+- takeScreenshot: audit_02_after_transfer
+
+# 2. Filtros Home (Gastos / Ingresos / Todos)
+- tapOn: "Gastos"
+- assertVisible: ".*SmokeGasto15k.*"
+- assertNotVisible: ".*SmokeIngreso25k.*"
+
+- tapOn: "Ingresos"
+- assertVisible: ".*SmokeIngreso25k.*"
+- assertNotVisible: ".*SmokeGasto15k.*"
+
+- tapOn: "Todos"
+- assertVisible: ".*SmokeGasto15k.*"
+
+# 3. Eliminar SmokeGasto15k (15.000) y comprobar restauración de Disponible ($ 405.000,00)
+- tapOn: ".*SmokeGasto15k.*"
+- extendedWaitUntil:
+    visible: ".*Eliminar.*"
+    timeout: 5000
+- tapOn: ".*Eliminar.*"
+- runFlow:
+    when:
+      visible: "Confirmar|Sí|Eliminar"
+    commands:
+      - tapOn:
+          text: "Confirmar|Sí|Eliminar"
+          index: 0
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+- assertVisible: "\\$ 405\\.000,00"
+- takeScreenshot: audit_02_after_delete_expense
+
+# 4. Verificar UI de Tarjeta de Crédito en Nueva Cuenta (Incluir en saldo total deshabilitado)
+- tapOn: "Gestionar cuentas"
+- extendedWaitUntil:
+    visible: "Cuentas"
+    timeout: 8000
+- tapOn:
+    point: "87%,91%"
+- extendedWaitUntil:
+    visible: ".*Nueva Cuenta.*"
+    timeout: 5000
+
+- tapOn: "Cuenta de Ahorros"
+- tapOn: "Tarjeta de Crédito"
+- scroll
+- assertVisible: ".*Excluida: el cupo de TC no es dinero propio.*"
+- takeScreenshot: audit_02_cc_include_disabled
+- tapOn: "Cancelar"
+- back

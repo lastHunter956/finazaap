@@ -79,3 +79,6 @@ docs/handoff/.local/
 # Test coverage
 coverage/
 *.lcov
+
+# Local Maestro CLI binary, cache, and E2E evidence (external ADATA disk)
+.maestro-env/

@@ -1,0 +1,82 @@
+appId: com.example.finazaap.validation
+---
+# Lote 2: Verificar Disponible ($ 405.000,00), UI Tarjeta de Crédito en Nueva Cuenta,
+# y toggle "Incluir en saldo total" en SmokeCta50k (65.000 -> $ 340.000,00 y vuelta a $ 405.000,00)
+
+- stopApp: com.example.finazaap.validation
+- launchApp:
+    appId: com.example.finazaap.validation
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 15000
+- assertVisible: "\\$ 405\\.000,00"
+- takeScreenshot: audit_03_home_405k
+
+# 1. Cuentas: verificar Tarjeta de Crédito en Nueva Cuenta
+- tapOn: "Gestionar cuentas"
+- extendedWaitUntil:
+    visible: "Cuentas"
+    timeout: 8000
+- tapOn:
+    point: "87%,91%"
+- extendedWaitUntil:
+    visible: ".*Nueva Cuenta.*"
+    timeout: 5000
+
+- tapOn: "Cuenta de Ahorros"
+- tapOn: "Tarjeta de Crédito"
+- scroll
+- assertVisible: ".*Excluida: el cupo de TC no es dinero propio.*"
+- takeScreenshot: audit_03_cc_include_disabled
+- tapOn: "Cancelar"
+
+# 2. Verificar que SmokeCta50k tiene $ 65.000,00 y probar excluir/incluir en saldo total
+- scrollUntilVisible:
+    element: ".*SmokeCta50k.*"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: ".*SmokeCta50k.*"
+- tapOn: ".*SmokeCta50k.*"
+- extendedWaitUntil:
+    visible: ".*Editar Cuenta.*"
+    timeout: 5000
+- scroll
+- tapOn: ".*Incluir en saldo total.*"
+- tapOn: "Guardar"
+- extendedWaitUntil:
+    visible: "Cuentas"
+    timeout: 8000
+
+- back
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+- assertVisible: "\\$ 340\\.000,00"
+- takeScreenshot: audit_03_excluded_340k
+
+# Re-incluir SmokeCta50k para restaurar $ 405.000,00
+- tapOn: "Gestionar cuentas"
+- extendedWaitUntil:
+    visible: "Cuentas"
+    timeout: 8000
+- scrollUntilVisible:
+    element: ".*SmokeCta50k.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn: ".*SmokeCta50k.*"
+- extendedWaitUntil:
+    visible: ".*Editar Cuenta.*"
+    timeout: 5000
+- scroll
+- tapOn: ".*Incluir en saldo total.*"
+- tapOn: "Guardar"
+- extendedWaitUntil:
+    visible: "Cuentas"
+    timeout: 8000
+- back
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+- assertVisible: "\\$ 405\\.000,00"

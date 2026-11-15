@@ -1,0 +1,92 @@
+appId: com.example.finazaap.validation
+---
+# Lote 3: Auditoría de Pagos (Responsabilidades/TC), Reportes (Estadísticas) y Ajustes (SOLO Divisas)
+
+- stopApp: com.example.finazaap.validation
+- launchApp:
+    appId: com.example.finazaap.validation
+    clearState: false
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 15000
+
+# 1. Tab Pagos (Responsabilidades y Tarjetas)
+- tapOn: "Pagos"
+- extendedWaitUntil:
+    visible: ".*banco occidente.*|.*Responsabilidades.*|.*Pagos.*"
+    timeout: 8000
+- takeScreenshot: audit_04_pagos_initial
+
+# Abrir modal Acciones -> Nueva Obligación (captura y cerrar)
+- tapOn:
+    point: "87%,83%"
+- extendedWaitUntil:
+    visible: ".*Nueva Obligación.*"
+    timeout: 5000
+- tapOn: ".*Nueva Obligación.*"
+- extendedWaitUntil:
+    visible: ".*Obligación.*|.*Nombre.*|.*Monto.*"
+    timeout: 5000
+- takeScreenshot: audit_04_pagos_nueva_obligacion
+- back
+
+# 2. Tab Reportes (Estadísticas / Informes)
+- tapOn: "Reportes"
+- extendedWaitUntil:
+    visible: ".*Estadísticas.*|.*Reportes.*|.*Ingresos.*|.*Gastos.*"
+    timeout: 8000
+- takeScreenshot: audit_04_reportes_initial
+- runFlow:
+    when:
+      visible: "Gastos"
+    commands:
+      - tapOn: "Gastos"
+      - takeScreenshot: audit_04_reportes_gastos
+- runFlow:
+    when:
+      visible: "Ingresos"
+    commands:
+      - tapOn: "Ingresos"
+      - takeScreenshot: audit_04_reportes_ingresos
+
+# 3. Tab Ajustes — SOLO Divisas (no tocar PIN, biometría, notificaciones ni temas)
+- tapOn: "Ajustes"
+- extendedWaitUntil:
+    visible: ".*Ajustes.*|.*Configuración.*"
+    timeout: 8000
+- scrollUntilVisible:
+    element: ".*Divisa.*|.*Moneda.*"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: audit_04_ajustes_divisas_entry
+- tapOn: ".*Divisa.*|.*Moneda.*"
+- extendedWaitUntil:
+    visible: ".*USD.*|.*COP.*"
+    timeout: 5000
+- takeScreenshot: audit_04_divisas_selector
+
+# Cambiar temporalmente a USD si está visible y volver a Inicio para comprobar formato
+- runFlow:
+    when:
+      visible: ".*USD.*"
+    commands:
+      - tapOn: ".*USD.*"
+      - tapOn: "Inicio"
+      - extendedWaitUntil:
+          visible: "Transacciones"
+          timeout: 8000
+      - takeScreenshot: audit_04_home_usd
+      # Restaurar COP inmediatamente
+      - tapOn: "Ajustes"
+      - scrollUntilVisible:
+          element: ".*Divisa.*|.*Moneda.*"
+          direction: DOWN
+          timeout: 10000
+      - tapOn: ".*Divisa.*|.*Moneda.*"
+      - tapOn: ".*COP.*"
+      - tapOn: "Inicio"
+      - extendedWaitUntil:
+          visible: "Transacciones"
+          timeout: 8000
+      - assertVisible: "\\$ 405\\.000,00"
