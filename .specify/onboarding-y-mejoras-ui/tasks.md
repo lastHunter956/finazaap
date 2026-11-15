@@ -23,5 +23,5 @@
 - [x] **Pruebas Lote 2:** Unit tests de `OnboardingService`, widget tests de los 5 pasos/omisión/abandono/reanudación/usuario existente/no duplicación/accesibilidad, `dart analyze` y suite Flutter completa en Docker (`235/235` pasaron).
 
 ## Lote 3 — Integración y Validación
-- [ ] Consolidar cambios y verificar suite completa en Docker.
-- [ ] Crear flujos `.maestro/` con datos sintéticos para `com.example.finazaap.validation` (sin instalar APKs sin aprobación explícita con metadatos completos).
+- [x] Consolidar cambios en `integration/onboarding-y-mejoras-ui` y verificar suite completa en Docker (`235/235`).
+- [x] Crear flujo `.maestro/onboarding_y_mejoras_ui_validation.yaml` con datos sintéticos para `com.example.finazaap.validation` (sin instalar APKs sin aprobación explícita con metadatos completos).

@@ -1,0 +1,54 @@
+appId: com.example.finazaap.validation
+---
+# ==============================================================================
+# Flujo E2E Maestro: Onboarding Inicial y Reapertura desde Ajustes (Sintético)
+# ==============================================================================
+# Requisitos:
+#   - Ejecutar únicamente contra com.example.finazaap.validation (flavor validation).
+#   - Datos 100% sintéticos; no altera datos reales de com.example.finazaap.
+# ==============================================================================
+
+- launchApp:
+    clearState: true
+
+# Paso 1: Bienvenida y texto de privacidad verificable
+- assertVisible: "Bienvenido a Moneo"
+- assertVisible: "Tus datos se guardan en tu dispositivo. Moneo no requiere una cuenta en la nube para usar sus funciones principales."
+- tapOn: "Comenzar"
+
+# Paso 2: Selección de categorías (sin siembra automática previa)
+- assertVisible: "Paso 2 de 5"
+- tapOn: "Alimentación"
+- tapOn: "Guardar y continuar"
+
+# Paso 3: Creación de primera cuenta sintética
+- assertVisible: "Paso 3 de 5"
+- tapOn: "Nombre de la cuenta"
+- inputText: "Efectivo Sintetico"
+- tapOn: "Saldo inicial"
+- eraseText: 5
+- inputText: "50000"
+- tapOn: "Crear cuenta y continuar"
+
+# Paso 4: Registro del primer movimiento real sintético
+- assertVisible: "Paso 4 de 5"
+- tapOn: "Monto"
+- inputText: "12000"
+- tapOn: "Guardar movimiento"
+
+# Paso 5: Resumen final y navegación a Home
+- assertVisible: "Paso 5 de 5"
+- assertVisible: "¡Todo listo!"
+- tapOn: "Ir a Inicio"
+
+# Verificación de reapertura desde Ajustes
+- tapOn: "Ajustes"
+- scrollUntilVisible:
+    element: "Guía inicial"
+    direction: DOWN
+- tapOn: "Guía inicial"
+- assertVisible: "Bienvenido a Moneo"
+- tapOn: "Omitir"
+- tapOn:
+    text: "Omitir"
+    index: 1
