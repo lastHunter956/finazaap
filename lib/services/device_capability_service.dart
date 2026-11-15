@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 const _minFreeStorageGB = 3.5;
@@ -36,7 +37,13 @@ class DeviceCapabilityResult {
 class DeviceCapabilityService {
   static const _channel = MethodChannel(_channelName);
 
+  @visibleForTesting
+  static Future<DeviceCapabilityResult> Function()? checkOverride;
+
   static Future<DeviceCapabilityResult> check() async {
+    if (checkOverride != null) {
+      return checkOverride!();
+    }
     double freeMB = 0.0;
     try {
       if (Platform.isAndroid) {

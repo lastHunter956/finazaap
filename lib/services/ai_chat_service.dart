@@ -360,6 +360,8 @@ class AiChatService extends ChangeNotifier {
               } else {
                 throw Exception(
                   'INCOMPATIBLE: RAM ${cap.totalRAMGB?.toStringAsFixed(1) ?? "?"} GB | '
+                  'RAM disp ${cap.availRAMGB?.toStringAsFixed(1) ?? "?"} GB | '
+                  'lowMemory ${cap.lowMemory} | '
                   'Espacio ${cap.freeStorageGB.toStringAsFixed(1)} GB | '
                   'ARM64: ${cap.isArm64}',
                 );
@@ -475,7 +477,28 @@ class AiChatService extends ChangeNotifier {
   Future<void> setModelUrl(String url) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('ai_model_url', url);
+    _deviceCapability = null;
+    _gemmaError = null;
+    notifyListeners();
     await _tryLoadGemmaModel(customMobileUrl: url, allowDownload: true);
+  }
+
+  /// Re-evalúa las capacidades del dispositivo sin iniciar descarga automática.
+  Future<void> recheckDeviceCapability() async {
+    _deviceCapability = null;
+    _gemmaError = null;
+    notifyListeners();
+    await _tryLoadGemmaModel(allowDownload: false);
+  }
+
+  @visibleForTesting
+  void resetCapabilityStateForTest() {
+    _gemmaInitializing = false;
+    _initCompleter = null;
+    _checkingDeviceSpecs = false;
+    _deviceCapability = null;
+    _gemmaError = null;
+    _gemmaInitialized = false;
   }
 
   /// Construye el prompt del sistema con contexto financiero del usuario

@@ -107,12 +107,15 @@ void main() {
     });
 
     setUp(() async {
+      AiChatService().resetCapabilityStateForTest();
       SharedPreferences.setMockInitialValues({'ai_use_local_simulator': false});
       await Hive.openBox<Add_data>('data');
       await AiChatService().setSimulatorMode(false);
     });
 
     tearDown(() async {
+      DeviceCapabilityService.checkOverride = null;
+      AiChatService().resetCapabilityStateForTest();
       await AiChatService().setSimulatorMode(true);
       await Hive.close();
     });
@@ -152,6 +155,55 @@ void main() {
         await tester.pump();
 
         expect(find.text(typedUrl), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'muestra 4a fila RAM disponible y Reintentar verificación cuando solo falta RAM libre sin autodescarga',
+      (tester) async {
+        DeviceCapabilityService.checkOverride = () async =>
+            const DeviceCapabilityResult(
+              freeStorageGB: 32.9,
+              totalRAMGB: 7.6,
+              availRAMGB: 1.4,
+              lowMemory: false,
+              isArm64: true,
+            );
+        addTearDown(() => DeviceCapabilityService.checkOverride = null);
+
+        final service = AiChatService();
+        service.resetDownloadMetrics();
+        await service.recheckDeviceCapability();
+
+        expect(service.deviceCapability, isNotNull);
+        expect(service.deviceCapability!.hasEnoughStorage, isTrue);
+        expect(service.deviceCapability!.hasEnoughRAM, isTrue);
+        expect(service.deviceCapability!.hasCompatProcessor, isTrue);
+        expect(service.deviceCapability!.hasEnoughAvailableRAM, isFalse);
+        expect(service.gemmaError, contains('RAM disp'));
+        expect(service.downloadAttemptCount, 0);
+        expect(service.networkRequestCount, 0);
+
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildThemeData(AppThemeMode.defaultDark),
+            home: const AiChatScreen(),
+          ),
+        );
+
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 60));
+        }
+
+        expect(find.text('RAM disponible'), findsOneWidget);
+        expect(
+          find.text('RAM disponible insuficiente en este momento'),
+          findsOneWidget,
+        );
+        expect(find.text('Reintentar verificación'), findsOneWidget);
       },
     );
   });

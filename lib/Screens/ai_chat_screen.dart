@@ -809,6 +809,14 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   Widget _buildIncompatibilityBanner(DeviceCapabilityResult cap) {
     final t = context.appTheme;
+    final bool onlyAvailRamLow = cap.hasEnoughStorage &&
+        cap.hasEnoughRAM &&
+        cap.hasCompatProcessor &&
+        !cap.hasEnoughAvailableRAM;
+    final String availRamValue = cap.availRAMGB != null
+        ? '${cap.availRAMGB!.toStringAsFixed(1)} GB${cap.lowMemory ? ' (memoria baja)' : ''}'
+        : (cap.lowMemory ? 'memoria baja' : 'desconocida');
+
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -825,7 +833,9 @@ class _AiChatScreenState extends State<AiChatScreen>
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Tu dispositivo no tiene los recursos suficientes',
+                  onlyAvailRamLow
+                      ? 'RAM disponible insuficiente en este momento'
+                      : 'Tu dispositivo no tiene los recursos suficientes',
                   style: GoogleFonts.outfit(
                     color: t.warning,
                     fontSize: 12,
@@ -851,6 +861,12 @@ class _AiChatScreenState extends State<AiChatScreen>
             '≥ 4 GB',
           ),
           _specRow(
+            'RAM disponible',
+            availRamValue,
+            cap.hasEnoughAvailableRAM,
+            '≥ 2.0 GB',
+          ),
+          _specRow(
             'Procesador',
             cap.isArm64 ? 'ARM64' : 'No ARM64',
             cap.hasCompatProcessor,
@@ -858,8 +874,32 @@ class _AiChatScreenState extends State<AiChatScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            'Aun así, puedes intentarlo ingresando la URL de un modelo más ligero abajo.',
+            onlyAvailRamLow
+                ? 'Cierra aplicaciones en segundo plano para liberar RAM y reintenta, o usa la URL de un modelo más ligero.'
+                : 'Aun así, puedes intentarlo ingresando la URL de un modelo más ligero abajo.',
             style: GoogleFonts.outfit(color: t.textHint, fontSize: 10),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _chatService.isCheckingDeviceSpecs
+                  ? null
+                  : () => _chatService.recheckDeviceCapability(),
+              icon: const Icon(Icons.refresh_rounded, size: 15),
+              label: Text(
+                'Reintentar verificación',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
           ),
         ],
       ),
