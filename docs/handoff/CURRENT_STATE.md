@@ -1,13 +1,22 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-14 (Cierre de Lote A + Lote E `T2.1`/`T2.2` compatible en `agent/ui/t1-3c-daily-transactions-delete` @ `498bd39`; ver detalle y bloqueos pendientes en `docs/audit/CONTINUITY_STATE.md`)  
+> **Última actualización:** 2026-11-15 (Integración en `main` del lote correctivo `agent/maestro/audit-fixes` validado en `R5CY21GE9YY` y Docker Flutter `3.44.2`: `221/221` tests pasaron)
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `agent/ui/t1-3c-daily-transactions-delete` (desde `05379fa`, rama con todas las correcciones acumuladas de Ola 1: `agent/ui/t1-1-account-item-dedup` @ `05379fa`; **sin `git push` ni `merge` a `main`**). `main` permanece en `bab211f`. Tag de seguridad previo: `pre-sprint-2-main` -> `2369699`.
+- **Rama actual:** `main` (fusionada mediante `--ff-only` tras validación en dispositivo `R5CY21GE9YY` y suite completa en Docker; **sin `git push`**).
+- **Entorno Docker reproducible:** `Dockerfile` y `docker-compose.yml` fijados en `FLUTTER_VERSION=3.44.2` (`image: finazaap-flutter-env:3.44.2`).
+- **Correcciones integradas en `main` (`agent/maestro/audit-fixes`):**
+  - Formularios (`add_expense.dart`, `add.dart`, `transfer.dart`): conservan estado ante validación inválida, muestran `'Sin categorías · Crear'` navegando a `CategoriesScreen` y preservan fecha completa.
+  - UI/Accesibilidad (`liquid_glass_surface.dart`, `selecctaccount.dart`, `daily_transactions.dart`, `categories_screen.dart`, `settings_screen.dart`): clearance sobre FAB (`108px`), `Semantics` y `tooltip` en FABs (`Nueva operación`, `Nueva cuenta`, `Nueva categoría`), y selector de divisa separado en `Ajustes`.
+  - Divisas y TC (`currency_helper.dart`, `credit_card_calculator.dart`): código ISO (`COP`) en importes ambiguos y documentación de regla post-corte en cuotas de TC.
+  - IA offline (`ai_chat_service.dart`): sin descarga automática de Gemma al abrir `Chat`, con métricas de intentos/red/bytes.
+  - Flavor de validación (`android/app/build.gradle`): `productFlavors` (`prod` + `validation` con `applicationIdSuffix ".validation"`).
+  - Refresco de `Disponible` (`home.dart`) e inicialización Hive de `ResponsibilityService` (`main.dart` + `_ensureBox()` en `responsibility_service.dart`).
+- **Pendiente:** medición de rendimiento en `--profile` (`app-validation-profile.apk` pendiente de recompilar/instalar/medir tras aprobación) y `git push` cuando el usuario lo autorice.
 - **Integración `ui-temas-y-asistente` aprobada y fusionada en `main`:**
   - `lib/themes/app_theme_data.dart`: contraste WCAG 2.1 AA (`>=4.5:1`) y AAA (`>=7.0:1`) verificado sobre las **3 superficies** (`primaryBackground`, `cardBackground`, `darkBackground`) en `_diurno`, `_dia` y `_nocturno` (Dracula oficial); `_defaultDark` 100% intacto sin modificaciones; re-exporta `lib/widgets/liquid_glass_surface.dart`.
   - **Navegación, FAB `+`, Scroll Clearance y Movimiento (`Diurno`)**: `lib/widgets/liquid_glass_surface.dart` (`MoneoLayoutMetrics`, `MoneoNavBarScope`, `MoneoSpringMotion` con `SpringSimulation(mass: 1.0, stiffness: 380.0, damping: 30.0)`, `MoneoPressableScale`, `LiquidGlassSurface`), `MainContainer` (`effectiveBottomClearance`), `CustomPillBottomNavBar` (cápsula proporcional con continuidad `SpringSimulation` en `Diurno`), `FloatingActionMenu` (`t.buttonBackground`/`t.buttonForeground` con contraste AA) y `TotalBalanceCard` (`MoneoPressableScale` discreto en segmentos `Diurno`).
