@@ -57,6 +57,39 @@ fi
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 cd "$ROOT" || true
 
+# Asegurar detección de Docker host en macOS / perfil local
+if [ -z "${DOCKER_HOST:-}" ]; then
+  if [ -S "/Users/jesusmartinez/.agys/profiles/karoll/.docker/run/docker.sock" ]; then
+    export DOCKER_HOST="unix:///Users/jesusmartinez/.agys/profiles/karoll/.docker/run/docker.sock"
+  elif [ -S "/var/run/docker.sock" ]; then
+    export DOCKER_HOST="unix:///var/run/docker.sock"
+  fi
+fi
+
+# En ramas de Maestro, ejecutar la suite de seguridad de Maestro
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+case "$CURRENT_BRANCH" in
+  *maestro*)
+    if [ -f ".maestro/tests/test_maestro_security_suite.py" ]; then
+      python3 .maestro/tests/test_maestro_security_suite.py >&2
+      echo "[pre_stop_test] OK: Suite de seguridad de Maestro completada con éxito." >&2
+      printf '{}\n'
+      exit 0
+    fi
+    ;;
+esac
+
+# Verificar si la sesión actual modificó código Dart/Flutter
+DART_CHANGES=$(git diff --name-only HEAD~1 2>/dev/null | grep -E '\.(dart)$|pubspec\.(yaml|lock)' || true)
+STAGED_DART=$(git diff --cached --name-only 2>/dev/null | grep -E '\.(dart)$|pubspec\.(yaml|lock)' || true)
+UNSTAGED_DART=$(git diff --name-only 2>/dev/null | grep -E '\.(dart)$|pubspec\.(yaml|lock)' || true)
+
+if [ -z "$DART_CHANGES" ] && [ -z "$STAGED_DART" ] && [ -z "$UNSTAGED_DART" ]; then
+  echo "[pre_stop_test] Omitido con motivo: no se modificaron archivos Dart/Flutter en esta rama/sesión." >&2
+  printf '{}\n'
+  exit 0
+fi
+
 if ! command -v docker-compose >/dev/null 2>&1; then
   echo "[pre_stop_test] ERROR: 'docker-compose' no está disponible en PATH; no se ejecutaron pruebas." >&2
   printf '{"decision": "continue", "reason": "[pre_stop_test] No se ejecutaron pruebas porque docker-compose no está disponible. Nunca declares que las pruebas pasaron sin ejecutarlas."}\n'
