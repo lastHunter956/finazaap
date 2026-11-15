@@ -535,7 +535,10 @@ class _MyHomePageState extends State<MyHomePage> {
                       ? totals.currencies.first
                       : null;
                   return Text(
-                    CurrencyHelper.formatFor(totalBalance, singleCode),
+                    CurrencyHelper.formatWithCodeIfAmbiguous(
+                      totalBalance,
+                      singleCode,
+                    ),
                     style: TextStyle(
                       fontSize: AppSizes.fontTitle,
                       fontWeight: FontWeight.bold,
@@ -824,7 +827,10 @@ class _MyHomePageState extends State<MyHomePage> {
                         ],
                       ),
                       child: Text(
-                        '${CurrencyHelper.format(balanceValue)}',
+                        CurrencyHelper.formatWithCodeIfAmbiguous(
+                          balanceValue,
+                          item.currencyCode,
+                        ),
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -1128,19 +1134,30 @@ class _MyHomePageState extends State<MyHomePage> {
                                         child: Row(
                                           crossAxisAlignment: CrossAxisAlignment.end,
                                           children: [
-                                            Text(
-                                              CurrencyHelper.format(balanceValue),
-                                              style: TextStyle(
-                                                color: context.appTheme.textPrimary,
-                                                fontSize: 28,
-                                                fontWeight: FontWeight.w700,
+                                            Flexible(
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  CurrencyHelper.formatFor(
+                                                    balanceValue,
+                                                    account.currencyCode,
+                                                  ),
+                                                  style: TextStyle(
+                                                    color: context.appTheme.textPrimary,
+                                                    fontSize: 28,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
                                               ),
                                             ),
-                                            SizedBox(width: 4),
+                                            SizedBox(width: 6),
                                             Padding(
                                               padding: const EdgeInsets.only(bottom: 4),
                                               child: Text(
-                                                '\$',
+                                                CurrencyHelper.normalizeCode(
+                                                  account.currencyCode,
+                                                ),
                                                 style: TextStyle(
                                                   color: context.appTheme.textSecondary,
                                                   fontSize: 18,

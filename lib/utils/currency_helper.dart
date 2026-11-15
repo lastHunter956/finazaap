@@ -216,6 +216,40 @@ class CurrencyHelper {
     }
   }
 
+  /// Indica si el símbolo de [currencyCode] es compartido por múltiples monedas (ej. `$`).
+  static bool hasAmbiguousSymbol(String? currencyCode) {
+    final targetSymbol = symbolFor(currencyCode);
+    int matches = 0;
+    for (final entry in _currencyConfig.values) {
+      if (entry['symbol'] == targetSymbol) {
+        matches++;
+        if (matches > 1) return true;
+      }
+    }
+    return false;
+  }
+
+  /// Formatea [amount] en [currencyCode] añadiendo el código ISO cuando el símbolo es ambiguo
+  /// o la moneda difiere de la global activa. No realiza conversiones.
+  static String formatWithCodeIfAmbiguous(
+    double amount,
+    String? currencyCode, {
+    bool showSymbol = true,
+    int? decimalDigits,
+  }) {
+    final normalized = normalizeCode(currencyCode);
+    final formatted = formatFor(
+      amount,
+      normalized,
+      showSymbol: showSymbol,
+      decimalDigits: decimalDigits,
+    );
+    if (hasAmbiguousSymbol(normalized) || normalized != _cachedCurrency) {
+      return '$formatted $normalized';
+    }
+    return formatted;
+  }
+
   /// Formatea desde String usando la divisa global activa.
   static String formatString(String amountStr, {bool showSymbol = true, int? decimalDigits}) {
     return formatStringFor(
