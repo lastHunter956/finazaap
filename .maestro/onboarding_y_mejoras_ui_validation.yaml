@@ -34,6 +34,7 @@ appId: com.example.finazaap.validation
 - assertVisible: "Paso 4 de 5"
 - tapOn: "Monto"
 - inputText: "12000"
+- hideKeyboard
 - tapOn: "Guardar movimiento"
 
 # Paso 5: Resumen final y navegación a Home
