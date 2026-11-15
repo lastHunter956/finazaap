@@ -211,5 +211,46 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+
+    testWidgets(
+      'Paso 2 permite crear categoría propia sin bloquear la pantalla y Paso 3 no ofrece Tarjeta de crédito',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(360, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          wrapCompact(const OnboardingScreen(initialStep: 1)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Paso 2 de 5'), findsOneWidget);
+        await tester.ensureVisible(find.text('Crear categoría propia'));
+        await tester.tap(find.text('Crear categoría propia'));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Nueva categoría'), findsOneWidget);
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Nombre de la categoría'),
+          'Mascotas',
+        );
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Crear'));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Mascotas'), findsOneWidget);
+
+        await tester.ensureVisible(find.text('Guardar y continuar'));
+        await tester.tap(find.text('Guardar y continuar'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Paso 3 de 5'), findsOneWidget);
+        expect(find.text('Efectivo'), findsOneWidget);
+        expect(find.text('Cuenta bancaria'), findsOneWidget);
+        expect(find.text('Billetera digital'), findsOneWidget);
+        expect(find.text('Tarjeta de crédito'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

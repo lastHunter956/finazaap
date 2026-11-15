@@ -52,7 +52,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'Efectivo',
     'Cuenta bancaria',
     'Billetera digital',
-    'Tarjeta de crédito',
   ];
 
   late final PageController _pageController;
@@ -246,80 +245,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _showCreateCategoryDialog() async {
-    final nameCtrl = TextEditingController();
-    int dialogType = _categoryTabIndex;
-    String? errorMsg;
-
     final created = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: context.appTheme.cardBackground,
-          title: Text(
-            'Nueva categoría',
-            style: TextStyle(color: context.appTheme.textPrimary),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              MoneoSegmentedControl<int>(
-                options: const [
-                  MoneoSegmentOption(value: 0, label: 'Egreso'),
-                  MoneoSegmentOption(value: 1, label: 'Ingreso'),
-                ],
-                selectedValue: dialogType,
-                onChanged: (idx) => setDialogState(() => dialogType = idx),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Nombre de la categoría',
-                  errorText: errorMsg,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final name = nameCtrl.text.trim();
-                if (name.isEmpty) {
-                  setDialogState(
-                    () => errorMsg = 'Por favor ingresa un nombre',
-                  );
-                  return;
-                }
-                final pool = dialogType == 0
-                    ? {..._existingExpenses, ..._suggestedExpenses, ..._customExpenses}
-                    : {..._existingIncomes, ..._suggestedIncomes, ..._customIncomes};
-                if (pool.any((e) => e.toLowerCase() == name.toLowerCase())) {
-                  setDialogState(
-                    () => errorMsg = 'Ya existe una categoría con ese nombre',
-                  );
-                  return;
-                }
-                Navigator.of(ctx).pop({'name': name, 'type': dialogType});
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: context.appTheme.buttonBackground,
-                foregroundColor: context.appTheme.buttonForeground,
-                minimumSize: const Size(48, 48),
-              ),
-              child: const Text('Crear'),
-            ),
-          ],
-        ),
+      builder: (ctx) => _CreateCategoryDialog(
+        initialType: _categoryTabIndex,
+        expensePool: {
+          ..._existingExpenses,
+          ..._suggestedExpenses,
+          ..._customExpenses,
+        },
+        incomePool: {
+          ..._existingIncomes,
+          ..._suggestedIncomes,
+          ..._customIncomes,
+        },
       ),
     );
 
-    nameCtrl.dispose();
     if (created == null || !mounted) return;
     final name = created['name'] as String;
     final type = created['type'] as int;
@@ -504,6 +446,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Expanded(
                 child: Semantics(
                   label: stepLabel,
+                  excludeSemantics: true,
                   child: Text(
                     stepLabel,
                     style: TextStyle(
@@ -1109,6 +1052,130 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         child: Text(label, textAlign: TextAlign.center),
       ),
+    );
+  }
+}
+
+class _CreateCategoryDialog extends StatefulWidget {
+  final int initialType;
+  final Set<String> expensePool;
+  final Set<String> incomePool;
+
+  const _CreateCategoryDialog({
+    required this.initialType,
+    required this.expensePool,
+    required this.incomePool,
+  });
+
+  @override
+  State<_CreateCategoryDialog> createState() => _CreateCategoryDialogState();
+}
+
+class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
+  final TextEditingController _nameCtrl = TextEditingController();
+  late int _dialogType;
+  String? _errorMsg;
+
+  @override
+  void initState() {
+    super.initState();
+    _dialogType = widget.initialType;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  Widget _buildTypeButton(int typeValue, String label) {
+    final selected = _dialogType == typeValue;
+    final theme = context.appTheme;
+    return Expanded(
+      child: Semantics(
+        selected: selected,
+        child: SizedBox(
+          height: 48,
+          child: OutlinedButton(
+            onPressed: () => setState(() => _dialogType = typeValue),
+            style: OutlinedButton.styleFrom(
+              backgroundColor:
+                  selected ? theme.buttonBackground : Colors.transparent,
+              foregroundColor:
+                  selected ? theme.buttonForeground : theme.textPrimary,
+              side: BorderSide(
+                color: selected ? theme.buttonBackground : theme.borderSubtle,
+              ),
+            ),
+            child: Text(label),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _submit() {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _errorMsg = 'Por favor ingresa un nombre');
+      return;
+    }
+    final pool = _dialogType == 0 ? widget.expensePool : widget.incomePool;
+    if (pool.any((e) => e.toLowerCase() == name.toLowerCase())) {
+      setState(() => _errorMsg = 'Ya existe una categoría con ese nombre');
+      return;
+    }
+    Navigator.of(context).pop({'name': name, 'type': _dialogType});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.appTheme;
+    return AlertDialog(
+      backgroundColor: theme.cardBackground,
+      title: Text(
+        'Nueva categoría',
+        style: TextStyle(color: theme.textPrimary),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                _buildTypeButton(0, 'Egreso'),
+                const SizedBox(width: 8),
+                _buildTypeButton(1, 'Ingreso'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _nameCtrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Nombre de la categoría',
+                errorText: _errorMsg,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _submit,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.buttonBackground,
+            foregroundColor: theme.buttonForeground,
+            minimumSize: const Size(48, 48),
+          ),
+          child: const Text('Crear'),
+        ),
+      ],
     );
   }
 }
