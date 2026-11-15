@@ -127,6 +127,28 @@ class AiChatService extends ChangeNotifier {
   @visibleForTesting
   Future<AiChatSessionAdapter> Function(String systemInstruction)? testSessionCreator;
 
+  @visibleForTesting
+  Future<bool> Function(String filename)? isModelInstalledOverride;
+
+  @visibleForTesting
+  Future<int> Function(String url, void Function(double progress) onProgress)?
+      networkDownloadOverride;
+
+  int _downloadAttemptCount = 0;
+  int _networkRequestCount = 0;
+  int _bytesTransferred = 0;
+
+  int get downloadAttemptCount => _downloadAttemptCount;
+  int get networkRequestCount => _networkRequestCount;
+  int get bytesTransferred => _bytesTransferred;
+
+  @visibleForTesting
+  void resetDownloadMetrics() {
+    _downloadAttemptCount = 0;
+    _networkRequestCount = 0;
+    _bytesTransferred = 0;
+  }
+
   static const _defaultModelUrl =
       'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
 
@@ -207,9 +229,9 @@ class AiChatService extends ChangeNotifier {
         ];
       }
 
-      // Intentar cargar Gemma si no está en modo simulador
+      // Intentar cargar Gemma solo si ya está instalado localmente (nunca descargar al abrir Chat)
       if (!_useLocalSimulator) {
-        _tryLoadGemmaModel();
+        await _tryLoadGemmaModel(allowDownload: false);
       }
 
       // Analizar transacciones para actualizar perfil en el arranque
@@ -226,7 +248,10 @@ class AiChatService extends ChangeNotifier {
   /// 1. Verificar si ya hay un modelo instalado (getActiveModel sin instalar)
   /// 2. Si no, instalar desde la fuente correcta para la plataforma
   /// 3. Crear sesión de chat con contexto financiero
-  Future<void> _tryLoadGemmaModel({String? customMobileUrl}) async {
+  Future<void> _tryLoadGemmaModel({
+    String? customMobileUrl,
+    bool allowDownload = false,
+  }) async {
     if (_gemmaInitializing) {
       if (_initCompleter != null) {
         AppLogger.info('Gemma ya está inicializándose. Esperando a que termine...');
@@ -281,18 +306,40 @@ class AiChatService extends ChangeNotifier {
               : Uri.base.resolve('models/gemma.litertlm').toString();
           
           final filename = Uri.parse(absoluteUrl).pathSegments.last;
-          final isInstalled = await FlutterGemma.isModelInstalled(filename);
-          
+          final isInstalled = isModelInstalledOverride != null
+              ? await isModelInstalledOverride!(filename)
+              : await FlutterGemma.isModelInstalled(filename);
+
+          if (!isInstalled && !allowDownload) {
+            AppLogger.info('Web: Modelo no instalado; se omite descarga automática.');
+            _gemmaError = 'Modelo no descargado. Descárgalo manualmente cuando lo necesites.';
+            _gemmaInitialized = false;
+            _isDownloading = false;
+            return;
+          }
+
           if (isInstalled) {
             AppLogger.info('Web: El modelo ya está instalado, activándolo...');
+            await FlutterGemma.installModel(
+              modelType: ModelType.gemma4,
+              fileType: ModelFileType.litertlm,
+            ).fromNetwork(absoluteUrl).install();
           } else {
             AppLogger.info('Web: descargando desde $absoluteUrl');
+            _downloadAttemptCount++;
+            _networkRequestCount++;
+            if (networkDownloadOverride != null) {
+              _bytesTransferred += await networkDownloadOverride!(absoluteUrl, (p) {
+                _downloadProgress = p.clamp(0.0, 1.0);
+                notifyListeners();
+              });
+            } else {
+              await FlutterGemma.installModel(
+                modelType: ModelType.gemma4,
+                fileType: ModelFileType.litertlm,
+              ).fromNetwork(absoluteUrl).install();
+            }
           }
-          
-          await FlutterGemma.installModel(
-            modelType: ModelType.gemma4,
-            fileType: ModelFileType.litertlm,
-          ).fromNetwork(absoluteUrl).install();
         } else {
           // Android / iOS: necesitamos una URL del modelo
           var mobileUrl = customMobileUrl ?? await _getSavedModelUrl();
@@ -327,7 +374,17 @@ class AiChatService extends ChangeNotifier {
           
           final resolvedUrl = mobileUrl!;
           final filename = Uri.parse(resolvedUrl).pathSegments.last;
-          final isInstalled = await FlutterGemma.isModelInstalled(filename);
+          final isInstalled = isModelInstalledOverride != null
+              ? await isModelInstalledOverride!(filename)
+              : await FlutterGemma.isModelInstalled(filename);
+
+          if (!isInstalled && !allowDownload) {
+            AppLogger.info('Android/iOS: Modelo no instalado; se omite descarga automática.');
+            _gemmaError = 'Modelo no descargado. Descárgalo manualmente cuando lo necesites.';
+            _gemmaInitialized = false;
+            _isDownloading = false;
+            return;
+          }
 
           if (isInstalled) {
             AppLogger.info('Android/iOS: El modelo ya está instalado localmente, activándolo...');
@@ -338,21 +395,30 @@ class AiChatService extends ChangeNotifier {
             ).fromNetwork(resolvedUrl).install();
           } else {
             AppLogger.info('Android/iOS: descargando desde $resolvedUrl');
+            _downloadAttemptCount++;
             _isDownloading = true;
             _downloadProgress = 0.0;
             notifyListeners();
 
-            await FlutterGemma.installModel(
-              modelType: ModelType.gemma4,
-              fileType: ModelFileType.litertlm,
-            )
-                .fromNetwork(resolvedUrl)
-                .withProgress((progress) {
-                  _downloadProgress = (progress / 100.0).clamp(0.0, 1.0);
-                  notifyListeners();
-                })
-                .install();
-            
+            _networkRequestCount++;
+            if (networkDownloadOverride != null) {
+              _bytesTransferred += await networkDownloadOverride!(resolvedUrl, (p) {
+                _downloadProgress = p.clamp(0.0, 1.0);
+                notifyListeners();
+              });
+            } else {
+              await FlutterGemma.installModel(
+                modelType: ModelType.gemma4,
+                fileType: ModelFileType.litertlm,
+              )
+                  .fromNetwork(resolvedUrl)
+                  .withProgress((progress) {
+                    _downloadProgress = (progress / 100.0).clamp(0.0, 1.0);
+                    notifyListeners();
+                  })
+                  .install();
+            }
+
             _isDownloading = false;
           }
         }
@@ -405,11 +471,11 @@ class AiChatService extends ChangeNotifier {
     return prefs.getString('ai_model_url');
   }
 
-  /// Guarda una URL de modelo y dispara la descarga
+  /// Guarda una URL de modelo y dispara la descarga explícita
   Future<void> setModelUrl(String url) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('ai_model_url', url);
-    await _tryLoadGemmaModel(customMobileUrl: url);
+    await _tryLoadGemmaModel(customMobileUrl: url, allowDownload: true);
   }
 
   /// Construye el prompt del sistema con contexto financiero del usuario
