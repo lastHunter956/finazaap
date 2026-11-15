@@ -35,6 +35,14 @@ class ResponsibilityService {
     }
   }
 
+  /// Garantiza que la caja de responsabilidades esté abierta antes de operar.
+  static Future<Box<Responsibility>> _ensureBox() async {
+    if (_box == null || !_box!.isOpen) {
+      await init();
+    }
+    return getBox();
+  }
+
   // Obtener el box
   static Box<Responsibility> getBox() {
     if (_box == null || !_box!.isOpen) {
@@ -81,7 +89,7 @@ class ResponsibilityService {
   // Marcar como pagado/no pagado
   // Marcar como pagado/no pagado
   static Future<void> togglePaidStatus(String id, {int? month, int? year, DateTime? specificDate}) async {
-    final box = getBox();
+    final box = await _ensureBox();
     try {
       final index = box.values.toList().indexWhere((r) => r.safeId == id);
       if (index == -1) return;
@@ -217,14 +225,14 @@ class ResponsibilityService {
 
   // Agregar nueva responsabilidad
   static Future<void> addResponsibility(Responsibility responsibility) async {
-    final box = getBox();
+    final box = await _ensureBox();
     responsibility.id = const Uuid().v4();
     await box.add(responsibility);
   }
 
   // Actualizar responsabilidad existente
   static Future<void> updateResponsibility(Responsibility responsibility) async {
-    final box = getBox();
+    final box = await _ensureBox();
     final index = box.values.toList().indexWhere((r) => r.safeId == responsibility.safeId);
     if (index == -1) {
       // Si no existe, agregarla
@@ -237,14 +245,14 @@ class ResponsibilityService {
 
   // Eliminar responsabilidad
   static Future<void> deleteResponsibility(String id) async {
-    final box = getBox();
+    final box = await _ensureBox();
     final responsibility = box.values.firstWhere((r) => r.safeId == id);
     await responsibility.delete();
   }
 
   // Resetear estados de pago al inicio de mes (llamar manualmente o con scheduler)
   static Future<void> resetMonthlyPayments() async {
-    final box = getBox();
+    final box = await _ensureBox();
     final now = DateTime.now();
     
     for (var responsibility in box.values) {
@@ -263,6 +271,7 @@ class ResponsibilityService {
 
   // Crear responsabilidad automáticamente desde una cuenta
   static Future<void> createFromAccount(AccountItem account) async {
+    await _ensureBox();
     // Verificar si ya existe una responsabilidad con ese nombre (insensible a mayúsculas/espacios)
     final normalizedTitle = account.title.trim().toLowerCase();
     final existing = getAllResponsibilities().any(
@@ -306,7 +315,7 @@ class ResponsibilityService {
 
   // Procesar aumento de deuda (Compra con tarjeta)
   static Future<void> processDebtIncrease(String accountName, double amount, [int installments = 1, bool isInterestFree = true, DateTime? transactionDate]) async {
-    final box = getBox();
+    final box = await _ensureBox();
     try {
       // Usar índice para putAt
       final index = box.values.toList().indexWhere((r) => r.safeName == accountName && r.safeCategory == 'tarjeta');
@@ -407,7 +416,7 @@ class ResponsibilityService {
 
   // Revertir una compra (Eliminar transacción de gasto)
   static Future<void> processDebtReversal(String accountName, double amount, DateTime transactionDate, [int installments = 1, bool isInterestFree = true]) async {
-    final box = getBox();
+    final box = await _ensureBox();
     try {
       // Usar índice para putAt
       final index = box.values.toList().indexWhere((r) => r.safeName == accountName && r.safeCategory == 'tarjeta');
@@ -527,7 +536,7 @@ class ResponsibilityService {
   // - Pago total: Limpia toda la deuda
   // - Abono a capital: Pago extra que reduce cuotas futuras
   static Future<void> processDebtPayment(String accountName, double amount, {DateTime? paymentDate, int? targetMonth, int? targetYear}) async {
-    final box = getBox();
+    final box = await _ensureBox();
     try {
       final index = box.values.toList().indexWhere((r) => r.safeName == accountName && r.safeCategory == 'tarjeta');
       if (index == -1) {
@@ -609,7 +618,7 @@ class ResponsibilityService {
 
   // Revertir un pago (cuando se elimina o edita una transferencia a tarjeta)
   static Future<void> processPaymentReversal(String accountName, double amount, DateTime originalPaymentDate) async {
-    final box = getBox();
+    final box = await _ensureBox();
     try {
       final index = box.values.toList().indexWhere((r) => r.safeName == accountName && r.safeCategory == 'tarjeta');
       if (index == -1) return;
@@ -673,7 +682,7 @@ class ResponsibilityService {
   }
   // Eliminar responsabilidad por nombre (Sync con eliminación de cuenta)
   static Future<void> deleteResponsibilityByName(String name) async {
-    final box = getBox();
+    final box = await _ensureBox();
     try {
       final responsibility = box.values.firstWhere((r) => 
         r.safeName.toLowerCase().trim() == name.toLowerCase().trim() && 
@@ -688,7 +697,7 @@ class ResponsibilityService {
 
   // Pagar el resto del mes (para frecuencias cortas: diario/semanal)
   static Future<void> payFullMonth(String id, int month, int year) async {
-    final box = getBox();
+    final box = await _ensureBox();
     final index = box.values.toList().indexWhere((r) => r.safeId == id);
     if (index == -1) return;
 
@@ -732,7 +741,7 @@ class ResponsibilityService {
     AccountItem newAccount, {
     String? responsibilityId,
   }) async {
-    final box = getBox();
+    final box = await _ensureBox();
     try {
       final list = box.values.toList();
       final normalizedOld = oldName.trim().toLowerCase();
@@ -773,7 +782,7 @@ class ResponsibilityService {
 
   // Sincronizar saldo de tarjeta desde transacciones
   static Future<void> syncCardBalance({required String cardName, required double amount, required bool isExpense}) async {
-    final box = getBox();
+    final box = await _ensureBox();
     try {
       // Buscar responsabilidad que coincida con el nombre y sea tarjeta
       // Usamos toLowerCase() para búsqueda flexible
@@ -806,7 +815,7 @@ class ResponsibilityService {
 
   /// Registrar un pago para cualquier responsabilidad (tarjeta, servicio, préstamo, etc.)
   static Future<void> registerPayment(String id, double payAmount, DateTime paymentDate, bool forcePaidComplete) async {
-    final box = getBox();
+    final box = await _ensureBox();
     try {
       final index = box.values.toList().indexWhere((r) => r.safeId == id);
       if (index == -1) {
@@ -877,7 +886,7 @@ class ResponsibilityService {
 
   /// Revertir un pago registrado previamente (cuando se edita o elimina la transacción)
   static Future<void> revertPayment(String id, double payAmount, DateTime originalPaymentDate) async {
-    final box = getBox();
+    final box = await _ensureBox();
     try {
       final index = box.values.toList().indexWhere((r) => r.safeId == id);
       if (index == -1) {

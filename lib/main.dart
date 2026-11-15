@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/model/responsibility.dart';
+import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/core/security/encryption_service.dart';
 import 'package:finazaap/services/notification_service.dart';
 import 'package:finazaap/presentation/screens/auth_splash_screen.dart';
@@ -52,6 +53,7 @@ void main() async {
       AppLogger.success('EncryptionService inicializado');
 
       await EncryptionService().openEncryptedBox<Add_data>('data');
+      await ResponsibilityService.init();
       AppLogger.success('Hive inicializado y cifrado correctamente');
     } catch (e) {
       AppLogger.error('CRITICAL: Fallo al inicializar Hive cifrado', error: e);
