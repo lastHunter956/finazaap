@@ -53,8 +53,13 @@ class FloatingActionMenu extends StatelessWidget {
                 ),
               ],
       ),
-      child: FloatingActionButton(
-        backgroundColor: buttonColor,
+      child: Semantics(
+        button: true,
+        identifier: 'fab_add_operation',
+        label: 'Nueva operación',
+        child: FloatingActionButton(
+          tooltip: 'Nueva operación',
+          backgroundColor: buttonColor,
         foregroundColor: foregroundColor,
         onPressed: () {
           HapticFeedback.mediumImpact();
@@ -101,6 +106,7 @@ class FloatingActionMenu extends StatelessWidget {
           Icons.add_rounded,
           color: foregroundColor,
           size: 32,
+        ),
         ),
       ),
     );

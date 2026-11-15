@@ -13,6 +13,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/widgets/liquid_glass_surface.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 
 class DailyTransactionsScreen extends StatefulWidget {
@@ -121,7 +122,12 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
                     ),
                   )
                 : SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: MoneoLayoutMetrics.scrollBottomPadding(
+                      context,
+                      hasFab: true,
+                      horizontal: 16,
+                      top: 10,
+                    ),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {

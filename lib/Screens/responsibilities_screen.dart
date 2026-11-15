@@ -349,8 +349,13 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
               ),
             ],
           ),
-          child: FloatingActionButton(
-            heroTag: "responsibilities_fab",
+          child: Semantics(
+            button: true,
+            identifier: 'fab_add_responsibility',
+            label: 'Nueva obligación o pago',
+            child: FloatingActionButton(
+              heroTag: "responsibilities_fab",
+              tooltip: 'Nueva obligación o pago',
             onPressed: _showActionsMenu,
             backgroundColor: context.appTheme.buttonBackground,
             foregroundColor: context.appTheme.buttonForeground,
@@ -363,6 +368,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
               Icons.add_rounded,
               size: 32,
               color: context.appTheme.buttonForeground,
+            ),
             ),
           ),
         ),

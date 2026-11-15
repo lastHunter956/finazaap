@@ -594,39 +594,61 @@ class _SettingsScreenState extends State<SettingsScreen>
                   color: context.appTheme.cardBackground,
                   borderRadius: BorderRadius.circular(12),
                   clipBehavior: Clip.antiAlias,
-                  child: ListTile(
-                    title: Text('Divisa por defecto', style: TextStyle(color: context.appTheme.textPrimary)),
-                    subtitle: Text(
-                      _currencies.firstWhere((c) => c['code'] == _selectedCurrency)['name'] ?? _selectedCurrency,
-                      style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: context.appTheme.accent.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButton<String>(
-                        value: _selectedCurrency,
-                        dropdownColor: context.appTheme.cardBackground,
-                        underline: const SizedBox(),
-                        icon: Icon(Icons.arrow_drop_down, color: context.appTheme.accent),
-                        style: TextStyle(color: context.appTheme.accent, fontWeight: FontWeight.bold),
-                        items: _currencies.map((currency) {
-                          return DropdownMenuItem<String>(
-                            value: currency['code'],
-                            child: Text(
-                              '${currency['symbol']} ${currency['code']}',
-                              style: TextStyle(color: context.appTheme.textPrimary),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Divisa por defecto',
+                                style: TextStyle(color: context.appTheme.textPrimary, fontSize: 16),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _currencies.firstWhere((c) => c['code'] == _selectedCurrency)['name'] ?? _selectedCurrency,
+                                style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Semantics(
+                          button: true,
+                          identifier: 'default_currency_dropdown',
+                          label: 'Selector de divisa por defecto: $_selectedCurrency',
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: context.appTheme.accent.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            _saveCurrency(value);
-                          }
-                        },
-                      ),
+                            child: DropdownButton<String>(
+                              value: _selectedCurrency,
+                              dropdownColor: context.appTheme.cardBackground,
+                              underline: const SizedBox(),
+                              icon: Icon(Icons.arrow_drop_down, color: context.appTheme.accent),
+                              style: TextStyle(color: context.appTheme.accent, fontWeight: FontWeight.bold),
+                              items: _currencies.map((currency) {
+                                return DropdownMenuItem<String>(
+                                  value: currency['code'],
+                                  child: Text(
+                                    '${currency['symbol']} ${currency['code']}',
+                                    style: TextStyle(color: context.appTheme.textPrimary),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  _saveCurrency(value);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

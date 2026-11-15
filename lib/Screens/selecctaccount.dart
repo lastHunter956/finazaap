@@ -13,6 +13,7 @@ import 'package:finazaap/data/transaction_service.dart';
 import 'package:gradient_borders/gradient_borders.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/data/account_service.dart';
+import 'package:finazaap/widgets/liquid_glass_surface.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/theme.dart';
@@ -378,7 +379,12 @@ class _MyHomePageState extends State<MyHomePage> {
               top: false,
               child: _isReorderMode
                   ? ReorderableListView(
-                      padding: const EdgeInsets.only(bottom: 80),
+                      padding: MoneoLayoutMetrics.scrollBottomPadding(
+                        context,
+                        hasFab: true,
+                        horizontal: 0,
+                        top: 0,
+                      ),
                       proxyDecorator: (Widget child, int index, Animation<double> animation) {
                         return AnimatedBuilder(
                           animation: animation,
@@ -431,7 +437,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       ],
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 80),
+                      padding: MoneoLayoutMetrics.scrollBottomPadding(
+                        context,
+                        hasFab: true,
+                        horizontal: 0,
+                        top: 0,
+                      ),
                       itemCount: accountItems.length + 2,
                       itemBuilder: (context, index) {
                         if (index == 0) {

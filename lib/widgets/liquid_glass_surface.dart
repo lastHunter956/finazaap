@@ -15,7 +15,7 @@ class MoneoLayoutMetrics {
   static const double _solidBarMarginVertical = 20.0; // top 10 + bottom 10
   static const double _baseTextFontSize = 12.5;
   static const double fabTopGapAboveNav = 16.0;
-  static const double fabClearanceExtra = 80.0;
+  static const double fabClearanceExtra = 108.0;
 
   /// Extra vertical requerido cuando el usuario aumenta el escalado de texto.
   static double _textScaleExtra(BuildContext context) {
