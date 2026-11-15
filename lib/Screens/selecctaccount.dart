@@ -829,7 +829,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Text(
                         CurrencyHelper.formatWithCodeIfAmbiguous(
                           balanceValue,
-                          item.currencyCode,
+                          CurrencyHelper.currencyCode,
                         ),
                         style: TextStyle(
                           color: Colors.white,
@@ -1141,7 +1141,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                                 child: Text(
                                                   CurrencyHelper.formatFor(
                                                     balanceValue,
-                                                    account.currencyCode,
+                                                    CurrencyHelper.currencyCode,
                                                   ),
                                                   style: TextStyle(
                                                     color: context.appTheme.textPrimary,
@@ -1156,7 +1156,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                               padding: const EdgeInsets.only(bottom: 4),
                                               child: Text(
                                                 CurrencyHelper.normalizeCode(
-                                                  account.currencyCode,
+                                                  CurrencyHelper.currencyCode,
                                                 ),
                                                 style: TextStyle(
                                                   color: context.appTheme.textSecondary,
