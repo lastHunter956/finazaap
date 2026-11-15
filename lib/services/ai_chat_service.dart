@@ -149,8 +149,9 @@ class AiChatService extends ChangeNotifier {
     _bytesTransferred = 0;
   }
 
-  static const _defaultModelUrl =
+  static const String defaultModelUrl =
       'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
+  static const String _defaultModelUrl = defaultModelUrl;
 
   // Metadatos parseados del perfil cognitivo
   double _savingsRatio = 0.0;

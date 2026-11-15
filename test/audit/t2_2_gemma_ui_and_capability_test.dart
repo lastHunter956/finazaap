@@ -206,5 +206,65 @@ void main() {
         expect(find.text('Reintentar verificación'), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'pre-carga URL por defecto editable y permite restaurarla sin autodescarga',
+      (tester) async {
+        DeviceCapabilityService.checkOverride = () async =>
+            const DeviceCapabilityResult(
+              freeStorageGB: 32.9,
+              totalRAMGB: 7.6,
+              availRAMGB: 2.8,
+              lowMemory: false,
+              isArm64: true,
+            );
+        addTearDown(() => DeviceCapabilityService.checkOverride = null);
+
+        final service = AiChatService();
+        service.resetDownloadMetrics();
+        await service.recheckDeviceCapability();
+
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildThemeData(AppThemeMode.defaultDark),
+            home: const AiChatScreen(),
+          ),
+        );
+
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 60));
+        }
+
+        final urlField = find.byType(TextField).first;
+        expect(urlField, findsOneWidget);
+        expect(
+          tester.widget<TextField>(urlField).controller?.text,
+          AiChatService.defaultModelUrl,
+        );
+        expect(find.text('Descargar'), findsOneWidget);
+        expect(find.text('Restaurar modelo por defecto'), findsOneWidget);
+        expect(service.downloadAttemptCount, 0);
+
+        const customUrl = 'https://example.com/custom-gemma.litertlm';
+        await tester.enterText(urlField, customUrl);
+        await tester.pump();
+        expect(
+          tester.widget<TextField>(urlField).controller?.text,
+          customUrl,
+        );
+
+        await tester.ensureVisible(find.text('Restaurar modelo por defecto'));
+        await tester.tap(find.text('Restaurar modelo por defecto'));
+        await tester.pump();
+        expect(
+          tester.widget<TextField>(urlField).controller?.text,
+          AiChatService.defaultModelUrl,
+        );
+        expect(service.downloadAttemptCount, 0);
+      },
+    );
   });
 }

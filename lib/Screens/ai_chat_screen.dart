@@ -27,7 +27,8 @@ class _AiChatScreenState extends State<AiChatScreen>
   late TabController _tabController;
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _goalsController = TextEditingController();
-  final TextEditingController _modelUrlController = TextEditingController();
+  final TextEditingController _modelUrlController =
+      TextEditingController(text: AiChatService.defaultModelUrl);
   final ScrollController _scrollController = ScrollController();
   final AiChatService _chatService = AiChatService();
   bool _isLoading = false;
@@ -708,8 +709,8 @@ class _AiChatScreenState extends State<AiChatScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          'El modelo se descarga una sola vez y se guarda en tu dispositivo. '
-          'Ingresa la URL de descarga directa del archivo .litertlm:',
+          'El modelo por defecto (Gemma 4 E2B) se descarga una sola vez y se guarda en tu dispositivo. '
+          'Puedes descargarlo directamente o cambiar la URL por otro archivo .litertlm:',
           style: GoogleFonts.outfit(color: t.textHint, fontSize: 10.5),
         ),
         const SizedBox(height: 10),
@@ -776,6 +777,28 @@ class _AiChatScreenState extends State<AiChatScreen>
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () {
+              urlController.text = AiChatService.defaultModelUrl;
+            },
+            icon: const Icon(Icons.restore_rounded, size: 14),
+            label: Text(
+              'Restaurar modelo por defecto',
+              style: GoogleFonts.outfit(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              minimumSize: const Size(0, 28),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         Container(
