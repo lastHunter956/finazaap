@@ -61,6 +61,17 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    flavorDimensions += "env"
+    productFlavors {
+        prod {
+            dimension = "env"
+        }
+        validation {
+            dimension = "env"
+            applicationIdSuffix = ".validation"
+        }
+    }
 }
 
 flutter {
