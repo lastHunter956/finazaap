@@ -17,10 +17,10 @@
 - [x] **Pruebas Lote 1:** Widget tests dirigidos (`360x640`, `TextScaler.linear(1.35)`), `dart analyze` y suite Flutter completa en Docker (`226/226` pasaron).
 
 ## Lote 2 — Onboarding Completo
-- [ ] Crear `lib/services/onboarding_service.dart` (`onboarding_completed`, `onboarding_skipped`, `onboarding_last_step`, detección de usuario existente sin alterar ni borrar datos, helpers idempotentes).
-- [ ] Crear `lib/Screens/onboarding_screen.dart` (5 pasos, categorías sugeridas seleccionables + creación propia sin siembra automática, primera cuenta opcional, primer ingreso/gasto real opcional, omisión, abandono a mitad/reanudación, accesibilidad AA/48dp/`Semantics`/`TextScaler(1.35)`).
-- [ ] Conectar `lib/presentation/screens/auth_splash_screen.dart` y añadir reapertura `"Guía inicial"` en `lib/Screens/settings_screen.dart`.
-- [ ] **Pruebas Lote 2:** Unit tests de `OnboardingService`, widget tests de los 5 pasos/omisión/abandono/reanudación/usuario existente/no duplicación/accesibilidad, `dart analyze` y suite Flutter completa en Docker.
+- [x] Crear `lib/services/onboarding_service.dart` (`onboarding_completed`, `onboarding_skipped`, `onboarding_last_step`, detección de usuario existente sin alterar ni borrar datos, helpers idempotentes).
+- [x] Crear `lib/Screens/onboarding_screen.dart` (5 pasos, categorías sugeridas seleccionables + creación propia sin siembra automática, primera cuenta opcional, primer ingreso/gasto real opcional, omisión, abandono a mitad/reanudación, accesibilidad AA/48dp/`Semantics`/`TextScaler(1.35)`).
+- [x] Conectar `lib/presentation/screens/auth_splash_screen.dart` y añadir reapertura `"Guía inicial"` en `lib/Screens/settings_screen.dart`.
+- [x] **Pruebas Lote 2:** Unit tests de `OnboardingService`, widget tests de los 5 pasos/omisión/abandono/reanudación/usuario existente/no duplicación/accesibilidad, `dart analyze` y suite Flutter completa en Docker (`235/235` pasaron).
 
 ## Lote 3 — Integración y Validación
 - [ ] Consolidar cambios y verificar suite completa en Docker.

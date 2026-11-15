@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
-import 'package:finazaap/Screens/home.dart';
 import 'package:finazaap/providers/pin_provider.dart';
 import 'package:finazaap/Screens/pin_code_screen.dart';
 import 'package:finazaap/Screens/main_container.dart';
+import 'package:finazaap/Screens/onboarding_screen.dart';
+import 'package:finazaap/services/onboarding_service.dart';
 
 /// Pantalla de Splash Premium con logo de la app
 class AuthSplashScreen extends StatefulWidget {
@@ -103,13 +104,22 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
            MaterialPageRoute(
              builder: (_) => PinCodeScreen(
                mode: PinMode.verify,
-               onSuccess: (ctx) {
+               onSuccess: (ctx) async {
+                 final showOnboarding =
+                     await OnboardingService.shouldShowOnboarding();
+                 final lastStep = showOnboarding
+                     ? await OnboardingService.getLastStep()
+                     : 0;
+                 if (!ctx.mounted) return;
                  Navigator.of(ctx).pushReplacement(
                    PageRouteBuilder(
-                     pageBuilder: (_, __, ___) => MainContainer(),
-                     transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+                     pageBuilder: (_, __, ___) => showOnboarding
+                         ? OnboardingScreen(initialStep: lastStep)
+                         : MainContainer(),
+                     transitionsBuilder: (_, animation, __, child) =>
+                         FadeTransition(opacity: animation, child: child),
                      transitionDuration: const Duration(milliseconds: 600),
-                   )
+                   ),
                  );
                },
              ),
@@ -121,11 +131,15 @@ class _AuthSplashScreenState extends State<AuthSplashScreen> with TickerProvider
     }
   }
 
-  void _navigateToHome() {
+  Future<void> _navigateToHome() async {
+    final showOnboarding = await OnboardingService.shouldShowOnboarding();
+    final lastStep = showOnboarding ? await OnboardingService.getLastStep() : 0;
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => MainContainer(),
+        pageBuilder: (context, animation, secondaryAnimation) => showOnboarding
+            ? OnboardingScreen(initialStep: lastStep)
+            : MainContainer(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },

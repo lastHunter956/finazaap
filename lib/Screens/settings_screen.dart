@@ -13,6 +13,7 @@ import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/app_theme_mode.dart';
 import 'package:finazaap/core/theme_notifier.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
+import 'package:finazaap/Screens/onboarding_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -668,6 +669,57 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
                 const SizedBox(height: 10),
                 _buildThemeSelector(context),
+
+                const SizedBox(height: 16),
+
+                Semantics(
+                  button: true,
+                  identifier: 'settings_open_onboarding',
+                  label: 'Abrir guía inicial de Moneo',
+                  child: Material(
+                    color: context.appTheme.cardBackground,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(color: context.appTheme.borderSubtle),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
+                      minVerticalPadding: 12,
+                      leading: Icon(
+                        Icons.explore_outlined,
+                        color: context.appTheme.accent,
+                      ),
+                      title: Text(
+                        'Guía inicial',
+                        style: TextStyle(
+                          color: context.appTheme.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Revisar el recorrido inicial y configurar categorías o cuentas',
+                        style: TextStyle(
+                          color: context.appTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.chevron_right_rounded,
+                        color: context.appTheme.textSecondary,
+                      ),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const OnboardingScreen(
+                              isReopened: true,
+                              initialStep: 0,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
 
                 const SizedBox(height: 24),
 
