@@ -13,6 +13,7 @@ import 'package:finazaap/utils/app_icons.dart';
 
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
+import 'package:finazaap/Screens/categories_screen.dart';
 
 // Modelo importado de package:finazaap/data/models/account_item.dart
 // Clase duplicada eliminada
@@ -577,7 +578,62 @@ class _Add_ScreenState extends State<Add_Screen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildInputLabel('Categoría'),
-                                    _buildInputField(
+                                    _categories.isEmpty
+                                        ? Semantics(
+                                            button: true,
+                                            label:
+                                                'Sin categorías de ingreso. Toca para crear una categoría.',
+                                            child: InkWell(
+                                              onTap: () async {
+                                                await Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        const CategoriesScreen(),
+                                                  ),
+                                                );
+                                                if (mounted) {
+                                                  await _loadCategoriesFromPrefs();
+                                                }
+                                              },
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: _buildInputField(
+                                                child: Padding(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(vertical: 12),
+                                                  child: Row(
+                                                    children: [
+                                                      const Icon(
+                                                        Icons
+                                                            .add_circle_outline_rounded,
+                                                        color:
+                                                            Color(0xFF4ECDC4),
+                                                        size: 18,
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Expanded(
+                                                        child: Text(
+                                                          'Sin categorías · Crear',
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: TextStyle(
+                                                            color: context
+                                                                .appTheme
+                                                                .textSecondary,
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                        : _buildInputField(
                                       child: DropdownButtonHideUnderline(
                                         child: DropdownButton<String>(
                                           value: _selectedCategory,
@@ -716,14 +772,20 @@ class _Add_ScreenState extends State<Add_Screen> {
                                               ),
                                               const SizedBox(width: 8),
                                               Expanded(
-                                                child: Text(
-                                                  _formatDate(_selectedDate),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    color: context.appTheme.textPrimary,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w500,
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child: Text(
+                                                    _formatDate(_selectedDate),
+                                                    maxLines: 1,
+                                                    style: TextStyle(
+                                                      color: context
+                                                          .appTheme.textPrimary,
+                                                      fontSize: 14,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -846,21 +908,24 @@ class _Add_ScreenState extends State<Add_Screen> {
                 isOutlined ? Border.all(color: context.appTheme.borderSubtle, width: 1) : null,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isOutlined ? color : Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: isOutlined ? color : Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

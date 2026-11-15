@@ -105,22 +105,28 @@ class _TransferScreenState extends State<TransferScreen> {
 
   // Reemplazar el método _saveTransfer con esta versión mejorada
 
-Future<void> _saveTransfer() async {
+Future<bool> _saveTransfer() async {
   final cleanAmountText = CurrencyHelper.cleanAmountString(_amountCtrl.text);
   if (cleanAmountText.isEmpty) {
     AlertHelper.warning(context, 'Por favor ingresa un monto');
-    return;
+    return false;
+  }
+
+  final amountParsed = double.tryParse(cleanAmountText);
+  if (amountParsed == null || amountParsed <= 0) {
+    AlertHelper.warning(context, 'El monto debe ser mayor a 0');
+    return false;
   }
 
   if (_selectedSourceAccount == null || _selectedDestinationAccount == null) {
     AlertHelper.warning(context, 'Por favor selecciona cuentas');
-    return;
+    return false;
   }
 
   // Verificar que no sean la misma cuenta
   if (_selectedSourceAccount!.title == _selectedDestinationAccount!.title) {
     AlertHelper.warning(context, 'No puedes transferir a la misma cuenta');
-    return;
+    return false;
   }
 
   try {
@@ -128,7 +134,7 @@ Future<void> _saveTransfer() async {
       _isProcessing = true;
     });
 
-    final amount = double.parse(cleanAmountText);
+    final amount = amountParsed;
     
     // Crear objeto de transferencia
     final Add_data transferTransaction = Add_data(
@@ -181,22 +187,23 @@ Future<void> _saveTransfer() async {
     }
 
     // Finalizar
-    setState(() {
-      _isProcessing = false;
-    });
-
-    // Volver a la pantalla anterior
     if (mounted) {
-      Navigator.of(context).pop();
+      setState(() {
+        _isProcessing = false;
+      });
     }
+
+    return true;
   } catch (e) {
-    setState(() {
-      _isProcessing = false;
-    });
-    
+    if (mounted) {
+      setState(() {
+        _isProcessing = false;
+      });
+      AlertHelper.error(context, 'Error: ${e.toString()}');
+    }
     
     AppLogger.error('Error al guardar la transferencia', error: e);
-    AlertHelper.error(context, 'Error: ${e.toString()}');
+    return false;
   }
 }
 
@@ -622,13 +629,17 @@ Widget build(BuildContext context) {
                                             ),
                                             const SizedBox(width: 8),
                                             Expanded(
-                                              child: Text(
-                                                _formatDate(_selectedDate),
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  color: context.appTheme.textPrimary,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w500,
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  _formatDate(_selectedDate),
+                                                  maxLines: 1,
+                                                  style: TextStyle(
+                                                    color: context.appTheme.textPrimary,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
                                                 ),
                                               ),
                                             ),
@@ -672,22 +683,19 @@ Widget build(BuildContext context) {
                                 isLoading: _isProcessing,
                                 onPressed: _isProcessing ? null : () async {
                                   try {
-                                    // Mostrar indicador de carga inline
-                                    setState(() {
-                                      _isProcessing = true;
-                                    });
-                                    
                                     // Guardar la transferencia
-                                    await _saveTransfer();
+                                    final bool saved = await _saveTransfer();
                                     
-                                    // Volver a la pantalla principal
-                                    if (mounted) {
+                                    // Volver a la pantalla principal solo si se guardó
+                                    if (saved && mounted) {
                                       Navigator.of(context).popUntil((route) => route.isFirst);
                                     }
                                   } catch (e) {
-                                    setState(() {
-                                      _isProcessing = false;
-                                    });
+                                    if (mounted) {
+                                      setState(() {
+                                        _isProcessing = false;
+                                      });
+                                    }
                                     // Error manejado en _saveTransfer
                                   }
                                 },
@@ -778,35 +786,38 @@ Widget _buildActionButton({
               : null,
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isLoading)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      isOutlined ? color : Colors.white
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isLoading)
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isOutlined ? color : Colors.white
+                      ),
                     ),
-                  ),
-                )
-              else
-                Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
+                  )
+                else
+                  Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
+                  
+                const SizedBox(width: 6),
                 
-              const SizedBox(width: 6),
-              
-              Text(
-                label,
-                style: TextStyle(
-                  color: isOutlined ? color : Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isOutlined ? color : Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -14,6 +14,7 @@ import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
+import 'package:finazaap/Screens/categories_screen.dart';
 
 import 'package:finazaap/data/models/account_item.dart';
 export 'package:finazaap/data/models/account_item.dart';
@@ -374,23 +375,27 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.assignment_turned_in_rounded,
-                    color: _isObligationPayment ? primaryColor : context.appTheme.textSecondary,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    '¿Vincular a una obligación?',
-                    style: TextStyle(
-                      color: context.appTheme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.assignment_turned_in_rounded,
+                      color: _isObligationPayment ? primaryColor : context.appTheme.textSecondary,
+                      size: 22,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '¿Vincular a una obligación?',
+                        style: TextStyle(
+                          color: context.appTheme.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Switch(
                 value: _isObligationPayment,
@@ -582,7 +587,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   // Reemplazar el método _saveTransaction con esta versión mejorada
 
-  Future<void> _saveTransaction() async {
+  Future<bool> _saveTransaction() async {
     // Validaciones básicas
     final String? categoryToSave = _isObligationPayment 
         ? _getObligationCategoryDetails()['text'] 
@@ -590,7 +595,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     if (_isObligationPayment && _selectedResponsibility == null) {
       AlertHelper.warning(context, 'Por favor selecciona una obligación');
-      return;
+      return false;
     }
 
     final cleanAmountText = CurrencyHelper.cleanAmountString(_amountCtrl.text);
@@ -598,11 +603,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         _selectedAccount == null ||
         categoryToSave == null) {
       AlertHelper.warning(context, 'Por favor completa todos los campos');
-      return;
+      return false;
+    }
+
+    final amountParsed = double.tryParse(cleanAmountText);
+    if (amountParsed == null || amountParsed <= 0) {
+      AlertHelper.warning(context, 'El monto debe ser mayor a 0');
+      return false;
     }
 
     try {
-      final amount = double.parse(cleanAmountText);
+      final amount = amountParsed;
 
       // Obtener el código del icono para esta categoría específica
       final int categoryIconCode = _isObligationPayment
@@ -696,13 +707,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       // Pequeño retraso para asegurar que los datos se han guardado
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // Navegar de vuelta
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      return true;
     } catch (e) {
       print('Error al guardar: $e');
-      AlertHelper.error(context, 'Error: $e');
+      if (mounted) {
+        AlertHelper.error(context, 'Error: $e');
+      }
+      return false;
     }
   }
 
@@ -1228,14 +1239,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                               ),
                                               const SizedBox(width: 8),
                                               Expanded(
-                                                child: Text(
-                                                  _formatDate(_selectedDate),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    color: context.appTheme.textPrimary,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w500,
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child: Text(
+                                                    _formatDate(_selectedDate),
+                                                    maxLines: 1,
+                                                    style: TextStyle(
+                                                      color: context
+                                                          .appTheme.textPrimary,
+                                                      fontSize: 14,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -1291,22 +1308,33 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                       );
 
                                       // Guardar la transacción
-                                      await _saveTransaction();
+                                      final bool saved =
+                                          await _saveTransaction();
 
-                                      // Cerrar el indicador de carga y regresar a la página principal
-                                      if (Navigator.canPop(context)) {
-                                        Navigator.pop(context);
+                                      // Cerrar el indicador de carga
+                                      if (mounted &&
+                                          Navigator.of(context,
+                                                  rootNavigator: true)
+                                              .canPop()) {
+                                        Navigator.of(context,
+                                                rootNavigator: true)
+                                            .pop();
                                       }
 
-                                      // Ir a la pantalla principal
-                                      if (mounted) {
+                                      // Ir a la pantalla principal solo si se guardó correctamente
+                                      if (saved && mounted) {
                                         Navigator.of(context)
                                             .popUntil((route) => route.isFirst);
                                       }
                                     } catch (e) {
                                       // Cerrar el indicador de carga en caso de error
-                                      if (Navigator.canPop(context)) {
-                                        Navigator.pop(context);
+                                      if (mounted &&
+                                          Navigator.of(context,
+                                                  rootNavigator: true)
+                                              .canPop()) {
+                                        Navigator.of(context,
+                                                rootNavigator: true)
+                                            .pop();
                                       }
 
                                       // Mostrar mensaje de error
@@ -1504,6 +1532,51 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   Widget _buildCategoryDropdown() {
+    if (_categories.isEmpty) {
+      return Semantics(
+        button: true,
+        label: 'Sin categorías de egreso. Toca para crear una categoría.',
+        child: InkWell(
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CategoriesScreen()),
+            );
+            if (mounted) {
+              await _loadCategoriesFromPrefs();
+            }
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: _buildInputField(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.add_circle_outline_rounded,
+                    color: Color(0xFFFF6B6B),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Sin categorías · Crear',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: context.appTheme.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final Color cardColor = context.appTheme.secondaryCardBackground;
     return _buildInputField(
       child: DropdownButtonHideUnderline(
@@ -1638,21 +1711,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 isOutlined ? Border.all(color: context.appTheme.borderSubtle, width: 1) : null,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isOutlined ? color : Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: isOutlined ? color : Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
