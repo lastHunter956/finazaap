@@ -52,6 +52,5 @@ appId: com.example.finazaap.validation
     id: "settings_open_onboarding"
 - assertVisible: "Bienvenido a Moneo"
 - tapOn: "Omitir"
-- tapOn:
-    text: "Omitir"
-    index: 1
+- assertVisible: "¿Omitir guía inicial?"
+- tapOn: "Omitir"
