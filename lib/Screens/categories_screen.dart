@@ -1037,23 +1037,28 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
               ),
             ],
           ),
-          child: FloatingActionButton(
-            heroTag: "categories_fab",
-            onPressed: () {
-              final type = _tabController.index == 0 ? 'Income' : 'Expenses';
-              _showCategoryDialog(type: type);
-            },
-            backgroundColor: context.appTheme.buttonBackground,
-            foregroundColor: context.appTheme.buttonForeground,
-            elevation: 0,
-            highlightElevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              Icons.add_rounded,
-              color: context.appTheme.buttonForeground,
-              size: 30,
+          child: Semantics(
+            button: true,
+            label: 'Nueva categoría',
+            child: FloatingActionButton(
+              heroTag: "categories_fab",
+              tooltip: 'Nueva categoría',
+              onPressed: () {
+                final type = _tabController.index == 0 ? 'Income' : 'Expenses';
+                _showCategoryDialog(type: type);
+              },
+              backgroundColor: context.appTheme.buttonBackground,
+              foregroundColor: context.appTheme.buttonForeground,
+              elevation: 0,
+              highlightElevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                Icons.add_rounded,
+                color: context.appTheme.buttonForeground,
+                size: 30,
+              ),
             ),
           ),
         ),

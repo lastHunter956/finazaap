@@ -467,16 +467,21 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final newItem = await showAddAccountDialog(context);
-          if (newItem != null) {
-            _saveAccount(newItem);
-          }
-        },
-        backgroundColor: context.appTheme.buttonBackground,
-        foregroundColor: context.appTheme.buttonForeground,
-        child: Icon(Icons.add, color: context.appTheme.buttonForeground),
+      floatingActionButton: Semantics(
+        button: true,
+        label: 'Nueva cuenta',
+        child: FloatingActionButton(
+          tooltip: 'Nueva cuenta',
+          onPressed: () async {
+            final newItem = await showAddAccountDialog(context);
+            if (newItem != null) {
+              _saveAccount(newItem);
+            }
+          },
+          backgroundColor: context.appTheme.buttonBackground,
+          foregroundColor: context.appTheme.buttonForeground,
+          child: Icon(Icons.add, color: context.appTheme.buttonForeground),
+        ),
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:finazaap/Screens/categories_screen.dart';
+import 'package:finazaap/Screens/selecctaccount.dart';
 import 'package:finazaap/Screens/settings_screen.dart';
 import 'package:finazaap/core/theme_notifier.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
@@ -117,5 +119,39 @@ void main() {
       find.textContaining('Divisa cambiada a USD'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('CategoriesScreen expone semántica Nueva categoría en su FAB',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildThemeData(ThemeNotifier.activeMode),
+        home: const CategoriesScreen(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.bySemanticsLabel(RegExp('Nueva categoría')), findsOneWidget);
+    expect(find.byTooltip('Nueva categoría'), findsOneWidget);
+  });
+
+  testWidgets('Cuentas (MyHomePage) expone semántica Nueva cuenta en su FAB',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildThemeData(ThemeNotifier.activeMode),
+        home: MyHomePage(onBalanceUpdated: (_) {}),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.bySemanticsLabel(RegExp('Nueva cuenta')), findsOneWidget);
+    expect(find.byTooltip('Nueva cuenta'), findsOneWidget);
   });
 }
