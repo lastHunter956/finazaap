@@ -45,9 +45,11 @@ appId: com.example.finazaap.validation
 # Verificación de reapertura desde Ajustes
 - tapOn: "Ajustes"
 - scrollUntilVisible:
-    element: "Guía inicial"
+    element:
+      id: "settings_open_onboarding"
     direction: DOWN
-- tapOn: "Guía inicial"
+- tapOn:
+    id: "settings_open_onboarding"
 - assertVisible: "Bienvenido a Moneo"
 - tapOn: "Omitir"
 - tapOn:
