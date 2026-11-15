@@ -203,6 +203,37 @@ def check_run_command(tool_name: str, args: dict) -> None:
         )
         return
 
+    # Protección estricta de la aplicación productiva original (solo se autoriza .validation)
+    if re.search(r"\bcom\.example\.finazaap\b(?!\.validation)", cmd):
+        emit(
+            "deny",
+            "[Regla: Teléfono/Alcance] Acceso bloqueado a la aplicación productiva protegida 'com.example.finazaap'. Solo se autoriza 'com.example.finazaap.validation'.",
+        )
+        return
+
+    # Controles estrictos de Maestro CLI y pruebas móviles
+    if re.search(r"\bmaestro\s+(?:cloud|login|logout|download-samples|start-device|list-cloud-devices)\b", cmd, re.IGNORECASE):
+        emit(
+            "deny",
+            "[Regla: Maestro/Privacidad] Subcomando de Maestro bloqueado. Maestro Cloud y telemetría remota están estrictamente denegados.",
+        )
+        return
+
+    if re.search(r"\bmaestro\s+record\b", cmd, re.IGNORECASE) and not re.search(r"\b(?:--local|-l)\b", cmd):
+        emit(
+            "deny",
+            "[Regla: Maestro/Privacidad] 'maestro record' requiere obligatoriamente '--local' para evitar subida a servidores externos.",
+        )
+        return
+
+    # Asegurar que ejecuciones directas de maestro test pasen por el lanzador con aislamiento de red
+    if re.search(r"(?:^|[;&|]\s*)maestro\s+test\b", cmd):
+        emit(
+            "deny",
+            "[Regla: Maestro/Confinamiento] Prohibido invocar 'maestro test' directamente en el host sin aislamiento de red. Utiliza '.maestro/docker/run_maestro.sh'.",
+        )
+        return
+
     secret_tok = command_references_secret_file(cmd)
     if secret_tok and SECRET_CMD_READ_RE.search(cmd):
         emit(
