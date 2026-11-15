@@ -607,17 +607,21 @@ class _HomeState extends State<Home> {
                         accountingBalance: accountingBalance(), // Usar el nuevo método que excluye transferencias
                         totalExpenses: expenses(),
                         totalIncome: income(),
-                        onManageAccounts: () {
-                          Navigator.push(
+                        onManageAccounts: () async {
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(
                                 builder: (context) => MyHomePage(
                                       onBalanceUpdated: (double balance) {
                                         availableBalanceNotifier.value =
-                                            balance; // Esta es la línea clave
+                                            balance;
+                                        _updateAvailableBalance();
                                       },
                                     )),
                           );
+                          if (mounted) {
+                            await _updateAvailableBalance();
+                          }
                         },
                         // Se ha removido onSelectDate, ya que el widget maneja internamente la selección de fecha.
                         onShowAll: () {
