@@ -341,7 +341,12 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
         Expanded(
           child: ListView.builder(
             itemCount: items.length,
-            padding: const EdgeInsets.only(top: 2, bottom: 24),
+            padding: MoneoLayoutMetrics.scrollBottomPadding(
+              context,
+              hasFab: false,
+              horizontal: 0,
+              top: 2,
+            ),
             itemBuilder: (context, index) {
               final item = items[index];
               return PendingTransactionCard(

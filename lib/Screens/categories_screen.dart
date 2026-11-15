@@ -1068,17 +1068,70 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
 
   Widget _buildCategoryList(String type, List<Map<String, dynamic>> categories) {
     if (categories.isEmpty) {
+      final typeLabel = type == 'Income' ? 'ingresos' : 'egresos';
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.category_outlined, size: 60, color: context.appTheme.textHint.withOpacity(0.3)),
-            const SizedBox(height: 12),
-            Text(
-              'No hay categorías',
-              style: TextStyle(color: context.appTheme.textHint),
-            ),
-          ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.category_outlined,
+                size: 56,
+                color: context.appTheme.textHint.withOpacity(0.45),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No hay categorías de $typeLabel',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: context.appTheme.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Crea categorías para organizar tus ingresos y egresos.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: context.appTheme.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Semantics(
+                button: true,
+                label: 'Crear categoría de $typeLabel',
+                child: ElevatedButton.icon(
+                  onPressed: () => _showCategoryDialog(type: type),
+                  icon: Icon(
+                    Icons.add_rounded,
+                    color: context.appTheme.buttonForeground,
+                  ),
+                  label: Text(
+                    'Crear categoría',
+                    style: TextStyle(
+                      color: context.appTheme.buttonForeground,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.appTheme.buttonBackground,
+                    foregroundColor: context.appTheme.buttonForeground,
+                    minimumSize: const Size(48, 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }

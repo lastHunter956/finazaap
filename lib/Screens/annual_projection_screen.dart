@@ -570,29 +570,32 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'PROYECCIÓN ANUAL TOTAL',
-                                style: TextStyle(
-                                  color: context.appTheme.textSecondary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.8,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'PROYECCIÓN ANUAL TOTAL',
+                                  style: TextStyle(
+                                    color: context.appTheme.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                CurrencyHelper.format(totalAnnual),
-                                style: TextStyle(
-                                  color: context.appTheme.textPrimary,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
+                                const SizedBox(height: 6),
+                                Text(
+                                  CurrencyHelper.format(totalAnnual),
+                                  style: TextStyle(
+                                    color: context.appTheme.textPrimary,
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
@@ -705,14 +708,17 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Obligaciones Anuales',
-                        style: TextStyle(
-                          color: context.appTheme.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          'Obligaciones Anuales',
+                          style: TextStyle(
+                            color: context.appTheme.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${sortedResponsibilities.length} total',
                         style: TextStyle(
@@ -863,15 +869,29 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                     ),
                   ),
                 ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: MoneoLayoutMetrics.scrollBottomPadding(
+                    context,
+                    hasFab: true,
+                  ).bottom,
+                ),
+              ),
             ],
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: "annual_projection_fab",
-        onPressed: () => _showAddResponsibilityDialog(),
-        backgroundColor: context.appTheme.accent,
-        child: Icon(Icons.add_rounded, size: 32, color: context.appTheme.primaryBackground),
+      floatingActionButton: Semantics(
+        button: true,
+        identifier: 'fab_add_annual_responsibility',
+        label: 'Nueva obligación anual',
+        child: FloatingActionButton(
+          heroTag: "annual_projection_fab",
+          tooltip: 'Nueva obligación anual',
+          onPressed: () => _showAddResponsibilityDialog(),
+          backgroundColor: context.appTheme.accent,
+          child: Icon(Icons.add_rounded, size: 32, color: context.appTheme.primaryBackground),
+        ),
       ),
     );
   }

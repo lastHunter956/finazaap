@@ -647,28 +647,41 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             ),
                           ),
                           onPressed: () {
-                            if (titleController.text.contains(' > ')) {
+                            final trimmedTitle = titleController.text.trim();
+                            final cleanBalance = CurrencyHelper.cleanAmountString(balanceController.text);
+                            if (trimmedTitle.contains(' > ')) {
                               AlertHelper.warning(context, 'El nombre no puede contener " > "');
                               return;
                             }
-                            if (titleController.text.isNotEmpty &&
-                                balanceController.text.isNotEmpty) {
-                              
-                              Navigator.of(context).pop(AccountItem(
-                                icon: selectedIcon,
-                                title: titleController.text,
-                                subtitle: selectedAccountType,
-                                balance: CurrencyHelper.cleanAmountString(balanceController.text),
-                                iconColor: iconColor,
-                                includeInTotal: isCreditCard ? false : includeInTotal,
-                                creditLimit: isCreditCard ? CurrencyHelper.cleanAmountString(balanceController.text) : null,
-                                cutoffDay: isCreditCard && cutoffController.text.isNotEmpty ? int.tryParse(cutoffController.text) : null,
-                                paymentDay: isCreditCard && paymentController.text.isNotEmpty ? int.tryParse(paymentController.text) : null,
-                                interestRate: isCreditCard && interestController.text.isNotEmpty ? double.tryParse(interestController.text) : null,
-                              ));
-                            } else {
-                              AlertHelper.warning(context, 'Completa campos requeridos');
+                            if (trimmedTitle.isEmpty || cleanBalance.isEmpty) {
+                              AlertHelper.warning(context, 'Por favor completa todos los campos requeridos');
+                              return;
                             }
+                            final parsedBalance = double.tryParse(cleanBalance);
+                            if (parsedBalance == null) {
+                              AlertHelper.warning(context, 'El monto debe ser un número válido');
+                              return;
+                            }
+                            if (isCreditCard && parsedBalance <= 0) {
+                              AlertHelper.warning(context, 'El monto debe ser mayor a 0');
+                              return;
+                            }
+                            if (!isCreditCard && parsedBalance < 0) {
+                              AlertHelper.warning(context, 'El saldo inicial no puede ser negativo');
+                              return;
+                            }
+                            Navigator.of(context).pop(AccountItem(
+                              icon: selectedIcon,
+                              title: trimmedTitle,
+                              subtitle: selectedAccountType,
+                              balance: cleanBalance,
+                              iconColor: iconColor,
+                              includeInTotal: isCreditCard ? false : includeInTotal,
+                              creditLimit: isCreditCard ? cleanBalance : null,
+                              cutoffDay: isCreditCard && cutoffController.text.isNotEmpty ? int.tryParse(cutoffController.text) : null,
+                              paymentDay: isCreditCard && paymentController.text.isNotEmpty ? int.tryParse(paymentController.text) : null,
+                              interestRate: isCreditCard && interestController.text.isNotEmpty ? double.tryParse(interestController.text) : null,
+                            ));
                           },
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,

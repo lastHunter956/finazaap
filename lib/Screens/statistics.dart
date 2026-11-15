@@ -1320,13 +1320,8 @@ class _StatisticsState extends State<Statistics> {
     final Color statColor =
         isIncomeSelected ? const Color(0xFF27AE60) : const Color(0xFFE53935);
 
-    // Formato compacto para fechas largas
-    String formatDate(String date) {
-      if (date.length > 6) {
-        return date.substring(0, 6) + '...';
-      }
-      return date;
-    }
+    // Formato legible completo sin truncamiento arbitrario
+    String formatDate(String date) => date;
 
     return Padding(
       padding: const EdgeInsets.only(top: 0, left: 0, right: 0),
@@ -1864,11 +1859,13 @@ class _StatisticsState extends State<Statistics> {
           // Título
           Row(
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: context.appTheme.textPrimary,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: context.appTheme.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -2047,7 +2044,7 @@ class _StatisticsState extends State<Statistics> {
   Widget _buildEmptyDataIndicator(String message) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
-      height: 180,
+      constraints: const BoxConstraints(minHeight: 180),
       alignment: Alignment.center,
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
@@ -2058,6 +2055,7 @@ class _StatisticsState extends State<Statistics> {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(

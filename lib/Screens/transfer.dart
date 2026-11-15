@@ -113,13 +113,17 @@ Future<bool> _saveTransfer() async {
   }
 
   final amountParsed = double.tryParse(cleanAmountText);
-  if (amountParsed == null || amountParsed <= 0) {
+  if (amountParsed == null) {
+    AlertHelper.warning(context, 'El monto debe ser un número válido');
+    return false;
+  }
+  if (amountParsed <= 0) {
     AlertHelper.warning(context, 'El monto debe ser mayor a 0');
     return false;
   }
 
   if (_selectedSourceAccount == null || _selectedDestinationAccount == null) {
-    AlertHelper.warning(context, 'Por favor selecciona cuentas');
+    AlertHelper.warning(context, 'Por favor selecciona las cuentas de origen y destino');
     return false;
   }
 

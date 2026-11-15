@@ -9,12 +9,12 @@
 - [x] Crear `.agents/skills/moneo-ui-design/SKILL.md` (100% offline, sin red/telemetría/hooks externos).
 
 ## Lote 1 — Mejoras UI Incrementales
-- [ ] `lib/Screens/annual_projection_screen.dart`: agregar `Semantics` + `tooltip` en FAB y `MoneoLayoutMetrics.scrollBottomPadding` al `CustomScrollView`.
-- [ ] `lib/Screens/statistics.dart`: reemplazar `date.substring(0, 6) + '...'` por formato compacto legible sin truncamiento arbitrario.
-- [ ] `lib/features/notifications/presentation/screens/pending_transactions_screen.dart`: usar `MoneoLayoutMetrics.scrollBottomPadding(context, hasFab: false)`.
-- [ ] `lib/Screens/categories_screen.dart`: agregar estado vacío accionable con explicación y CTA `"Crear categoría"` (sin siembra automática).
-- [ ] `lib/Screens/add.dart`, `lib/Screens/add_expense.dart`, `lib/Screens/transfer.dart`, `lib/widgets/add_account_dialogs.dart`: unificar mensajes de validación en español, validar montos inválidos o `<= 0`, y preservar estado sin cerrar pantalla ante error.
-- [ ] **Pruebas Lote 1:** Widget tests dirigidos (`360x640`, `TextScaler.linear(1.35)`), `dart analyze` y suite Flutter completa en Docker.
+- [x] `lib/Screens/annual_projection_screen.dart`: agregar `Semantics` + `tooltip` en FAB y `MoneoLayoutMetrics.scrollBottomPadding` al `CustomScrollView`.
+- [x] `lib/Screens/statistics.dart`: reemplazar `date.substring(0, 6) + '...'` por formato compacto legible sin truncamiento arbitrario.
+- [x] `lib/features/notifications/presentation/screens/pending_transactions_screen.dart`: usar `MoneoLayoutMetrics.scrollBottomPadding(context, hasFab: false)`.
+- [x] `lib/Screens/categories_screen.dart`: agregar estado vacío accionable con explicación y CTA `"Crear categoría"` (sin siembra automática).
+- [x] `lib/Screens/add.dart`, `lib/Screens/add_expense.dart`, `lib/Screens/transfer.dart`, `lib/widgets/add_account_dialogs.dart`: unificar mensajes de validación en español, validar montos inválidos o `<= 0`, y preservar estado sin cerrar pantalla ante error.
+- [x] **Pruebas Lote 1:** Widget tests dirigidos (`360x640`, `TextScaler.linear(1.35)`), `dart analyze` y suite Flutter completa en Docker (`226/226` pasaron).
 
 ## Lote 2 — Onboarding Completo
 - [ ] Crear `lib/services/onboarding_service.dart` (`onboarding_completed`, `onboarding_skipped`, `onboarding_last_step`, detección de usuario existente sin alterar ni borrar datos, helpers idempotentes).

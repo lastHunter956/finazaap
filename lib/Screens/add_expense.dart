@@ -599,16 +599,27 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
 
     final cleanAmountText = CurrencyHelper.cleanAmountString(_amountCtrl.text);
-    if (cleanAmountText.isEmpty ||
-        _selectedAccount == null ||
-        categoryToSave == null) {
-      AlertHelper.warning(context, 'Por favor completa todos los campos');
+    if (cleanAmountText.isEmpty) {
+      if (_selectedAccount == null || categoryToSave == null) {
+        AlertHelper.warning(context, 'Por favor completa todos los campos');
+        return false;
+      }
+      AlertHelper.warning(context, 'Por favor ingresa un monto');
       return false;
     }
 
     final amountParsed = double.tryParse(cleanAmountText);
-    if (amountParsed == null || amountParsed <= 0) {
+    if (amountParsed == null) {
+      AlertHelper.warning(context, 'El monto debe ser un número válido');
+      return false;
+    }
+    if (amountParsed <= 0) {
       AlertHelper.warning(context, 'El monto debe ser mayor a 0');
+      return false;
+    }
+
+    if (_selectedAccount == null || categoryToSave == null) {
+      AlertHelper.warning(context, 'Por favor completa todos los campos');
       return false;
     }
 
