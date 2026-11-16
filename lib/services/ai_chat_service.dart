@@ -2088,6 +2088,9 @@ class AiChatService extends ChangeNotifier {
         '1',
         true,
       );
+      final box = Hive.isBoxOpen('data')
+          ? Hive.box<Add_data>('data')
+          : await Hive.openBox<Add_data>('data');
       await box.add(transaction);
       await removeTransactionSuggestion(messageIndex, detail);
       
