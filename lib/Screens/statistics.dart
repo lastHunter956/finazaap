@@ -8,6 +8,7 @@ import 'dart:convert';
 
 import '../icon_lists.dart';
 import '../data/model/add_date.dart';
+import '../data/monthly_summary_cache.dart';
 import 'package:flutter/services.dart';
 import 'package:finazaap/utils/currency_helper.dart'; // Import added
 import 'package:finazaap/utils/app_icons.dart';
@@ -42,9 +43,6 @@ class _StatisticsState extends State<Statistics> {
 
   // Alternar entre “Mensual” y “Anual”
   bool isMonthly = true;
-
-  // Listado completo de transacciones (leído de Hive)
-  List<Add_data> allData = [];
 
   // Datos filtrados según el modo (mensual/anual) y el toggle (Ingresos/Gastos)
   List<Add_data> filteredData = [];
@@ -88,12 +86,10 @@ class _StatisticsState extends State<Statistics> {
     super.dispose();
   }
 
-  /// Carga los datos de Hive (o tu fuente de datos) y construye
+  /// Carga los datos desde [MonthlySummaryCache] en O(1) y actualiza
   /// la estructura de años y meses disponibles.
   void _loadData() {
-    final box = Hive.box<Add_data>('data');
-    allData = box.values.toList();
-
+    MonthlySummaryCache.instance.invalidate();
     _buildAvailableDates();
     _pickInitialDate();
     _updateData();
@@ -112,17 +108,15 @@ class _StatisticsState extends State<Statistics> {
     }
   }
 
-  /// Construye los años y meses disponibles a partir de allData
+  /// Construye los años y meses disponibles desde [MonthlySummaryCache] en O(1)
   void _buildAvailableDates() {
     availableYears.clear();
     yearToMonths.clear();
 
-    for (var item in allData) {
-      final y = item.safeDate.year;
-      final m = item.safeDate.month;
-      availableYears.add(y);
-      yearToMonths.putIfAbsent(y, () => {});
-      yearToMonths[y]!.add(m);
+    final cache = MonthlySummaryCache.instance;
+    availableYears.addAll(cache.getAvailableYears());
+    for (final entry in cache.getYearToMonthsMap().entries) {
+      yearToMonths[entry.key] = Set<int>.from(entry.value);
     }
   }
 
@@ -168,29 +162,21 @@ class _StatisticsState extends State<Statistics> {
     _hasPickedInitialDate = true;
   }
 
-  /// Actualiza `filteredData` según el modo (mensual/anual) y “Ingresos/Gastos”.
+  /// Actualiza `filteredData` según el modo (mensual/anual) y “Ingresos/Gastos” en O(1).
   void _updateData() {
-    // Primero filtramos por año y (opcionalmente) mes
-    List<Add_data> baseData;
-    if (isMonthly) {
-      // Modo Mensual: filtrar por año y mes
-      baseData = allData.where((item) {
-        return item.safeDate.year == selectedYear &&
-            item.safeDate.month == selectedMonth;
-      }).toList();
-    } else {
-      // Modo Anual: filtrar por año
-      baseData = allData.where((item) {
-        return item.safeDate.year == selectedYear;
-      }).toList();
-    }
+    final cache = MonthlySummaryCache.instance;
+    final typeFilter = isIncomeSelected ? 'Income' : 'Expenses';
 
-    // Luego filtramos por Ingresos/Gastos
-    if (isIncomeSelected) {
-      filteredData = baseData.where((item) => item.safeType == 'Income').toList();
-    } else {
-      filteredData = baseData.where((item) => item.safeType == 'Expenses').toList();
-    }
+    filteredData = isMonthly
+        ? cache.getTransactionsForMonth(
+            selectedYear,
+            selectedMonth,
+            typeFilter: typeFilter,
+          )
+        : cache.getTransactionsForYear(
+            selectedYear,
+            typeFilter: typeFilter,
+          );
 
     _categoryData = _getCategoryData();
     _accountData = _getAccountData();
@@ -223,81 +209,57 @@ class _StatisticsState extends State<Statistics> {
   ];
 
   // ===================== LÓGICA PARA CONSTRUIR GRÁFICOS =====================
-  /// Gráfico de dona “por categoría”
+  MonthSummary _currentSummary() {
+    final cache = MonthlySummaryCache.instance;
+    return isMonthly
+        ? cache.getMonthSummary(selectedYear, selectedMonth)
+        : cache.getYearSummary(selectedYear);
+  }
+
+  /// Gráfico de dona “por categoría” usando agregados de [MonthlySummaryCache]
   List<ChartData> _getCategoryData() {
-    final Map<String, Map<String, dynamic>> map = {};
+    final summary = _currentSummary();
+    final totals =
+        isIncomeSelected ? summary.incomeByCategory : summary.expensesByCategory;
+    final icons = isIncomeSelected
+        ? summary.incomeCategoryIconCodes
+        : summary.expenseCategoryIconCodes;
 
-    for (var item in filteredData) {
-      double amount = double.tryParse(item.safeAmount) ?? 0;
-      final category = item.safeCategory.isEmpty ? 'Sin categoría' : item.safeCategory;
-
-      if (!map.containsKey(category)) {
-        // DEBUGGING: Imprimir el iconCode encontrado
-        print("Nueva categoría: $category con iconCode: ${item.safeIconCode}");
-
-        map[category] = {
-          'amount': amount,
-          'iconCode': item.safeIconCode > 0
-              ? item.safeIconCode
-              : _getDefaultIconCodeForCategory(category)
-        };
-      } else {
-        map[category]!['amount'] += amount;
-        // Mantener un iconCode válido si ya existe uno
-        if (item.safeIconCode > 0 && map[category]!['iconCode'] == 0) {
-          print("Actualizando iconCode para $category a: ${item.safeIconCode}");
-          map[category]!['iconCode'] = item.safeIconCode;
-        }
-      }
-    }
+    final sortedEntries = totals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     final List<ChartData> list = [];
     int colorIndex = 0;
 
-    final sortedEntries = map.entries.toList()
-      ..sort((a, b) => b.value['amount'].compareTo(a.value['amount']));
-
-    for (var entry in sortedEntries) {
+    for (final entry in sortedEntries) {
       final color = colorPalette[colorIndex % colorPalette.length];
       colorIndex++;
-      list.add(ChartData(entry.key, entry.value['amount'], color,
-          entry.value['iconCode'] // Pasamos el iconCode al ChartData
-          ));
+      final cachedIcon = icons[entry.key] ?? 0;
+      final iconCode = cachedIcon > 0
+          ? cachedIcon
+          : _getDefaultIconCodeForCategory(entry.key);
+      list.add(ChartData(entry.key, entry.value, color, iconCode));
     }
 
     return list;
   }
 
   List<ChartData> _getAccountData() {
-    final Map<String, Map<String, dynamic>> map = {};
+    final summary = _currentSummary();
+    final totals =
+        isIncomeSelected ? summary.incomeByAccount : summary.expensesByAccount;
 
-    for (var item in filteredData) {
-      double amount = double.tryParse(item.safeAmount) ?? 0;
-      final cuenta = item.safeAccount.isEmpty ? 'Sin cuenta' : item.safeAccount;
-
-      // Buscar iconCode basado en el nombre de la cuenta
-      IconData accountIconData = _getAccountIcon(cuenta);
-      int iconCode = accountIconData.codePoint;
-
-      if (!map.containsKey(cuenta)) {
-        map[cuenta] = {'amount': amount, 'iconCode': iconCode};
-      } else {
-        map[cuenta]!['amount'] += amount;
-      }
-    }
+    final sortedEntries = totals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     final List<ChartData> list = [];
     int colorIndex = 0;
 
-    final sortedEntries = map.entries.toList()
-      ..sort((a, b) => b.value['amount'].compareTo(a.value['amount']));
-
-    for (var entry in sortedEntries) {
+    for (final entry in sortedEntries) {
       final color = colorPalette[colorIndex % colorPalette.length];
       colorIndex++;
-      list.add(ChartData(entry.key, entry.value['amount'], color,
-          entry.value['iconCode'] // Incluir el iconCode en ChartData
-          ));
+      final iconCode = _getAccountIcon(entry.key).codePoint;
+      list.add(ChartData(entry.key, entry.value, color, iconCode));
     }
 
     return list;
@@ -370,36 +332,21 @@ class _StatisticsState extends State<Statistics> {
   /// Muestra la distribución de todos los meses del año seleccionado
   /// (filtrando además por Ingresos/Gastos).
   List<ChartData> _getMonthDataForYear() {
-    final Map<int, Map<String, dynamic>> map = {};
-
-    for (var item in filteredData) {
-      final mes = item.safeDate.month;
-      final amount = double.tryParse(item.safeAmount) ?? 0;
-
-      if (!map.containsKey(mes)) {
-        map[mes] = {
-          'amount': amount,
-          // Asignar icono de calendario para representar meses
-          'iconCode': Icons.calendar_month.codePoint
-        };
-      } else {
-        map[mes]!['amount'] += amount;
-      }
-    }
+    final cache = MonthlySummaryCache.instance;
+    final months = cache.getAvailableMonthsForYear(selectedYear).toList()..sort();
 
     final List<ChartData> list = [];
     int colorIndex = 0;
 
-    // Ordenar los meses cronológicamente
-    final sortedMonths = map.keys.toList()..sort();
-
-    for (var mes in sortedMonths) {
+    for (final mes in months) {
+      final summary = cache.getMonthSummary(selectedYear, mes);
+      final amount =
+          isIncomeSelected ? summary.totalIncome : summary.totalExpenses;
+      if (amount <= 0) continue;
       final label = '${_nombreMes(mes)} $selectedYear';
       final color = colorPalette[colorIndex % colorPalette.length];
       colorIndex++;
-      list.add(ChartData(label, map[mes]!['amount'], color,
-          map[mes]!['iconCode'] // Incluir el iconCode en ChartData
-          ));
+      list.add(ChartData(label, amount, color, Icons.calendar_month.codePoint));
     }
 
     return list;
@@ -418,163 +365,63 @@ class _StatisticsState extends State<Statistics> {
     }
   }
 
-  /// Devuelve una lista agrupada de ingresos, ya sea por semanas (modo mensual)
-  /// o por meses (modo anual).
-  List<ChartData> _getIncomeGrouped() {
-    // Solo tomamos ingresos
-    final data = allData.where((t) => t.safeType == 'Income').toList();
+  List<ChartData> _buildGroupedChartData({required bool isIncome}) {
+    final color = isIncome ? Colors.greenAccent : Colors.redAccent;
+    final cache = MonthlySummaryCache.instance;
+    final typeFilter = isIncome ? 'Income' : 'Expenses';
 
     if (isMonthly) {
-      // Modo mensual: agrupar por semanas
-      final currentData = data.where(
-        (t) =>
-            t.safeDate.year == selectedYear &&
-            t.safeDate.month == selectedMonth,
+      final currentData = cache.getTransactionsForMonth(
+        selectedYear,
+        selectedMonth,
+        typeFilter: typeFilter,
       );
 
-      // Agrupamos por semana del mes
-      final Map<int, Map<String, dynamic>> weeklyMap = {};
-      for (var item in currentData) {
+      final Map<int, double> weeklyMap = {};
+      for (final item in currentData) {
         final amount = double.tryParse(item.safeAmount) ?? 0;
         final weekNum = _getWeekOfMonth(item.safeDate);
-
-        if (!weeklyMap.containsKey(weekNum)) {
-          weeklyMap[weekNum] = {
-            'amount': amount,
-            // Icono para representar semanas
-            'iconCode': Icons.date_range.codePoint
-          };
-        } else {
-          weeklyMap[weekNum]!['amount'] += amount;
-        }
+        weeklyMap[weekNum] = (weeklyMap[weekNum] ?? 0) + amount;
       }
 
-      // Construir la lista ordenada por número de semana
-      final List<ChartData> weeklyList = [];
       final sortedWeeks = weeklyMap.keys.toList()..sort();
-
-      for (var week in sortedWeeks) {
-        weeklyList.add(ChartData(
+      return [
+        for (final week in sortedWeeks)
+          ChartData(
             'Semana $week',
-            weeklyMap[week]!['amount'],
-            Colors.greenAccent, // Agregamos el color como tercer parámetro
-            weeklyMap[week]!['iconCode'] // Y el iconCode como cuarto parámetro
-            ));
-      }
-      return weeklyList;
-    } else {
-      // Modo anual: agrupar por meses
-      final currentData = data.where((t) => t.safeDate.year == selectedYear);
-
-      final Map<int, Map<String, dynamic>> monthlyMap = {};
-      for (var item in currentData) {
-        final amount = double.tryParse(item.safeAmount) ?? 0;
-        final month = item.safeDate.month;
-
-        if (!monthlyMap.containsKey(month)) {
-          monthlyMap[month] = {
-            'amount': amount,
-            // Icono para representar meses
-            'iconCode': Icons.calendar_month.codePoint
-          };
-        } else {
-          monthlyMap[month]!['amount'] += amount;
-        }
-      }
-
-      // Construir la lista ordenada por mes
-      final List<ChartData> monthlyList = [];
-      final sortedMonths = monthlyMap.keys.toList()..sort();
-
-      for (var mes in sortedMonths) {
-        monthlyList.add(ChartData(
-            _nombreMesCompleto(mes),
-            monthlyMap[mes]!['amount'],
-            Colors.greenAccent, // Agregamos el color como tercer parámetro
-            monthlyMap[mes]!['iconCode'] // Y el iconCode como cuarto parámetro
-            ));
-      }
-      return monthlyList;
+            weeklyMap[week]!,
+            color,
+            Icons.date_range.codePoint,
+          ),
+      ];
     }
+
+    final months = cache.getAvailableMonthsForYear(selectedYear).toList()..sort();
+    final List<ChartData> monthlyList = [];
+    for (final mes in months) {
+      final summary = cache.getMonthSummary(selectedYear, mes);
+      final amount = isIncome ? summary.totalIncome : summary.totalExpenses;
+      if (amount > 0) {
+        monthlyList.add(ChartData(
+          _nombreMesCompleto(mes),
+          amount,
+          color,
+          Icons.calendar_month.codePoint,
+        ));
+      }
+    }
+    return monthlyList;
   }
+
+  /// Devuelve una lista agrupada de ingresos, ya sea por semanas (modo mensual)
+  /// o por meses (modo anual).
+  List<ChartData> _getIncomeGrouped() =>
+      _buildGroupedChartData(isIncome: true);
 
   /// Devuelve una lista agrupada de gastos, ya sea por semanas (modo mensual)
   /// o por meses (modo anual).
-  List<ChartData> _getExpensesGrouped() {
-    // Solo tomamos gastos
-    final data = allData.where((t) => t.safeType == 'Expenses').toList();
-
-    if (isMonthly) {
-      // Modo mensual: agrupar por semanas
-      final currentData = data.where(
-        (t) =>
-            t.safeDate.year == selectedYear &&
-            t.safeDate.month == selectedMonth,
-      );
-
-      // Agrupamos por semana del mes
-      final Map<int, Map<String, dynamic>> weeklyMap = {};
-      for (var item in currentData) {
-        final amount = double.tryParse(item.safeAmount) ?? 0;
-        final weekNum = _getWeekOfMonth(item.safeDate);
-
-        if (!weeklyMap.containsKey(weekNum)) {
-          weeklyMap[weekNum] = {
-            'amount': amount,
-            // Icono para representar semanas
-            'iconCode': Icons.date_range.codePoint
-          };
-        } else {
-          weeklyMap[weekNum]!['amount'] += amount;
-        }
-      }
-
-      // Construir la lista ordenada por número de semana
-      final List<ChartData> weeklyList = [];
-      final sortedWeeks = weeklyMap.keys.toList()..sort();
-
-      for (var week in sortedWeeks) {
-        weeklyList.add(ChartData(
-            'Semana $week',
-            weeklyMap[week]!['amount'],
-            Colors.redAccent, // Color rojo para gastos
-            weeklyMap[week]!['iconCode']));
-      }
-      return weeklyList;
-    } else {
-      // Modo anual: agrupar por meses
-      final currentData = data.where((t) => t.safeDate.year == selectedYear);
-
-      final Map<int, Map<String, dynamic>> monthlyMap = {};
-      for (var item in currentData) {
-        final amount = double.tryParse(item.safeAmount) ?? 0;
-        final month = item.safeDate.month;
-
-        if (!monthlyMap.containsKey(month)) {
-          monthlyMap[month] = {
-            'amount': amount,
-            // Icono para representar meses
-            'iconCode': Icons.calendar_month.codePoint
-          };
-        } else {
-          monthlyMap[month]!['amount'] += amount;
-        }
-      }
-
-      // Construir la lista ordenada por mes
-      final List<ChartData> monthlyList = [];
-      final sortedMonths = monthlyMap.keys.toList()..sort();
-
-      for (var mes in sortedMonths) {
-        monthlyList.add(ChartData(
-            _nombreMesCompleto(mes),
-            monthlyMap[mes]!['amount'],
-            Colors.redAccent, // Color rojo para gastos
-            monthlyMap[mes]!['iconCode']));
-      }
-      return monthlyList;
-    }
-  }
+  List<ChartData> _getExpensesGrouped() =>
+      _buildGroupedChartData(isIncome: false);
 
   /// Calcula la semana del mes en una fecha dada (1, 2, 3, 4 o 5).
   int _getWeekOfMonth(DateTime date) {
@@ -672,40 +519,22 @@ class _StatisticsState extends State<Statistics> {
 
 // Datos por día para el mes seleccionado
   List<ChartData> _getDailyDataForMonth() {
-    // Mapa para agregar valores por día
-    Map<int, double> dailyData = {};
-
-    // Filtrar transacciones del tipo correcto (ingresos o gastos)
-    final filteredByType = allData
-        .where((item) =>
-            item.safeType == (isIncomeSelected ? 'Income' : 'Expenses') &&
-            item.safeDate.year == selectedYear &&
-            item.safeDate.month == selectedMonth)
-        .toList();
-
-    // Obtener el último día del mes seleccionado (28, 29, 30 o 31)
+    final Map<int, double> dailyData = {};
     final lastDayOfMonth = DateTime(selectedYear, selectedMonth + 1, 0).day;
 
-    // Inicializar todos los días del mes con valor 0
-    for (int day = 1; day <= lastDayOfMonth; day++) {
-      dailyData[day] = 0;
-    }
-
-    // Sumar los montos para cada día
-    for (var item in filteredByType) {
+    for (final item in filteredData) {
       final day = item.safeDate.day;
       final amount = double.tryParse(item.safeAmount) ?? 0;
       dailyData[day] = (dailyData[day] ?? 0) + amount;
     }
 
-    // Convertir a lista de ChartData
-    List<ChartData> result = [];
+    final List<ChartData> result = [];
     for (int day = 1; day <= lastDayOfMonth; day++) {
-      // Solo incluir días con datos para no sobrecargar el gráfico
-      if (dailyData[day]! > 0) {
+      final value = dailyData[day] ?? 0;
+      if (value > 0) {
         result.add(ChartData(
             day.toString(),
-            dailyData[day]!,
+            value,
             isIncomeSelected
                 ? const Color(0xFF27AE60)
                 : const Color(0xFFE53935),
@@ -720,36 +549,16 @@ class _StatisticsState extends State<Statistics> {
 
 // Datos mensuales para un año (versión para gráfica histórica)
   List<ChartData> _getMonthDataForYearHistorical() {
-    // Mapa para agregar valores por mes
-    Map<int, double> monthlyData = {};
-
-    // Inicializar todos los meses con valor 0
+    final cache = MonthlySummaryCache.instance;
+    final List<ChartData> result = [];
     for (int month = 1; month <= 12; month++) {
-      monthlyData[month] = 0;
-    }
-
-    // Filtrar transacciones del tipo correcto (ingresos o gastos)
-    final filteredByType = allData
-        .where((item) =>
-            item.safeType == (isIncomeSelected ? 'Income' : 'Expenses') &&
-            item.safeDate.year == selectedYear)
-        .toList();
-
-    // Sumar los montos para cada mes
-    for (var item in filteredByType) {
-      final month = item.safeDate.month;
-      final amount = double.tryParse(item.safeAmount) ?? 0;
-      monthlyData[month] = (monthlyData[month] ?? 0) + amount;
-    }
-
-    // Convertir a lista de ChartData
-    List<ChartData> result = [];
-    for (int month = 1; month <= 12; month++) {
-      // Solo incluir meses con datos para no sobrecargar el gráfico
-      if (monthlyData[month]! > 0) {
+      final summary = cache.getMonthSummary(selectedYear, month);
+      final value =
+          isIncomeSelected ? summary.totalIncome : summary.totalExpenses;
+      if (value > 0) {
         result.add(ChartData(
             _nombreMesCompleto(month),
-            monthlyData[month]!,
+            value,
             isIncomeSelected
                 ? const Color(0xFF27AE60)
                 : const Color(0xFFE53935),
