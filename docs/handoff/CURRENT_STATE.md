@@ -1,13 +1,18 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-15 (Integración en `main` de `integration/onboarding-y-mejoras-ui` — `b8a00ba`, validada en `R5CY21GE9YY` con Maestro y en Docker Flutter `3.44.2`: `236/236` tests pasaron)
+> **Última actualización:** 2026-11-16 (Integración en `main` de `integration/pendientes-web-y-perf` — `59a22c0`, validada en Docker Flutter `3.44.2`: `244/244` tests + `build web` OK)
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `main` (fusionada mediante `--ff-only` hasta `b8a00ba` tras validación en dispositivo `R5CY21GE9YY` y suite completa en Docker; **sin `git push`**).
+- **Rama actual:** `main` (fusionada mediante `--ff-only` hasta `59a22c0`; **sin `git push`**).
+- **Consolidación de ramas pendientes (`integration/pendientes-web-y-perf`, fusionada en `main`):**
+  - Permisos Android (`agent/fix/android-permissions-ux`): separación de `POST_NOTIFICATIONS` vs alarmas exactas, re-verificación al reanudar y guía de ajustes restringidos.
+  - Rendimiento, TC, Disponible y Gemma (`agent/perf/profile-bottlenecks`): eliminación de `saveLayer` de `StretchingOverscrollIndicator`, recorte de splash, sincronización de PIN en Ajustes, bloqueo de *"Incluir en saldo total"* en tarjetas de crédito, refresco de `Disponible` tras `Gestionar cuentas` y bloqueo de inferencia Gemma durante descarga.
+  - Modelo Gemma editable (`agent/ai/default-model-url-ui`): pre-carga de URL de modelo por defecto editable con opción de restaurar.
+  - Validación: `dart analyze` (`No issues found!`) en las pruebas nuevas/actualizadas, `flutter test --no-pub -j 1` (**244/244 pasaron**) y `flutter build web --no-pub --no-tree-shake-icons` (`✓ Built build/web`). Limpiadas 22 ramas ya integradas y 4 worktrees; quedan únicamente `agent/maestro/configuracion-agentica` (`wt-maestro-agentic`), `agent/maestro/audit-e2e` y `validation/isolated-*`.
 - **Onboarding e Incremental UI (`integration/onboarding-y-mejoras-ui`, fusionada en `main`):**
   - Spec y diseño en `.specify/onboarding-y-mejoras-ui/` + `.agents/skills/moneo-ui-design/SKILL.md` (100% offline).
   - Lote 1 (mejoras UI incrementales): `AnnualProjectionScreen` (FAB `Semantics`/`tooltip`, bottom clearance), `Statistics` (fecha sin truncamiento), `PendingTransactionsScreen` (padding inferior), `CategoriesScreen` (estado vacío accionable sin auto-siembra), y validación consistente en formularios (`add_expense.dart`, `transfer.dart`, `add_account_dialogs.dart`).
