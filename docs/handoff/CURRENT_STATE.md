@@ -1,13 +1,18 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-16 (Integración en `main` de `integration/maestro-configuracion` — `dc6d660` sobre `59a22c0`, validada en Docker Flutter `3.44.2`: `244/244` tests + `12/13` suite seguridad Maestro)
+> **Última actualización:** 2026-11-16 (Integración en `main` de **Fase 1** — `3361e83`, validada en Docker `277/277` tests + `R5CY21GE9YY` vía `run_maestro.sh`; iniciando **Fase 2** en `agent/perf/archive-service-y-backup-v2`)
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `main` (fusionada mediante `--ff-only` hasta `dc6d660`; **sin `git push`**).
+- **Rama actual:** `main` (fusionada mediante `--ff-only` hasta `3361e83`; **sin `git push`**).
+- **Fase 1 Optimización a Largo Plazo (fusionada en `main`, worktrees y ramas limpiadas):**
+  - **IA / Chat:** `AiIntentDetector` + `AiQueryRouter` + funciones deterministas (`ai_financial_tools.dart`: TCO, cuota, interés, depreciación, flujo de caja, transporte) + plantillas (`ai_report_templates.dart`), metas acumulativas, resumen acumulativo, rotación `2048` tokens, historial acotado (80 msgs) y aviso neutro Gemma.
+  - **Patrones y Deduplicación:** `LearnedPattern` retrocompatible con estados (`nuevo`, `en_refuerzo`, `consolidado`, `en_revision`, `obsoleto`) y puntuación por categoría/cuenta; `TransactionDedupCorrelator` (`UTR`, `48h` + `>=0.90` con `BM25 + JaccardTrigram`, transferencia interna, `mergePendingItems`/`splitMergedItem`), circuit-breaker Gemma y poda TTL + `compact()` en background.
+  - **Agregados O(1):** `MonthlySummaryCache` conectado a `Home`, `Statistics` y `AiChatService`; eliminado `O(N²)` en `TransactionListWidget`.
+  - **Validación:** `dart analyze` = `No issues found!`, `flutter test --no-pub -j 1` = **277/277 pasaron** en `main`, y flujos Maestro aprobados en `R5CY21GE9YY` vía `.maestro/docker/run_maestro.sh` (Gemma 2.4 GB descargado y verificado).
 - **Suite Maestro Docker y Hooks (`agent/maestro/configuracion-agentica`, fusionada en `main`):**
   - `.agents/hooks/pre_stop_test.sh` y `.agents/hooks/security_guard.py`: resolución dinámica de socket Docker (`DOCKER_HOST`) y reglas de exclusividad/seguridad.
   - `.agents/skills/moneo-maestro-e2e/SKILL.md`, `.maestro/audit_*.yaml`, `.maestro/docker/*` y `.maestro/tests/test_maestro_security_suite.py` (`12/13` pasaron; `test_13` requiere construir la imagen `finazaap-maestro:local`).
