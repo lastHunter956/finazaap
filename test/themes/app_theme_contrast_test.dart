@@ -14,7 +14,7 @@ double _contrastRatio(Color a, Color b) {
 
 void main() {
   group('AppTheme - Tokens y Contraste WCAG 2.1', () {
-    test('Default permanece 100% intacto sin modificaciones', () {
+    test('Default mantiene su paleta base con tokens ajustados a WCAG AA', () {
       final def = AppTheme.forMode(AppThemeMode.defaultDark);
       expect(def.primaryBackground, const Color(0xFF1F2639));
       expect(def.cardBackground, const Color(0xFF2A3143));
@@ -22,16 +22,16 @@ void main() {
       expect(def.secondaryCardBackground, const Color(0xFF222939));
       expect(def.textPrimary, Colors.white);
       expect(def.textSecondary, const Color(0xFFB0C4DE));
-      expect(def.textHint, const Color(0xFF708090));
+      expect(def.textHint, const Color(0xFF90A0B5));
       expect(def.borderSubtle, const Color(0xFF2F374A));
       expect(def.borderVisible, const Color(0xFF4A556E));
       expect(def.accent, const Color(0xFF52E2FF));
-      expect(def.secondaryAccent, const Color(0xFF4A80F0));
+      expect(def.secondaryAccent, const Color(0xFF6B9EFF));
       expect(def.income, const Color(0xFFA7E2A9));
-      expect(def.expense, const Color(0xFFE53935));
+      expect(def.expense, const Color(0xFFFF6B6B));
       expect(def.success, const Color(0xFF2ECC71));
       expect(def.warning, const Color(0xFFFDD835));
-      expect(def.error, const Color(0xFFE53935));
+      expect(def.error, const Color(0xFFFF6B6B));
       expect(def.buttonBackground, const Color(0xFF52E2FF));
       expect(def.buttonForeground, const Color(0xFF1F2639));
       expect(def.buttonShadow, isEmpty);
@@ -100,8 +100,9 @@ void main() {
       }
     });
 
-    test('Diurno, Día y Nocturno cumplen AA (>=4.5:1) en todos los tokens sobre sus 3 superficies', () {
+    test('Todos los temas (Default, Diurno, Día y Nocturno) cumplen AA (>=4.5:1) en todos los tokens sobre sus 3 superficies', () {
       for (final mode in [
+        AppThemeMode.defaultDark,
         AppThemeMode.diurno,
         AppThemeMode.dia,
         AppThemeMode.nocturno,

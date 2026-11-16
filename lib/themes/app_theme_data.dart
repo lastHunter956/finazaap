@@ -146,16 +146,16 @@ class AppTheme extends ThemeExtension<AppTheme> {
     secondaryCardBackground: Color(0xFF222939),
     textPrimary: Colors.white,
     textSecondary: Color(0xFFB0C4DE), // Opaque light steel blue
-    textHint: Color(0xFF708090),      // Opaque grey
+    textHint: Color(0xFF90A0B5),      // Opaque slate grey (WCAG AA >= 4.87:1)
     borderSubtle: Color(0xFF2F374A),
     borderVisible: Color(0xFF4A556E),
     accent: Color(0xFF52E2FF),
-    secondaryAccent: Color(0xFF4A80F0),
+    secondaryAccent: Color(0xFF6B9EFF),
     income: Color(0xFFA7E2A9),
-    expense: Color(0xFFE53935),
+    expense: Color(0xFFFF6B6B),
     success: Color(0xFF2ECC71),
     warning: Color(0xFFFDD835),
-    error: Color(0xFFE53935),
+    error: Color(0xFFFF6B6B),
     buttonBackground: Color(0xFF52E2FF),
     buttonForeground: Color(0xFF1F2639),
     buttonShadow: [],
