@@ -17,6 +17,7 @@ import 'package:finazaap/features/notifications/services/notification_box_encryp
 import 'package:finazaap/features/notifications/services/notification_ingestion_service.dart';
 import 'package:finazaap/features/notifications/services/notification_parser.dart';
 import 'package:finazaap/features/notifications/services/transaction_classifier.dart';
+import 'package:finazaap/features/notifications/services/transaction_dedup_correlator.dart';
 
 /// Coordinador del pipeline real de notificaciones bancarias en Moneo.
 ///
@@ -29,6 +30,7 @@ class NotificationPipelineService {
   static const String autoAcceptFuturePrefsKey =
       'notifications_auto_accept_future';
   static const String dedupHistoryBoxName = 'notification_dedup_history';
+  static const Duration dedupHistoryTtl = Duration(days: 30);
 
   static final NotificationPipelineService instance =
       NotificationPipelineService._internal();
@@ -42,6 +44,8 @@ class NotificationPipelineService {
     Box<dynamic>? pendingBox,
     Box<dynamic>? executedBox,
     Box<dynamic>? patternsBox,
+    Box<dynamic>? dedupRulesBox,
+    TransactionDedupCorrelator? dedupCorrelator,
   }) {
     if (boxEncryption == null &&
         whitelistService == null &&
@@ -50,7 +54,9 @@ class NotificationPipelineService {
         dedupBox == null &&
         pendingBox == null &&
         executedBox == null &&
-        patternsBox == null) {
+        patternsBox == null &&
+        dedupRulesBox == null &&
+        dedupCorrelator == null) {
       return instance;
     }
     return NotificationPipelineService._custom(
@@ -62,6 +68,8 @@ class NotificationPipelineService {
       pendingBox: pendingBox,
       executedBox: executedBox,
       patternsBox: patternsBox,
+      dedupRulesBox: dedupRulesBox,
+      dedupCorrelator: dedupCorrelator,
     );
   }
 
@@ -73,7 +81,9 @@ class NotificationPipelineService {
         _injectedDedupBox = null,
         _injectedPendingBox = null,
         _injectedExecutedBox = null,
-        _injectedPatternsBox = null {
+        _injectedPatternsBox = null,
+        _injectedDedupRulesBox = null,
+        _injectedDedupCorrelator = null {
     _buildCollaborators();
   }
 
@@ -86,6 +96,8 @@ class NotificationPipelineService {
     Box<dynamic>? pendingBox,
     Box<dynamic>? executedBox,
     Box<dynamic>? patternsBox,
+    Box<dynamic>? dedupRulesBox,
+    TransactionDedupCorrelator? dedupCorrelator,
   })  : _boxEncryption = boxEncryption ?? NotificationBoxEncryption(),
         _whitelistService = whitelistService ?? BankWhitelistService(),
         _source = source ?? AndroidNotificationSource(),
@@ -93,7 +105,9 @@ class NotificationPipelineService {
         _injectedDedupBox = dedupBox,
         _injectedPendingBox = pendingBox,
         _injectedExecutedBox = executedBox,
-        _injectedPatternsBox = patternsBox {
+        _injectedPatternsBox = patternsBox,
+        _injectedDedupRulesBox = dedupRulesBox,
+        _injectedDedupCorrelator = dedupCorrelator {
     _buildCollaborators();
   }
 
@@ -105,11 +119,14 @@ class NotificationPipelineService {
   final Box<dynamic>? _injectedPendingBox;
   final Box<dynamic>? _injectedExecutedBox;
   final Box<dynamic>? _injectedPatternsBox;
+  final Box<dynamic>? _injectedDedupRulesBox;
+  final TransactionDedupCorrelator? _injectedDedupCorrelator;
 
   late final NotificationIngestionService _ingestionService;
   late final NotificationParser _parser;
   late final LearnedPatternsService _patternsService;
   late final TransactionClassifier _classifier;
+  late final TransactionDedupCorrelator _dedupCorrelator;
   late final PendingTransactionsNotifier _pendingNotifier;
 
   StreamSubscription<NotificationEvent>? _ingestedSubscription;
@@ -133,18 +150,25 @@ class NotificationPipelineService {
     _classifier = TransactionClassifier(
       patternsService: _patternsService,
     );
+    _dedupCorrelator = _injectedDedupCorrelator ??
+        TransactionDedupCorrelator(
+          rulesBox: _injectedDedupRulesBox,
+          boxEncryption: _injectedDedupRulesBox == null ? _boxEncryption : null,
+        );
     _pendingNotifier = PendingTransactionsNotifier(
       box: _injectedPendingBox,
       executedBox: _injectedExecutedBox,
       boxEncryption: _injectedPendingBox == null ? _boxEncryption : null,
       learnedPatternsService: _patternsService,
       executionPort: _executionPort,
+      dedupCorrelator: _dedupCorrelator,
     );
   }
 
   BankWhitelistService get whitelistService => _whitelistService;
   NotificationSourcePort get source => _source;
   LearnedPatternsService get patternsService => _patternsService;
+  TransactionDedupCorrelator get dedupCorrelator => _dedupCorrelator;
   PendingTransactionsNotifier get pendingNotifier => _pendingNotifier;
   bool get isCaptureEnabled => _captureEnabled;
   bool get isAutoAcceptFutureEnabled => _autoAcceptFutureEnabled;
@@ -159,6 +183,7 @@ class NotificationPipelineService {
 
     try {
       await _pendingNotifier.initialize();
+      await pruneStorageTtl();
     } catch (_) {
       // Permite continuar en entornos de prueba sin plugin de FlutterSecureStorage.
     }
@@ -208,6 +233,51 @@ class NotificationPipelineService {
         allowedPackages: _whitelistService.whitelistedPackages.toList(),
       );
     }
+  }
+
+  /// Ejecuta la poda TTL y compactación (`box.compact()`) sobre las cajas
+  /// `notification_dedup_history` (>30 días), `notification_executed_ids`
+  /// (>90 días o tope 500) y `learned_patterns` obsoletos (>180 días).
+  Future<({int dedupPruned, int executedPruned, int patternsPruned})>
+      pruneStorageTtl({DateTime? now}) async {
+    final reference = now ?? DateTime.now();
+    var dedupPruned = 0;
+    var executedPruned = 0;
+    var patternsPruned = 0;
+
+    try {
+      final dedupBox = await _getDedupBox();
+      final keysToDelete = <dynamic>[];
+      for (final key in dedupBox.keys) {
+        final raw = dedupBox.get(key);
+        final ts = raw is String ? DateTime.tryParse(raw) : null;
+        if (ts == null || reference.difference(ts) > dedupHistoryTtl) {
+          keysToDelete.add(key);
+        }
+      }
+      for (final key in keysToDelete) {
+        await dedupBox.delete(key);
+      }
+      if (keysToDelete.isNotEmpty) {
+        await dedupBox.compact();
+      }
+      dedupPruned = keysToDelete.length;
+    } catch (_) {}
+
+    try {
+      executedPruned = await _pendingNotifier.pruneExecutedHistory(now: reference);
+    } catch (_) {}
+
+    try {
+      patternsPruned =
+          await _patternsService.pruneObsoletePatterns(now: reference);
+    } catch (_) {}
+
+    return (
+      dedupPruned: dedupPruned,
+      executedPruned: executedPruned,
+      patternsPruned: patternsPruned,
+    );
   }
 
   /// Drena eventos acumulados cuando la app regresa a primer plano.
@@ -338,7 +408,35 @@ class NotificationPipelineService {
       decisionSource: classification.decisionSource,
       flags: parseResult.flags,
       createdAt: DateTime.now(),
+      referenceId: TransactionDedupCorrelator.extractReferenceId(rawText),
+      channel: TransactionDedupCorrelator.inferChannel(
+        packageName: event.packageName,
+        rawText: rawText,
+      ).wireValue,
     );
+
+    // Deduplicación y correlación ANTES de crear un nuevo movimiento en bandeja.
+    if (item.classification != 'sospechosa') {
+      final correlation = await _dedupCorrelator.correlate(
+        candidate: item,
+        existingPending: _pendingNotifier.items,
+        packageName: event.packageName,
+      );
+      if (correlation.shouldMergeIntoExisting) {
+        final existingIdx = _pendingNotifier.items
+            .indexWhere((p) => p.id == correlation.matchedPendingItemId);
+        if (existingIdx >= 0) {
+          final existing = _pendingNotifier.items[existingIdx];
+          final merged = _dedupCorrelator.mergeIntoPendingItem(
+            existing: existing,
+            incoming: item,
+            correlation: correlation,
+          );
+          await _pendingNotifier.addPendingItem(merged);
+          return;
+        }
+      }
+    }
 
     if (_autoAcceptFutureEnabled && item.isEligibleForAcceptAll) {
       await _pendingNotifier.autoAcceptIfEligible(item);

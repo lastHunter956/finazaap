@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finazaap/data/models/account_item.dart';
+import 'package:finazaap/features/notifications/domain/models/learned_pattern.dart';
 import 'package:finazaap/features/notifications/domain/models/notification_parse_result.dart';
 import 'package:finazaap/features/notifications/domain/models/transaction_classification.dart';
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
@@ -110,7 +111,9 @@ class TransactionClassifier {
     final merchant = _extractMerchant(parseResult);
     if (merchant != null && merchant.trim().isNotEmpty) {
       final pattern = await _patternsService.findPattern(merchant);
-      if (pattern != null && pattern.confirmations >= 1) {
+      if (pattern != null &&
+          pattern.confirmations >= 1 &&
+          pattern.effectiveStatus() != PatternStatus.obsoleto) {
         final resolvedAccount = pattern.accountName ??
             _detectAccountName(
               parseResult,
@@ -125,8 +128,11 @@ class TransactionClassifier {
 
         // Solo emitir transferencia-propia si la cuenta destino no es nula
         if (!isTransfer || destAccount != null) {
-          final confidence =
-              _confidenceFromConfirmations(pattern.confirmations);
+          final isInRevision =
+              pattern.effectiveStatus() == PatternStatus.enRevision;
+          final confidence = isInRevision
+              ? 0.82
+              : _confidenceFromConfirmations(pattern.confirmations);
           return TransactionClassification(
             classification: pattern.classification,
             moneoType: pattern.moneoType ??
@@ -136,8 +142,8 @@ class TransactionClassifier {
             accountName: resolvedAccount,
             destinationAccount: destAccount,
             confidence: confidence,
-            requiresReview: false,
-            createTransaction: true,
+            requiresReview: isInRevision,
+            createTransaction: !isInRevision,
             decisionSource: 'learned_patterns',
           );
         }
@@ -168,7 +174,10 @@ class TransactionClassifier {
         parseResult is ParsedTransaction ? parseResult.monto : null;
     List<String> fewShot = const [];
     try {
-      fewShot = await _patternsService.getFewShotExamples(limit: 3);
+      fewShot = await _patternsService.getFewShotExamples(
+        limit: 3,
+        query: merchant ?? text,
+      );
     } catch (_) {
       fewShot = const [];
     }

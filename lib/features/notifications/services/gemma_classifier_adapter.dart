@@ -7,17 +7,20 @@ class GemmaClassificationResult {
   final String classification; // 'gasto' | 'ingreso' | 'transferencia-propia'
   final String? category;
   final double confidence;
+  final String? strategicNote;
 
   const GemmaClassificationResult({
     required this.classification,
     this.category,
     required this.confidence,
+    this.strategicNote,
   });
 
   Map<String, dynamic> toJson() => {
         'classification': classification,
         'category': category,
         'confidence': confidence,
+        if (strategicNote != null) 'strategic_note': strategicNote,
       };
 
   factory GemmaClassificationResult.fromJson(Map<String, dynamic> json) {
@@ -25,6 +28,8 @@ class GemmaClassificationResult {
       classification: json['classification'] as String,
       category: json['category'] as String?,
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.82,
+      strategicNote:
+          (json['strategic_note'] ?? json['note']) as String?,
     );
   }
 
@@ -100,38 +105,95 @@ class DefaultGemmaInferenceClient implements GemmaInferenceClient {
 class GemmaClassifierAdapter {
   final GemmaInferenceClient _client;
   final Duration timeout;
+  final int failureThreshold;
+  final Duration cooldownDuration;
+  final DateTime Function() _now;
+
+  int _consecutiveFailures = 0;
+  DateTime? _openUntil;
 
   GemmaClassifierAdapter({
     GemmaInferenceClient? client,
     this.timeout = const Duration(seconds: 3),
-  }) : _client = client ?? DefaultGemmaInferenceClient();
+    this.failureThreshold = 2,
+    this.cooldownDuration = const Duration(minutes: 5),
+    DateTime Function()? nowProvider,
+  })  : _client = client ?? DefaultGemmaInferenceClient(),
+        _now = nowProvider ?? DateTime.now;
+
+  /// Cantidad de fallos/timeouts consecutivos registrados.
+  int get consecutiveFailures => _consecutiveFailures;
+
+  /// Indica si el circuit-breaker está abierto (en cooldown).
+  bool get isCircuitOpen {
+    final until = _openUntil;
+    if (until == null) return false;
+    if (_now().isBefore(until)) return true;
+    // Cooldown expirado: permitir half-open probe
+    _openUntil = null;
+    return false;
+  }
+
+  /// Reinicia manualmente el estado del circuit-breaker.
+  void resetCircuit() {
+    _consecutiveFailures = 0;
+    _openUntil = null;
+  }
+
+  void _recordFailure() {
+    _consecutiveFailures++;
+    if (_consecutiveFailures >= failureThreshold) {
+      _openUntil = _now().add(cooldownDuration);
+    }
+  }
+
+  void _recordSuccess() {
+    _consecutiveFailures = 0;
+    _openUntil = null;
+  }
 
   /// Verifica si el modelo Gemma está listo para inferir en memoria.
   Future<bool> isAvailable() async {
+    if (isCircuitOpen) return false;
     try {
-      return await _client.isModelLoaded().timeout(timeout);
+      final loaded = await _client.isModelLoaded().timeout(timeout);
+      if (!loaded) _recordFailure();
+      return loaded;
     } catch (_) {
+      _recordFailure();
       return false;
     }
   }
 
   /// Ejecuta la clasificación con Gemma de forma segura.
-  /// Retorna `null` si Gemma no está disponible, falla o excede el tiempo límite.
+  ///
+  /// Con circuit-breaker: si Gemma no está disponible o tras [failureThreshold]
+  /// fallos/timeouts, retorna `null` en 0 ms durante [cooldownDuration].
   Future<GemmaClassificationResult?> classify({
     required String rawText,
     String? merchant,
     double? amount,
     List<String> fewShotExamples = const [],
   }) async {
+    if (isCircuitOpen) {
+      return null;
+    }
     try {
-      return await _executeClassification(
+      final result = await _executeClassification(
         rawText: rawText,
         merchant: merchant,
         amount: amount,
         fewShotExamples: fewShotExamples,
       ).timeout(timeout);
+      if (result == null) {
+        _recordFailure();
+        return null;
+      }
+      _recordSuccess();
+      return result;
     } catch (_) {
-      // Timeout o excepción de hardware -> fallback seguro sin propagar error
+      // Timeout o excepción de hardware -> abrir circuit-breaker tras umbral
+      _recordFailure();
       return null;
     }
   }
@@ -211,6 +273,8 @@ class GemmaClassifierAdapter {
       }
 
       final category = decoded['category'] as String?;
+      final strategicNote =
+          (decoded['strategic_note'] ?? decoded['note']) as String?;
       var confidence = (decoded['confidence'] as num?)?.toDouble() ?? 0.82;
       if (confidence < 0.0) confidence = 0.0;
       if (confidence > 1.0) confidence = 1.0;
@@ -219,6 +283,7 @@ class GemmaClassifierAdapter {
         classification: normClassification,
         category: category,
         confidence: confidence,
+        strategicNote: strategicNote,
       );
     } catch (_) {
       return null;
