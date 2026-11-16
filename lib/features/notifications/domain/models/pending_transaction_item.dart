@@ -20,6 +20,10 @@ class PendingTransactionItem {
   final List<String> flags;
   final DateTime createdAt;
   final String executionStatus; // 'pending' | 'executing' | 'executed'
+  final String? referenceId;
+  final String channel; // 'app' | 'sms' | 'correo'
+  final List<Map<String, dynamic>> groupedEvents;
+  final String? strategicNote;
 
   const PendingTransactionItem({
     required this.id,
@@ -42,7 +46,14 @@ class PendingTransactionItem {
     this.flags = const [],
     required this.createdAt,
     this.executionStatus = 'pending',
+    this.referenceId,
+    this.channel = 'app',
+    this.groupedEvents = const [],
+    this.strategicNote,
   });
+
+  int get groupedCount => groupedEvents.isEmpty ? 1 : groupedEvents.length;
+  bool get isGrouped => groupedEvents.length > 1;
 
   /// Determina si cumple todos los invariantes para aprobación masiva en lote ("Aceptar todo").
   bool get isEligibleForAcceptAll {
@@ -78,6 +89,10 @@ class PendingTransactionItem {
     List<String>? flags,
     DateTime? createdAt,
     String? executionStatus,
+    String? referenceId,
+    String? channel,
+    List<Map<String, dynamic>>? groupedEvents,
+    String? strategicNote,
   }) {
     return PendingTransactionItem(
       id: id ?? this.id,
@@ -100,6 +115,10 @@ class PendingTransactionItem {
       flags: flags ?? this.flags,
       createdAt: createdAt ?? this.createdAt,
       executionStatus: executionStatus ?? this.executionStatus,
+      referenceId: referenceId ?? this.referenceId,
+      channel: channel ?? this.channel,
+      groupedEvents: groupedEvents ?? this.groupedEvents,
+      strategicNote: strategicNote ?? this.strategicNote,
     );
   }
 
@@ -124,6 +143,10 @@ class PendingTransactionItem {
         'flags': flags,
         'created_at': createdAt.toIso8601String(),
         'execution_status': executionStatus,
+        if (referenceId != null) 'reference_id': referenceId,
+        'channel': channel,
+        if (groupedEvents.isNotEmpty) 'grouped_events': groupedEvents,
+        if (strategicNote != null) 'strategic_note': strategicNote,
       };
 
   factory PendingTransactionItem.fromJson(
@@ -170,6 +193,16 @@ class PendingTransactionItem {
         executionStatus: (json['execution_status'] ??
                 json['executionStatus']) as String? ??
             'pending',
+        referenceId: (json['reference_id'] ?? json['referenceId']) as String?,
+        channel: (json['channel'] as String?) ?? 'app',
+        groupedEvents: (json['grouped_events'] is List)
+            ? (json['grouped_events'] as List)
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList()
+            : const [],
+        strategicNote:
+            (json['strategic_note'] ?? json['strategicNote']) as String?,
       );
 
   @override

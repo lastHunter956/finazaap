@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import 'package:finazaap/features/notifications/adapters/mock_transaction_execution_adapter.dart';
+import 'package:finazaap/features/notifications/domain/models/dedup_models.dart';
 import 'package:finazaap/features/notifications/domain/models/pending_transaction_item.dart';
 import 'package:finazaap/features/notifications/domain/models/transaction_classification.dart';
 import 'package:finazaap/features/notifications/domain/ports/transaction_execution_port.dart';
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
 import 'package:finazaap/features/notifications/services/notification_box_encryption.dart';
+import 'package:finazaap/features/notifications/services/transaction_dedup_correlator.dart';
 
 /// Resumen estructurado del resultado de ejecutar la aprobación masiva ("Aceptar todo").
 class BatchApprovalSummary {
@@ -50,6 +52,7 @@ class PendingTransactionsNotifier extends ChangeNotifier {
   final LearnedPatternsService _learnedPatternsService;
   final TransactionExecutionPort _executionPort;
   final NotificationBoxEncryption? _boxEncryption;
+  final TransactionDedupCorrelator _dedupCorrelator;
 
   List<PendingTransactionItem> _items = [];
   final Set<String> _inFlightIds = {};
@@ -64,13 +67,15 @@ class PendingTransactionsNotifier extends ChangeNotifier {
     LearnedPatternsService? learnedPatternsService,
     TransactionExecutionPort? executionPort,
     NotificationBoxEncryption? boxEncryption,
+    TransactionDedupCorrelator? dedupCorrelator,
   })  : _injectedBox = box,
         _injectedExecutedBox = executedBox,
         _boxName = boxName,
         _learnedPatternsService =
             learnedPatternsService ?? LearnedPatternsService(),
         _executionPort = executionPort ?? MockTransactionExecutionAdapter(),
-        _boxEncryption = boxEncryption;
+        _boxEncryption = boxEncryption,
+        _dedupCorrelator = dedupCorrelator ?? TransactionDedupCorrelator();
 
   /// Lista de transacciones actualmente pendientes, ordenada de más reciente a más antigua.
   List<PendingTransactionItem> get items => List.unmodifiable(_items);
@@ -523,6 +528,155 @@ class PendingTransactionsNotifier extends ChangeNotifier {
     );
 
     return summary;
+  }
+
+  /// Agrupa manualmente N ítems pendientes en 1 ("estos N son uno") y guarda
+  /// una regla de deduplicación reutilizable para futuras notificaciones.
+  Future<PendingTransactionItem?> mergePendingItems(List<String> itemIds) async {
+    if (itemIds.length < 2) return null;
+    final selected = _items.where((i) => itemIds.contains(i.id)).toList();
+    if (selected.length < 2) return null;
+
+    var merged = selected.first;
+    final channels = <String>{merged.channel};
+
+    for (var i = 1; i < selected.length; i++) {
+      final incoming = selected[i];
+      channels.add(incoming.channel);
+      final isTransferPair =
+          (merged.classification == 'gasto' && incoming.classification == 'ingreso') ||
+              (merged.classification == 'ingreso' && incoming.classification == 'gasto');
+      final canTransfer = isTransferPair &&
+          merged.accountName != null &&
+          incoming.accountName != null &&
+          merged.accountName != incoming.accountName;
+
+      final correlation = canTransfer
+          ? CorrelationResult(
+              decision: CorrelationDecisionType.internalTransferPair,
+              matchedPendingItemId: merged.id,
+              similarityScore: 1.0,
+              reason: 'Fusión manual de transferencia interna',
+              proposedSourceAccount: merged.classification == 'gasto'
+                  ? merged.accountName
+                  : incoming.accountName,
+              proposedDestinationAccount: merged.classification == 'gasto'
+                  ? incoming.accountName
+                  : merged.accountName,
+            )
+          : CorrelationResult(
+              decision: CorrelationDecisionType.probabilisticDuplicate,
+              matchedPendingItemId: merged.id,
+              similarityScore: 1.0,
+              reason: 'Fusión manual del usuario ("estos N son uno")',
+            );
+
+      merged = _dedupCorrelator.mergeIntoPendingItem(
+        existing: merged,
+        incoming: incoming,
+        correlation: correlation,
+      );
+    }
+
+    final box = await _getBox();
+    await box.put(merged.id, merged.toJson());
+    for (var i = 1; i < selected.length; i++) {
+      await box.delete(selected[i].id);
+      _items.removeWhere((item) => item.id == selected[i].id);
+    }
+    final idx = _items.indexWhere((item) => item.id == merged.id);
+    if (idx >= 0) {
+      _items[idx] = merged;
+    }
+
+    final merchantsToLearn = <String>{};
+    for (final s in selected) {
+      final m = s.comercio ?? s.merchantKey;
+      if (m != null && m.trim().isNotEmpty) {
+        merchantsToLearn.add(m);
+      }
+    }
+    for (final merchant in merchantsToLearn) {
+      await _dedupCorrelator.learnMergeRule(
+        merchant: merchant,
+        channels: channels.toList(),
+      );
+    }
+
+    notifyListeners();
+    return merged;
+  }
+
+  /// Separa un ítem previamente agrupado en sus movimientos individuales originales.
+  Future<bool> splitMergedItem(String itemId) async {
+    final idx = _items.indexWhere((i) => i.id == itemId);
+    if (idx < 0) return false;
+    final item = _items[idx];
+    if (item.groupedEvents.length <= 1) return false;
+
+    final restored = item.groupedEvents
+        .map((raw) => PendingTransactionItem.fromJson(raw))
+        .toList();
+
+    final box = await _getBox();
+    await box.delete(item.id);
+    _items.removeAt(idx);
+
+    final batch = <String, dynamic>{};
+    for (final child in restored) {
+      batch[child.id] = child.toJson();
+      _items.add(child);
+    }
+    await box.putAll(batch);
+    _items.sort((a, b) => b.fecha.compareTo(a.fecha));
+    notifyListeners();
+    return true;
+  }
+
+  /// Poda la caja `notification_executed_ids` por TTL (>90 días) y tope (500),
+  /// ejecutando `box.compact()` si se eliminaron registros.
+  Future<int> pruneExecutedHistory({
+    DateTime? now,
+    Duration maxAge = const Duration(days: 90),
+    int maxEntries = 500,
+  }) async {
+    final execBox = await _getExecutedBox();
+    if (execBox == null) return 0;
+
+    final reference = now ?? DateTime.now();
+    final keysToDelete = <dynamic>[];
+    final surviving = <({dynamic key, DateTime executedAt})>[];
+
+    for (final key in execBox.keys) {
+      final raw = execBox.get(key);
+      DateTime? executedAt;
+      if (raw is Map && raw['executed_at'] is String) {
+        executedAt = DateTime.tryParse(raw['executed_at'] as String);
+      } else if (raw is String) {
+        executedAt = DateTime.tryParse(raw);
+      }
+
+      if (executedAt == null || reference.difference(executedAt) > maxAge) {
+        keysToDelete.add(key);
+      } else {
+        surviving.add((key: key, executedAt: executedAt));
+      }
+    }
+
+    if (surviving.length > maxEntries) {
+      surviving.sort((a, b) => b.executedAt.compareTo(a.executedAt));
+      for (final overflow in surviving.skip(maxEntries)) {
+        keysToDelete.add(overflow.key);
+      }
+    }
+
+    for (final key in keysToDelete) {
+      await execBox.delete(key);
+    }
+    if (keysToDelete.isNotEmpty) {
+      await execBox.compact();
+    }
+    return keysToDelete.length;
   }
 
   /// Limpia todos los ítems de la bandeja (útil en pruebas y depuración).
