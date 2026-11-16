@@ -237,71 +237,83 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                     final accentColor = context.appTheme.accent;
                                     
                                     return Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap: () {
-                                            setState(() {
-                                              if (category == 'Todos') {
-                                                _selectedCategories = ['Todos'];
-                                              } else {
-                                                if (_selectedCategories.contains('Todos')) {
-                                                  _selectedCategories.clear();
-                                                }
-                                                if (_selectedCategories.contains(category)) {
-                                                  _selectedCategories.remove(category);
-                                                  if (_selectedCategories.isEmpty) _selectedCategories.add('Todos');
+                                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                                      child: Semantics(
+                                        button: true,
+                                        selected: isSelected,
+                                        label: 'Filtrar ${category == 'Todos' ? 'todas' : _capitalize(category)}, $count obligaciones',
+                                        excludeSemantics: true,
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: () {
+                                              setState(() {
+                                                if (category == 'Todos') {
+                                                  _selectedCategories = ['Todos'];
                                                 } else {
-                                                  _selectedCategories.add(category);
+                                                  if (_selectedCategories.contains('Todos')) {
+                                                    _selectedCategories.clear();
+                                                  }
+                                                  if (_selectedCategories.contains(category)) {
+                                                    _selectedCategories.remove(category);
+                                                    if (_selectedCategories.isEmpty) _selectedCategories.add('Todos');
+                                                  } else {
+                                                    _selectedCategories.add(category);
+                                                  }
                                                 }
-                                              }
-                                            });
-                                          },
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: AnimatedContainer(
-                                            duration: const Duration(milliseconds: 250),
-                                            curve: Curves.easeOutCubic,
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: isSelected ? 16 : 14,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: isSelected ? accentColor.withOpacity(0.2) : Colors.transparent,
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: isSelected ? accentColor : Colors.transparent,
-                                                width: 1.5,
+                                              });
+                                            },
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: ConstrainedBox(
+                                              constraints: const BoxConstraints(
+                                                minWidth: 44,
+                                                minHeight: 44,
                                               ),
-                                            ),
-                                            alignment: Alignment.center,
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                if (isSelected) ...[
-                                                  Icon(Icons.check_circle_rounded, size: 14, color: accentColor),
-                                                  const SizedBox(width: 6),
-                                                ],
-                                                Text(
-                                                  category == 'Todos' ? category : _capitalize(category),
-                                                  style: TextStyle(
-                                                    color: isSelected ? accentColor : context.appTheme.textPrimary,
-                                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                                    fontSize: isSelected ? 13 : 12.5,
+                                              child: AnimatedContainer(
+                                                duration: const Duration(milliseconds: 250),
+                                                curve: Curves.easeOutCubic,
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: isSelected ? 16 : 14,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: isSelected ? accentColor.withOpacity(0.2) : Colors.transparent,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: isSelected ? accentColor : Colors.transparent,
+                                                    width: 1.5,
                                                   ),
                                                 ),
-                                                if (count > 0) ...[
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    count.toString(),
-                                                    style: TextStyle(
-                                                      color: isSelected ? accentColor : context.appTheme.textSecondary,
-                                                      fontSize: 10,
-                                                      fontWeight: FontWeight.bold,
+                                                alignment: Alignment.center,
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    if (isSelected) ...[
+                                                      Icon(Icons.check_circle_rounded, size: 14, color: accentColor),
+                                                      const SizedBox(width: 6),
+                                                    ],
+                                                    Text(
+                                                      category == 'Todos' ? category : _capitalize(category),
+                                                      style: TextStyle(
+                                                        color: isSelected ? accentColor : context.appTheme.textPrimary,
+                                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                        fontSize: isSelected ? 13 : 12.5,
+                                                      ),
                                                     ),
-                                                  ),
-                                                ],
-                                              ],
+                                                    if (count > 0) ...[
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        count.toString(),
+                                                        style: TextStyle(
+                                                          color: isSelected ? accentColor : context.appTheme.textSecondary,
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),

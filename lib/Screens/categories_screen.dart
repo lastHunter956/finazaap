@@ -122,20 +122,15 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                              ],
                            ),
                      borderRadius: BorderRadius.circular(28),
-                     boxShadow: [
-                       BoxShadow(
-                         color: Colors.black.withOpacity(isLight ? 0.08 : 0.35),
-                         blurRadius: 25,
-                         spreadRadius: -5,
-                         offset: const Offset(0, 10),
-                       ),
-                       BoxShadow(
-                         color: readableAccentColor.withOpacity(isLight ? 0.15 : 0.25),
-                         blurRadius: 20,
-                         spreadRadius: -10,
-                         offset: const Offset(0, 5),
-                       ),
-                     ],
+                     boxShadow: isLight
+                         ? [
+                             BoxShadow(
+                               color: Colors.black.withValues(alpha: 0.08),
+                               blurRadius: 14,
+                               offset: const Offset(0, 4),
+                             ),
+                           ]
+                         : null,
                      border: isLight
                          ? Border.all(color: readableAccentColor.withOpacity(0.7), width: 1.8)
                          : GradientBoxBorder(
@@ -564,8 +559,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                 width: 1.2,
                               ),
                         boxShadow: [
-                           BoxShadow(color: Colors.black.withOpacity(isLight ? 0.08 : 0.5), blurRadius: 20, spreadRadius: -5),
-                           BoxShadow(color: readableSelectedColor.withOpacity(isLight ? 0.12 : 0.2), blurRadius: 15, spreadRadius: -2),
+                           BoxShadow(
+                             color: Colors.black.withValues(alpha: isLight ? 0.08 : 0.28),
+                             blurRadius: 16,
+                             offset: const Offset(0, 6),
+                           ),
                         ],
                       ),
                       child: Column(
@@ -1165,20 +1163,15 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                     ],
                   ),
             borderRadius: BorderRadius.circular(22),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(isLight ? 0.08 : 0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-                spreadRadius: -2,
-              ),
-              BoxShadow(
-                color: readableColor.withOpacity(isLight ? 0.15 : 0.1),
-                blurRadius: 12,
-                offset: const Offset(0, 2),
-                spreadRadius: -2,
-              ),
-            ],
+            boxShadow: isLight
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.07),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
             border: Border.all(
               color: readableColor.withOpacity(isLight ? 0.6 : 0.15),
               width: isLight ? 1.5 : 1,

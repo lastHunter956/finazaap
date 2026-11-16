@@ -94,13 +94,17 @@ class SuspiciousBadge extends StatelessWidget {
             color: badgeColor,
           ),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: badgeColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: badgeColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
         ],

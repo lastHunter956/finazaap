@@ -1582,8 +1582,13 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     final isDiurno = context.isDiurno;
 
-    return GestureDetector(
-      onTap: () => ThemeNotifier.setMode(mode),
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: 'Tema $label',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => ThemeNotifier.setMode(mode),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
@@ -1646,6 +1651,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             ],
           ],
         ),
+      ),
       ),
     );
   }

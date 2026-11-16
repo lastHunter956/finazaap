@@ -110,7 +110,10 @@ class PendingTransactionCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                SuspiciousBadge.fromItem(item),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 165),
+                  child: SuspiciousBadge.fromItem(item),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -199,55 +202,74 @@ class PendingTransactionCard extends StatelessWidget {
             const SizedBox(height: 10),
 
             // Acciones balanceadas: Descartar, Corregir, Confirmar
-            Row(
-              children: [
-                TextButton(
-                  onPressed: onDiscard,
-                  style: TextButton.styleFrom(
-                    foregroundColor: theme.textSecondary,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  child: const Text('Descartar', style: TextStyle(fontSize: 13)),
-                ),
-                const Spacer(),
-                OutlinedButton(
-                  onPressed: onCorrect,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: theme.accent,
-                    side: BorderSide(
-                      color: theme.accent.withValues(alpha: 0.55),
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: onDiscard,
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.textSecondary,
+                      minimumSize: const Size(44, 44),
+                      tapTargetSize: MaterialTapTargetSize.padded,
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     ),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    child: const Text('Descartar', style: TextStyle(fontSize: 13)),
                   ),
-                  child: const Text('Corregir', style: TextStyle(fontSize: 13)),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: isSuspicious ? null : onConfirm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.buttonBackground,
-                    foregroundColor: theme.buttonForeground,
-                    disabledBackgroundColor:
-                        theme.borderSubtle.withValues(alpha: 0.25),
-                    disabledForegroundColor: theme.textHint,
-                    elevation: 0,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: onCorrect,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.accent,
+                          minimumSize: const Size(44, 44),
+                          tapTargetSize: MaterialTapTargetSize.padded,
+                          side: BorderSide(
+                            color: theme.accent.withValues(alpha: 0.55),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('Corregir',
+                            style: TextStyle(fontSize: 13)),
+                      ),
+                      ElevatedButton(
+                        onPressed: isSuspicious ? null : onConfirm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.buttonBackground,
+                          foregroundColor: theme.buttonForeground,
+                          disabledBackgroundColor:
+                              theme.borderSubtle.withValues(alpha: 0.25),
+                          disabledForegroundColor: theme.textHint,
+                          minimumSize: const Size(44, 44),
+                          tapTargetSize: MaterialTapTargetSize.padded,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          'Confirmar',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text(
-                    'Confirmar',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),

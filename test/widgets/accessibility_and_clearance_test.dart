@@ -1,14 +1,17 @@
 import 'dart:io';
 
 import 'package:finazaap/Screens/categories_screen.dart';
+import 'package:finazaap/Screens/pin_code_screen.dart';
 import 'package:finazaap/Screens/selecctaccount.dart';
 import 'package:finazaap/Screens/settings_screen.dart';
 import 'package:finazaap/core/theme_notifier.dart';
+import 'package:finazaap/features/notifications/domain/models/pending_transaction_item.dart';
+import 'package:finazaap/features/notifications/presentation/widgets/pending_transaction_card.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/app_theme_mode.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/widgets/floating_action_menu.dart';
-import 'package:finazaap/widgets/liquid_glass_surface.dart';
+import 'package:finazaap/widgets/moneo_header_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
@@ -153,5 +156,106 @@ void main() {
 
     expect(find.bySemanticsLabel(RegExp('Nueva cuenta')), findsOneWidget);
     expect(find.byTooltip('Nueva cuenta'), findsOneWidget);
+    expect(find.bySemanticsLabel('Ocultar saldo total'), findsOneWidget);
+  });
+
+  testWidgets('MoneoHeaderBar.subScreen expone botón Volver >= 48x48 y Semantics',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildThemeData(AppThemeMode.defaultDark),
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(360, 640),
+            textScaler: TextScaler.linear(1.35),
+          ),
+          child: Scaffold(
+            body: MoneoHeaderBar.subScreen(
+              title: 'Prueba',
+              onBack: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final backFinder = find.bySemanticsLabel('Volver');
+    expect(backFinder, findsOneWidget);
+    final backSize = tester.getSize(backFinder);
+    expect(backSize.width, greaterThanOrEqualTo(48));
+    expect(backSize.height, greaterThanOrEqualTo(48));
+  });
+
+  testWidgets('PendingTransactionCard botones cumplen target >= 44x44 dp',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final item = PendingTransactionItem(
+      id: 'tx-1',
+      rawText: 'Compra en Supermercado por 50000',
+      comercio: 'Supermercado',
+      monto: 50000,
+      fecha: DateTime(2026, 11, 16, 12, 30),
+      classification: 'gasto',
+      confidence: 0.9,
+      requiresReview: false,
+      autoProcessable: true,
+      decisionSource: 'rules',
+      createdAt: DateTime(2026, 11, 16, 12, 30),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildThemeData(AppThemeMode.diurno),
+        home: Scaffold(
+          body: PendingTransactionCard(
+            item: item,
+            onConfirm: () {},
+            onCorrect: () {},
+            onDiscard: () {},
+          ),
+        ),
+      ),
+    );
+
+    for (final label in ['Descartar', 'Corregir', 'Confirmar']) {
+      final btn = find.ancestor(
+        of: find.text(label),
+        matching: find.bySubtype<ButtonStyleButton>(),
+      );
+      expect(btn, findsOneWidget);
+      final sz = tester.getSize(btn);
+      expect(sz.width, greaterThanOrEqualTo(44));
+      expect(sz.height, greaterThanOrEqualTo(44));
+    }
+  });
+
+  testWidgets('PinCodeScreen expone Semantics del teclado y no desborda en 360x640 @ 1.35x',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildThemeData(AppThemeMode.defaultDark),
+        home: const MediaQuery(
+          data: MediaQueryData(
+            size: Size(360, 640),
+            textScaler: TextScaler.linear(1.35),
+          ),
+          child: PinCodeScreen(mode: PinMode.setup),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.bySemanticsLabel('Dígito 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('Dígito 0'), findsOneWidget);
+    expect(find.bySemanticsLabel('Borrar dígito'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

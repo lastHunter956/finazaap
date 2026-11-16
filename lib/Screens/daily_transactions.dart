@@ -15,6 +15,8 @@ import 'dart:math' as math;
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/widgets/liquid_glass_surface.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/themes/app_colors.dart';
+import 'package:finazaap/themes/app_sizes.dart';
 
 class DailyTransactionsScreen extends StatefulWidget {
   final String dateString;
@@ -171,53 +173,55 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
       transactionIcon = AppIcons.getIcon(history.safeIconCode);
     }
 
-    return InkWell(
-      onTap: () => showTransactionOptions(history, context, _editTransaction, _confirmDeleteTransaction),
-      splashColor: context.appTheme.accent.withOpacity(0.1),
-      highlightColor: context.appTheme.accent.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: context.appTheme.cardBackground,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: context.appTheme.borderSubtle, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: isTransfer
-                    ? Colors.blueAccent
-                    : (isIncome ? Colors.green : Colors.redAccent),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 5,
-                    offset: const Offset(0, 3),
+    final Color typeColor = isTransfer
+        ? context.appTheme.secondaryAccent
+        : (isIncome ? context.appTheme.income : context.appTheme.expense);
+    final Color readableTypeColor = AppColors.getReadableColor(typeColor, context);
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
+
+    return Semantics(
+      button: true,
+      label: '$mainTitle, ${CurrencyHelper.formatString(history.safeAmount)}',
+      child: InkWell(
+        onTap: () => showTransactionOptions(history, context, _editTransaction, _confirmDeleteTransaction),
+        splashColor: context.appTheme.accent.withValues(alpha: 0.1),
+        highlightColor: context.appTheme.accent.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(AppSizes.borderRadiusLarge),
+        child: Container(
+          decoration: BoxDecoration(
+            color: context.appTheme.cardBackground,
+            borderRadius: BorderRadius.circular(AppSizes.borderRadiusLarge),
+            border: Border.all(color: context.appTheme.borderSubtle, width: 1),
+            boxShadow: isLight
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: typeColor.withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: typeColor.withValues(alpha: 0.45),
+                    width: 1.5,
                   ),
-                ],
+                ),
+                padding: const EdgeInsets.all(10),
+                child: Icon(
+                  transactionIcon,
+                  size: 22,
+                  color: readableTypeColor,
+                ),
               ),
-              padding: const EdgeInsets.all(10),
-              child: Icon(
-                transactionIcon,
-                size: 22,
-                color: Colors.white,
-              ),
-            ),
 
             const SizedBox(width: 14),
 
@@ -292,6 +296,7 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

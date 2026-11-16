@@ -235,12 +235,12 @@ class ResponsibilityListItem extends StatelessWidget {
                                   _buildSubInfo(
                                     'Pagado: ${CurrencyHelper.format(paidInMonth)}',
                                   ),
-                                  _buildSubInfo(
-                                    'Pendiente: ${CurrencyHelper.format(pending)}',
-                                    color: pending > 0 
-                                         ? (Theme.of(context).brightness == Brightness.light ? const Color(0xFFD97706) : Colors.orangeAccent)
-                                         : (Theme.of(context).brightness == Brightness.light ? const Color(0xFF16A34A) : Colors.greenAccent),
-                                  ),
+                                    _buildSubInfo(
+                                      'Pendiente: ${CurrencyHelper.format(pending)}',
+                                      color: pending > 0
+                                          ? t.warning
+                                          : t.income,
+                                    ),
                                 ],
                                 if (responsibility.installments != null && responsibility.installments! > 1)
                                   Padding(
@@ -456,11 +456,11 @@ class ResponsibilityListItem extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+            child: Text('Eliminar', style: TextStyle(color: context.appTheme.error)),
           ),
         ],
       ),

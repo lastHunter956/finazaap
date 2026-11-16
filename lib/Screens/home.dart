@@ -356,131 +356,162 @@ class _HomeState extends State<Home> {
                         .instance.pendingNotifier.count;
                     if (count <= 0) return const SizedBox.shrink();
                     return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: MoneoPressableScale(
-                        child: InkWell(
-                          key: const Key('home_pending_inbox_appbar_button'),
-                          onTap: _openPendingInbox,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: context.appTheme.accent
-                                      .withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: context.appTheme.accent
-                                        .withValues(alpha: 0.4),
-                                    width: 1.5,
-                                  ),
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Semantics(
+                        button: true,
+                        label: 'Bandeja de pendientes, $count por revisar',
+                        excludeSemantics: true,
+                        child: Tooltip(
+                          message: 'Pendientes por revisar',
+                          child: MoneoPressableScale(
+                            child: InkWell(
+                              key: const Key('home_pending_inbox_appbar_button'),
+                              onTap: _openPendingInbox,
+                              borderRadius: BorderRadius.circular(12),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minWidth: 48,
+                                  minHeight: 48,
                                 ),
-                                child: Icon(
-                                  Icons.move_to_inbox_rounded,
-                                  color: context.appTheme.accent,
-                                  size: 22,
+                                child: Center(
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: context.appTheme.accent
+                                              .withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: context.appTheme.accent
+                                                .withValues(alpha: 0.4),
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.move_to_inbox_rounded,
+                                          color: context.appTheme.accent,
+                                          size: 22,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        right: -4,
+                                        top: -4,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5,
+                                            vertical: 1,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: context.appTheme.accent,
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          constraints: const BoxConstraints(minWidth: 18),
+                                          child: Text(
+                                            count > 99 ? '99+' : '$count',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: context.appTheme.buttonForeground,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              Positioned(
-                                right: -4,
-                                top: -4,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 5,
-                                    vertical: 1,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: context.appTheme.accent,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  constraints: const BoxConstraints(minWidth: 18),
-                                  child: Text(
-                                    count > 99 ? '99+' : '$count',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: context.appTheme.buttonForeground,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
                     );
                   },
                 ),
-                MoneoPressableScale(
-                  child: InkWell(
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const AiChatScreen()),
-                      );
-                      if (mounted) {
-                        setState(() {});
-                        await _updateAvailableBalance();
-                        await _loadCategoryMetadata();
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: context.isDiurno &&
-                                !LiquidGlassSurface.shouldReduceEffects(context)
-                            ? null
-                            : context.appTheme.accent.withValues(alpha: 0.12),
-                        gradient: context.isDiurno &&
-                                !LiquidGlassSurface.shouldReduceEffects(context)
-                            ? const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [Color(0xFFFFFFFF), Color(0xFFEAF2FF)],
-                              )
-                            : null,
-                        borderRadius: BorderRadius.circular(
-                            context.isDiurno ? 14 : 12),
-                        border: context.isDiurno &&
-                                !LiquidGlassSurface.shouldReduceEffects(context)
-                            ? GradientBoxBorder(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white,
-                                    context.appTheme.accent
-                                        .withValues(alpha: 0.45),
-                                  ],
-                                ),
-                                width: 1.4,
-                              )
-                            : Border.all(
-                                color: context.appTheme.accent
-                                    .withValues(alpha: 0.4),
-                                width: 1.5,
-                              ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: context.appTheme.accent.withValues(
-                                alpha: context.isDiurno ? 0.18 : 0.15),
-                            blurRadius: context.isDiurno ? 12 : 10,
-                            offset: context.isDiurno
-                                ? const Offset(0, 3)
-                                : Offset.zero,
-                            spreadRadius: context.isDiurno ? 0 : 1,
+                Semantics(
+                  button: true,
+                  label: 'Asistente IA Moneo',
+                  excludeSemantics: true,
+                  child: Tooltip(
+                    message: 'Asistente IA Moneo',
+                    child: MoneoPressableScale(
+                      child: InkWell(
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const AiChatScreen()),
+                          );
+                          if (mounted) {
+                            setState(() {});
+                            await _updateAvailableBalance();
+                            await _loadCategoryMetadata();
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
                           ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.chat_rounded,
-                        color: context.appTheme.accent,
-                        size: 22,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: context.isDiurno &&
+                                        !LiquidGlassSurface.shouldReduceEffects(context)
+                                    ? null
+                                    : context.appTheme.accent.withValues(alpha: 0.12),
+                                gradient: context.isDiurno &&
+                                        !LiquidGlassSurface.shouldReduceEffects(context)
+                                    ? const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [Color(0xFFFFFFFF), Color(0xFFEAF2FF)],
+                                      )
+                                    : null,
+                                borderRadius: BorderRadius.circular(
+                                    context.isDiurno ? 14 : 12),
+                                border: context.isDiurno &&
+                                        !LiquidGlassSurface.shouldReduceEffects(context)
+                                    ? GradientBoxBorder(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Colors.white,
+                                            context.appTheme.accent
+                                                .withValues(alpha: 0.45),
+                                          ],
+                                        ),
+                                        width: 1.4,
+                                      )
+                                    : Border.all(
+                                        color: context.appTheme.accent
+                                            .withValues(alpha: 0.4),
+                                        width: 1.5,
+                                      ),
+                                boxShadow: context.isDiurno
+                                    ? [
+                                        BoxShadow(
+                                          color: context.appTheme.accent
+                                              .withValues(alpha: 0.14),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Icon(
+                                Icons.chat_rounded,
+                                color: context.appTheme.accent,
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),

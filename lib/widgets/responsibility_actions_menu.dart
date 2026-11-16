@@ -123,15 +123,9 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
-                        blurRadius: 30,
-                        offset: const Offset(0, 15),
-                      ),
-                      BoxShadow(
-                        color: primaryColor.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 0),
-                        spreadRadius: 2,
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
                       ),
                     ],
                     border: Border.all(

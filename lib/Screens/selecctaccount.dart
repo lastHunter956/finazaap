@@ -555,33 +555,40 @@ class _MyHomePageState extends State<MyHomePage> {
               SizedBox(width: AppSizes.paddingSmall),
               // Botón de ojo para mostrar/ocultar
               Semantics(
+                container: true,
                 button: true,
                 toggled: _hideBalance,
                 label: _hideBalance ? 'Mostrar saldo total' : 'Ocultar saldo total',
-                excludeSemantics: true,
-                child: Tooltip(
-                  message: _hideBalance ? 'Mostrar saldo' : 'Ocultar saldo',
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () {
-                      setState(() {
-                        _hideBalance = !_hideBalance;
-                      });
-                    },
-                    child: SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: context.appTheme.borderSubtle,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            _hideBalance ? Icons.visibility_off : Icons.visibility,
-                            color: context.appTheme.textSecondary,
-                            size: AppSizes.iconMedium,
+                onTap: () {
+                  setState(() {
+                    _hideBalance = !_hideBalance;
+                  });
+                },
+                child: ExcludeSemantics(
+                  child: Tooltip(
+                    message: _hideBalance ? 'Mostrar saldo' : 'Ocultar saldo',
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () {
+                        setState(() {
+                          _hideBalance = !_hideBalance;
+                        });
+                      },
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: context.appTheme.borderSubtle,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _hideBalance ? Icons.visibility_off : Icons.visibility,
+                              color: context.appTheme.textSecondary,
+                              size: AppSizes.iconMedium,
+                            ),
                           ),
                         ),
                       ),

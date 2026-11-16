@@ -274,44 +274,59 @@ class UrgentPaymentsSection extends StatelessWidget {
                         splashColor: isPaidInSelectedMonth 
                             ? const Color(0xFF10B981).withOpacity(0.3)
                             : const Color(0xFF3B82F6).withOpacity(0.3),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: isPaidInSelectedMonth 
-                                  ? [const Color(0xFF10B981), const Color(0xFF059669)]
-                                  : [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
+                        child: Semantics(
+                          button: true,
+                          label: isPaidInSelectedMonth
+                              ? 'Deshacer pago de ${responsibility.safeName}'
+                              : 'Pagar ${responsibility.safeName}',
+                          excludeSemantics: true,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              minWidth: 44,
+                              minHeight: 44,
                             ),
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isPaidInSelectedMonth 
-                                    ? const Color(0xFF10B981) 
-                                    : const Color(0xFF3B82F6)).withOpacity(0.4),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isPaidInSelectedMonth ? Icons.undo_rounded : Icons.check_rounded,
-                                size: 14,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                isPaidInSelectedMonth ? 'DESHACER' : 'PAGAR',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: isPaidInSelectedMonth
+                                        ? [const Color(0xFF10B981), const Color(0xFF059669)]
+                                        : [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (isPaidInSelectedMonth
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFF3B82F6)).withValues(alpha: 0.28),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isPaidInSelectedMonth ? Icons.undo_rounded : Icons.check_rounded,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      isPaidInSelectedMonth ? 'DESHACER' : 'PAGAR',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
