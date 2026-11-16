@@ -266,5 +266,56 @@ void main() {
         expect(service.downloadAttemptCount, 0);
       },
     );
+
+    testWidgets(
+      'muestra aviso informativo neutro (sin ícono/título rojo de error) cuando Modelo no descargado',
+      (tester) async {
+        DeviceCapabilityService.checkOverride = () async =>
+            const DeviceCapabilityResult(
+              freeStorageGB: 32.9,
+              totalRAMGB: 7.6,
+              availRAMGB: 2.8,
+              lowMemory: false,
+              isArm64: true,
+            );
+        addTearDown(() => DeviceCapabilityService.checkOverride = null);
+
+        final service = AiChatService();
+        service.resetDownloadMetrics();
+        service.isModelInstalledOverride = (_) async => false;
+        addTearDown(() => service.isModelInstalledOverride = null);
+
+        await service.recheckDeviceCapability();
+
+        expect(service.gemmaError, contains('Modelo no descargado'));
+        expect(service.downloadAttemptCount, 0);
+
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildThemeData(AppThemeMode.defaultDark),
+            home: const AiChatScreen(),
+          ),
+        );
+
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 60));
+        }
+
+        expect(find.textContaining('Error al inicializar Gemma IA:'), findsNothing);
+        expect(find.byIcon(Icons.error_outline_rounded), findsNothing);
+        expect(find.byIcon(Icons.info_outline_rounded), findsAtLeastNWidgets(1));
+        expect(find.textContaining('Modelo no descargado'), findsOneWidget);
+        expect(find.text('Descargar'), findsOneWidget);
+        final urlField = find.byType(TextField).first;
+        expect(
+          tester.widget<TextField>(urlField).controller?.text,
+          AiChatService.defaultModelUrl,
+        );
+        expect(service.downloadAttemptCount, 0);
+      },
+    );
   });
 }
