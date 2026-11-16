@@ -656,10 +656,10 @@ class AiChatService extends ChangeNotifier {
     }
 
     // Calcular ingresos y gastos del mes actual en O(1) desde MonthlySummaryCache
-    final box = Hive.isBoxOpen('data')
-        ? Hive.box<Add_data>('data')
-        : await Hive.openBox<Add_data>('data');
-    final cache = MonthlySummaryCache.instance..attachToBox(box);
+    if (!Hive.isBoxOpen('data')) {
+      await Hive.openBox<Add_data>('data');
+    }
+    final cache = MonthlySummaryCache.instance;
     final now = DateTime.now();
     final currentSummary = cache.getMonthSummary(now.year, now.month);
     final double monthlyIncome = currentSummary.totalIncome;
@@ -678,15 +678,15 @@ class AiChatService extends ChangeNotifier {
   Future<void> updateLearnedPatterns() async {
     try {
       final state = await getFinancialState();
-      final box = Hive.isBoxOpen('data')
-          ? Hive.box<Add_data>('data')
-          : await Hive.openBox<Add_data>('data');
+      if (!Hive.isBoxOpen('data')) {
+        await Hive.openBox<Add_data>('data');
+      }
       
       double totalExpenses = state['monthlyExpenses'];
       double totalIncome = state['monthlyIncome'];
       
       // Agrupar gastos por categoría en ventana móvil de 60 días usando MonthlySummaryCache
-      final cache = MonthlySummaryCache.instance..attachToBox(box);
+      final cache = MonthlySummaryCache.instance;
       final now = DateTime.now();
       final windowCutoff = now.subtract(
         const Duration(days: learnedPatternsWindowDays),
@@ -935,10 +935,10 @@ class AiChatService extends ChangeNotifier {
 
     MonthlyReportData? monthlyReportData;
     if (routePlan.needsMonthlyReportAggregates) {
-      final box = Hive.isBoxOpen('data')
-          ? Hive.box<Add_data>('data')
-          : await Hive.openBox<Add_data>('data');
-      final cache = MonthlySummaryCache.instance..attachToBox(box);
+      if (!Hive.isBoxOpen('data')) {
+        await Hive.openBox<Add_data>('data');
+      }
+      final cache = MonthlySummaryCache.instance;
       final now = DateTime.now();
       final prevMonth = DateTime(now.year, now.month - 1);
       final scopedReportTxs = [
@@ -956,10 +956,10 @@ class AiChatService extends ChangeNotifier {
     VehicleTcoResult? vehicleTcoResult;
     Map<String, dynamic>? purchaseAnalysis;
     if (routePlan.needsVehicleTco) {
-      final box = Hive.isBoxOpen('data')
-          ? Hive.box<Add_data>('data')
-          : await Hive.openBox<Add_data>('data');
-      final cache = MonthlySummaryCache.instance..attachToBox(box);
+      if (!Hive.isBoxOpen('data')) {
+        await Hive.openBox<Add_data>('data');
+      }
+      final cache = MonthlySummaryCache.instance;
       final now = DateTime.now();
       final scopedTransportTxs = <Add_data>[
         for (int offset = 0; offset <= 2; offset++)
@@ -2074,9 +2074,9 @@ class AiChatService extends ChangeNotifier {
       }
 
       // Registrar en el historial local de Hive para visualización inmediata y persistencia
-      final box = Hive.isBoxOpen('data')
-          ? Hive.box<Add_data>('data')
-          : await Hive.openBox<Add_data>('data');
+      if (!Hive.isBoxOpen('data')) {
+        await Hive.openBox<Add_data>('data');
+      }
       final transaction = Add_data(
         type,
         amount.toString(),
