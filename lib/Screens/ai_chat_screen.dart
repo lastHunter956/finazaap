@@ -294,18 +294,26 @@ class _AiChatScreenState extends State<AiChatScreen>
         children: [
           Row(
             children: [
-              SizedBox(
-                width: 36,
-                height: 36,
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: t.textPrimary,
-                    size: 18,
+              Semantics(
+                button: true,
+                label: 'Volver',
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    icon: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: t.textPrimary,
+                      size: 18,
+                    ),
+                    tooltip: 'Volver',
+                    onPressed: () => Navigator.pop(context),
                   ),
-                  tooltip: 'Volver',
-                  onPressed: () => Navigator.pop(context),
                 ),
               ),
               const SizedBox(width: 4),
@@ -475,41 +483,51 @@ class _AiChatScreenState extends State<AiChatScreen>
     final t = context.appTheme;
     final isDiurno = context.isDiurno;
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: !isSelected
-              ? Colors.transparent
-              : isDiurno
-                  ? t.cardBackground
-                  : t.buttonBackground,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: isSelected && isDiurno
-              ? const [
-                  BoxShadow(
-                    color: Color(0x140B132B),
-                    blurRadius: 6,
-                    offset: Offset(0, 1),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.outfit(
-            color: !isSelected
-                ? t.textSecondary
-                : isDiurno
-                    ? t.accent
-                    : t.buttonForeground,
-            fontSize: 10.5,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: 'Motor $label',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+              decoration: BoxDecoration(
+                color: !isSelected
+                    ? Colors.transparent
+                    : isDiurno
+                        ? t.cardBackground
+                        : t.buttonBackground,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: isSelected && isDiurno
+                    ? const [
+                        BoxShadow(
+                          color: Color(0x140B132B),
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.outfit(
+                  color: !isSelected
+                      ? t.textSecondary
+                      : isDiurno
+                          ? t.accent
+                          : t.buttonForeground,
+                  fontSize: 10.5,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -815,8 +833,8 @@ class _AiChatScreenState extends State<AiChatScreen>
               ),
             ),
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              minimumSize: const Size(0, 28),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              minimumSize: const Size(44, 44),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
@@ -939,8 +957,8 @@ class _AiChatScreenState extends State<AiChatScreen>
                 ),
               ),
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                minimumSize: const Size(0, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: const Size(44, 44),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
@@ -1556,68 +1574,99 @@ class _AiChatScreenState extends State<AiChatScreen>
     final t = context.appTheme;
     final isLargeText = MediaQuery.textScalerOf(context).scale(11.5) > 15.0;
 
-    final discardButton = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onDiscard,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: Text(
-            'Descartar',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
-              color: t.textSecondary,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final editButton = Tooltip(
-      message: 'Editar',
+    final discardButton = Semantics(
+      button: true,
+      label: 'Descartar',
       child: Material(
-        color: t.darkBackground,
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.transparent,
         child: InkWell(
-          onTap: onEdit,
+          onTap: onDiscard,
           borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: t.borderSubtle),
-            ),
-            child: Icon(
-              Icons.edit_outlined,
-              color: t.textSecondary,
-              size: 15,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            child: Center(
+              widthFactor: 1.0,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Text(
+                  'Descartar',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: t.textSecondary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
 
-    final saveButton = MoneoPressableScale(
-      child: Material(
-        color: t.buttonBackground,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onSave,
+    final editButton = Semantics(
+      button: true,
+      label: 'Editar',
+      child: Tooltip(
+        message: 'Editar',
+        child: Material(
+          color: t.darkBackground,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: onEdit,
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              child: Center(
+                widthFactor: 1.0,
+                child: Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: t.borderSubtle),
+                  ),
+                  child: Icon(
+                    Icons.edit_outlined,
+                    color: t.textSecondary,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final saveButton = Semantics(
+      button: true,
+      label: 'Guardar',
+      child: MoneoPressableScale(
+        child: Material(
+          color: t.buttonBackground,
           borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            child: Text(
-              'Guardar',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
-                color: t.buttonForeground,
-                fontSize: 11.5,
-                fontWeight: FontWeight.bold,
+          child: InkWell(
+            onTap: onSave,
+            borderRadius: BorderRadius.circular(10),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              child: Center(
+                widthFactor: 1.0,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  child: Text(
+                    'Guardar',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: t.buttonForeground,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -2919,43 +2968,64 @@ class _AiChatScreenState extends State<AiChatScreen>
               ),
             ),
             const SizedBox(width: 8),
-            GestureDetector(
-              key: const Key('ai_chat_send_button'),
-              onTap: (_isLoading || _chatService.isGenerating)
-                  ? () => _chatService.cancelGeneration()
-                  : _handleSend,
-              child: MoneoPressableScale(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: (_isLoading || _chatService.isGenerating)
-                        ? t.error
-                        : _isInputEmpty
-                            ? t.darkBackground
-                            : (isDiurno ? t.accent : t.buttonBackground),
-                    boxShadow: !_isInputEmpty && isDiurno
-                        ? const [
-                            BoxShadow(
-                              color: Color(0x330062CC),
-                              blurRadius: 10,
-                              offset: Offset(0, 3),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Icon(
-                    (_isLoading || _chatService.isGenerating)
-                        ? Icons.stop_rounded
-                        : Icons.arrow_upward_rounded,
-                    color: (_isLoading || _chatService.isGenerating)
-                        ? Colors.white
-                        : _isInputEmpty
-                            ? t.textHint
-                            : t.buttonForeground,
-                    size: 20,
+            Semantics(
+              button: true,
+              label: (_isLoading || _chatService.isGenerating)
+                  ? 'Detener respuesta'
+                  : 'Enviar mensaje',
+              child: Tooltip(
+                message: (_isLoading || _chatService.isGenerating)
+                    ? 'Detener respuesta'
+                    : 'Enviar mensaje',
+                child: GestureDetector(
+                  key: const Key('ai_chat_send_button'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: (_isLoading || _chatService.isGenerating)
+                      ? () => _chatService.cancelGeneration()
+                      : _handleSend,
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Center(
+                      child: MoneoPressableScale(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: (_isLoading || _chatService.isGenerating)
+                                ? t.error
+                                : _isInputEmpty
+                                    ? t.darkBackground
+                                    : (isDiurno ? t.accent : t.buttonBackground),
+                            boxShadow: !_isInputEmpty && isDiurno
+                                ? const [
+                                    BoxShadow(
+                                      color: Color(0x330062CC),
+                                      blurRadius: 10,
+                                      offset: Offset(0, 3),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Icon(
+                            (_isLoading || _chatService.isGenerating)
+                                ? Icons.stop_rounded
+                                : Icons.arrow_upward_rounded,
+                            color: (_isLoading || _chatService.isGenerating)
+                                ? (ThemeData.estimateBrightnessForColor(t.error) ==
+                                        Brightness.light
+                                    ? const Color(0xFF1A1F2B)
+                                    : Colors.white)
+                                : _isInputEmpty
+                                    ? t.textHint
+                                    : t.buttonForeground,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
