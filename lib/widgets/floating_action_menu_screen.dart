@@ -1,9 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:finazaap/Screens/add.dart';
 import 'package:finazaap/Screens/add_expense.dart';
 import 'package:finazaap/Screens/transfer.dart';
-import 'dart:ui';
+import 'package:finazaap/themes/app_sizes.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 
 class FloatingActionMenuScreen extends StatefulWidget {
@@ -95,52 +96,35 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                     child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Contenedor principal con diseño de tarjeta premium
+                      // Contenedor principal con diseño de tarjeta
                       Container(
                         width: menuWidth,
                         margin: const EdgeInsets.symmetric(horizontal: 24),
                         decoration: BoxDecoration(
                           color: context.appTheme.secondaryCardBackground,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            // Sombra principal
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.4),
-                              blurRadius: 25,
-                              offset: const Offset(0, 10),
-                              spreadRadius: -5,
-                            ),
-                            // Sombra de acento con color
-                            BoxShadow(
-                              color: const Color(0xFF4A80F0).withOpacity(0.1),
-                              blurRadius: 20,
-                              offset: const Offset(0, 2),
-                              spreadRadius: -3,
-                            ),
-                            // Brillo sutil superior
-                            BoxShadow(
-                              color: Colors.white.withOpacity(0.05),
-                              blurRadius: 1,
-                              offset: const Offset(0, -1),
-                              spreadRadius: 0,
-                            ),
-                          ],
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            stops: const [0.0, 1.0],
-                            colors: [
-                              context.appTheme.secondaryCardBackground,
-                              context.appTheme.darkBackground,
-                            ],
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.borderRadius2XLarge,
                           ),
+                          boxShadow:
+                              Theme.of(context).brightness == Brightness.light
+                                  ? [
+                                      BoxShadow(
+                                        color: context.appTheme.textPrimary
+                                            .withValues(alpha: 0.08),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ]
+                                  : null,
                           border: Border.all(
                             color: context.appTheme.borderSubtle,
                             width: 1,
                           ),
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.borderRadius2XLarge,
+                          ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -158,35 +142,13 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                 ),
                                 child: Row(
                                   children: [
-                                    // Icono con efecto 3D
                                     Container(
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: context.appTheme.accent.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(12),
-                                        boxShadow: [
-                                          // Sombra interior
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.2),
-                                            blurRadius: 3,
-                                            offset: const Offset(0, 1),
-                                            spreadRadius: -2,
-                                          ),
-                                          // Brillo superior
-                                          BoxShadow(
-                                            color: Colors.white.withOpacity(0.1),
-                                            blurRadius: 2,
-                                            offset: const Offset(0, -1),
-                                            spreadRadius: 0,
-                                          ),
-                                        ],
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: [
-                                            context.appTheme.accent.withOpacity(0.25),
-                                            context.appTheme.accent.withOpacity(0.15),
-                                          ],
+                                        color: context.appTheme.accent
+                                            .withValues(alpha: 0.16),
+                                        borderRadius: BorderRadius.circular(
+                                          AppSizes.borderRadiusMedium,
                                         ),
                                       ),
                                       child: Icon(
@@ -241,7 +203,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                             index: 0,
                                             icon: Icons.arrow_upward_rounded,
                                             label: 'Ingreso',
-                                            color: const Color(0xFF2E9E5B),
+                                            color: context.appTheme.income,
                                             onTap: () => _navigateTo(const Add_Screen()),
                                           ),
                                         ),
@@ -257,7 +219,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                             index: 1,
                                             icon: Icons.sync_alt_rounded,
                                             label: 'Transferencia',
-                                            color: const Color(0xFF3D7AF0),
+                                            color: context.appTheme.secondaryAccent,
                                             onTap: () => _navigateTo(TransferScreen()),
                                           ),
                                         ),
@@ -273,7 +235,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                             index: 2,
                                             icon: Icons.arrow_downward_rounded,
                                             label: 'Egreso',
-                                            color: const Color(0xFFE53935),
+                                            color: context.appTheme.expense,
                                             onTap: () => _navigateTo(const AddExpenseScreen()),
                                           ),
                                         ),
@@ -283,7 +245,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                 ),
                               ),
                               
-                              // Botón para cerrar con efecto de elevación
+                              // Botón para cerrar
                               Container(
                                 width: double.infinity,
                                 decoration: BoxDecoration(
@@ -294,39 +256,45 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                       width: 1,
                                     ),
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, -5),
-                                      spreadRadius: -8,
-                                    ),
-                                  ],
                                 ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: _animatedDismiss,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.close_rounded,
-                                            color: context.appTheme.textSecondary,
-                                            size: 20,
+                                child: Semantics(
+                                  button: true,
+                                  label: 'Cerrar menú',
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: _animatedDismiss,
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          minHeight: 48,
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 14,
                                           ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Cerrar',
-                                            style: TextStyle(
-                                              color: context.appTheme.textSecondary,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w500,
-                                            ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.close_rounded,
+                                                color: context
+                                                    .appTheme.textSecondary,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Cerrar',
+                                                style: TextStyle(
+                                                  color: context
+                                                      .appTheme.textSecondary,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -419,31 +387,13 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: isHovered ? [
-                BoxShadow(
-                  color: color.withOpacity(0.3),
-                  blurRadius: 8,
-                  spreadRadius: -2,
-                  offset: const Offset(0, 2),
-                )
-              ] : [],
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isHovered
-                    ? [
-                        color.withOpacity(0.08),
-                        color.withOpacity(0.03),
-                      ]
-                    : [
-                        Colors.transparent,
-                        Colors.transparent,
-                      ],
-              ),
+              borderRadius: BorderRadius.circular(AppSizes.borderRadiusLarge),
+              color: isHovered
+                  ? color.withValues(alpha: 0.08)
+                  : Colors.transparent,
               border: Border.all(
                 color: isHovered
-                    ? color.withOpacity(0.3)
+                    ? color.withValues(alpha: 0.3)
                     : context.appTheme.borderSubtle,
                 width: isHovered ? 1.2 : 1,
               ),
@@ -454,37 +404,18 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
               highlightColor: Colors.transparent,
               child: Row(
                 children: [
-                  // Icono animado con iluminación dinámica
+                  // Icono animado
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: EdgeInsets.all(isHovered ? 13 : 12),
                     decoration: BoxDecoration(
-                      color: isHovered
-                          ? color.withOpacity(0.2)
-                          : color.withOpacity(0.15),
+                      color: color.withValues(alpha: isHovered ? 0.2 : 0.14),
                       shape: BoxShape.circle,
-                      boxShadow: isHovered
-                          ? [
-                              BoxShadow(
-                                color: color.withOpacity(0.3),
-                                blurRadius: 10,
-                                spreadRadius: -2,
-                              )
-                            ]
-                          : [],
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          color.withOpacity(isHovered ? 0.25 : 0.2),
-                          color.withOpacity(isHovered ? 0.15 : 0.1),
-                        ],
-                      ),
                     ),
                     child: AnimatedDefaultTextStyle(
                       duration: const Duration(milliseconds: 200),
                       style: TextStyle(
-                        color: isHovered ? color : color,
+                        color: color,
                         fontWeight: isHovered ? FontWeight.bold : FontWeight.normal,
                       ),
                       child: Icon(
@@ -508,25 +439,21 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                       child: Text(label),
                     ),
                   ),
-                  // Flecha con animación
+                  // Flecha con contraste garantizado
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
                       color: isHovered
-                          ? color.withOpacity(0.15)
-                          : Colors.white.withOpacity(0.1),
+                          ? color.withValues(alpha: 0.15)
+                          : context.appTheme.darkBackground,
                       shape: BoxShape.circle,
                     ),
-                    child: AnimatedOpacity(
-                      opacity: isHovered ? 1.0 : 0.7,
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        color: isHovered ? color : Colors.white,
-                        size: 14,
-                      ),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: isHovered ? color : context.appTheme.textSecondary,
+                      size: 14,
                     ),
                   ),
                   ],

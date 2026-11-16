@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:finazaap/themes/app_sizes.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 
 /// Variantes estructurales de [MoneoHeaderBar] según jerarquía de navegación.
@@ -133,8 +134,8 @@ class MoneoHeaderBar extends StatelessWidget {
     final titleHeight = textScaler.scale(titleFont) * 1.25;
     final minRowHeight = switch (variant) {
       MoneoHeaderVariant.primaryTab => hasBadge ? 48.0 : 42.0,
-      MoneoHeaderVariant.subScreen => hasBadge ? 48.0 : 39.0,
-      MoneoHeaderVariant.form => 38.0,
+      MoneoHeaderVariant.subScreen => 48.0,
+      MoneoHeaderVariant.form => 48.0,
     };
     final subtitleHeight =
         hasSubtitle ? (3.0 + textScaler.scale(12.5) * 1.45) : 0.0;
@@ -250,7 +251,7 @@ class MoneoHeaderBar extends StatelessWidget {
           if (actions != null && actions!.isNotEmpty)
             Row(mainAxisSize: MainAxisSize.min, children: actions!)
           else
-            const SizedBox(width: 40),
+            const SizedBox(width: 48),
         ],
       );
     }
@@ -362,37 +363,55 @@ class _HeaderBackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.appTheme;
     final isDiurno = context.isDiurno;
-    return MoneoPressableScale(
-      child: Material(
-        color: isDiurno ? Colors.white.withValues(alpha: 0.9) : t.cardBackground,
-        borderRadius: BorderRadius.circular(13),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(13),
-          child: Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(13),
-              border: Border.all(
-                color: isDiurno ? const Color(0xC7D7EBFF) : t.borderSubtle,
-                width: 1,
-              ),
-              boxShadow: isDiurno
-                  ? const [
-                      BoxShadow(
-                        color: Color(0x120B132B),
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
+    return Semantics(
+      button: true,
+      label: 'Volver',
+      child: Tooltip(
+        message: 'Volver',
+        child: MoneoPressableScale(
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(AppSizes.borderRadiusMedium),
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(AppSizes.borderRadiusMedium),
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: Center(
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isDiurno
+                          ? Colors.white.withValues(alpha: 0.9)
+                          : t.cardBackground,
+                      borderRadius:
+                          BorderRadius.circular(AppSizes.borderRadiusMedium),
+                      border: Border.all(
+                        color:
+                            isDiurno ? const Color(0xC7D7EBFF) : t.borderSubtle,
+                        width: 1,
                       ),
-                    ]
-                  : null,
-            ),
-            child: Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: t.textPrimary,
-              size: 16,
+                      boxShadow: isDiurno
+                          ? const [
+                              BoxShadow(
+                                color: Color(0x120B132B),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: t.textPrimary,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -435,7 +454,7 @@ class MoneoSegmentedControl<T> extends StatelessWidget {
     final selectedIndex = options.indexWhere((o) => o.value == selectedValue);
     final safeIndex = selectedIndex < 0 ? 0 : selectedIndex;
     final textHeight =
-        math.max(34.0, MediaQuery.textScalerOf(context).scale(14.0) + 20.0);
+        math.max(38.0, MediaQuery.textScalerOf(context).scale(14.0) + 22.0);
 
     return Container(
       height: textHeight + 6,
@@ -471,21 +490,27 @@ class MoneoSegmentedControl<T> extends StatelessWidget {
                       : (isSelected ? t.buttonForeground : t.textSecondary);
 
                   return Expanded(
-                    child: GestureDetector(
-                      onTap: () => onChanged(opt.value),
-                      behavior: HitTestBehavior.opaque,
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: Text(
-                            opt.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: labelColor,
-                              fontSize: 13,
-                              fontWeight:
-                                  isSelected ? FontWeight.w700 : FontWeight.w500,
+                    child: Semantics(
+                      button: true,
+                      selected: isSelected,
+                      label: opt.label,
+                      child: GestureDetector(
+                        onTap: () => onChanged(opt.value),
+                        behavior: HitTestBehavior.opaque,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text(
+                              opt.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: labelColor,
+                                fontSize: 13,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
                             ),
                           ),
                         ),

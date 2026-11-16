@@ -15,6 +15,7 @@ import 'package:finazaap/Screens/home.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/utils/currency_helper.dart'; // Import CurrencyHelper
+import 'package:finazaap/themes/app_sizes.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 
 
@@ -49,26 +50,23 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
           child: FutureBuilder<int?>(
             future: _getCategoryColor(transaction.safeType, transaction.safeCategory),
             builder: (context, snapshot) {
-              // Definir color basado en el snapshot o defaults
-              final Color defaultColor = isTransfer 
-                  ? const Color(0xFF3D7AF0)  // Azul refinado
-                  : (isIncome ? const Color(0xFF2E9E5B) : const Color(0xFFE53935));
-                  
-              final Color primaryColor = defaultColor; // Force default color (Red/Green)
-              // Ignoramos snapshot.data para cumplir requerimiento de usar rojo/verde
-              // final Color primaryColor = snapshot.data != null 
-              //    ? Color(snapshot.data!) 
-              //    : defaultColor;
+              final t = _context.appTheme;
+              final isLight = Theme.of(_context).brightness == Brightness.light;
+              final Color defaultColor = isTransfer
+                  ? t.secondaryAccent
+                  : (isIncome ? t.income : t.expense);
+
+              final Color primaryColor = defaultColor;
 
               final Gradient backgroundGradient = LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  primaryColor.withOpacity(0.12),
-                  primaryColor.withOpacity(0.04),
+                  primaryColor.withValues(alpha: 0.12),
+                  primaryColor.withValues(alpha: 0.04),
                 ],
               );
-              
+
               return Center(
                 child: Material(
                   color: Colors.transparent,
@@ -79,29 +77,26 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                   maxHeight: MediaQuery.of(context).size.height * 0.85,
                 ),
                 decoration: BoxDecoration(
-                  color: _context.appTheme.secondaryCardBackground,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.25),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                      spreadRadius: -5,
-                    ),
-                    BoxShadow(
-                      color: primaryColor.withOpacity(0.15),
-                      blurRadius: 30,
-                      offset: const Offset(0, 5),
-                      spreadRadius: -2,
-                    ),
-                  ],
+                  color: t.secondaryCardBackground,
+                  borderRadius:
+                      BorderRadius.circular(AppSizes.borderRadius2XLarge),
+                  boxShadow: isLight
+                      ? [
+                          BoxShadow(
+                            color: t.textPrimary.withValues(alpha: 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : null,
                   border: Border.all(
-                    color: primaryColor.withOpacity(0.15),
+                    color: primaryColor.withValues(alpha: 0.18),
                     width: 1.5,
                   ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius:
+                      BorderRadius.circular(AppSizes.borderRadius2XLarge),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -137,24 +132,13 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                             height: 65,
                                             width: 65,
                                             decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: [
-                                                  primaryColor.withOpacity(0.2),
-                                                  primaryColor.withOpacity(0.1),
-                                                ],
-                                              ),
-                                              borderRadius: BorderRadius.circular(50),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: primaryColor.withOpacity(0.2),
-                                                  blurRadius: 15,
-                                                  spreadRadius: 0,
-                                                ),
-                                              ],
+                                              color: primaryColor
+                                                  .withValues(alpha: 0.14),
+                                              borderRadius:
+                                                  BorderRadius.circular(50),
                                               border: Border.all(
-                                                color: primaryColor.withOpacity(0.5),
+                                                color: primaryColor
+                                                    .withValues(alpha: 0.45),
                                                 width: 1.5,
                                               ),
                                             ),
@@ -468,108 +452,128 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                                   children: [
                                     // Botón Editar - Adaptable
                                     Expanded(
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        borderRadius: BorderRadius.circular(18),
-                                        child: InkWell(
-                                          onTap: () {
-                                            Navigator.pop(context);
-                                            _editTransaction(transaction);
-                                          },
-                                          borderRadius: BorderRadius.circular(18),
-                                          splashColor: const Color(0xFFFFA726).withOpacity(0.2),
-                                          highlightColor: const Color(0xFFFFA726).withOpacity(0.1),
-                                          child: Ink(
-                                            height: 75, // Solo fijar altura, ancho adaptable
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: [
-                                                  const Color(0xFFFFA726).withOpacity(0.2),
-                                                  const Color(0xFFFFA726).withOpacity(0.08),
+                                      child: Semantics(
+                                        button: true,
+                                        label: 'Editar transacción',
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            AppSizes.borderRadiusLarge,
+                                          ),
+                                          child: InkWell(
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              _editTransaction(transaction);
+                                            },
+                                            borderRadius: BorderRadius.circular(
+                                              AppSizes.borderRadiusLarge,
+                                            ),
+                                            splashColor: t.warning
+                                                .withValues(alpha: 0.2),
+                                            highlightColor: t.warning
+                                                .withValues(alpha: 0.1),
+                                            child: Ink(
+                                              height: 75,
+                                              decoration: BoxDecoration(
+                                                color: t.warning
+                                                    .withValues(alpha: 0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                  AppSizes.borderRadiusLarge,
+                                                ),
+                                                border: Border.all(
+                                                  color: t.warning
+                                                      .withValues(alpha: 0.35),
+                                                  width: 1.5,
+                                                ),
+                                              ),
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.edit_rounded,
+                                                    size: 24,
+                                                    color: t.warning,
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    'Editar',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: t.warning,
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
-                                              borderRadius: BorderRadius.circular(18),
-                                              border: Border.all(
-                                                color: const Color(0xFFFFA726).withOpacity(0.3),
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                            child: Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.edit_rounded,
-                                                  size: 24,
-                                                  color: const Color(0xFFFFA726),
-                                                ),
-                                                const SizedBox(height: 6),
-                                                const Text(
-                                                  'Editar',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Color(0xFFFFA726),
-                                                  ),
-                                                ),
-                                              ],
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                            
-                                    const SizedBox(width: 15), // Reducido el espacio entre botones
-                                            
+
+                                    const SizedBox(width: 15),
+
                                     // Botón Eliminar - Adaptable
                                     Expanded(
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        borderRadius: BorderRadius.circular(18),
-                                        child: InkWell(
-                                          onTap: () {
-                                            Navigator.pop(context);
-                                            _confirmDeleteTransaction(transaction);
-                                          },
-                                          borderRadius: BorderRadius.circular(18),
-                                          splashColor: const Color(0xFFE53935).withOpacity(0.2),
-                                          highlightColor: const Color(0xFFE53935).withOpacity(0.1),
-                                          child: Ink(
-                                            height: 75, // Solo fijar altura, ancho adaptable
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: [
-                                                  const Color(0xFFE53935).withOpacity(0.2),
-                                                  const Color(0xFFE53935).withOpacity(0.08),
+                                      child: Semantics(
+                                        button: true,
+                                        label: 'Eliminar transacción',
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            AppSizes.borderRadiusLarge,
+                                          ),
+                                          child: InkWell(
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              _confirmDeleteTransaction(
+                                                transaction,
+                                              );
+                                            },
+                                            borderRadius: BorderRadius.circular(
+                                              AppSizes.borderRadiusLarge,
+                                            ),
+                                            splashColor:
+                                                t.error.withValues(alpha: 0.2),
+                                            highlightColor:
+                                                t.error.withValues(alpha: 0.1),
+                                            child: Ink(
+                                              height: 75,
+                                              decoration: BoxDecoration(
+                                                color: t.error
+                                                    .withValues(alpha: 0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                  AppSizes.borderRadiusLarge,
+                                                ),
+                                                border: Border.all(
+                                                  color: t.error
+                                                      .withValues(alpha: 0.35),
+                                                  width: 1.5,
+                                                ),
+                                              ),
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.delete_rounded,
+                                                    size: 24,
+                                                    color: t.error,
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    'Eliminar',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: t.error,
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
-                                              borderRadius: BorderRadius.circular(18),
-                                              border: Border.all(
-                                                color: const Color(0xFFE53935).withOpacity(0.3),
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                            child: Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.delete_rounded,
-                                                  size: 24,
-                                                  color: const Color(0xFFE53935),
-                                                ),
-                                                const SizedBox(height: 6),
-                                                const Text(
-                                                  'Eliminar',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Color(0xFFE53935),
-                                                  ),
-                                                ),
-                                              ],
                                             ),
                                           ),
                                         ),
@@ -581,37 +585,46 @@ void showTransactionOptions(Add_data transaction, BuildContext _context, Functio
                             ],
                           ),
                         ),
-                      ),                // ===== PIE DE DIÁLOGO =====
+                      ),
+                      // ===== PIE DE DIÁLOGO =====
                       Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: _context.appTheme.darkBackground,
+                          color: t.darkBackground,
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => Navigator.pop(context),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.close_rounded,
-                                    size: 16,
-                                    color: _context.appTheme.textSecondary,
+                        child: Semantics(
+                          button: true,
+                          label: 'Cerrar',
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => Navigator.pop(context),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(minHeight: 48),
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.close_rounded,
+                                        size: 16,
+                                        color: t.textSecondary,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Cerrar',
+                                        style: TextStyle(
+                                          color: t.textSecondary,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Cerrar',
-                                    style: TextStyle(
-                                      color: _context.appTheme.textSecondary,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           ),

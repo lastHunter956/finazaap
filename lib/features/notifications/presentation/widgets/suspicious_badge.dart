@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:finazaap/core/theme_notifier.dart';
 import 'package:finazaap/features/notifications/domain/models/pending_transaction_item.dart';
-import 'package:finazaap/themes/app_colors.dart';
+import 'package:finazaap/themes/app_sizes.dart';
+import 'package:finazaap/themes/app_theme_data.dart';
 
 /// Insignia visual para categorizar el nivel de confianza y riesgo de una transacción pendiente.
 ///
@@ -47,21 +49,24 @@ class SuspiciousBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t =
+        Theme.of(context).extension<AppTheme>() ??
+        AppTheme.forMode(ThemeNotifier.activeMode);
     final Color badgeColor;
     final IconData icon;
     final String label;
 
     if (isSuspicious) {
-      badgeColor = AppColors.error;
+      badgeColor = t.error;
       icon = Icons.warning_amber_rounded;
       label = 'Sospechosa';
     } else if (isReviewRequired) {
-      badgeColor = AppColors.warning;
+      badgeColor = t.warning;
       icon = Icons.help_outline_rounded;
       final percent = (confidence * 100).round();
       label = compact ? '$percent%' : 'Revisar ($percent%)';
     } else {
-      badgeColor = AppColors.success;
+      badgeColor = t.success;
       icon = Icons.check_circle_outline_rounded;
       final percent = (confidence * 100).round();
       label = compact ? '$percent%' : 'Alta confianza ($percent%)';
@@ -74,7 +79,7 @@ class SuspiciousBadge extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: badgeColor.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSizes.borderRadiusMedium),
         border: Border.all(
           color: badgeColor.withValues(alpha: 0.5),
           width: 1,

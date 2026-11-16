@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:finazaap/widgets/floating_action_menu_screen.dart';
+import 'package:finazaap/themes/app_sizes.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 
 class FloatingActionMenu extends StatelessWidget {
@@ -13,45 +14,33 @@ class FloatingActionMenu extends StatelessWidget {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final buttonColor = t.buttonBackground;
     final foregroundColor = t.buttonForeground;
+    final double fabRadius = isDiurno ? 18.0 : AppSizes.borderRadiusLarge;
 
     final ShapeBorder fabShape = isDiurno
         ? RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(fabRadius),
             side: BorderSide(
               color: Colors.white.withValues(alpha: 0.92),
               width: 1.5,
             ),
           )
-        : const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16.0)),
+        : RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(fabRadius),
           );
 
     final Widget fab = Container(
       decoration: BoxDecoration(
-        borderRadius: isDiurno ? BorderRadius.circular(18) : null,
-        shape: isDiurno ? BoxShape.rectangle : BoxShape.circle,
-        boxShadow: isDiurno
+        borderRadius: BorderRadius.circular(fabRadius),
+        shape: BoxShape.rectangle,
+        boxShadow: isLight
             ? [
                 BoxShadow(
-                  color: buttonColor.withValues(alpha: 0.32),
-                  blurRadius: 16,
-                  spreadRadius: -2,
-                  offset: const Offset(0, 6),
-                ),
-                const BoxShadow(
-                  color: Color(0x240B132B),
-                  blurRadius: 10,
-                  offset: Offset(0, 3),
+                  color: t.textPrimary.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
                 ),
               ]
-            : [
-                BoxShadow(
-                  color: buttonColor.withValues(alpha: isLight ? 0.2 : 0.4),
-                  blurRadius: 12,
-                  spreadRadius: -2,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+            : null,
       ),
       child: Semantics(
         button: true,
