@@ -12,6 +12,8 @@ import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/services/device_capability_service.dart';
+import 'package:finazaap/services/ai_financial_tools.dart';
+import 'package:finazaap/services/ai_report_templates.dart';
 
 class ChatMessage {
   final String role; // 'user' | 'model' | 'system'
@@ -163,13 +165,20 @@ class AiChatService extends ChangeNotifier {
   String _ratioStatus = 'none';
   String _ratioMessageText = '';
 
+  static const int maxPersistedMessages = 80;
+  static const int learnedPatternsWindowDays = 60;
+
   // Instancia del modelo Gemma con la API moderna de flutter_gemma 1.0+
   InferenceModel? _gemmaModel;
   InferenceChat? _gemmaChat;
   AiChatSessionAdapter? _sessionAdapter;
+  int _sessionTokensUsed = 0;
+  int _sessionRotationCount = 0;
 
   // Getters
   List<ChatMessage> get messages => _messages;
+  int get sessionTokensUsed => _sessionTokensUsed;
+  int get sessionRotationCount => _sessionRotationCount;
   bool get isGenerating => _isGenerating;
   bool get useLocalSimulator => _useLocalSimulator;
   bool get gemmaInitialized => _gemmaInitialized;
@@ -214,12 +223,20 @@ class AiChatService extends ChangeNotifier {
       _chatSummary = prefs.getString('ai_chat_summary') ?? '';
       _lastSummaryCount = prefs.getInt('ai_last_summary_count') ?? 0;
 
-      // Cargar historial de chat
+      // Cargar historial de chat (acotado a los últimos 80 mensajes)
       final chatData = prefs.getStringList('ai_chat_history');
       if (chatData != null) {
-        _messages = chatData
+        final loaded = chatData
             .map((msgStr) => ChatMessage.fromJson(json.decode(msgStr)))
             .toList();
+        if (loaded.length > maxPersistedMessages) {
+          final excess = loaded.length - maxPersistedMessages;
+          _messages = loaded.sublist(excess);
+          _lastSummaryCount = (_lastSummaryCount - excess).clamp(0, _messages.length);
+        } else {
+          _messages = loaded;
+          _lastSummaryCount = _lastSummaryCount.clamp(0, _messages.length);
+        }
       } else {
         _messages = [
           ChatMessage(
@@ -502,24 +519,31 @@ class AiChatService extends ChangeNotifier {
     _gemmaInitialized = false;
   }
 
-  /// Construye el prompt del sistema con contexto financiero del usuario
+  /// Construye el prompt del sistema respetando el presupuesto de ~380 tokens.
   String _buildSystemPrompt(Map<String, dynamic> financialState) {
-    String systemPrompt = 'Eres un asesor financiero personal de IA llamado "Moneo AI" dentro de una app de finanzas personales. '
-        'Responde siempre en español, de forma clara, profesional y concisa. Usa viñetas y Markdown. '
-        'No inventes datos financieros — usa exclusivamente los que te proporciono.\n\n'
-        'ESTADO FINANCIERO DEL USUARIO:\n'
-        '- Saldo disponible global: ${CurrencyHelper.format(financialState['availableBalance'])} ${CurrencyHelper.currencyCode}\n'
-        '- Ingresos mensuales: ${CurrencyHelper.format(financialState['monthlyIncome'])} ${CurrencyHelper.currencyCode}\n'
-        '- Gastos mensuales: ${CurrencyHelper.format(financialState['monthlyExpenses'])} ${CurrencyHelper.currencyCode}\n'
-        '- Ahorros netos del mes: ${CurrencyHelper.format(financialState['monthlySavings'])} ${CurrencyHelper.currencyCode}\n'
-        '- Metas del usuario: "$_userGoals"\n'
-        '- Patrones de gasto: "$_userNotes"';
-        
+    final goalsBudget = AiTokenBudget.fitToTokenBudget(_userGoals, 90);
+    final notesBudget = AiTokenBudget.fitToTokenBudget(_userNotes, 100);
+    String systemPrompt =
+        'Eres "Moneo AI", asesor financiero personal offline. '
+        'Responde en español, claro, profesional y conciso con viñetas Markdown. '
+        'No inventes ni recalcules cifras: usa exclusivamente los datos provistos.\n\n'
+        'ESTADO FINANCIERO:\n'
+        '- Saldo: ${CurrencyHelper.format(financialState['availableBalance'])} ${CurrencyHelper.currencyCode}\n'
+        '- Ingresos mes: ${CurrencyHelper.format(financialState['monthlyIncome'])} ${CurrencyHelper.currencyCode}\n'
+        '- Gastos mes: ${CurrencyHelper.format(financialState['monthlyExpenses'])} ${CurrencyHelper.currencyCode}\n'
+        '- Ahorro mes: ${CurrencyHelper.format(financialState['monthlySavings'])} ${CurrencyHelper.currencyCode}\n'
+        '- Metas: "$goalsBudget"\n'
+        '- Patrones: "$notesBudget"';
+
     if (_chatSummary.isNotEmpty) {
-      systemPrompt += '\n- Resumen de la conversación anterior: "$_chatSummary"';
+      final summaryBudget = AiTokenBudget.fitToTokenBudget(_chatSummary, 90);
+      systemPrompt += '\n- Resumen previo: "$summaryBudget"';
     }
-    
-    return systemPrompt;
+
+    return AiTokenBudget.fitToTokenBudget(
+      systemPrompt,
+      AiTokenBudget.maxSystemTokens,
+    );
   }
 
   // Cambiar entre simulador e IA local real
@@ -542,10 +566,16 @@ class AiChatService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Guardar historial en SharedPreferences
+  // Guardar historial en SharedPreferences (acotado a los últimos 80 mensajes)
   Future<void> _saveHistory() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_messages.length > maxPersistedMessages) {
+        final excess = _messages.length - maxPersistedMessages;
+        _messages = _messages.sublist(excess);
+        _lastSummaryCount = (_lastSummaryCount - excess).clamp(0, _messages.length);
+        await prefs.setInt('ai_last_summary_count', _lastSummaryCount);
+      }
       final chatList = _messages.map((msg) => json.encode(msg.toJson())).toList();
       await prefs.setStringList('ai_chat_history', chatList);
     } catch (e) {
@@ -576,24 +606,30 @@ class AiChatService extends ChangeNotifier {
     } catch (_) {}
     _sessionAdapter = null;
     _gemmaChat = null;
+    _sessionTokensUsed = 0;
+    _sessionRotationCount = 0;
 
     if (testSessionCreator != null) {
       try {
         final state = await getFinancialState();
-        _sessionAdapter = await testSessionCreator!(_buildSystemPrompt(state));
+        final systemPrompt = _buildSystemPrompt(state);
+        _sessionAdapter = await testSessionCreator!(systemPrompt);
+        _sessionTokensUsed = AiTokenBudget.estimateTokens(systemPrompt);
       } catch (e) {
         AppLogger.warning('Error recreando sesión de chat de prueba: $e');
       }
     } else if (_gemmaInitialized && _gemmaModel != null) {
       try {
         final state = await getFinancialState();
+        final systemPrompt = _buildSystemPrompt(state);
         _gemmaChat = await _gemmaModel!.createChat(
-          systemInstruction: _buildSystemPrompt(state),
+          systemInstruction: systemPrompt,
           modelType: ModelType.gemma4,
           isThinking: false,
-          maxOutputTokens: 320,
+          maxOutputTokens: AiTokenBudget.maxOutputTokens,
         );
         _sessionAdapter = _FlutterGemmaSessionAdapter(_gemmaChat!);
+        _sessionTokensUsed = AiTokenBudget.estimateTokens(systemPrompt);
       } catch (e) {
         AppLogger.warning('Error recreando sesión de chat: $e');
       }
@@ -657,14 +693,18 @@ class AiChatService extends ChangeNotifier {
       double totalExpenses = state['monthlyExpenses'];
       double totalIncome = state['monthlyIncome'];
       
-      // Agrupar gastos por categoría
+      // Agrupar gastos por categoría en ventana móvil de 60 días (hábitos actuales)
+      final now = DateTime.now();
+      final windowCutoff = now.subtract(
+        const Duration(days: learnedPatternsWindowDays),
+      );
       Map<String, double> categorySums = {};
       int expenseCount = 0;
       double maxExpense = 0.0;
       String maxExpenseItem = '';
 
       for (var tx in box.values) {
-        if (tx.safeType == 'Expenses') {
+        if (tx.safeType == 'Expenses' && !tx.safeDate.isBefore(windowCutoff)) {
           double amt = double.tryParse(tx.safeAmount) ?? 0.0;
           categorySums[tx.safeCategory] = (categorySums[tx.safeCategory] ?? 0) + amt;
           expenseCount++;
@@ -835,65 +875,114 @@ class AiChatService extends ChangeNotifier {
       AppLogger.error('Error al generar el resumen interno', error: e);
     }
 
-    // 2. Analizar transacciones para tener datos frescos
-    await updateLearnedPatterns();
-    final financialState = await getFinancialState();
+    // 2. Detectar aprendizaje implícito de metas ANTES de generar respuesta (cubre Gemma y simulador)
+    await _extractAndAccumulateGoal(userMessage);
 
-    // Detectar categorías de SharedPreferences
+    // 3. Intención -> Router -> Recuperación filtrada -> Funciones deterministas
+    final routePlan = AiQueryRouter.route(userMessage);
+
+    await updateLearnedPatterns();
+    final financialState = routePlan.needsFinancialState
+        ? await getFinancialState()
+        : <String, dynamic>{
+            'availableBalance': 0.0,
+            'accounts': <Map<String, dynamic>>[],
+            'monthlyIncome': 0.0,
+            'monthlyExpenses': 0.0,
+            'monthlySavings': 0.0,
+          };
+
     String categoriesContext = '';
-    final lowerMsg = userMessage.toLowerCase();
-    if (lowerMsg.contains('categoria') || lowerMsg.contains('categorias') || lowerMsg.contains('rubro') || lowerMsg.contains('rubros') || lowerMsg.contains('egreso') || lowerMsg.contains('ingreso')) {
+    if (routePlan.needsCategories) {
       categoriesContext = await _getCategoriesContext();
     }
 
-    // Detectar si el usuario quiere crear/sugerir categorías
     List<Map<String, dynamic>>? suggestedCategories;
-    if (lowerMsg.contains('crear') || lowerMsg.contains('suger') || lowerMsg.contains('recomen') || lowerMsg.contains('propon') || lowerMsg.contains('propón')) {
-      if (lowerMsg.contains('categoria') || lowerMsg.contains('categoría') || lowerMsg.contains('categorias') || lowerMsg.contains('categorías') || lowerMsg.contains('rubro') || lowerMsg.contains('rubros')) {
-        String type = 'Expenses';
-        if (lowerMsg.contains('ingreso') || lowerMsg.contains('ingresos')) {
-          type = 'Income';
-        }
-        
-        // Determinar número de categorías a sugerir
-        int count = 3;
-        final RegExp numberRegex = RegExp(r'\b([1-9])\b');
-        final match = numberRegex.firstMatch(lowerMsg);
-        if (match != null) {
-          count = int.tryParse(match.group(1)!) ?? 3;
-        }
-        
-        suggestedCategories = await generateCategorySuggestions(type: type, limit: count);
+    if (routePlan.needsCategorySuggestions) {
+      final lowerMsg = userMessage.toLowerCase();
+      String type = 'Expenses';
+      if (lowerMsg.contains('ingreso') || lowerMsg.contains('ingresos')) {
+        type = 'Income';
       }
+      int count = 3;
+      final RegExp numberRegex = RegExp(r'\b([1-9])\b');
+      final match = numberRegex.firstMatch(lowerMsg);
+      if (match != null) {
+        count = int.tryParse(match.group(1)!) ?? 3;
+      }
+      suggestedCategories = await generateCategorySuggestions(type: type, limit: count);
     }
 
-    // Detectar si el usuario quiere registrar una transacción
-    final suggestedTransactions = await detectAndGenerateTransactionSuggestions(userMessage);
+    final suggestedTransactions = routePlan.intent == AiIntent.registro && !routePlan.needsCategorySuggestions
+        ? await detectAndGenerateTransactionSuggestions(userMessage)
+        : null;
 
-    // Detectar obligaciones y deudas
     String obligationsContext = '';
-    if (lowerMsg.contains('obligacion') || lowerMsg.contains('obligaciones') || lowerMsg.contains('deuda') || lowerMsg.contains('deudas') || lowerMsg.contains('pago') || lowerMsg.contains('pagar') || lowerMsg.contains('responsabilidad') || lowerMsg.contains('responsabilidades')) {
+    if (routePlan.needsObligations) {
       obligationsContext = await _getObligationsContext();
     }
 
-    // Detectar y ejecutar consultas a la base de datos de transacciones (herramienta de IA / Hook)
-    final queryAnalysis = await _detectAndExecuteQuery(userMessage);
+    final queryAnalysis = routePlan.needsTransactionQuery
+        ? await _detectAndExecuteQuery(userMessage)
+        : null;
 
-    // 3. Detectar si el usuario está preguntando por una compra específica
+    MonthlyReportData? monthlyReportData;
+    if (routePlan.needsMonthlyReportAggregates) {
+      final box = Hive.isBoxOpen('data')
+          ? Hive.box<Add_data>('data')
+          : await Hive.openBox<Add_data>('data');
+      await ResponsibilityService.init();
+      monthlyReportData = AiFinancialTools.computeMonthlyReport(
+        transactions: box.values,
+        obligations: ResponsibilityService.getAllResponsibilities(),
+        availableBalance: (financialState['availableBalance'] as num?)?.toDouble() ?? 0.0,
+      );
+    }
+
+    VehicleTcoResult? vehicleTcoResult;
     Map<String, dynamic>? purchaseAnalysis;
-    final RegExp priceRegex = RegExp(r'(?:comprar|compra)\s+([a-zA-Záéíóúñ\s]+)\s+(?:por|de|cuesta|a)?\s*\$?\s*([0-9]+(?:\.[0-9]+)?)', caseSensitive: false);
-    final match = priceRegex.firstMatch(userMessage);
-
-    if (match != null) {
-      String item = match.group(1)!.trim();
-      double? price = double.tryParse(match.group(2)!.trim());
-      if (price != null && price > 0) {
-        purchaseAnalysis = await analyzePurchase(item, price);
+    if (routePlan.needsVehicleTco) {
+      final box = Hive.isBoxOpen('data')
+          ? Hive.box<Add_data>('data')
+          : await Hive.openBox<Add_data>('data');
+      final currentTransport = AiFinancialTools.estimateMonthlyTransportExpense(
+        box.values,
+        windowDays: learnedPatternsWindowDays,
+      );
+      final tcoInput = AiFinancialTools.extractVehicleInputFromMessage(
+        userMessage,
+        monthlyIncome: (financialState['monthlyIncome'] as num?)?.toDouble() ?? 0.0,
+        monthlyExpenses: (financialState['monthlyExpenses'] as num?)?.toDouble() ?? 0.0,
+        availableBalance: (financialState['availableBalance'] as num?)?.toDouble() ?? 0.0,
+        currentMonthlyTransportExpense: currentTransport,
+      );
+      vehicleTcoResult = AiFinancialTools.calculateVehicleTco(tcoInput);
+    } else if (routePlan.needsPurchaseDecision) {
+      final RegExp priceRegex = RegExp(
+        r'(?:comprar|compra)\s+([a-zA-Záéíóúñ\s]+)\s+(?:por|de|cuesta|a)?\s*\$?\s*([0-9]+(?:\.[0-9]+)?)',
+        caseSensitive: false,
+      );
+      final match = priceRegex.firstMatch(userMessage);
+      if (match != null) {
+        String item = match.group(1)!.trim();
+        double? price = double.tryParse(match.group(2)!.trim());
+        if (price != null && price > 0) {
+          purchaseAnalysis = await analyzePurchase(item, price);
+        }
       }
     }
 
     // 4. Generar respuesta
     String responseText = '';
+    String deterministicPrefix = '';
+
+    if (monthlyReportData != null) {
+      deterministicPrefix =
+          '${AiReportTemplates.renderMonthlyReport(monthlyReportData, includeCommentaryHeader: false)}\n\n### 💡 Conclusión y Recomendación\n';
+    } else if (vehicleTcoResult != null) {
+      deterministicPrefix =
+          '${AiReportTemplates.renderVehicleDecisionReport(vehicleTcoResult, includeCommentaryHeader: false)}\n\n### 💡 Recomendación\n';
+    }
     
     if (suggestedCategories != null && suggestedCategories.isNotEmpty) {
       final typeLabel = suggestedCategories.first['type'] == 'Income' ? 'ingresos' : 'gastos';
@@ -918,59 +1007,63 @@ class AiChatService extends ChangeNotifier {
           '*   **Cuenta**: ${tx['account']} ${tx['accountInferred'] == true ? "*(sugerida)*" : ""}\n\n'
           'Confirma si los datos son correctos usando las tarjetas de abajo para guardarla, editarla o rechazarla.';
     } else if (!_useLocalSimulator) {
-      if (testSessionCreator != null) {
-        if (_sessionAdapter == null) {
-          final systemPrompt = _buildSystemPrompt(financialState);
-          _sessionAdapter = await testSessionCreator!(systemPrompt);
-        }
-        _gemmaInitialized = true;
-      } else if (!_gemmaInitialized || _sessionAdapter == null) {
-        AppLogger.info('Gemma no inicializado, intentando cargar sobre la marcha...');
-        await _tryLoadGemmaModel();
-        if (_gemmaInitialized && _gemmaModel != null && _sessionAdapter == null) {
-          final systemPrompt = _buildSystemPrompt(financialState);
-          _gemmaChat = await _gemmaModel!.createChat(
-            systemInstruction: systemPrompt,
-            modelType: ModelType.gemma4,
-            isThinking: false,
-            maxOutputTokens: 320,
+      final retrievedBuffer = StringBuffer();
+      if (monthlyReportData != null) {
+        retrievedBuffer.writeln(
+          AiReportTemplates.buildMonthlyReportCommentaryPrompt(monthlyReportData),
+        );
+      } else if (vehicleTcoResult != null) {
+        retrievedBuffer.writeln(
+          AiReportTemplates.buildVehicleDecisionCommentaryPrompt(vehicleTcoResult),
+        );
+      } else {
+        if (purchaseAnalysis != null) {
+          retrievedBuffer.writeln(
+            '[CONTEXTO DE HERRAMIENTA INTERNA - Análisis de compra]\n'
+            'Artículo: "${purchaseAnalysis['itemName']}", Costo: ${CurrencyHelper.format(purchaseAnalysis['cost'])} ${CurrencyHelper.currencyCode}\n'
+            'Diagnóstico: ${purchaseAnalysis['status']} — ${purchaseAnalysis['description']}\n'
+            '[Usa este análisis como base para tu respuesta]',
           );
-          _sessionAdapter = _FlutterGemmaSessionAdapter(_gemmaChat!);
+        }
+        if (categoriesContext.isNotEmpty) {
+          retrievedBuffer.writeln('[CONTEXTO DE HERRAMIENTA INTERNA - Categorías]\n$categoriesContext');
+        }
+        if (obligationsContext.isNotEmpty) {
+          retrievedBuffer.writeln('[CONTEXTO DE HERRAMIENTA INTERNA - Obligaciones]\n$obligationsContext');
+        }
+        if (queryAnalysis != null) {
+          retrievedBuffer.writeln(_formatQueryResultContext(queryAnalysis));
         }
       }
+
+      final budgetedTurn = AiTokenBudget.fitToTokenBudget(
+        userMessage,
+        AiTokenBudget.maxCurrentTurnTokens,
+      );
+      final budgetedContext = AiTokenBudget.fitToTokenBudget(
+        retrievedBuffer.toString().trim(),
+        AiTokenBudget.maxRetrievedContextTokens,
+      );
+      final enrichedPrompt = budgetedContext.isEmpty
+          ? budgetedTurn
+          : '$budgetedTurn\n\n$budgetedContext';
+      final upcomingInputTokens = AiTokenBudget.estimateTokens(enrichedPrompt);
+
+      await _ensureOrRotateSession(
+        financialState,
+        upcomingInputTokens: upcomingInputTokens,
+      );
 
       if (_gemmaInitialized && _sessionAdapter != null) {
         // --- RESPUESTA REAL USANDO SESIÓN PERSISTENTE + STREAMING GEMMA ---
         try {
-          String enrichedPrompt = userMessage;
-          
-          if (purchaseAnalysis != null) {
-            enrichedPrompt += '\n\n[CONTEXTO DE HERRAMIENTA INTERNA - Análisis de compra]\n'
-                'Artículo: "${purchaseAnalysis['itemName']}", Costo: ${CurrencyHelper.format(purchaseAnalysis['cost'])} ${CurrencyHelper.currencyCode}\n'
-                'Diagnóstico: ${purchaseAnalysis['status']} — ${purchaseAnalysis['description']}\n'
-                '[Usa este análisis como base para tu respuesta]';
-          }
-
-          if (categoriesContext.isNotEmpty) {
-            enrichedPrompt += '\n\n[CONTEXTO DE HERRAMIENTA INTERNA - Categorías]\n$categoriesContext';
-          }
-
-          if (obligationsContext.isNotEmpty) {
-            enrichedPrompt += '\n\n[CONTEXTO DE HERRAMIENTA INTERNA - Obligaciones]\n$obligationsContext';
-          }
-
-          if (queryAnalysis != null) {
-            final queryCtx = _formatQueryResultContext(queryAnalysis);
-            enrichedPrompt += '\n\n$queryCtx';
-          }
-          
           await _sessionAdapter!.addUserMessage(enrichedPrompt);
 
           final modelIndex = _messages.length;
           _messages.add(
             ChatMessage(
               role: 'model',
-              content: '',
+              content: deterministicPrefix,
               timestamp: DateTime.now(),
               categorySuggestions: suggestedCategories,
               transactionSuggestions: suggestedTransactions,
@@ -987,7 +1080,7 @@ class AiChatService extends ChangeNotifier {
             if (stopwatch.elapsedMilliseconds >= 60) {
               _messages[modelIndex] = ChatMessage(
                 role: 'model',
-                content: buffer.toString(),
+                content: '$deterministicPrefix$buffer',
                 timestamp: _messages[modelIndex].timestamp,
                 categorySuggestions: suggestedCategories,
                 transactionSuggestions: suggestedTransactions,
@@ -998,12 +1091,19 @@ class AiChatService extends ChangeNotifier {
           }
 
           if (buffer.isNotEmpty) {
-            responseText = buffer.toString();
+            responseText = '$deterministicPrefix${buffer.toString()}';
           } else if (_generationCancelled) {
-            responseText = '*(Generación cancelada.)*';
+            responseText = deterministicPrefix.isNotEmpty
+                ? '${deterministicPrefix}*(Generación cancelada.)*'
+                : '*(Generación cancelada.)*';
           } else {
-            responseText = 'No pude generar una respuesta en este momento. Intenta de nuevo.';
+            responseText = deterministicPrefix.isNotEmpty
+                ? '${deterministicPrefix}No pude generar el comentario adicional en este momento.'
+                : 'No pude generar una respuesta en este momento. Intenta de nuevo.';
           }
+
+          _sessionTokensUsed += upcomingInputTokens +
+              AiTokenBudget.estimateTokens(buffer.toString());
 
           _messages[modelIndex] = ChatMessage(
             role: 'model',
@@ -1017,7 +1117,14 @@ class AiChatService extends ChangeNotifier {
         } catch (e) {
           AppLogger.error('Error en inferencia Gemma (replegando a simulador)', error: e);
           responseText = '*(Nota: Ocurrió un error con Gemma IA. El simulador financiero respondió por seguridad.)*\n\n';
-          responseText += await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis);
+          responseText += await _generateSimulatorResponse(
+            userMessage,
+            financialState,
+            purchaseAnalysis,
+            queryAnalysis,
+            monthlyReportData: monthlyReportData,
+            vehicleTcoResult: vehicleTcoResult,
+          );
           if (_messages.isNotEmpty && _messages.last.role == 'model' && _messages.last.content.isEmpty) {
             _messages.removeLast();
           }
@@ -1029,7 +1136,7 @@ class AiChatService extends ChangeNotifier {
               'Asegúrate de que el servidor de modelos esté corriendo (`make web`) y '
               'que el archivo `models/gemma.litertlm` esté accesible en el puerto 8081.\n\n'
               '_Usando el simulador financiero mientras tanto..._\n\n'
-              '${await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis)}';
+              '${await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis, monthlyReportData: monthlyReportData, vehicleTcoResult: vehicleTcoResult)}';
         } else {
           responseText = '⚠️ **Gemma IA no configurado para este dispositivo.**\n\n'
               'El modelo (2.5 GB) debe descargarse una sola vez. Para configurarlo:\n\n'
@@ -1037,24 +1144,23 @@ class AiChatService extends ChangeNotifier {
               '2. Ingresa la URL de descarga de tu modelo `.litertlm`\n'
               '3. Espera a que se complete la descarga (~5-20 min según tu red)\n\n'
               '_Mientras tanto, el simulador financiero está activo y funcional._\n\n'
-              '${await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis)}';
+              '${await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis, monthlyReportData: monthlyReportData, vehicleTcoResult: vehicleTcoResult)}';
         }
       }
     } else {
       // --- RESPUESTA SIMULADA BASADA EN REGLAS FINANCIERAS ---
       await Future.delayed(const Duration(milliseconds: 800));
-      responseText = await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis);
+      responseText = await _generateSimulatorResponse(
+        userMessage,
+        financialState,
+        purchaseAnalysis,
+        queryAnalysis,
+        monthlyReportData: monthlyReportData,
+        vehicleTcoResult: vehicleTcoResult,
+      );
     }
 
-    // 5. Detectar aprendizaje implícito en el mensaje del usuario
-    final RegExp goalKeywords = RegExp(r'(?:quiero|mi meta es|planeo|ahorrar para)\s+([a-zA-Záéíóúñ\s]{3,30})', caseSensitive: false);
-    final goalMatch = goalKeywords.firstMatch(userMessage);
-    if (goalMatch != null) {
-      String extractedGoal = goalMatch.group(1)!.trim();
-      await updateUserGoals('Ahorrar para: $extractedGoal');
-    }
-
-    // 6. Agregar respuesta del modelo a la lista
+    // 5. Agregar respuesta del modelo a la lista
     final modelChat = ChatMessage(
       role: 'model',
       content: responseText,
@@ -1071,14 +1177,122 @@ class AiChatService extends ChangeNotifier {
     }
   }
 
+  /// Extrae metas implícitas del mensaje y las acumula sin borrar las previas.
+  Future<void> _extractAndAccumulateGoal(String userMessage) async {
+    final RegExp goalKeywords = RegExp(
+      r'(?:quiero|mi meta es|planeo|ahorrar para)\s+([a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s,]{3,50})',
+      caseSensitive: false,
+    );
+    final goalMatch = goalKeywords.firstMatch(userMessage);
+    if (goalMatch == null) return;
+
+    final extractedGoal = goalMatch
+        .group(1)!
+        .replaceAll(RegExp(r'[.?!]+$'), '')
+        .trim();
+    if (extractedGoal.isEmpty) return;
+
+    final newGoalLine = 'Ahorrar para: $extractedGoal';
+    final normalizedNew = AiIntentDetector.normalize(extractedGoal);
+
+    if (_userGoals.trim().isEmpty ||
+        _userGoals.startsWith('Sin metas definidas aún')) {
+      await updateUserGoals(newGoalLine);
+      return;
+    }
+
+    final existingLines = _userGoals
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    final alreadyExists = existingLines.any((line) {
+      final normLine = AiIntentDetector.normalize(line);
+      return normLine == AiIntentDetector.normalize(newGoalLine) ||
+          normLine.contains(normalizedNew);
+    });
+    if (alreadyExists) return;
+
+    existingLines.add(newGoalLine);
+    // Conservar las 6 metas más recientes para no desbordar el presupuesto de systemPrompt
+    final bounded = existingLines.length > 6
+        ? existingLines.sublist(existingLines.length - 6)
+        : existingLines;
+    await updateUserGoals(bounded.join('\n'));
+  }
+
+  /// Crea o rota la sesión de Gemma cuando el historial se acerca al límite de 2048 tokens.
+  Future<void> _ensureOrRotateSession(
+    Map<String, dynamic> financialState, {
+    required int upcomingInputTokens,
+  }) async {
+    final bool needsRotation = _sessionAdapter != null &&
+        (_sessionTokensUsed + upcomingInputTokens + AiTokenBudget.maxOutputTokens >
+            AiTokenBudget.rotationThresholdTokens);
+
+    if (needsRotation) {
+      try {
+        await _generateInternalSummary();
+      } catch (e) {
+        AppLogger.warning('Error resumiendo antes de rotar sesión: $e');
+      }
+      try {
+        await _sessionAdapter?.close();
+      } catch (_) {}
+      _sessionAdapter = null;
+      _gemmaChat = null;
+      _sessionTokensUsed = 0;
+      _sessionRotationCount++;
+      AppLogger.info('Sesión Gemma rotada (#$_sessionRotationCount) por presupuesto de 2048 tokens.');
+    }
+
+    if (testSessionCreator != null) {
+      if (_sessionAdapter == null) {
+        final systemPrompt = _buildSystemPrompt(financialState);
+        _sessionAdapter = await testSessionCreator!(systemPrompt);
+        _sessionTokensUsed = AiTokenBudget.estimateTokens(systemPrompt);
+      }
+      _gemmaInitialized = true;
+      return;
+    }
+
+    if (!_gemmaInitialized) {
+      AppLogger.info('Gemma no inicializado, intentando cargar sobre la marcha...');
+      await _tryLoadGemmaModel();
+    }
+
+    if (_gemmaInitialized && _gemmaModel != null && _sessionAdapter == null) {
+      final systemPrompt = _buildSystemPrompt(financialState);
+      _gemmaChat = await _gemmaModel!.createChat(
+        systemInstruction: systemPrompt,
+        modelType: ModelType.gemma4,
+        isThinking: false,
+        maxOutputTokens: AiTokenBudget.maxOutputTokens,
+      );
+      _sessionAdapter = _FlutterGemmaSessionAdapter(_gemmaChat!);
+      _sessionTokensUsed = AiTokenBudget.estimateTokens(systemPrompt);
+    }
+  }
+
   /// Genera una respuesta usando el motor de reglas financieras local (simulador) con acceso a base de datos
   Future<String> _generateSimulatorResponse(
     String userMessage,
     Map<String, dynamic> financialState,
     Map<String, dynamic>? purchaseAnalysis,
-    Map<String, dynamic>? queryAnalysis,
-  ) async {
+    Map<String, dynamic>? queryAnalysis, {
+    MonthlyReportData? monthlyReportData,
+    VehicleTcoResult? vehicleTcoResult,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
+
+    if (monthlyReportData != null) {
+      return AiReportTemplates.renderMonthlyReport(monthlyReportData);
+    }
+
+    if (vehicleTcoResult != null) {
+      return AiReportTemplates.renderVehicleDecisionReport(vehicleTcoResult);
+    }
 
     if (purchaseAnalysis != null) {
       String statusEmoji = purchaseAnalysis['status'] == 'Aprobado' 
@@ -1875,24 +2089,39 @@ class AiChatService extends ChangeNotifier {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
-  /// Genera un resumen interno de los mensajes anteriores (excluyendo la ventana de los últimos 8)
+  /// Genera un resumen interno acumulativo de los mensajes anteriores (excluyendo los últimos 8)
   Future<void> _generateInternalSummary() async {
     final int endIndex = _messages.length - 8;
     if (endIndex <= _lastSummaryCount) return;
-    
+
     final messagesToSummarize = _messages.sublist(_lastSummaryCount, endIndex);
     if (messagesToSummarize.isEmpty) return;
 
     final String newSummary = _generateFallbackSummary(messagesToSummarize);
-    
+
     if (newSummary.isNotEmpty) {
-      _chatSummary = newSummary;
-      _lastSummaryCount = endIndex; // Actualizar el contador al índice final de los mensajes resumidos
-      
+      if (_chatSummary.trim().isEmpty) {
+        _chatSummary = newSummary;
+      } else if (!_chatSummary.contains(newSummary)) {
+        final merged = '${_chatSummary.trim()} | $newSummary';
+        // Mantener el resumen acotado al presupuesto del systemPrompt (~120 tokens)
+        if (AiTokenBudget.estimateTokens(merged) > 120) {
+          final parts = merged.split(' | ');
+          while (parts.length > 1 &&
+              AiTokenBudget.estimateTokens(parts.join(' | ')) > 120) {
+            parts.removeAt(0);
+          }
+          _chatSummary = AiTokenBudget.fitToTokenBudget(parts.join(' | '), 120);
+        } else {
+          _chatSummary = merged;
+        }
+      }
+      _lastSummaryCount = endIndex;
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('ai_chat_summary', _chatSummary);
       await prefs.setInt('ai_last_summary_count', _lastSummaryCount);
-      AppLogger.info('Resumen interno guardado. Mensajes procesados hasta el índice: $_lastSummaryCount');
+      AppLogger.info('Resumen interno acumulado. Mensajes procesados hasta el índice: $_lastSummaryCount');
     }
   }
 
@@ -1921,6 +2150,9 @@ class AiChatService extends ChangeNotifier {
         }
         if (content.contains('obligación') || content.contains('obligacion') || content.contains('deuda')) {
           topics.add('obligaciones financieras');
+        }
+        if (content.contains('informe') || content.contains('reporte')) {
+          topics.add('informe financiero');
         }
       }
     }
