@@ -1,13 +1,17 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-16 (Integración en `main` de `integration/pendientes-web-y-perf` — `59a22c0`, validada en Docker Flutter `3.44.2`: `244/244` tests + `build web` OK)
+> **Última actualización:** 2026-11-16 (Integración en `main` de `integration/maestro-configuracion` — `dc6d660` sobre `59a22c0`, validada en Docker Flutter `3.44.2`: `244/244` tests + `12/13` suite seguridad Maestro)
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `main` (fusionada mediante `--ff-only` hasta `59a22c0`; **sin `git push`**).
+- **Rama actual:** `main` (fusionada mediante `--ff-only` hasta `dc6d660`; **sin `git push`**).
+- **Suite Maestro Docker y Hooks (`agent/maestro/configuracion-agentica`, fusionada en `main`):**
+  - `.agents/hooks/pre_stop_test.sh` y `.agents/hooks/security_guard.py`: resolución dinámica de socket Docker (`DOCKER_HOST`) y reglas de exclusividad/seguridad.
+  - `.agents/skills/moneo-maestro-e2e/SKILL.md`, `.maestro/audit_*.yaml`, `.maestro/docker/*` y `.maestro/tests/test_maestro_security_suite.py` (`12/13` pasaron; `test_13` requiere construir la imagen `finazaap-maestro:local`).
+  - Quedan únicamente `agent/maestro/configuracion-agentica` (en worktree `wt-maestro-agentic` con 9 archivos `.maestro/verify_*.yaml` sin trackear) y `validation/isolated-debug-apk` / `validation/isolated-profile-apk`.
 - **Consolidación de ramas pendientes (`integration/pendientes-web-y-perf`, fusionada en `main`):**
   - Permisos Android (`agent/fix/android-permissions-ux`): separación de `POST_NOTIFICATIONS` vs alarmas exactas, re-verificación al reanudar y guía de ajustes restringidos.
   - Rendimiento, TC, Disponible y Gemma (`agent/perf/profile-bottlenecks`): eliminación de `saveLayer` de `StretchingOverscrollIndicator`, recorte de splash, sincronización de PIN en Ajustes, bloqueo de *"Incluir en saldo total"* en tarjetas de crédito, refresco de `Disponible` tras `Gestionar cuentas` y bloqueo de inferencia Gemma durante descarga.
