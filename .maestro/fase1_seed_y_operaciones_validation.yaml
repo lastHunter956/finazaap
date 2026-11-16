@@ -1,0 +1,203 @@
+appId: com.example.finazaap.validation
+---
+# Pasada única sintética sin reiniciar app (mientras Gemma descarga en segundo plano):
+# Categorías + Cuentas + Tarjeta de Crédito + Ingreso + Egreso TC + Transferencia pago TC + Responsabilidad + Pago
+
+- launchApp:
+    appId: com.example.finazaap.validation
+    clearState: false
+    stopApp: false
+
+# Volver a Inicio si estuviera en otra pestaña (sin detener la app)
+- tapOn:
+    point: "12%,93%"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 12000
+
+# 1. Crear categoría sintética CatPruebaE2E
+- tapOn:
+    point: "40%,93%"
+- extendedWaitUntil:
+    visible: "Categorías"
+    timeout: 8000
+- tapOn: "Categorías"
+- extendedWaitUntil:
+    visible: "Categorías"
+    timeout: 8000
+- tapOn:
+    point: "87%,91%"
+- extendedWaitUntil:
+    visible: ".*Nombre.*|.*Categoría.*"
+    timeout: 5000
+- tapOn: "Ej: Alimentación"
+- inputText: "CatPruebaE2E"
+- hideKeyboard
+- tapOn:
+    text: ".*Crear.*|.*Guardar.*"
+- extendedWaitUntil:
+    visible: ".*CatPruebaE2E.*"
+    timeout: 8000
+- back
+- tapOn:
+    point: "12%,93%"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+
+# 2. Crear cuenta CtaPrueba100k (100000) y Tarjeta de Crédito TCPrueba (cupo 500000)
+- tapOn: "Gestionar cuentas"
+- extendedWaitUntil:
+    visible: "Cuentas"
+    timeout: 8000
+
+- tapOn:
+    point: "87%,91%"
+- extendedWaitUntil:
+    visible: ".*Nueva Cuenta.*"
+    timeout: 5000
+- tapOn: "Ej: Cuenta Principal"
+- inputText: "CtaPrueba100k"
+- hideKeyboard
+- tapOn: "0.00"
+- inputText: "100000"
+- hideKeyboard
+- tapOn: "Crear Cuenta"
+- extendedWaitUntil:
+    visible: ".*CtaPrueba100k.*"
+    timeout: 8000
+
+- tapOn:
+    point: "87%,91%"
+- extendedWaitUntil:
+    visible: ".*Nueva Cuenta.*"
+    timeout: 5000
+- tapOn: "Cuenta de Ahorros"
+- tapOn: "Tarjeta de Crédito"
+- scroll
+- assertVisible: ".*Excluida: el cupo de TC no es dinero propio.*"
+- tapOn: "Ej: Cuenta Principal"
+- inputText: "TCPrueba"
+- hideKeyboard
+- tapOn:
+    text: "0.00"
+    optional: true
+- inputText: "500000"
+- hideKeyboard
+- tapOn: "Crear Cuenta"
+- extendedWaitUntil:
+    visible: ".*TCPrueba.*"
+    timeout: 8000
+- back
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+
+# 3. Ingreso sintético (+40000 en CtaPrueba100k)
+- tapOn:
+    point: "87%,83%"
+- extendedWaitUntil:
+    visible: "Nueva Operación"
+    timeout: 5000
+- tapOn: "Ingreso"
+- extendedWaitUntil:
+    visible: "Nuevo Ingreso"
+    timeout: 5000
+- tapOn: "0.00"
+- inputText: "40000"
+- hideKeyboard
+- tapOn: "Detalles..."
+- inputText: "IngPrueba40k"
+- hideKeyboard
+- tapOn: "Guardar"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+
+# 4. Egreso sintético con TCPrueba (-20000 en CatPruebaE2E)
+- tapOn:
+    point: "87%,83%"
+- extendedWaitUntil:
+    visible: "Nueva Operación"
+    timeout: 5000
+- tapOn: "Egreso"
+- extendedWaitUntil:
+    visible: "Nuevo Egreso"
+    timeout: 5000
+- tapOn: "0.00"
+- inputText: "20000"
+- hideKeyboard
+- tapOn:
+    text: ".*"
+    below: "Cuenta"
+- tapOn: "TCPrueba"
+- tapOn: "Detalles..."
+- inputText: "GastoTC20k"
+- hideKeyboard
+- tapOn: "Guardar"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+
+# 5. Transferencia para abonar a TCPrueba (10000 desde CtaPrueba100k -> TCPrueba)
+- tapOn:
+    point: "87%,83%"
+- extendedWaitUntil:
+    visible: "Nueva Operación"
+    timeout: 5000
+- tapOn: "Transferencia"
+- extendedWaitUntil:
+    visible: ".*Transferencia.*"
+    timeout: 5000
+- tapOn: "0.00"
+- inputText: "10000"
+- hideKeyboard
+- tapOn:
+    text: ".*"
+    below: "Cuenta Destino"
+    optional: true
+- tapOn:
+    text: "TCPrueba"
+    optional: true
+- tapOn: "Transferir"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+
+# 6. Crear Responsabilidad RespPrueba25k y pagarla
+- tapOn: "Pagos"
+- extendedWaitUntil:
+    visible: "Responsabilidades"
+    timeout: 8000
+- tapOn:
+    point: "87%,83%"
+- extendedWaitUntil:
+    visible: ".*Nueva Obligación.*"
+    timeout: 5000
+- tapOn: ".*Nueva Obligación.*"
+- extendedWaitUntil:
+    visible: "Ej: Alquiler, Netflix..."
+    timeout: 5000
+- tapOn: "Ej: Alquiler, Netflix..."
+- inputText: "RespPrueba25k"
+- hideKeyboard
+- tapOn: "0.00"
+- inputText: "25000"
+- hideKeyboard
+- tapOn: "Crear Obligación"
+- extendedWaitUntil:
+    visible: ".*RespPrueba25k.*"
+    timeout: 8000
+- tapOn: ".*PENDIENTE.*"
+- extendedWaitUntil:
+    visible: "Pagar"
+    timeout: 5000
+- tapOn: "Pagar"
+- tapOn:
+    text: "Confirmar|Pagar|Guardar"
+    optional: true
+- tapOn:
+    point: "12%,93%"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
