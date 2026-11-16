@@ -234,7 +234,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                         ? box.length 
                                         : box.values.where((r) => r.safeCategory == category).length;
                                     
-                                    const accentColor = Color(0xFF3B82F6);
+                                    final accentColor = context.appTheme.accent;
                                     
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
@@ -279,7 +279,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 if (isSelected) ...[
-                                                  const Icon(Icons.check_circle_rounded, size: 14, color: accentColor),
+                                                  Icon(Icons.check_circle_rounded, size: 14, color: accentColor),
                                                   const SizedBox(width: 6),
                                                 ],
                                                 Text(
@@ -295,7 +295,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                                   Text(
                                                     count.toString(),
                                                     style: TextStyle(
-                                                      color: isSelected ? Colors.white : context.appTheme.textSecondary,
+                                                      color: isSelected ? accentColor : context.appTheme.textSecondary,
                                                       fontSize: 10,
                                                       fontWeight: FontWeight.bold,
                                                     ),
@@ -441,7 +441,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                              });
                              Navigator.pop(context);
                           },
-                          child: const Text('Limpiar', style: TextStyle(color: Colors.redAccent)),
+                          child: Text('Limpiar', style: TextStyle(color: context.appTheme.error)),
                         ),
                       ],
                     ),
@@ -463,13 +463,13 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             ),
                             selected: isSelected,
-                            selectedColor: Colors.blueAccent.withOpacity(0.3),
+                            selectedColor: context.appTheme.accent.withOpacity(0.3),
                             backgroundColor: context.appTheme.darkBackground,
-                            checkmarkColor: Colors.blueAccent,
+                            checkmarkColor: context.appTheme.accent,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                               side: BorderSide(
-                                color: isSelected ? Colors.blueAccent : context.appTheme.borderSubtle,
+                                color: isSelected ? context.appTheme.accent : context.appTheme.borderSubtle,
                               ),
                             ),
                             onSelected: (bool selected) {
@@ -504,12 +504,13 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                        width: double.infinity,
                        child: ElevatedButton(
                          style: ElevatedButton.styleFrom(
-                           backgroundColor: Colors.blueAccent,
+                           backgroundColor: context.appTheme.buttonBackground,
+                           foregroundColor: context.appTheme.buttonForeground,
                            padding: const EdgeInsets.symmetric(vertical: 16),
                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                          ),
                          onPressed: () => Navigator.pop(context),
-                         child: const Text('Hecho', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                         child: Text('Hecho', style: TextStyle(color: context.appTheme.buttonForeground, fontWeight: FontWeight.bold)),
                        ),
                      ),
                   ),
@@ -635,21 +636,21 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
               _showAllObligations = true;
             });
           },
-          icon: const Icon(Icons.add_circle_outline_rounded, size: 18, color: Colors.blueAccent),
+          icon: Icon(Icons.add_circle_outline_rounded, size: 18, color: context.appTheme.accent),
           label: Text(
             'Ver más ($remaining)',
-            style: const TextStyle(
-              color: Colors.blueAccent,
+            style: TextStyle(
+              color: context.appTheme.accent,
               fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
           ),
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            backgroundColor: Colors.blueAccent.withOpacity(0.08),
+            backgroundColor: context.appTheme.accent.withOpacity(0.08),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.blueAccent.withOpacity(0.2)),
+              side: BorderSide(color: context.appTheme.accent.withOpacity(0.2)),
             ),
           ),
         ),
@@ -683,7 +684,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Entendido', style: TextStyle(color: Colors.blueAccent)),
+                child: Text('Entendido', style: TextStyle(color: context.appTheme.accent)),
               ),
             ],
           ),
@@ -703,7 +704,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () async {
@@ -712,7 +713,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
               setState(() {});
               AlertHelper.success(context, '"${responsibility.safeName}" eliminada');
             },
-            child: const Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+            child: Text('Eliminar', style: TextStyle(color: context.appTheme.error)),
           ),
         ],
       ),
@@ -797,10 +798,10 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blueAccent.withOpacity(0.15),
+                        color: context.appTheme.accent.withOpacity(0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(AppIcons.getIcon(responsibility.safeIconCode), color: Colors.blueAccent, size: 24),
+                      child: Icon(AppIcons.getIcon(responsibility.safeIconCode), color: context.appTheme.accent, size: 24),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -826,7 +827,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                             return Theme(
                               data: Theme.of(context).copyWith(
                                 colorScheme: ColorScheme.dark(
-                                  primary: Colors.blueAccent,
+                                  primary: context.appTheme.accent,
                                   surface: context.appTheme.secondaryCardBackground,
                                   onPrimary: Colors.white,
                                   onSurface: context.appTheme.textPrimary,
@@ -860,9 +861,9 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Pendiente para este mes',
-                                    style: TextStyle(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: context.appTheme.accent, fontSize: 11, fontWeight: FontWeight.bold),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -882,13 +883,13 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                     label: Text(
                                       'Sugerido',
                                       style: TextStyle(
-                                        color: isMinimumPayment ? context.appTheme.primaryBackground : context.appTheme.textSecondary,
+                                        color: isMinimumPayment ? context.appTheme.buttonForeground : context.appTheme.textSecondary,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                     selected: isMinimumPayment,
-                                    selectedColor: Colors.blueAccent,
+                                    selectedColor: context.appTheme.buttonBackground,
                                     backgroundColor: context.appTheme.darkBackground,
                                     onSelected: (val) {
                                       setStateSB(() {
@@ -904,13 +905,13 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                     label: Text(
                                       'Personalizado',
                                       style: TextStyle(
-                                        color: !isMinimumPayment ? context.appTheme.primaryBackground : context.appTheme.textSecondary,
+                                        color: !isMinimumPayment ? context.appTheme.buttonForeground : context.appTheme.textSecondary,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                     selected: !isMinimumPayment,
-                                    selectedColor: Colors.blueAccent,
+                                    selectedColor: context.appTheme.buttonBackground,
                                     backgroundColor: context.appTheme.darkBackground,
                                     onSelected: (val) {
                                       setStateSB(() {
@@ -1015,7 +1016,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.calendar_today_rounded, color: Colors.blueAccent, size: 16),
+                                    Icon(Icons.calendar_today_rounded, color: context.appTheme.accent, size: 16),
                                     const SizedBox(width: 8),
                                     Text(
                                       DateFormat('dd/MM/yyyy').format(selectedDate),
@@ -1036,7 +1037,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                 style: TextStyle(color: context.appTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
                               ),
                               value: markAsPaidComplete,
-                              activeColor: Colors.blueAccent,
+                              activeColor: context.appTheme.accent,
                               contentPadding: EdgeInsets.zero,
                               onChanged: (val) {
                                 setStateSB(() {
@@ -1058,7 +1059,8 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                   ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
+                      backgroundColor: context.appTheme.buttonBackground,
+                      foregroundColor: context.appTheme.buttonForeground,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     ),
@@ -1156,7 +1158,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                         AlertHelper.error(context, 'Ocurrió un error: $e');
                       }
                     },
-                    child: const Text('Confirmar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: Text('Confirmar', style: TextStyle(color: context.appTheme.buttonForeground, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

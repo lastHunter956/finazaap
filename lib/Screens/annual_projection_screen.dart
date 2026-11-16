@@ -14,6 +14,7 @@ import 'package:finazaap/widgets/show_responsibility_options.dart';
 import 'package:finazaap/widgets/add_responsibility_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
+import 'package:finazaap/themes/app_colors.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 class AnnualProjectionScreen extends StatefulWidget {
@@ -65,12 +66,12 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: context.appTheme.cardBackground,
-        title: const Text('Eliminar Obligación', style: TextStyle(color: Colors.white)),
+        title: Text('Eliminar Obligación', style: TextStyle(color: context.appTheme.textPrimary)),
         content: Text('¿Estás seguro de que deseas eliminar "${responsibility.safeName}"?', style: TextStyle(color: context.appTheme.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancelar', style: TextStyle(color: context.appTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () async {
@@ -79,7 +80,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
               setState(() {});
               AlertHelper.success(context, '"${responsibility.safeName}" eliminada');
             },
-            child: const Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+            child: Text('Eliminar', style: TextStyle(color: context.appTheme.error)),
           ),
         ],
       ),
@@ -749,7 +750,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                 )
               else
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 100),
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -801,7 +802,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                           width: 1.5,
                                         ),
                                       ),
-                                      child: Icon(icon, color: Colors.white, size: 22),
+                                      child: Icon(icon, color: AppColors.getReadableColor(catColor, context), size: 22),
                                     ),
                                     const SizedBox(width: 16),
                                     Expanded(
@@ -846,15 +847,15 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                             borderRadius: BorderRadius.circular(6),
                                             border: Border.all(color: catColor.withOpacity(0.25)),
                                           ),
-                                          child: Text(
-                                            r.safeFrequency.toUpperCase(),
-                                            style: TextStyle(
-                                              color: catColor,
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 0.5,
+                                            child: Text(
+                                              r.safeFrequency.toUpperCase(),
+                                              style: TextStyle(
+                                                color: AppColors.getReadableColor(catColor, context),
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 0.5,
+                                              ),
                                             ),
-                                          ),
                                         ),
                                       ],
                                     ),
@@ -889,8 +890,9 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
           heroTag: "annual_projection_fab",
           tooltip: 'Nueva obligación anual',
           onPressed: () => _showAddResponsibilityDialog(),
-          backgroundColor: context.appTheme.accent,
-          child: Icon(Icons.add_rounded, size: 32, color: context.appTheme.primaryBackground),
+          backgroundColor: context.appTheme.buttonBackground,
+          foregroundColor: context.appTheme.buttonForeground,
+          child: Icon(Icons.add_rounded, size: 32, color: context.appTheme.buttonForeground),
         ),
       ),
     );

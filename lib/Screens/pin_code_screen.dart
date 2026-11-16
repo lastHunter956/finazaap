@@ -305,7 +305,7 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 15,
-                                    color: Colors.white.withOpacity(0.4),
+                                    color: Colors.white.withOpacity(0.72),
                                   ),
                                 ),
                                 SizedBox(height: isSmall ? 24 : 32),
@@ -436,7 +436,9 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
                 borderRadius: BorderRadius.circular(14),
               ),
               child: IconButton(
-                icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                tooltip: 'Cerrar',
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
                 onPressed: widget.onCancel,
               ),
             ),
@@ -506,7 +508,11 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
   }
 
   Widget _buildBiometricKey() {
-    return Padding(
+    return Semantics(
+      button: true,
+      label: 'Autenticar con biometría',
+      excludeSemantics: true,
+      child: Padding(
       padding: const EdgeInsets.all(8),
       child: Material(
         color: Colors.transparent,
@@ -541,6 +547,7 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -553,7 +560,11 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
   Widget _buildPremiumKey(String val, {IconData? icon}) {
     bool isDel = val == 'del';
     
-    return Padding(
+    return Semantics(
+      button: true,
+      label: isDel ? 'Borrar dígito' : 'Dígito $val',
+      excludeSemantics: true,
+      child: Padding(
       padding: const EdgeInsets.all(8),
       child: Material(
         color: Colors.transparent,
@@ -604,6 +615,7 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
           ),
         ),
       ),
+    ),
     );
   }
 }

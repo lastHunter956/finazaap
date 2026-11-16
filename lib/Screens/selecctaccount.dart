@@ -505,7 +505,7 @@ class _MyHomePageState extends State<MyHomePage> {
           Row(
             children: [
               // Texto formateado con el formato de moneda (separado por moneda si hay múltiples)
-              Builder(
+              Flexible(child: Builder(
                 builder: (context) {
                   if (_hideBalance) {
                     return Text(
@@ -551,27 +551,41 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   );
                 },
-              ),
-              SizedBox(width: AppSizes.paddingLarge),
+              )),
+              SizedBox(width: AppSizes.paddingSmall),
               // Botón de ojo para mostrar/ocultar
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _hideBalance = !_hideBalance;
-                  });
-                },
-                child: Container(
-                  padding: EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.borderSubtle,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _hideBalance
-                        ? Icons.visibility_off
-                        : Icons.visibility,
-                    color: AppColors.textSecondary,
-                    size: AppSizes.iconMedium,
+              Semantics(
+                button: true,
+                toggled: _hideBalance,
+                label: _hideBalance ? 'Mostrar saldo total' : 'Ocultar saldo total',
+                excludeSemantics: true,
+                child: Tooltip(
+                  message: _hideBalance ? 'Mostrar saldo' : 'Ocultar saldo',
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () {
+                      setState(() {
+                        _hideBalance = !_hideBalance;
+                      });
+                    },
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: context.appTheme.borderSubtle,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _hideBalance ? Icons.visibility_off : Icons.visibility,
+                            color: context.appTheme.textSecondary,
+                            size: AppSizes.iconMedium,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -725,16 +739,9 @@ class _MyHomePageState extends State<MyHomePage> {
                                 Container(
                                   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.red.shade800.withOpacity(0.2),
-                                        Colors.redAccent.withOpacity(0.15),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
+                                    color: context.appTheme.error.withValues(alpha: 0.12),
                                     border: Border.all(
-                                      color: Colors.redAccent.withOpacity(0.3),
+                                      color: context.appTheme.error.withValues(alpha: 0.5),
                                       width: 1,
                                     ),
                                     borderRadius: BorderRadius.circular(30),
@@ -745,13 +752,13 @@ class _MyHomePageState extends State<MyHomePage> {
                                       Icon(
                                         Icons.visibility_off,
                                         size: 12,
-                                        color: Colors.red.shade200,
+                                        color: context.appTheme.error,
                                       ),
                                       SizedBox(width: 4),
                                       Text(
                                         'Oculta',
                                         style: TextStyle(
-                                          color: Colors.red.shade200,
+                                          color: context.appTheme.error,
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w600,
                                         ),
