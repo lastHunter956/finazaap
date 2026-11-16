@@ -645,6 +645,27 @@ class _AiChatScreenState extends State<AiChatScreen>
             ),
           ] else if (!kIsWeb &&
               _chatService.gemmaError != null &&
+              _chatService.gemmaError!.contains('Modelo no descargado')) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline_rounded, color: t.accent, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _chatService.gemmaError!,
+                    style: GoogleFonts.outfit(
+                      color: t.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _buildModelUrlSetup(),
+          ] else if (!kIsWeb &&
+              _chatService.gemmaError != null &&
               (_chatService.gemmaError!.contains('URL') ||
                   _chatService.gemmaError!.contains('INCOMPATIBLE'))) ...[
             _buildModelUrlSetup(),
