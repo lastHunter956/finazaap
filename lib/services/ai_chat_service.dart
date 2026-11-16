@@ -10,6 +10,7 @@ import 'package:finazaap/utils/currency_helper.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/data/category_service.dart';
+import 'package:finazaap/data/monthly_summary_cache.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/services/device_capability_service.dart';
 import 'package:finazaap/services/ai_financial_tools.dart';
@@ -654,24 +655,15 @@ class AiChatService extends ChangeNotifier {
           .toList();
     }
 
-    // Calcular ingresos y gastos del mes actual
+    // Calcular ingresos y gastos del mes actual en O(1) desde MonthlySummaryCache
     final box = Hive.isBoxOpen('data')
         ? Hive.box<Add_data>('data')
         : await Hive.openBox<Add_data>('data');
+    final cache = MonthlySummaryCache.instance..attachToBox(box);
     final now = DateTime.now();
-    double monthlyIncome = 0.0;
-    double monthlyExpenses = 0.0;
-
-    for (var tx in box.values) {
-      if (tx.safeDate.month == now.month && tx.safeDate.year == now.year) {
-        double amt = double.tryParse(tx.safeAmount) ?? 0.0;
-        if (tx.safeType == 'Income') {
-          monthlyIncome += amt;
-        } else if (tx.safeType == 'Expenses') {
-          monthlyExpenses += amt;
-        }
-      }
-    }
+    final currentSummary = cache.getMonthSummary(now.year, now.month);
+    final double monthlyIncome = currentSummary.totalIncome;
+    final double monthlyExpenses = currentSummary.totalExpenses;
 
     return {
       'availableBalance': availableBalance,
@@ -693,18 +685,33 @@ class AiChatService extends ChangeNotifier {
       double totalExpenses = state['monthlyExpenses'];
       double totalIncome = state['monthlyIncome'];
       
-      // Agrupar gastos por categoría en ventana móvil de 60 días (hábitos actuales)
+      // Agrupar gastos por categoría en ventana móvil de 60 días usando MonthlySummaryCache
+      final cache = MonthlySummaryCache.instance..attachToBox(box);
       final now = DateTime.now();
       final windowCutoff = now.subtract(
         const Duration(days: learnedPatternsWindowDays),
       );
+      final recentTransactions = <Add_data>[];
+      var cursor = DateTime(windowCutoff.year, windowCutoff.month);
+      final endMonth = DateTime(now.year, now.month);
+      while (!cursor.isAfter(endMonth)) {
+        recentTransactions.addAll(
+          cache.getTransactionsForMonth(
+            cursor.year,
+            cursor.month,
+            typeFilter: 'Expenses',
+          ),
+        );
+        cursor = DateTime(cursor.year, cursor.month + 1);
+      }
+
       Map<String, double> categorySums = {};
       int expenseCount = 0;
       double maxExpense = 0.0;
       String maxExpenseItem = '';
 
-      for (var tx in box.values) {
-        if (tx.safeType == 'Expenses' && !tx.safeDate.isBefore(windowCutoff)) {
+      for (var tx in recentTransactions) {
+        if (!tx.safeDate.isBefore(windowCutoff)) {
           double amt = double.tryParse(tx.safeAmount) ?? 0.0;
           categorySums[tx.safeCategory] = (categorySums[tx.safeCategory] ?? 0) + amt;
           expenseCount++;
@@ -931,9 +938,16 @@ class AiChatService extends ChangeNotifier {
       final box = Hive.isBoxOpen('data')
           ? Hive.box<Add_data>('data')
           : await Hive.openBox<Add_data>('data');
+      final cache = MonthlySummaryCache.instance..attachToBox(box);
+      final now = DateTime.now();
+      final prevMonth = DateTime(now.year, now.month - 1);
+      final scopedReportTxs = [
+        ...cache.getTransactionsForMonth(now.year, now.month),
+        ...cache.getTransactionsForMonth(prevMonth.year, prevMonth.month),
+      ];
       await ResponsibilityService.init();
       monthlyReportData = AiFinancialTools.computeMonthlyReport(
-        transactions: box.values,
+        transactions: scopedReportTxs,
         obligations: ResponsibilityService.getAllResponsibilities(),
         availableBalance: (financialState['availableBalance'] as num?)?.toDouble() ?? 0.0,
       );
@@ -945,8 +959,18 @@ class AiChatService extends ChangeNotifier {
       final box = Hive.isBoxOpen('data')
           ? Hive.box<Add_data>('data')
           : await Hive.openBox<Add_data>('data');
+      final cache = MonthlySummaryCache.instance..attachToBox(box);
+      final now = DateTime.now();
+      final scopedTransportTxs = <Add_data>[
+        for (int offset = 0; offset <= 2; offset++)
+          ...cache.getTransactionsForMonth(
+            DateTime(now.year, now.month - offset).year,
+            DateTime(now.year, now.month - offset).month,
+            typeFilter: 'Expenses',
+          ),
+      ];
       final currentTransport = AiFinancialTools.estimateMonthlyTransportExpense(
-        box.values,
+        scopedTransportTxs,
         windowDays: learnedPatternsWindowDays,
       );
       final tcoInput = AiFinancialTools.extractVehicleInputFromMessage(
