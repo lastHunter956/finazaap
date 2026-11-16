@@ -2,6 +2,7 @@ import 'package:hive/hive.dart';
 import 'package:finazaap/features/notifications/domain/models/learned_pattern.dart';
 import 'package:finazaap/features/notifications/domain/models/transaction_classification.dart';
 import 'package:finazaap/features/notifications/services/notification_box_encryption.dart';
+import 'package:finazaap/features/notifications/services/text_similarity_index.dart';
 
 /// Servicio de almacenamiento local en Hive para patrones aprendidos de comercios.
 ///
@@ -117,9 +118,13 @@ class LearnedPatternsService {
 
     final LearnedPattern updated;
     if (existing != null) {
-      updated = existing.incrementConfirmation(at: now).copyWith(
-            category: category,
-            accountName: accountName ?? existing.accountName,
+      updated = existing
+          .incrementConfirmation(
+            at: now,
+            confirmedCategory: category,
+            confirmedAccountName: accountName,
+          )
+          .copyWith(
             classification: classification,
             moneoType: resolvedMoneo,
           );
@@ -215,15 +220,76 @@ class LearnedPatternsService {
 
   /// Obtiene ejemplos compactos (few-shot) desde patrones validados por el usuario
   /// para asistir a Gemma sin exponer texto crudo ni datos sensibles innecesarios.
-  Future<List<String>> getFewShotExamples({int limit = 3}) async {
-    final all = await getAllPatterns();
+  ///
+  /// Cuando [query] está presente, selecciona los top-[limit] ejemplos más similares
+  /// en memoria mediante [TextSimilarityIndex] (BM25 + JaccardTrigram) en < 1 ms.
+  Future<List<String>> getFewShotExamples({
+    int limit = 3,
+    String? query,
+    DateTime? now,
+  }) async {
+    final all = (await getAllPatterns())
+        .where((p) => p.effectiveStatus(now: now) != PatternStatus.obsoleto)
+        .toList();
     if (all.isEmpty) return const [];
-    all.sort((a, b) => b.confirmations.compareTo(a.confirmations));
-    return all
-        .take(limit)
+
+    List<LearnedPattern> selected;
+    if (query != null && query.trim().isNotEmpty) {
+      final top = TextSimilarityIndex.topKSimilar<LearnedPattern>(
+        query,
+        all,
+        (p) => '${p.merchantKey} ${p.category}',
+        k: limit,
+      );
+      if (top.isNotEmpty) {
+        selected = top.map((e) => e.item).toList();
+      } else {
+        all.sort((a, b) => b.confirmations.compareTo(a.confirmations));
+        selected = all.take(limit).toList();
+      }
+    } else {
+      all.sort((a, b) => b.confirmations.compareTo(a.confirmations));
+      selected = all.take(limit).toList();
+    }
+
+    return selected
         .map((p) =>
             'comercio="${p.merchantKey}" -> classification="${p.classification}", category="${p.category}"')
         .toList();
+  }
+
+  /// Poda patrones obsoletos (>180 días sin uso) y compacta la caja Hive.
+  Future<int> pruneObsoletePatterns({
+    DateTime? now,
+    Duration maxInactivity =
+        const Duration(days: LearnedPattern.obsoleteAfterDays),
+  }) async {
+    final box = await _getBox();
+    final reference = now ?? DateTime.now();
+    final keysToDelete = <dynamic>[];
+
+    for (final key in box.keys) {
+      final raw = box.get(key);
+      if (raw is Map) {
+        try {
+          final pattern =
+              LearnedPattern.fromJson(Map<String, dynamic>.from(raw));
+          if (reference.difference(pattern.lastUsedAt) > maxInactivity) {
+            keysToDelete.add(key);
+          }
+        } catch (_) {
+          keysToDelete.add(key);
+        }
+      }
+    }
+
+    for (final key in keysToDelete) {
+      await box.delete(key);
+    }
+    if (keysToDelete.isNotEmpty) {
+      await box.compact();
+    }
+    return keysToDelete.length;
   }
 
   /// Limpia todos los patrones aprendidos en la caja.

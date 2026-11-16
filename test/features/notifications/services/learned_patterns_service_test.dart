@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:finazaap/features/notifications/domain/models/learned_pattern.dart';
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
 
 void main() {
@@ -203,6 +204,156 @@ void main() {
       expect(mapData['merchant_key'], equals('spotify'));
       expect(mapData['category'], equals('Entretenimiento'));
       expect(mapData['confirmations'], equals(1));
+    });
+  });
+
+  group('LearnedPatternsService - Retrocompatibilidad, PatternStatus y Puntuación',
+      () {
+    test('Lee registros antiguos de Hive sin campos nuevos (retrocompatibilidad 100%)',
+        () async {
+      final legacyCreated = DateTime(2026, 5, 1, 10, 0);
+      final legacyUsed = DateTime.now().subtract(const Duration(days: 5));
+      await testBox.put('legacy_exito', {
+        'merchant_key': 'legacy_exito',
+        'category': 'Alimentación',
+        'account_name': 'Bancolombia *4821',
+        'classification': 'gasto',
+        'moneo_type': 'Expenses',
+        'confirmations': 12,
+        'created_at': legacyCreated.toIso8601String(),
+        'last_used_at': legacyUsed.toIso8601String(),
+        'last_corrected_at': null,
+      });
+
+      final loaded = await service.findPattern('legacy_exito');
+      expect(loaded, isNotNull);
+      expect(loaded!.confirmations, equals(12));
+      expect(loaded.status, equals(PatternStatus.consolidado));
+      expect(loaded.categoryScores['Alimentación'], equals(12));
+      expect(loaded.accountScores['Bancolombia *4821'], equals(12));
+      expect(loaded.correctionStreak, equals(0));
+    });
+
+    test('Transiciones de PatternStatus: nuevo -> en_refuerzo -> consolidado -> obsoleto',
+        () async {
+      final t0 = DateTime.now().subtract(const Duration(days: 10));
+      final p1 = await service.recordConfirmation(
+        merchant: 'D1',
+        category: 'Mercado',
+        at: t0,
+      );
+      expect(p1.status, equals(PatternStatus.nuevo));
+
+      final p2 = await service.recordConfirmation(
+        merchant: 'D1',
+        category: 'Mercado',
+        at: t0.add(const Duration(days: 1)),
+      );
+      expect(p2.status, equals(PatternStatus.enRefuerzo));
+
+      await service.recordConfirmation(
+        merchant: 'D1',
+        category: 'Mercado',
+        at: t0.add(const Duration(days: 2)),
+      );
+      final p4 = await service.recordConfirmation(
+        merchant: 'D1',
+        category: 'Mercado',
+        at: t0.add(const Duration(days: 3)),
+      );
+      expect(p4.confirmations, equals(4));
+      expect(p4.status, equals(PatternStatus.consolidado));
+      expect(
+        p4.effectiveStatus(now: t0.add(const Duration(days: 185))),
+        equals(PatternStatus.obsoleto),
+      );
+    });
+
+    test(
+        '1 corrección atípica NO borra 20 confirmaciones previas; requiere >=2 correcciones para desplazar patrón consolidado',
+        () async {
+      final base = DateTime(2026, 11, 1);
+      for (var i = 0; i < 20; i++) {
+        await service.recordConfirmation(
+          merchant: 'Amazon',
+          category: 'Hogar',
+          accountName: 'Nu *1111',
+          at: base.add(Duration(hours: i)),
+        );
+      }
+
+      // 1a corrección atípica -> NO borra las 20 confirmaciones, pasa a en_revision
+      final afterOneCorrection = await service.recordCorrection(
+        merchant: 'Amazon',
+        newCategory: 'Regalos',
+        at: base.add(const Duration(days: 2)),
+      );
+
+      expect(afterOneCorrection.category, equals('Hogar'));
+      expect(afterOneCorrection.confirmations, equals(20));
+      expect(afterOneCorrection.status, equals(PatternStatus.enRevision));
+      expect(afterOneCorrection.categoryScores['Hogar'], equals(20));
+      expect(afterOneCorrection.categoryScores['Regalos'], equals(1));
+
+      // 2a corrección consecutiva hacia 'Regalos' -> desplaza al patrón consolidado
+      final afterSecondCorrection = await service.recordCorrection(
+        merchant: 'Amazon',
+        newCategory: 'Regalos',
+        at: base.add(const Duration(days: 3)),
+      );
+
+      expect(afterSecondCorrection.category, equals('Regalos'));
+      expect(afterSecondCorrection.confirmations, equals(2));
+      expect(afterSecondCorrection.status, equals(PatternStatus.enRefuerzo));
+      expect(afterSecondCorrection.categoryScores['Hogar'], equals(20));
+      expect(afterSecondCorrection.categoryScores['Regalos'], equals(2));
+    });
+
+    test('getFewShotExamples retorna top-K ejemplos similares en <1ms', () async {
+      final now = DateTime.now();
+      await service.recordConfirmation(
+        merchant: 'Restaurante El Cielo',
+        category: 'Alimentación',
+        at: now,
+      );
+      await service.recordConfirmation(
+        merchant: 'Restaurante Crepes Waffles',
+        category: 'Alimentación',
+        at: now,
+      );
+      await service.recordConfirmation(
+        merchant: 'Drogueria La Rebaja',
+        category: 'Salud',
+        at: now,
+      );
+
+      final examples = await service.getFewShotExamples(
+        limit: 2,
+        query: 'Restaurante Waffles',
+        now: now,
+      );
+      expect(examples.length, equals(2));
+      expect(examples.first, contains('restaurante'));
+    });
+
+    test('pruneObsoletePatterns elimina patrones con >180 días sin uso',
+        () async {
+      final now = DateTime(2026, 11, 16);
+      await service.recordConfirmation(
+        merchant: 'Comercio Viejo',
+        category: 'Otros',
+        at: now.subtract(const Duration(days: 200)),
+      );
+      await service.recordConfirmation(
+        merchant: 'Comercio Reciente',
+        category: 'Alimentación',
+        at: now.subtract(const Duration(days: 5)),
+      );
+
+      final pruned = await service.pruneObsoletePatterns(now: now);
+      expect(pruned, equals(1));
+      expect(await service.findPattern('Comercio Viejo'), isNull);
+      expect(await service.findPattern('Comercio Reciente'), isNotNull);
     });
   });
 }
