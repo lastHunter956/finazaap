@@ -183,7 +183,13 @@ class NotificationPipelineService {
 
     try {
       await _pendingNotifier.initialize();
-      unawaited(pruneStorageTtl());
+      if (_injectedDedupBox != null ||
+          _injectedExecutedBox != null ||
+          _injectedPendingBox != null) {
+        await pruneStorageTtl();
+      } else {
+        unawaited(pruneStorageTtl());
+      }
     } catch (_) {
       // Permite continuar en entornos de prueba sin plugin de FlutterSecureStorage.
     }
