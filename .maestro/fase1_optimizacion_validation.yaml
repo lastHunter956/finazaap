@@ -1,0 +1,60 @@
+appId: com.example.finazaap.validation
+---
+# Validación Fase 1 en R5CY21GE9YY (datos sintéticos, sin descarga de modelos)
+
+- launchApp:
+    appId: com.example.finazaap.validation
+    clearState: false
+    stopApp: false
+
+# 0. Omitir onboarding inicial en instalación limpia
+- extendedWaitUntil:
+    visible: "Bienvenido a Moneo"
+    timeout: 12000
+- tapOn: "Omitir"
+- assertVisible: "¿Omitir guía inicial?"
+- tapOn: "Omitir"
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 12000
+
+# 1. Agregados O(1): Home y Reportes
+- assertVisible: "Disponible"
+- tapOn: "Reportes"
+- extendedWaitUntil:
+    visible: ".*Estadísticas.*|.*Ingresos.*|.*Gastos.*"
+    timeout: 8000
+- tapOn:
+    point: "12%,93%"
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
+
+# 2. Chat: Router + TCO determinista + Aviso neutro Gemma (sin descargar)
+- tapOn:
+    point: "89%,8%"
+- extendedWaitUntil:
+    visible: ".*Asistente.*|.*Simulador.*|.*Gemma IA.*"
+    timeout: 8000
+
+- tapOn:
+    text: ".*Escribe.*|.*Pregunta.*|.*Mensaje.*"
+- inputText: "me conviene comprar un carro"
+- hideKeyboard
+- tapOn:
+    point: "91%,93%"
+- extendedWaitUntil:
+    visible: ".*TCO.*|.*Cuota.*|.*Depreciaci.*"
+    timeout: 10000
+
+- tapOn: "Gemma IA"
+- extendedWaitUntil:
+    visible: ".*Descargar.*"
+    timeout: 8000
+- assertNotVisible: ".*Error al inicializar Gemma IA.*"
+- back
+
+- extendedWaitUntil:
+    visible: "Transacciones"
+    timeout: 8000
