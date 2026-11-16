@@ -25,12 +25,13 @@ appId: com.example.finazaap.validation
 - extendedWaitUntil:
     visible: "Categorías"
     timeout: 8000
-- tapOn:
-    point: "87%,91%"
+- tapOn: "Crear categoría"
 - extendedWaitUntil:
-    visible: ".*Nombre.*|.*Categoría.*"
+    visible: "Nombre de la categoría"
     timeout: 5000
-- tapOn: "Ej: Alimentación"
+- tapOn:
+    text: ".*"
+    below: "Nombre de la categoría"
 - inputText: "CatPruebaE2E"
 - hideKeyboard
 - tapOn:
