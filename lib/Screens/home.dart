@@ -25,6 +25,7 @@ import 'package:finazaap/providers/pin_provider.dart';
 
 // Añadir esta importación al inicio del archivo
 import 'package:finazaap/data/transaction_service.dart';
+import 'package:finazaap/data/monthly_summary_cache.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/core/prefs_manager.dart';
 import 'package:finazaap/Screens/daily_transactions.dart';
@@ -98,6 +99,7 @@ class _HomeState extends State<Home> {
     _boxListenable = box.listenable();
     _boxListener = () {
       if (mounted) {
+        MonthlySummaryCache.instance.invalidate();
         _groupedTransactionsCache = null;
         setState(() {});
         _updateAvailableBalance();
@@ -159,24 +161,18 @@ class _HomeState extends State<Home> {
     super.dispose();
   }
 
-  // Nuevo método que obtiene TODAS las transacciones sin filtros
+  // Nuevo método que obtiene TODAS las transacciones sin filtros en O(1)
   List<Add_data> getAllTransactions() {
-    return box.values.toList();
+    return MonthlySummaryCache.instance.getAllTransactions();
   }
 
   // Añadir un nuevo método que solo filtra por fecha, ignorando el tipo de filtro
   List<Add_data> getTransactionsFilteredByDateOnly() {
-    List<Add_data> transactions = box.values.toList();
-    
-    // Solo aplicar filtro por fecha si está activado
     if (_filterByDate) {
-      return transactions.where((transaction) => 
-        transaction.safeDate.month == _selectedMonth && 
-        transaction.safeDate.year == _selectedYear
-      ).toList();
+      return MonthlySummaryCache.instance
+          .getTransactionsForMonth(_selectedYear, _selectedMonth);
     }
-    
-    return transactions;
+    return MonthlySummaryCache.instance.getAllTransactions();
   }
 
   // Cargar metadatos de categorías (colores e iconos)
@@ -204,23 +200,13 @@ class _HomeState extends State<Home> {
     }
   }
 
-  // Balance contable: suma de ingresos - gastos (excluyendo transferencias)
+  // Balance contable: suma de ingresos - gastos (excluyendo transferencias) en O(1)
   double accountingBalance() {
-    final transactions = getTransactionsFilteredByDateOnly(); // Solo filtrar por fecha
-    double balance = 0.0;
-    
-    for (var item in transactions) {
-      if (item.IN == 'Income') {
-        // Sumar ingresos
-        balance += (double.tryParse(item.safeAmount) ?? 0.0);
-      } else if (item.IN == 'Expenses') {
-        // Restar gastos
-        balance -= (double.tryParse(item.safeAmount) ?? 0.0);
-      }
-      // Las transferencias se ignoran completamente
-    }
-    
-    return balance;
+    final summary = _filterByDate
+        ? MonthlySummaryCache.instance
+            .getMonthSummary(_selectedYear, _selectedMonth)
+        : MonthlySummaryCache.instance.getAllTimeSummary();
+    return summary.netSavings;
   }
 
   // Total para la visualización (respeta los filtros)
@@ -240,46 +226,45 @@ class _HomeState extends State<Home> {
     return sum;
   }
 
-  // Total de ingresos (respeta filtros)
+  // Total de ingresos (respeta filtros) en O(1)
   double income() {
-    final transactions = getTransactionsFilteredByDateOnly() // Solo filtrar por fecha
-      .where((item) => item.IN == 'Income');
-    return transactions.fold(0.0, (sum, item) => 
-      sum + (double.tryParse(item.safeAmount) ?? 0.0)
-    );
+    final summary = _filterByDate
+        ? MonthlySummaryCache.instance
+            .getMonthSummary(_selectedYear, _selectedMonth)
+        : MonthlySummaryCache.instance.getAllTimeSummary();
+    return summary.totalIncome;
   }
 
-  // Total de gastos (respeta filtros)
+  // Total de gastos (respeta filtros) en O(1)
   double expenses() {
-    final transactions = getTransactionsFilteredByDateOnly() // Solo filtrar por fecha
-      .where((item) => item.IN == 'Expenses');
-    return transactions.fold(0.0, (sum, item) => 
-      sum + (double.tryParse(item.safeAmount) ?? 0.0)
-    );
+    final summary = _filterByDate
+        ? MonthlySummaryCache.instance
+            .getMonthSummary(_selectedYear, _selectedMonth)
+        : MonthlySummaryCache.instance.getAllTimeSummary();
+    return summary.totalExpenses;
   }
 
   List<Add_data> getFilteredTransactions() {
-    // Primero filtramos por tipo (Todos/Gastos/Ingresos)
-    List<Add_data> transactions;
-    if (filter == 'Todos') {
-      transactions = box.values.toList();
-    } else if (filter == 'Gastos') {
-      transactions = box.values.where((item) => item.IN == 'Expenses').toList();
+    final String? typeFilter;
+    if (filter == 'Gastos') {
+      typeFilter = 'Expenses';
     } else if (filter == 'Ingresos') {
-      transactions = box.values.where((item) => item.IN == 'Income').toList();
+      typeFilter = 'Income';
     } else {
-      transactions = box.values.toList();
+      typeFilter = null;
     }
-    
-    // Luego filtramos por fecha si _filterByDate está activado
+
     if (_filterByDate) {
-      return transactions.where((transaction) => 
-        transaction.safeDate.month == _selectedMonth && 
-        transaction.safeDate.year == _selectedYear
-      ).toList();
+      return MonthlySummaryCache.instance.getTransactionsForMonth(
+        _selectedYear,
+        _selectedMonth,
+        typeFilter: typeFilter,
+      );
     }
-    
-    return transactions;
+
+    return MonthlySummaryCache.instance.getAllTransactions(
+      typeFilter: typeFilter,
+    );
   }
 
   Future<void> _updateAvailableBalance() async {

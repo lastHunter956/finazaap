@@ -2,37 +2,46 @@ import 'package:flutter/material.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/data/model/add_date.dart';
-import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:finazaap/utils/currency_helper.dart';
 
 class TransactionListWidget extends StatelessWidget {
-  final Box<Add_data> box;
+  final Box<Add_data>? box;
+  final List<Add_data>? transactions;
+  final int? maxVisibleCount;
   final List<String> day;
 
   const TransactionListWidget({
-    Key? key,
-    required this.box,
+    super.key,
+    this.box,
+    this.transactions,
+    this.maxVisibleCount,
     required this.day,
-  }) : super(key: key);
+  }) : assert(box != null || transactions != null);
 
   @override
   Widget build(BuildContext context) {
+    final List<Add_data> items =
+        transactions ?? box!.values.toList(growable: false);
+    final int visibleCount = maxVisibleCount != null && maxVisibleCount! < items.length
+        ? (maxVisibleCount! < 0 ? 0 : maxVisibleCount!)
+        : items.length;
+
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
-          var history = box.values.toList()[index];
+          final history = items[index];
           return getList(context, history, index);
         },
-        childCount: box.length,
+        childCount: visibleCount,
       ),
     );
   }
 
   Widget getList(BuildContext context, Add_data history, int index) {
     return Dismissible(
-      key: UniqueKey(),
+      key: ObjectKey(history),
       background: Container(
         color: Colors.red,
         alignment: Alignment.centerRight,
@@ -77,7 +86,7 @@ class TransactionListWidget extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -97,12 +106,12 @@ class TransactionListWidget extends StatelessWidget {
                     : (history.safeType == 'Income' ? Colors.green : Colors.redAccent),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.3), // Borde claro para contraste
+                  color: Colors.white.withValues(alpha: 0.3), // Borde claro para contraste
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3), // Sombra oscura estándar
+                    color: Colors.black.withValues(alpha: 0.3), // Sombra oscura estándar
                     blurRadius: 5,
                     offset: const Offset(0, 3),
                   ),
