@@ -316,12 +316,16 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                         children: [
                           Icon(Icons.calendar_month, size: 14, color: context.appTheme.textPrimary),
                           const SizedBox(width: 8),
-                          Text(
-                             _formatDate(widget.selectedMonth, widget.selectedYear),
-                            style: TextStyle(
-                              color: context.appTheme.textPrimary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Text(
+                              _formatDate(widget.selectedMonth, widget.selectedYear),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: context.appTheme.textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
@@ -348,12 +352,16 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                         children: [
                           Icon(Icons.trending_up_rounded, size: 14, color: context.appTheme.accent),
                           const SizedBox(width: 8),
-                          Text(
-                            'Proy. Anual: ${CurrencyHelper.format(annualProjection, decimalDigits: 0)}',
-                            style: TextStyle(
-                              color: context.appTheme.textPrimary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Text(
+                              'Proy. Anual: ${CurrencyHelper.format(annualProjection, decimalDigits: 0)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: context.appTheme.textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
@@ -374,14 +382,19 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Progreso de pago',
-                    style: TextStyle(
-                      color: context.appTheme.textHint,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                  Flexible(
+                    child: Text(
+                      'Progreso de pago',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: context.appTheme.textHint,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '$percentage%',
                     style: TextStyle(
@@ -454,22 +467,30 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                         children: [
                           Icon(Icons.check_circle_rounded, color: context.appTheme.success, size: 14),
                           const SizedBox(width: 6),
-                          Text(
-                            'Pagado',
-                            style: TextStyle(
-                              color: context.appTheme.textSecondary,
-                              fontSize: 13,
+                          Flexible(
+                            child: Text(
+                              'Pagado',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: context.appTheme.textSecondary,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        CurrencyHelper.formatCompact(paid),
-                        style: TextStyle(
-                          color: context.appTheme.success,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          CurrencyHelper.formatCompact(paid),
+                          style: TextStyle(
+                            color: context.appTheme.success,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -491,22 +512,30 @@ class _ResponsibilityDashboardCardState extends State<ResponsibilityDashboardCar
                         children: [
                           Icon(Icons.pending_rounded, color: context.appTheme.expense, size: 14),
                           const SizedBox(width: 6),
-                          Text(
-                            'Pendiente',
-                            style: TextStyle(
-                              color: context.appTheme.textSecondary,
-                              fontSize: 13,
+                          Flexible(
+                            child: Text(
+                              'Pendiente',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: context.appTheme.textSecondary,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        CurrencyHelper.formatCompact(pending),
-                        style: TextStyle(
-                          color: context.appTheme.expense,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          CurrencyHelper.formatCompact(pending),
+                          style: TextStyle(
+                            color: context.appTheme.expense,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],

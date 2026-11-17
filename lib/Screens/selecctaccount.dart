@@ -377,7 +377,7 @@ class _MyHomePageState extends State<MyHomePage> {
           Expanded(
             child: SafeArea(
               top: false,
-              child: _isReorderMode
+              child: (_isReorderMode && accountItems.isNotEmpty)
                   ? ReorderableListView(
                       padding: MoneoLayoutMetrics.scrollBottomPadding(
                         context,
@@ -436,33 +436,46 @@ class _MyHomePageState extends State<MyHomePage> {
                           ),
                       ],
                     )
-                  : ListView.builder(
-                      padding: MoneoLayoutMetrics.scrollBottomPadding(
-                        context,
-                        hasFab: true,
-                        horizontal: 0,
-                        top: 0,
-                      ),
-                      itemCount: accountItems.length + 2,
-                      itemBuilder: (context, index) {
-                        if (index == 0) {
-                          return _buildTotalBalanceSection(totalBalance);
-                        }
-                        if (index == 1) {
-                          return const Divider(
-                            color: Colors.transparent,
-                            thickness: 1,
-                            height: 32,
-                            indent: 16,
-                            endIndent: 16,
-                          );
-                        }
-                        return _buildAccountItem(
-                          accountItems[index - 2],
-                          isReorderMode: false,
-                        );
-                      },
-                    ),
+                  : accountItems.isEmpty
+                      ? ListView(
+                          padding: MoneoLayoutMetrics.scrollBottomPadding(
+                            context,
+                            hasFab: true,
+                            horizontal: 0,
+                            top: 0,
+                          ),
+                          children: [
+                            _buildTotalBalanceSection(totalBalance),
+                            _buildEmptyAccountsState(context),
+                          ],
+                        )
+                      : ListView.builder(
+                          padding: MoneoLayoutMetrics.scrollBottomPadding(
+                            context,
+                            hasFab: true,
+                            horizontal: 0,
+                            top: 0,
+                          ),
+                          itemCount: accountItems.length + 2,
+                          itemBuilder: (context, index) {
+                            if (index == 0) {
+                              return _buildTotalBalanceSection(totalBalance);
+                            }
+                            if (index == 1) {
+                              return const Divider(
+                                color: Colors.transparent,
+                                thickness: 1,
+                                height: 32,
+                                indent: 16,
+                                endIndent: 16,
+                              );
+                            }
+                            return _buildAccountItem(
+                              accountItems[index - 2],
+                              isReorderMode: false,
+                            );
+                          },
+                        ),
             ),
           ),
         ],
@@ -486,7 +499,94 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  Widget _buildEmptyAccountsState(BuildContext context) {
+    final t = context.appTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: t.cardBackground,
+                shape: BoxShape.circle,
+                border: Border.all(color: t.borderSubtle),
+              ),
+              child: Icon(
+                Icons.account_balance_wallet_outlined,
+                size: 52,
+                color: t.textHint,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No tienes cuentas registradas',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: t.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Crea una cuenta o tarjeta para organizar tus saldos y movimientos.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: t.textSecondary,
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Semantics(
+              container: true,
+              button: true,
+              label: 'Crear cuenta',
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final newItem = await showAddAccountDialog(context);
+                  if (newItem != null) {
+                    await _saveAccount(newItem);
+                  }
+                },
+                icon: Icon(
+                  Icons.add_rounded,
+                  color: t.buttonForeground,
+                ),
+                label: ExcludeSemantics(
+                  child: Text(
+                    'Crear cuenta',
+                    style: TextStyle(
+                      color: t.buttonForeground,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: t.buttonBackground,
+                  foregroundColor: t.buttonForeground,
+                  minimumSize: const Size(48, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTotalBalanceSection(double totalBalance) {
+    final t = context.appTheme;
     return Padding(
       padding: const EdgeInsets.only(
           left: AppSizes.paddingLarge, right: AppSizes.paddingLarge, top: AppSizes.paddingLarge, bottom: AppSizes.paddingSmall),
@@ -498,61 +598,75 @@ class _MyHomePageState extends State<MyHomePage> {
             style: TextStyle(
               fontSize: AppSizes.fontXLarge,
               fontWeight: FontWeight.bold,
-              color: AppColors.textSecondary,
+              color: t.textSecondary,
             ),
           ),
-          SizedBox(height: 5),
+          const SizedBox(height: 5),
           Row(
             children: [
               // Texto formateado con el formato de moneda (separado por moneda si hay múltiples)
-              Flexible(child: Builder(
-                builder: (context) {
-                  if (_hideBalance) {
-                    return Text(
-                      '******** \$',
-                      style: TextStyle(
-                        fontSize: AppSizes.fontTitle,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+              Flexible(
+                child: Builder(
+                  builder: (context) {
+                    if (_hideBalance) {
+                      return FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '******** \$',
+                          style: TextStyle(
+                            fontSize: AppSizes.fontTitle,
+                            fontWeight: FontWeight.bold,
+                            color: t.textPrimary,
+                          ),
+                        ),
+                      );
+                    }
+                    final totals = _calculateTotalBalancesByCurrency();
+                    if (totals.isMultiCurrency) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: totals
+                            .formatLines()
+                            .map(
+                              (line) => FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  line,
+                                  style: TextStyle(
+                                    fontSize: AppSizes.fontXLarge,
+                                    fontWeight: FontWeight.bold,
+                                    color: t.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                      );
+                    }
+                    final singleCode = totals.currencies.isNotEmpty
+                        ? totals.currencies.first
+                        : null;
+                    return FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        CurrencyHelper.formatWithCodeIfAmbiguous(
+                          totalBalance,
+                          singleCode,
+                        ),
+                        style: TextStyle(
+                          fontSize: AppSizes.fontTitle,
+                          fontWeight: FontWeight.bold,
+                          color: t.textPrimary,
+                        ),
                       ),
                     );
-                  }
-                  final totals = _calculateTotalBalancesByCurrency();
-                  if (totals.isMultiCurrency) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: totals
-                          .formatLines()
-                          .map(
-                            (line) => Text(
-                              line,
-                              style: TextStyle(
-                                fontSize: AppSizes.fontXLarge,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
-                    );
-                  }
-                  final singleCode = totals.currencies.isNotEmpty
-                      ? totals.currencies.first
-                      : null;
-                  return Text(
-                    CurrencyHelper.formatWithCodeIfAmbiguous(
-                      totalBalance,
-                      singleCode,
-                    ),
-                    style: TextStyle(
-                      fontSize: AppSizes.fontTitle,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  );
-                },
-              )),
-              SizedBox(width: AppSizes.paddingSmall),
+                  },
+                ),
+              ),
+              const SizedBox(width: AppSizes.paddingSmall),
               // Botón de ojo para mostrar/ocultar
               Semantics(
                 container: true,
@@ -609,9 +723,10 @@ class _MyHomePageState extends State<MyHomePage> {
     double balanceValue = double.tryParse(item.balance) ?? 0.0;
     
     final bool isLight = Theme.of(context).brightness == Brightness.light;
+    final t = context.appTheme;
     final Color itemColor = item.iconColor;
     final Color readableItemColor = AppColors.getReadableColor(itemColor, context);
-    final Color surfaceColor = AppColors.secondaryCardBackground;
+    final Color surfaceColor = t.secondaryCardBackground;
     final Color shadowColor = Color.alphaBlend(itemColor.withOpacity(0.1), Colors.black.withOpacity(0.3));
     
     return Container(
@@ -654,9 +769,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    AppColors.borderVisible,
+                    t.borderVisible,
                     itemColor.withOpacity(0.2),
-                    AppColors.borderSubtle,
+                    t.borderSubtle,
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.3, 0.7, 1.0],
@@ -728,60 +843,77 @@ class _MyHomePageState extends State<MyHomePage> {
                               Expanded(
                                 child: Text(
                                   item.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: AppColors.textPrimary,
+                                    color: t.textPrimary,
                                     fontSize: AppSizes.font2XLarge,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.2,
                                   ),
                                 ),
                               ),
-                              if (isReorderMode)
+                              if (isReorderMode) ...[
+                                const SizedBox(width: 8),
                                 Icon(
                                   Icons.drag_indicator_rounded,
-                                  color: AppColors.textHint,
+                                  color: t.textHint,
                                   size: 24,
-                                )
-                              else if (!item.includeInTotal)
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: context.appTheme.error.withValues(alpha: 0.12),
-                                    border: Border.all(
-                                      color: context.appTheme.error.withValues(alpha: 0.5),
-                                      width: 1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.visibility_off,
-                                        size: 12,
-                                        color: context.appTheme.error,
-                                      ),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Oculta',
-                                        style: TextStyle(
-                                          color: context.appTheme.error,
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w600,
+                                ),
+                              ] else if (!item.includeInTotal) ...[
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  flex: 0,
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(maxWidth: 112),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: t.error.withValues(alpha: 0.12),
+                                        border: Border.all(
+                                          color: t.error.withValues(alpha: 0.5),
+                                          width: 1,
                                         ),
+                                        borderRadius: BorderRadius.circular(30),
                                       ),
-                                    ],
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.visibility_off,
+                                            size: 12,
+                                            color: t.error,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              'Oculta',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: t.error,
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
+                              ],
                             ],
                           ),
-                          SizedBox(height: 5),
+                          const SizedBox(height: 5),
                           Text(
                             item.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: isLight 
-                                  ? AppColors.textPrimary 
-                                  : AppColors.textSecondary,
+                              color: isLight
+                                  ? t.textPrimary
+                                  : t.textSecondary,
                               fontSize: 14,
                             ),
                           ),
@@ -790,71 +922,86 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   ],
                 ),
-                SizedBox(height: 18),
+                const SizedBox(height: 18),
                 // Separador con línea de puntos estilizada
                 CustomPaint(
-                  size: Size(double.infinity, 1),
+                  size: const Size(double.infinity, 1),
                   painter: DashedLinePainter(
-                    color: AppColors.borderSubtle,
+                    color: t.borderSubtle,
                     dashWidth: 6,
                     dashSpace: 4,
                   ),
                 ),
-                SizedBox(height: 18),
+                const SizedBox(height: 18),
                 // Saldo con diseño mejorado
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      isCreditCard ? 'Cupo total' : 'Saldo disponible',
-                      style: TextStyle(
-                        color: AppColors.textSecondary, 
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.2,
+                    Flexible(
+                      child: Text(
+                        isCreditCard ? 'Cupo total' : 'Saldo disponible',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: t.textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.2,
+                        ),
                       ),
                     ),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isLight ? readableItemColor : null,
-                        gradient: isLight
-                            ? null
-                            : LinearGradient(
-                                colors: [
-                                  itemColor.withOpacity(0.22),
-                                  itemColor.withOpacity(0.13),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      flex: 0,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 168),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isLight ? readableItemColor : null,
+                            gradient: isLight
+                                ? null
+                                : LinearGradient(
+                                    colors: [
+                                      itemColor.withOpacity(0.22),
+                                      itemColor.withOpacity(0.13),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: isLight
+                                  ? readableItemColor
+                                  : itemColor.withOpacity(0.35),
+                              width: 1.2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: isLight
+                                    ? readableItemColor.withOpacity(0.2)
+                                    : itemColor.withOpacity(0.15),
+                                blurRadius: 8,
+                                spreadRadius: -2,
                               ),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: isLight
-                              ? readableItemColor
-                              : itemColor.withOpacity(0.35),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isLight
-                                ? readableItemColor.withOpacity(0.2)
-                                : itemColor.withOpacity(0.15),
-                            blurRadius: 8,
-                            spreadRadius: -2,
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Text(
-                        CurrencyHelper.formatWithCodeIfAmbiguous(
-                          balanceValue,
-                          CurrencyHelper.currencyCode,
-                        ),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          letterSpacing: 0.2,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              CurrencyHelper.formatWithCodeIfAmbiguous(
+                                balanceValue,
+                                CurrencyHelper.currencyCode,
+                              ),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -1052,13 +1199,17 @@ class _MyHomePageState extends State<MyHomePage> {
                                             ),
                                           ),
                                           SizedBox(width: 8),
-                                          Text(
-                                            account.subtitle,
-                                            style: TextStyle(
-                                              color: isLight 
-                                                  ? context.appTheme.textPrimary 
-                                                  : context.appTheme.textSecondary,
-                                              fontSize: 14,
+                                          Flexible(
+                                            child: Text(
+                                              account.subtitle,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: isLight
+                                                    ? context.appTheme.textPrimary
+                                                    : context.appTheme.textSecondary,
+                                                fontSize: 14,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -1102,45 +1253,52 @@ class _MyHomePageState extends State<MyHomePage> {
                                         ),
                                       ),
                                       SizedBox(width: 8),
-                                      Text(
-                                        isCreditCard ? 'CUPO TOTAL' : 'SALDO DISPONIBLE',
-                                        style: TextStyle(
-                                          color: context.appTheme.textSecondary,
-                                          fontSize: 11,
-                                          letterSpacing: 0.8,
-                                          fontWeight: FontWeight.w500,
+                                      Flexible(
+                                        child: Text(
+                                          isCreditCard ? 'CUPO TOTAL' : 'SALDO DISPONIBLE',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: context.appTheme.textSecondary,
+                                            fontSize: 11,
+                                            letterSpacing: 0.8,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                       ),
                                       if (!account.includeInTotal) ...[
                                         SizedBox(width: 8),
-                                        Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFE74C3C).withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: const Color(0xFFE74C3C).withOpacity(0.2),
-                                              width: 1,
+                                        Flexible(
+                                          flex: 0,
+                                          child: Container(
+                                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFE74C3C).withOpacity(0.15),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: const Color(0xFFE74C3C).withOpacity(0.2),
+                                                width: 1,
+                                              ),
                                             ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.visibility_off,
-                                                color: const Color(0xFFE74C3C).withOpacity(0.9),
-                                                size: 10,
-                                              ),
-                                              SizedBox(width: 3),
-                                              Text(
-                                                'No incluida',
-                                                style: TextStyle(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.visibility_off,
                                                   color: const Color(0xFFE74C3C).withOpacity(0.9),
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w500,
+                                                  size: 10,
                                                 ),
-                                              ),
-                                            ],
+                                                SizedBox(width: 3),
+                                                Text(
+                                                  'No incluida',
+                                                  style: TextStyle(
+                                                    color: const Color(0xFFE74C3C).withOpacity(0.9),
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ],

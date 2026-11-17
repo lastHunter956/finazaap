@@ -264,43 +264,51 @@ class ResponsibilityListItem extends StatelessWidget {
 
                   // Right Section: Amount and Paid Status
                   const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 90),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            CurrencyHelper.format(
-                              // Para visualización principal, usamos el monto BASE (unitario) para frecuencias cortas
-                              // Para tarjetas y mensuales, usamos el getAmountForDate
-                              (['diario', 'semanal', 'quincenal'].contains(responsibility.safeFrequency))
-                                  ? responsibility.safeAmount
-                                  : responsibility.getAmountForDate(month, year),
-                              showSymbol: false,
-                            ),
-                            style: TextStyle(
-                              color: context.appTheme.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 118),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 114),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              CurrencyHelper.format(
+                                // Para visualización principal, usamos el monto BASE (unitario) para frecuencias cortas
+                                // Para tarjetas y mensuales, usamos el getAmountForDate
+                                (['diario', 'semanal', 'quincenal'].contains(responsibility.safeFrequency))
+                                    ? responsibility.safeAmount
+                                    : responsibility.getAmountForDate(month, year),
+                                showSymbol: false,
+                              ),
+                              style: TextStyle(
+                                color: context.appTheme.textPrimary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      Text(
-                        ['diario', 'semanal', 'quincenal'].contains(responsibility.safeFrequency)
-                          ? '${CurrencyHelper.currencyCode} / ${_getShortFrequency(responsibility.safeFrequency)}'
-                          : CurrencyHelper.currencyCode,
-                        style: TextStyle(
-                          color: context.appTheme.textHint,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            ['diario', 'semanal', 'quincenal'].contains(responsibility.safeFrequency)
+                              ? '${CurrencyHelper.currencyCode} / ${_getShortFrequency(responsibility.safeFrequency)}'
+                              : CurrencyHelper.currencyCode,
+                            style: TextStyle(
+                              color: context.appTheme.textHint,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildStatusChip(isPaidInSelectedMonth, statusColor),
-                    ],
+                        const SizedBox(height: 8),
+                        _buildStatusChip(isPaidInSelectedMonth, statusColor),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -341,13 +349,17 @@ class ResponsibilityListItem extends StatelessWidget {
             Icon(icon, size: 10, color: themedColor),
             const SizedBox(width: 4),
           ],
-          Text(
-            text,
-            style: TextStyle(
-              color: themedColor,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: themedColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
         ],
@@ -377,7 +389,7 @@ class ResponsibilityListItem extends StatelessWidget {
     // isPaid:    filled with the status color, white text on top
     // isPending: outlined with border, status color text (no white-on-white)
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isPaid ? color.withOpacity(0.18) : Colors.transparent,
         borderRadius: BorderRadius.circular(20),
@@ -394,15 +406,19 @@ class ResponsibilityListItem extends StatelessWidget {
             size: 12,
             color: isPaid ? color : textHintColor,
           ),
-          const SizedBox(width: 6),
-          Text(
-            isPaid ? 'PAGADO' : 'PENDIENTE',
-            style: TextStyle(
-              // Use the status color itself as text — visible on both dark and light
-              color: isPaid ? color : textSecondaryColor,
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.6,
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              isPaid ? 'PAGADO' : 'PENDIENTE',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                // Use the status color itself as text — visible on both dark and light
+                color: isPaid ? color : textSecondaryColor,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
         ],

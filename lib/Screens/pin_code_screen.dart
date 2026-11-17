@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:finazaap/providers/pin_provider.dart';
 import 'package:flutter/material.dart';
@@ -265,7 +266,9 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
           child: LayoutBuilder(
             builder: (context, constraints) {
               final h = constraints.maxHeight;
-              final isSmall = h < 600;
+              final scale = MediaQuery.textScalerOf(context).scale(1.0);
+              final isSmall = h < 620 || scale > 1.15;
+              final keypadHeight = math.max(h * 0.44, 264.0);
 
               return SingleChildScrollView(
                   child: ConstrainedBox(
@@ -279,14 +282,14 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
                           children: [
                             _buildHeader(),
                             
-                            SizedBox(height: isSmall ? 20 : 40),
+                            SizedBox(height: isSmall ? 12 : 32),
 
                             // 2. Lock & PIN Section
                             Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 _buildLockIcon(isSmall),
-                                SizedBox(height: isSmall ? 16 : 24),
+                                SizedBox(height: isSmall ? 12 : 24),
                                 Text(
                                   _title,
                                   textAlign: TextAlign.center,
@@ -308,16 +311,16 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
                                     color: Colors.white.withOpacity(0.72),
                                   ),
                                 ),
-                                SizedBox(height: isSmall ? 24 : 32),
+                                SizedBox(height: isSmall ? 16 : 28),
                                 _buildPinDots(isSmall),
                               ],
                             ),
 
-                            SizedBox(height: isSmall ? 8 : 12),
+                            SizedBox(height: isSmall ? 6 : 12),
 
                             // 3. Error Section
-                            SizedBox(
-                              height: 48,
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 48),
                               child: Center(
                                 child: _errorMessage != null ? _buildErrorState() : null,
                               ),
@@ -325,9 +328,9 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
 
                             // 4. Keypad
                             SizedBox(
-                              height: h * 0.42, // Re-added fixed height to prevent crash
+                              height: keypadHeight,
                               child: Padding(
-                                padding: EdgeInsets.only(bottom: isSmall ? 10 : 20),
+                                padding: EdgeInsets.only(bottom: isSmall ? 8 : 16),
                                 child: _buildPremiumKeypad(isSmall),
                               ),
                             ),
@@ -486,20 +489,20 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
     
     return Column(
       children: [
-        Expanded(child: _buildKeyRow(['1', '2', '3'])),
-        Expanded(child: _buildKeyRow(['4', '5', '6'])),
-        Expanded(child: _buildKeyRow(['7', '8', '9'])),
+        Expanded(child: _buildKeyRow(['1', '2', '3'], isSmallScreen)),
+        Expanded(child: _buildKeyRow(['4', '5', '6'], isSmallScreen)),
+        Expanded(child: _buildKeyRow(['7', '8', '9'], isSmallScreen)),
         Expanded(
           child: Row(
             children: [
               // Fingerprint button
               Expanded(
                 child: widget.mode == PinMode.verify && _pinProvider.isBiometricEnabled
-                  ? _buildBiometricKey()
+                  ? _buildBiometricKey(isSmallScreen)
                   : Container(),
               ),
-              Expanded(child: _buildPremiumKey('0')),
-              Expanded(child: _buildPremiumKey('del', icon: Icons.backspace_outlined)),
+              Expanded(child: _buildPremiumKey('0', isSmallScreen: isSmallScreen)),
+              Expanded(child: _buildPremiumKey('del', icon: Icons.backspace_outlined, isSmallScreen: isSmallScreen)),
             ],
           ),
         ),
@@ -507,13 +510,13 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildBiometricKey() {
+  Widget _buildBiometricKey(bool isSmallScreen) {
     return Semantics(
       button: true,
       label: 'Autenticar con biometría',
       excludeSemantics: true,
       child: Padding(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(isSmallScreen ? 4 : 8),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -538,9 +541,9 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
                 ),
               ),
               alignment: Alignment.center,
-              child: Icon(
+              child: const Icon(
                 Icons.fingerprint_rounded,
-                color: const Color(0xFF50C878),
+                color: Color(0xFF50C878),
                 size: 28,
               ),
             ),
@@ -551,13 +554,15 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildKeyRow(List<String> keys) {
+  Widget _buildKeyRow(List<String> keys, bool isSmallScreen) {
     return Row(
-      children: keys.map((k) => Expanded(child: _buildPremiumKey(k))).toList(),
+      children: keys
+          .map((k) => Expanded(child: _buildPremiumKey(k, isSmallScreen: isSmallScreen)))
+          .toList(),
     );
   }
 
-  Widget _buildPremiumKey(String val, {IconData? icon}) {
+  Widget _buildPremiumKey(String val, {IconData? icon, bool isSmallScreen = false}) {
     bool isDel = val == 'del';
     
     return Semantics(
@@ -565,7 +570,7 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
       label: isDel ? 'Borrar dígito' : 'Dígito $val',
       excludeSemantics: true,
       child: Padding(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(isSmallScreen ? 4 : 8),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -576,6 +581,7 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
           child: AspectRatio(
             aspectRatio: 1,
             child: Container(
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: isDel 
@@ -602,13 +608,16 @@ class _PinCodeScreenState extends State<PinCodeScreen> with SingleTickerProvider
                     color: Colors.white.withOpacity(0.65),
                     size: 24,
                   )
-                : Text(
-                    val,
-                    style: const TextStyle(
-                      fontSize: 32,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w300,
-                      letterSpacing: -0.5,
+                : FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      val,
+                      style: const TextStyle(
+                        fontSize: 32,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: -0.5,
+                      ),
                     ),
                   ),
             ),
