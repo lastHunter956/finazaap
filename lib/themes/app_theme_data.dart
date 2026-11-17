@@ -199,7 +199,7 @@ class AppTheme extends ThemeExtension<AppTheme> {
     primaryBackground: Color(0xFF282A36),       // Dracula Background oficial
     cardBackground: Color(0xFF21222C),          // Dracula ANSI Black / Panel (garantiza AA >=4.5 con #FF5555)
     darkBackground: Color(0xFF191A21),          // Dracula Deep Well oficial (inputs)
-    secondaryCardBackground: Color(0xFF44475A), // Dracula Selection / Elevated oficial
+    secondaryCardBackground: Color(0xFF252733), // Superficie elevada/modal Dracula (contraste AA y separación nítida de borderSubtle)
     textPrimary: Color(0xFFF8F8F2),             // Dracula Foreground oficial (AAA en 3 superficies)
     textSecondary: Color(0xFFC6CEE0),           // Gris azulado Dracula legible (AAA en 3 superficies)
     textHint: Color(0xFF909EC7),                // Dracula Comment aclarado para legibilidad AA (>=5.36:1)
@@ -257,6 +257,53 @@ class AppTheme extends ThemeExtension<AppTheme> {
         return forMode(ThemeNotifier.activeMode);
     }
   }
+
+  /// Retorna un color de primer plano con contraste WCAG AA sobre [background].
+  Color foregroundOn(Color background) =>
+      background.computeLuminance() > 0.20
+          ? const Color(0xFF191A21)
+          : Colors.white;
+}
+
+DatePickerThemeData _buildDatePickerThemeData(AppTheme t, Color accentColor) {
+  final onAccent = t.foregroundOn(accentColor);
+  return DatePickerThemeData(
+    backgroundColor: t.secondaryCardBackground,
+    headerBackgroundColor: t.cardBackground,
+    headerForegroundColor: t.textPrimary,
+    surfaceTintColor: Colors.transparent,
+    dividerColor: t.borderVisible,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+      side: BorderSide(color: t.borderVisible),
+    ),
+    dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) return onAccent;
+      if (states.contains(WidgetState.disabled)) return t.textHint;
+      return t.textPrimary;
+    }),
+    dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) return accentColor;
+      return null;
+    }),
+    todayForegroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) return onAccent;
+      return accentColor;
+    }),
+    todayBorder: BorderSide(color: accentColor),
+    yearForegroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) return onAccent;
+      return t.textPrimary;
+    }),
+    yearBackgroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) return accentColor;
+      return null;
+    }),
+    weekdayStyle: TextStyle(color: t.textSecondary, fontWeight: FontWeight.w600),
+    dayStyle: TextStyle(color: t.textPrimary),
+    cancelButtonStyle: TextButton.styleFrom(foregroundColor: t.textSecondary),
+    confirmButtonStyle: TextButton.styleFrom(foregroundColor: accentColor),
+  );
 }
 
 /// Construye el ThemeData completo para un AppThemeMode.
@@ -274,7 +321,7 @@ ThemeData buildThemeData(AppThemeMode mode) {
       primary: t.accent,
       onPrimary: t.buttonForeground,
       secondary: t.secondaryAccent,
-      onSecondary: t.secondaryAccent.computeLuminance() > 0.4
+      onSecondary: t.secondaryAccent.computeLuminance() > 0.25
           ? const Color(0xFF282A36)
           : Colors.white,
       error: t.error,
@@ -312,6 +359,7 @@ ThemeData buildThemeData(AppThemeMode mode) {
       unselectedItemColor: t.textHint,
     ),
     dividerTheme: DividerThemeData(color: t.borderSubtle),
+    datePickerTheme: _buildDatePickerThemeData(t, t.accent),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: t.darkBackground,
@@ -348,4 +396,21 @@ extension AppThemeExt on BuildContext {
   bool get isDefaultDark =>
       Theme.of(this).brightness == Brightness.dark &&
       appTheme.primaryBackground == const Color(0xFF1F2639);
+
+  /// Construye un [ThemeData] para [showDatePicker] usando [accentColor] con
+  /// contraste garantizado y divisores nítidos sobre el tema actual.
+  ThemeData datePickerThemeWithAccent(Color accentColor) {
+    final base = Theme.of(this);
+    final t = appTheme;
+    return base.copyWith(
+      colorScheme: base.colorScheme.copyWith(
+        primary: accentColor,
+        onPrimary: t.foregroundOn(accentColor),
+        surface: t.secondaryCardBackground,
+        onSurface: t.textPrimary,
+      ),
+      dividerTheme: DividerThemeData(color: t.borderVisible),
+      datePickerTheme: _buildDatePickerThemeData(t, accentColor),
+    );
+  }
 }

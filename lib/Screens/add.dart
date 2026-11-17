@@ -11,6 +11,7 @@ import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/account_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
 
+import 'package:finazaap/themes/app_colors.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 import 'package:finazaap/Screens/categories_screen.dart';
@@ -39,12 +40,6 @@ class Add_Screen extends StatefulWidget {
 
 class _Add_ScreenState extends State<Add_Screen> {
   final box = Hive.box<Add_data>('data');
-
-  // ========= CONSTANTES DE DISEÑO =========
-  final Color primaryColor = const Color(0xFF368983);
-  final Color surfaceColor = const Color(0xFF222939);
-  final Color cardColor = const Color(0xFF1A1F2B);
-  final double cornerRadius = 20.0;
 
   // ========= CONTROLADORES DE TEXTO =========
   final TextEditingController _amountCtrl = TextEditingController(); // Monto
@@ -208,11 +203,21 @@ class _Add_ScreenState extends State<Add_Screen> {
 
   // Abre el DatePicker para seleccionar fecha
   Future<void> _pickDate() async {
+    final accentColor = AppColors.getReadableColor(
+      context.appTheme.income,
+      context,
+    );
     final newDate = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: context.datePickerThemeWithAccent(accentColor),
+          child: child!,
+        );
+      },
     );
     if (newDate != null) {
       setState(() {
@@ -347,9 +352,11 @@ class _Add_ScreenState extends State<Add_Screen> {
   @override
   Widget build(BuildContext context) {
     // Colores y constantes de diseño
-    const Color primaryColor = Color(0xFF368983);
+    final Color primaryColor = AppColors.getReadableColor(
+      context.appTheme.income,
+      context,
+    );
     final Color surfaceColor = context.appTheme.secondaryCardBackground;
-    final Color cardColor = context.appTheme.darkBackground;
     const double cornerRadius = 20.0;
 
     // Asegurarse de que _selectedCategory exista en _categories
@@ -370,16 +377,19 @@ class _Add_ScreenState extends State<Add_Screen> {
                 decoration: BoxDecoration(
                   color: surfaceColor,
                   borderRadius: BorderRadius.circular(cornerRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                      spreadRadius: -5,
-                    ),
-                  ],
+                  boxShadow: Theme.of(context).brightness == Brightness.light
+                      ? [
+                          BoxShadow(
+                            color: context.appTheme.textPrimary
+                                .withValues(alpha: 0.08),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                            spreadRadius: -5,
+                          ),
+                        ]
+                      : null,
                   border: Border.all(
-                    color: context.appTheme.borderSubtle,
+                    color: context.appTheme.borderVisible,
                     width: 1.0,
                   ),
                 ),
@@ -394,13 +404,19 @@ class _Add_ScreenState extends State<Add_Screen> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            primaryColor.withOpacity(0.15),
-                            primaryColor.withOpacity(0.05),
+                            primaryColor.withValues(alpha: 0.15),
+                            primaryColor.withValues(alpha: 0.05),
                           ],
                         ),
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(cornerRadius),
                           topRight: Radius.circular(cornerRadius),
+                        ),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: context.appTheme.borderVisible,
+                            width: 1,
+                          ),
                         ),
                       ),
                       child: Row(
@@ -409,7 +425,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.2),
+                              color: primaryColor.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -424,7 +440,7 @@ class _Add_ScreenState extends State<Add_Screen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Ingreso',
                                   style: TextStyle(
                                     color: primaryColor,
@@ -521,6 +537,11 @@ class _Add_ScreenState extends State<Add_Screen> {
                                             });
                                           },
                                           items: _accountItems.map((account) {
+                                            final accountColor =
+                                                AppColors.getReadableColor(
+                                              account.iconColor,
+                                              context,
+                                            );
                                             return DropdownMenuItem<
                                                 AccountItem>(
                                               value: account,
@@ -530,19 +551,14 @@ class _Add_ScreenState extends State<Add_Screen> {
                                                     padding:
                                                         const EdgeInsets.all(6),
                                                     decoration: BoxDecoration(
-                                                      color:
-                                                          (account.iconColor ??
-                                                                  Colors.blue)
-                                                              .withOpacity(0.2),
+                                                      color: accountColor
+                                                          .withValues(
+                                                              alpha: 0.2),
                                                       shape: BoxShape.circle,
                                                     ),
                                                     child: Icon(
-                                                      account.icon ??
-                                                          Icons
-                                                              .account_balance_wallet,
-                                                      color:
-                                                          account.iconColor ??
-                                                              Colors.blue,
+                                                      account.icon,
+                                                      color: accountColor,
                                                       size: 14,
                                                     ),
                                                   ),
@@ -604,11 +620,10 @@ class _Add_ScreenState extends State<Add_Screen> {
                                                       .symmetric(vertical: 12),
                                                   child: Row(
                                                     children: [
-                                                      const Icon(
+                                                      Icon(
                                                         Icons
                                                             .add_circle_outline_rounded,
-                                                        color:
-                                                            Color(0xFF4ECDC4),
+                                                        color: primaryColor,
                                                         size: 18,
                                                       ),
                                                       const SizedBox(width: 8),
@@ -663,7 +678,11 @@ class _Add_ScreenState extends State<Add_Screen> {
                                             final String categoryName = category['text'];
                                             final int iconCode = category['icon'];
                                             final int colorValue = category['color'];
-                                            final Color categoryColor = Color(colorValue);
+                                            final Color categoryColor =
+                                                AppColors.getReadableColor(
+                                              Color(colorValue),
+                                              context,
+                                            );
 
                                             return DropdownMenuItem<String>(
                                               value: categoryName,
@@ -867,7 +886,7 @@ class _Add_ScreenState extends State<Add_Screen> {
         color: context.appTheme.darkBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: context.appTheme.borderSubtle,
+          color: context.appTheme.borderVisible,
           width: 1,
         ),
       ),
@@ -895,6 +914,8 @@ class _Add_ScreenState extends State<Add_Screen> {
     required VoidCallback onPressed,
     bool isOutlined = false,
   }) {
+    final Color fgColor =
+        isOutlined ? color : context.appTheme.foregroundOn(color);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -904,8 +925,9 @@ class _Add_ScreenState extends State<Add_Screen> {
           decoration: BoxDecoration(
             color: isOutlined ? Colors.transparent : color,
             borderRadius: BorderRadius.circular(12),
-            border:
-                isOutlined ? Border.all(color: context.appTheme.borderSubtle, width: 1) : null,
+            border: isOutlined
+                ? Border.all(color: context.appTheme.borderVisible, width: 1)
+                : null,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
@@ -914,12 +936,12 @@ class _Add_ScreenState extends State<Add_Screen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
+                  Icon(icon, color: fgColor, size: 16),
                   const SizedBox(width: 6),
                   Text(
                     label,
                     style: TextStyle(
-                      color: isOutlined ? color : Colors.white,
+                      color: fgColor,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),

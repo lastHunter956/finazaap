@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:finazaap/Screens/add.dart';
 import 'package:finazaap/Screens/add_expense.dart';
 import 'package:finazaap/Screens/transfer.dart';
+import 'package:finazaap/themes/app_colors.dart';
 import 'package:finazaap/themes/app_sizes.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 
@@ -80,7 +81,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
                   child: Container(
-                    color: context.appTheme.primaryBackground.withOpacity(0.9),
+                    color: context.appTheme.primaryBackground.withValues(alpha: 0.9),
                   ),
                 ),
               ),
@@ -118,8 +119,8 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                     ]
                                   : null,
                           border: Border.all(
-                            color: context.appTheme.borderSubtle,
-                            width: 1,
+                            color: context.appTheme.borderVisible,
+                            width: 1.2,
                           ),
                         ),
                         child: ClipRRect(
@@ -133,10 +134,10 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                               Container(
                                 padding: const EdgeInsets.all(20),
                                 decoration: BoxDecoration(
-                                  color: context.appTheme.secondaryCardBackground,
+                                  color: context.appTheme.cardBackground,
                                   border: Border(
                                     bottom: BorderSide(
-                                      color: context.appTheme.borderSubtle,
+                                      color: context.appTheme.borderVisible,
                                       width: 1,
                                     ),
                                   ),
@@ -154,7 +155,10 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                       ),
                                       child: Icon(
                                         Icons.add_rounded,
-                                        color: context.appTheme.accent,
+                                        color: AppColors.getReadableColor(
+                                          context.appTheme.accent,
+                                          context,
+                                        ),
                                         size: 22,
                                       ),
                                     ),
@@ -210,7 +214,10 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                             index: 0,
                                             icon: Icons.arrow_upward_rounded,
                                             label: 'Ingreso',
-                                            color: context.appTheme.income,
+                                            color: AppColors.getReadableColor(
+                                              context.appTheme.income,
+                                              context,
+                                            ),
                                             onTap: () => _navigateTo(const Add_Screen()),
                                           ),
                                         ),
@@ -226,8 +233,11 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                             index: 1,
                                             icon: Icons.sync_alt_rounded,
                                             label: 'Transferencia',
-                                            color: context.appTheme.secondaryAccent,
-                                            onTap: () => _navigateTo(TransferScreen()),
+                                            color: AppColors.getReadableColor(
+                                              context.appTheme.secondaryAccent,
+                                              context,
+                                            ),
+                                            onTap: () => _navigateTo(const TransferScreen()),
                                           ),
                                         ),
                                         
@@ -242,7 +252,10 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                             index: 2,
                                             icon: Icons.arrow_downward_rounded,
                                             label: 'Egreso',
-                                            color: context.appTheme.expense,
+                                            color: AppColors.getReadableColor(
+                                              context.appTheme.expense,
+                                              context,
+                                            ),
                                             onTap: () => _navigateTo(const AddExpenseScreen()),
                                           ),
                                         ),
@@ -259,7 +272,7 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                   color: context.appTheme.darkBackground,
                                   border: Border(
                                     top: BorderSide(
-                                      color: context.appTheme.borderSubtle,
+                                      color: context.appTheme.borderVisible,
                                       width: 1,
                                     ),
                                   ),
@@ -399,13 +412,13 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppSizes.borderRadiusLarge),
               color: isHovered
-                  ? color.withValues(alpha: 0.08)
-                  : Colors.transparent,
+                  ? color.withValues(alpha: 0.12)
+                  : context.appTheme.cardBackground,
               border: Border.all(
                 color: isHovered
-                    ? color.withValues(alpha: 0.3)
-                    : context.appTheme.borderSubtle,
-                width: isHovered ? 1.2 : 1,
+                    ? color.withValues(alpha: 0.55)
+                    : context.appTheme.borderVisible,
+                width: isHovered ? 1.4 : 1,
               ),
             ),
             child: InkWell(

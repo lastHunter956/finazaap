@@ -8,6 +8,7 @@ import 'package:finazaap/data/model/add_date.dart'; // Importar modelo Add_data
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/core/utils/app_logger.dart';
+import 'package:finazaap/themes/app_colors.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 
@@ -261,9 +262,11 @@ Future<void> _loadAccountsFromPrefs() async {
   @override
 Widget build(BuildContext context) {
   // Colores y constantes de diseño
-  const Color primaryColor = Color(0xFF3D7AF0); // Azul para transferencias
+  final Color primaryColor = AppColors.getReadableColor(
+    context.appTheme.secondaryAccent,
+    context,
+  );
   final Color surfaceColor = context.appTheme.secondaryCardBackground;
-  final Color cardColor = context.appTheme.darkBackground;
   const double cornerRadius = 20.0;
   
   return Scaffold(
@@ -281,16 +284,19 @@ Widget build(BuildContext context) {
               decoration: BoxDecoration(
                 color: surfaceColor,
                 borderRadius: BorderRadius.circular(cornerRadius),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                    spreadRadius: -5,
-                  ),
-                ],
+                boxShadow: Theme.of(context).brightness == Brightness.light
+                    ? [
+                        BoxShadow(
+                          color: context.appTheme.textPrimary
+                              .withValues(alpha: 0.08),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                          spreadRadius: -5,
+                        ),
+                      ]
+                    : null,
                 border: Border.all(
-                  color: context.appTheme.borderSubtle,
+                  color: context.appTheme.borderVisible,
                   width: 1.0,
                 ),
               ),
@@ -305,13 +311,19 @@ Widget build(BuildContext context) {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          primaryColor.withOpacity(0.15),
-                          primaryColor.withOpacity(0.05),
+                          primaryColor.withValues(alpha: 0.15),
+                          primaryColor.withValues(alpha: 0.05),
                         ],
                       ),
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(cornerRadius),
                         topRight: Radius.circular(cornerRadius),
+                      ),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: context.appTheme.borderVisible,
+                          width: 1,
+                        ),
                       ),
                     ),
                     child: Row(
@@ -320,10 +332,10 @@ Widget build(BuildContext context) {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: primaryColor.withOpacity(0.2),
+                            color: primaryColor.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.swap_horiz_rounded,
                             color: primaryColor,
                             size: 24,
@@ -335,7 +347,7 @@ Widget build(BuildContext context) {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Transferencia',
                                 style: TextStyle(
                                   color: primaryColor,
@@ -384,7 +396,7 @@ Widget build(BuildContext context) {
                                 color: context.appTheme.textHint,
                               ),
                               border: InputBorder.none,
-                              prefixIcon: const Icon(
+                              prefixIcon: Icon(
                                 Icons.attach_money_rounded,
                                 color: primaryColor,
                               ),
@@ -408,7 +420,7 @@ Widget build(BuildContext context) {
                                   fontSize: 14,
                                 ),
                               ),
-                              dropdownColor: context.appTheme.cardBackground,
+                              dropdownColor: context.appTheme.secondaryCardBackground,
                               icon: Icon(
                                 Icons.arrow_drop_down_rounded,
                                 color: context.appTheme.textSecondary,
@@ -421,6 +433,10 @@ Widget build(BuildContext context) {
                                 });
                               },
                               items: _accountItems.map((account) {
+                                final accountColor = AppColors.getReadableColor(
+                                  account.iconColor,
+                                  context,
+                                );
                                 return DropdownMenuItem<AccountItem>(
                                   value: account,
                                   child: Row(
@@ -428,12 +444,12 @@ Widget build(BuildContext context) {
                                       Container(
                                         padding: const EdgeInsets.all(6),
                                         decoration: BoxDecoration(
-                                          color: (account.iconColor ?? Colors.blue).withOpacity(0.2),
+                                          color: accountColor.withValues(alpha: 0.2),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
-                                          account.icon ?? Icons.account_balance_wallet,
-                                          color: account.iconColor ?? Colors.blue,
+                                          account.icon,
+                                          color: accountColor,
                                           size: 14,
                                         ),
                                       ),
@@ -465,15 +481,18 @@ Widget build(BuildContext context) {
                                 Icon(
                                   Icons.account_balance_wallet_outlined,
                                   size: 14,
-                                  color: primaryColor.withOpacity(0.7),
+                                  color: primaryColor,
                                 ),
                                 const SizedBox(width: 6),
-                                Text(
-                                  'Saldo disponible: ${CurrencyHelper.format(_selectedSourceAccount!.balanceAsDouble)}',
-                                  style: TextStyle(
-                                    color: context.appTheme.textSecondary,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
+                                Expanded(
+                                  child: Text(
+                                    'Saldo disponible: ${CurrencyHelper.format(_selectedSourceAccount!.balanceAsDouble)}',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: context.appTheme.textSecondary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -496,7 +515,7 @@ Widget build(BuildContext context) {
                                   fontSize: 14,
                                 ),
                               ),
-                              dropdownColor: context.appTheme.cardBackground,
+                              dropdownColor: context.appTheme.secondaryCardBackground,
                               icon: Icon(
                                 Icons.arrow_drop_down_rounded,
                                 color: context.appTheme.textSecondary,
@@ -509,6 +528,10 @@ Widget build(BuildContext context) {
                                 });
                               },
                               items: _accountItems.map((account) {
+                                final accountColor = AppColors.getReadableColor(
+                                  account.iconColor,
+                                  context,
+                                );
                                 return DropdownMenuItem<AccountItem>(
                                   value: account,
                                   child: Row(
@@ -516,12 +539,12 @@ Widget build(BuildContext context) {
                                       Container(
                                         padding: const EdgeInsets.all(6),
                                         decoration: BoxDecoration(
-                                          color: (account.iconColor ?? Colors.blue).withOpacity(0.2),
+                                          color: accountColor.withValues(alpha: 0.2),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
-                                          account.icon ?? Icons.account_balance_wallet,
-                                          color: account.iconColor ?? Colors.blue,
+                                          account.icon,
+                                          color: accountColor,
                                           size: 14,
                                         ),
                                       ),
@@ -570,7 +593,7 @@ Widget build(BuildContext context) {
                                           color: context.appTheme.textHint,
                                         ),
                                         border: InputBorder.none,
-                                        prefixIcon: const Icon(
+                                        prefixIcon: Icon(
                                           Icons.description_outlined,
                                           color: primaryColor,
                                           size: 18,
@@ -601,13 +624,8 @@ Widget build(BuildContext context) {
                                         lastDate: DateTime(2100),
                                         builder: (context, child) {
                                           return Theme(
-                                            data: ThemeData.dark().copyWith(
-                                              colorScheme: ColorScheme.dark(
-                                                primary: primaryColor,
-                                                onPrimary: Colors.white,
-                                                surface: cardColor,
-                                                onSurface: Colors.white,
-                                              ),
+                                            data: context.datePickerThemeWithAccent(
+                                              primaryColor,
                                             ),
                                             child: child!,
                                           );
@@ -626,7 +644,7 @@ Widget build(BuildContext context) {
                                         padding: const EdgeInsets.symmetric(vertical: 11),
                                         child: Row(
                                           children: [
-                                            const Icon(
+                                            Icon(
                                               Icons.calendar_today_rounded,
                                               color: primaryColor,
                                               size: 18,
@@ -726,13 +744,14 @@ String _formatDate(DateTime date) {
 }
 
 // Método helper para etiquetas de campos más compactas
-Widget _buildInputLabel(String label, [BuildContext? context]) {
+Widget _buildInputLabel(String label, [BuildContext? ctx]) {
+  final effectiveContext = ctx ?? context;
   return Padding(
     padding: const EdgeInsets.only(left: 4, bottom: 6),
     child: Text(
       label,
       style: TextStyle(
-        color: context?.appTheme.textSecondary ?? const Color(0xFF94A3B8),
+        color: effectiveContext.appTheme.textSecondary,
         fontSize: 13,
         fontWeight: FontWeight.w500,
       ),
@@ -747,7 +766,7 @@ Widget _buildInputField({required Widget child, required BuildContext context}) 
       color: context.appTheme.darkBackground,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
-        color: context.appTheme.borderSubtle,
+        color: context.appTheme.borderVisible,
         width: 1,
       ),
     ),
@@ -776,6 +795,8 @@ Widget _buildActionButton({
   bool isOutlined = false,
   bool isLoading = false,
 }) {
+  final Color fgColor =
+      isOutlined ? color : context.appTheme.foregroundOn(color);
   return Material(
     color: Colors.transparent,
     child: InkWell(
@@ -786,7 +807,7 @@ Widget _buildActionButton({
           color: isOutlined ? Colors.transparent : color,
           borderRadius: BorderRadius.circular(12),
           border: isOutlined
-              ? Border.all(color: color.withOpacity(0.5), width: 1)
+              ? Border.all(color: context.appTheme.borderVisible, width: 1)
               : null,
         ),
         child: Padding(
@@ -802,20 +823,18 @@ Widget _buildActionButton({
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        isOutlined ? color : Colors.white
-                      ),
+                      valueColor: AlwaysStoppedAnimation<Color>(fgColor),
                     ),
                   )
                 else
-                  Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
+                  Icon(icon, color: fgColor, size: 16),
                   
                 const SizedBox(width: 6),
                 
                 Text(
                   label,
                   style: TextStyle(
-                    color: isOutlined ? color : Colors.white,
+                    color: fgColor,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
