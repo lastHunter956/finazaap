@@ -486,6 +486,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     return Semantics(
       button: true,
       selected: isSelected,
+      excludeSemantics: true,
       label: 'Motor $label',
       child: GestureDetector(
         onTap: onTap,

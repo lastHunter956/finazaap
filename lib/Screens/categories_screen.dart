@@ -911,7 +911,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                     _loadCategories();
                     if (mounted) Navigator.pop(context);
                   },
-                   child: const Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+                  child: Text(
+                    'Eliminar',
+                    style: TextStyle(color: context.appTheme.error),
+                  ),
                 ),
               ],
             ),
