@@ -1,13 +1,20 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-16 (Integración en `main` de **Fase 1** — `3361e83`, validada en Docker `277/277` tests + `R5CY21GE9YY` vía `run_maestro.sh`; iniciando **Fase 2** en `agent/perf/archive-service-y-backup-v2`)
+> **Última actualización:** 2026-11-17 (Integración `pulido-visual-web` consolidada en `main` — P0 + P1 + P2 + Selectores minimalistas en ventana emergente + Modo Nocturno y formularios)
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `main` (fusionada mediante `--ff-only` hasta `3361e83`; **sin `git push`**).
+- **Rama actual:** `main` (sin `git push`; cambios locales listos para validar en teléfono o publicar cuando el usuario autorice `git push`).
+- **Sprint `pulido-visual-web` consolidado en `main`:**
+  - **P0 (Accesibilidad, contraste WCAG AA/AAA y tokens):** Tokens centralizados en `lib/themes/app_theme_data.dart` (`borderVisible`, `foregroundOn`, `datePickerThemeWithAccent`, umbral `onSecondary > 0.25`, `_nocturno.secondaryCardBackground: 0xFF252733`), objetivos táctiles `>= 48dp`, `Semantics` unificada y cero literales opacos rotos en diálogos/formularios.
+  - **P1 (`Home` + `TotalBalanceWidget`):** Jerarquía balance-first (`Disponible` 32px tabular, `MoneoSegmentedControl` junto al historial, agrupación temporal `"Hoy · ..."`, color-coding de categoría, hora `HH:mm` y estado vacío accionable).
+  - **P2 (Estados vacíos accionables y `360x640 @ 1.35x`):** Resueltos overflows en `360x640 @ TextScaler 1.35x` y añadidos CTA `>= 48dp` en `ResponsibilitiesScreen`, `AnnualProjectionScreen`, `CategoriesScreen`, `SelectAccountScreen`, `DailyTransactionsScreen`, `PendingTransactionCard`, `FloatingActionMenuScreen` y `PinCodeScreen`.
+  - **Selectores minimalistas de Color e Ícono en ventana emergente:** `.specify/selectores-color-icono/`, `lib/widgets/moneo_color_picker.dart` (rueda polar de 48 colores + 8 rápidos), `lib/utils/app_icons.dart` + `lib/widgets/moneo_icon_picker.dart` (catálogo de 114 ítems en 8 categorías con búsqueda offline conservando los 43 íconos heredados) y `lib/widgets/moneo_appearance_pickers_row.dart` (fila minimalista 48dp lado a lado abriendo diálogos emergentes centrados), integrados en `CategoriesScreen`, `AddAccountDialogs`, `EditAccountDialogs`, `AiChatScreen` y `AddResponsibilityDialog`.
+  - **Modo Nocturno y formularios (`add.dart`, `add_expense.dart`, `transfer.dart`, `floating_action_menu_screen.dart`):** Separación nítida de superficies vs `borderVisible`, divisores visibles en `"Nueva Operación"`, botones/chips con contraste AA garantizado (`foregroundOn`) y `DatePicker` temático (`datePickerThemeWithAccent`).
+  - **Sin tocar archivos protegidos** ni `lib/Screens/statistics.dart` (reservado para Fase 3 en `wt-f2-archive`).
 - **Fase 1 Optimización a Largo Plazo (fusionada en `main`, worktrees y ramas limpiadas):**
   - **IA / Chat:** `AiIntentDetector` + `AiQueryRouter` + funciones deterministas (`ai_financial_tools.dart`: TCO, cuota, interés, depreciación, flujo de caja, transporte) + plantillas (`ai_report_templates.dart`), metas acumulativas, resumen acumulativo, rotación `2048` tokens, historial acotado (80 msgs) y aviso neutro Gemma.
   - **Patrones y Deduplicación:** `LearnedPattern` retrocompatible con estados (`nuevo`, `en_refuerzo`, `consolidado`, `en_revision`, `obsoleto`) y puntuación por categoría/cuenta; `TransactionDedupCorrelator` (`UTR`, `48h` + `>=0.90` con `BM25 + JaccardTrigram`, transferencia interna, `mergePendingItems`/`splitMergedItem`), circuit-breaker Gemma y poda TTL + `compact()` en background.

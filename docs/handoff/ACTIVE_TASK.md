@@ -1,9 +1,10 @@
 # Tarea Activa (`docs/handoff/ACTIVE_TASK.md`)
 
-> **Rama actual:** `main` (Fase 1 consolidada en `3361e83`, `277/277` tests OK en Docker)
-> **Estado:** Iniciando **Fase 2 — Preparación de Archivado Frío Seguro** en worktree aislado `wt-f2-archive` (`agent/perf/archive-service-y-backup-v2`), sin tocar archivos protegidos.
+> **Rama actual:** `main` (consolidado sprint `pulido-visual-web` tras validación en Docker y generación de APK; **sin `git push` ni `adb install` automáticos**)
+> **Worktrees activos paralelos no relacionados:** `wt-f2-archive` (`agent/perf/archive-service-y-backup-v2`) y `wt-maestro-agentic` (`agent/maestro/configuracion-agentica`).
 
 ## Pendientes reales
-1. [ ] **Fase 2:** Implementar `ArchiveService` (journal idempotente, `carryForwardDebt`, exclusión de cuotas activas, rollback) + `DataManagementService` v2 (export/import completo y `deleteAllData()`) + suite de pruebas unitarias/invariancia en Docker.
-2. [ ] **Fase 3 (requiere aprobación explícita):** Hooks mínimos en `credit_card_calculator.dart` y `transaction_service.dart` + selector de años archivados en `Statistics`.
-3. [ ] `git push` a `origin/main` (solo con autorización explícita del usuario).
+1. [ ] **Validación física en Android (cuando el usuario apruebe `adb install`):** Instalar el APK generado desde `main` (ver ruta y SHA-256 reportados al usuario) y completar la matriz de validación de notificaciones reales en `R5CY21GE9YY`.
+2. [ ] **Fase 2 (`wt-f2-archive`):** Implementar/finalizar `ArchiveService` + `DataManagementService` v2 + suite de pruebas en Docker.
+3. [ ] **Fase 3 (requiere aprobación explícita):** Hooks mínimos en `credit_card_calculator.dart` y `transaction_service.dart` + selector de años archivados en `Statistics`.
+4. [ ] `git push` a `origin/main` (solo con autorización explícita del usuario).
