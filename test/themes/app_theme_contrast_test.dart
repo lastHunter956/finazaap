@@ -43,7 +43,7 @@ void main() {
       expect(noct.primaryBackground, const Color(0xFF282A36));
       expect(noct.cardBackground, const Color(0xFF21222C));
       expect(noct.darkBackground, const Color(0xFF191A21));
-      expect(noct.secondaryCardBackground, const Color(0xFF44475A));
+      expect(noct.secondaryCardBackground, const Color(0xFF252733));
       expect(noct.textPrimary, const Color(0xFFF8F8F2));
       expect(noct.textHint, const Color(0xFF909EC7));
       expect(noct.borderSubtle, const Color(0xFF44475A));
@@ -100,7 +100,7 @@ void main() {
       }
     });
 
-    test('Todos los temas (Default, Diurno, Día y Nocturno) cumplen AA (>=4.5:1) en todos los tokens sobre sus 3 superficies', () {
+    test('Todos los temas (Default, Diurno, Día y Nocturno) cumplen AA (>=4.5:1) en todos los tokens sobre sus 4 superficies', () {
       for (final mode in [
         AppThemeMode.defaultDark,
         AppThemeMode.diurno,
@@ -108,12 +108,30 @@ void main() {
         AppThemeMode.nocturno,
       ]) {
         final t = AppTheme.forMode(mode);
+        expect(
+          t.borderSubtle,
+          isNot(t.secondaryCardBackground),
+          reason: '$mode: borderSubtle debe diferenciarse de secondaryCardBackground',
+        );
+        expect(
+          t.borderSubtle,
+          isNot(t.cardBackground),
+          reason: '$mode: borderSubtle debe diferenciarse de cardBackground',
+        );
+        expect(
+          t.borderVisible,
+          isNot(t.secondaryCardBackground),
+          reason: '$mode: borderVisible debe diferenciarse de secondaryCardBackground',
+        );
+
         final surfaces = <String, Color>{
           'primaryBackground': t.primaryBackground,
           'cardBackground': t.cardBackground,
           'darkBackground': t.darkBackground,
+          'secondaryCardBackground': t.secondaryCardBackground,
         };
         final foregrounds = <String, Color>{
+          'textPrimary': t.textPrimary,
           'textSecondary': t.textSecondary,
           'textHint': t.textHint,
           'accent': t.accent,
@@ -134,6 +152,33 @@ void main() {
             );
           }
         }
+
+        for (final bgEntry in <String, Color>{
+          'accent': t.accent,
+          'secondaryAccent': t.secondaryAccent,
+          'income': t.income,
+          'expense': t.expense,
+          'error': t.error,
+          'buttonBackground': t.buttonBackground,
+        }.entries) {
+          expect(
+            _contrastRatio(t.foregroundOn(bgEntry.value), bgEntry.value),
+            greaterThanOrEqualTo(4.5),
+            reason: '$mode: foregroundOn(${bgEntry.key}) debe cumplir WCAG AA (>=4.5)',
+          );
+        }
+
+        final themeData = buildThemeData(mode);
+        expect(
+          _contrastRatio(themeData.colorScheme.onSecondary, themeData.colorScheme.secondary),
+          greaterThanOrEqualTo(4.5),
+          reason: '$mode: colorScheme.onSecondary debe cumplir WCAG AA (>=4.5)',
+        );
+        expect(
+          _contrastRatio(themeData.colorScheme.onError, themeData.colorScheme.error),
+          greaterThanOrEqualTo(4.5),
+          reason: '$mode: colorScheme.onError debe cumplir WCAG AA (>=4.5)',
+        );
       }
 
       for (final mode in [AppThemeMode.diurno, AppThemeMode.dia]) {
@@ -153,14 +198,6 @@ void main() {
 
       final themeData = buildThemeData(AppThemeMode.nocturno);
       expect(themeData.brightness, Brightness.dark);
-      expect(
-        _contrastRatio(themeData.colorScheme.onSecondary, themeData.colorScheme.secondary),
-        greaterThanOrEqualTo(4.5),
-      );
-      expect(
-        _contrastRatio(themeData.colorScheme.onError, themeData.colorScheme.error),
-        greaterThanOrEqualTo(4.5),
-      );
     });
   });
 }

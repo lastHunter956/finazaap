@@ -12,6 +12,7 @@ import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/themes/app_colors.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 import 'package:finazaap/Screens/categories_screen.dart';
@@ -174,11 +175,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   // Abre el DatePicker para seleccionar fecha
   Future<void> _pickDate() async {
+    final accentColor = AppColors.getReadableColor(
+      context.appTheme.expense,
+      context,
+    );
     final newDate = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: context.datePickerThemeWithAccent(accentColor),
+          child: child!,
+        );
+      },
     );
     if (newDate != null) {
       setState(() {
@@ -364,8 +375,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _isObligationPayment
-              ? primaryColor.withOpacity(0.4)
-              : context.appTheme.borderSubtle,
+              ? primaryColor.withValues(alpha: 0.5)
+              : context.appTheme.borderVisible,
           width: 1,
         ),
       ),
@@ -399,10 +410,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
               Switch(
                 value: _isObligationPayment,
-                activeColor: primaryColor,
-                activeTrackColor: primaryColor.withOpacity(0.3),
-                inactiveThumbColor: Colors.grey,
+                activeThumbColor: primaryColor,
+                activeTrackColor: primaryColor.withValues(alpha: 0.3),
+                inactiveThumbColor: context.appTheme.textSecondary,
                 inactiveTrackColor: context.appTheme.darkBackground,
+                trackOutlineColor: WidgetStatePropertyAll(
+                  context.appTheme.borderVisible,
+                ),
                 onChanged: (val) {
                   setState(() {
                     _isObligationPayment = val;
@@ -428,7 +442,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           
           if (_isObligationPayment) ...[
             const SizedBox(height: 16),
-            Divider(color: context.appTheme.borderSubtle, height: 1),
+            Divider(color: context.appTheme.borderVisible, height: 1),
             const SizedBox(height: 16),
             Text(
               'Seleccionar Obligación Pendiente',
@@ -440,7 +454,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               decoration: BoxDecoration(
                 color: context.appTheme.darkBackground,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.appTheme.borderSubtle),
+                border: Border.all(color: context.appTheme.borderVisible),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<Responsibility>(
@@ -459,11 +473,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         children: [
                           Icon(AppIcons.getIcon(r.safeIconCode), size: 16, color: primaryColor),
                           const SizedBox(width: 8),
-                          Text(r.safeName, style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14)),
-                          const Spacer(),
-                          Text(
-                            'Falta: ${CurrencyHelper.formatCompact(remaining)}',
-                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                          Expanded(
+                            child: Text(
+                              r.safeName,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: context.appTheme.textPrimary, fontSize: 14),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'Falta: ${CurrencyHelper.formatCompact(remaining)}',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                            ),
                           ),
                         ],
                       ),
@@ -496,18 +519,29 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     child: ChoiceChip(
                       label: Container(
                         alignment: Alignment.center,
-                        child: Text(
-                          'Sugerido (${CurrencyHelper.formatCompact(_getSuggestedPaymentAmount())})',
-                          style: TextStyle(
-                            color: _isMinimumPayment ? Colors.white : context.appTheme.textSecondary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Sugerido (${CurrencyHelper.formatCompact(_getSuggestedPaymentAmount())})',
+                            style: TextStyle(
+                              color: _isMinimumPayment
+                                  ? context.appTheme.foregroundOn(primaryColor)
+                                  : context.appTheme.textSecondary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
                       selected: _isMinimumPayment,
                       selectedColor: primaryColor,
+                      checkmarkColor: context.appTheme.foregroundOn(primaryColor),
                       backgroundColor: context.appTheme.darkBackground,
+                      side: BorderSide(
+                        color: _isMinimumPayment
+                            ? primaryColor
+                            : context.appTheme.borderVisible,
+                      ),
                       onSelected: (val) {
                         setState(() {
                           _isMinimumPayment = true;
@@ -521,18 +555,29 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     child: ChoiceChip(
                       label: Container(
                         alignment: Alignment.center,
-                        child: Text(
-                          'Personalizado',
-                          style: TextStyle(
-                            color: !_isMinimumPayment ? Colors.white : context.appTheme.textSecondary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Personalizado',
+                            style: TextStyle(
+                              color: !_isMinimumPayment
+                                  ? context.appTheme.foregroundOn(primaryColor)
+                                  : context.appTheme.textSecondary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
                       selected: !_isMinimumPayment,
                       selectedColor: primaryColor,
+                      checkmarkColor: context.appTheme.foregroundOn(primaryColor),
                       backgroundColor: context.appTheme.darkBackground,
+                      side: BorderSide(
+                        color: !_isMinimumPayment
+                            ? primaryColor
+                            : context.appTheme.borderVisible,
+                      ),
                       onSelected: (val) {
                         setState(() {
                           _isMinimumPayment = false;
@@ -553,7 +598,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ),
                   value: _markAsPaidComplete,
                   activeColor: primaryColor,
-                  checkColor: Colors.white,
+                  checkColor: context.appTheme.foregroundOn(primaryColor),
+                  side: BorderSide(
+                    color: context.appTheme.borderVisible,
+                    width: 1.5,
+                  ),
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
                   onChanged: (val) {
@@ -828,9 +877,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     // Colores y constantes de diseño
-    const Color primaryColor = Colors.redAccent; // Rojo para gastos
+    final Color primaryColor = AppColors.getReadableColor(
+      context.appTheme.expense,
+      context,
+    );
+    final Color incomeColor = AppColors.getReadableColor(
+      context.appTheme.income,
+      context,
+    );
     final Color surfaceColor = context.appTheme.secondaryCardBackground;
-    final Color cardColor = context.appTheme.darkBackground;
     const double cornerRadius = 20.0;
 
     return Scaffold(
@@ -848,16 +903,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 decoration: BoxDecoration(
                   color: surfaceColor,
                   borderRadius: BorderRadius.circular(cornerRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                      spreadRadius: -5,
-                    ),
-                  ],
+                  boxShadow: Theme.of(context).brightness == Brightness.light
+                      ? [
+                          BoxShadow(
+                            color: context.appTheme.textPrimary
+                                .withValues(alpha: 0.08),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                            spreadRadius: -5,
+                          ),
+                        ]
+                      : null,
                   border: Border.all(
-                    color: context.appTheme.borderSubtle,
+                    color: context.appTheme.borderVisible,
                     width: 1.0,
                   ),
                 ),
@@ -872,13 +930,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            primaryColor.withOpacity(0.15),
-                            primaryColor.withOpacity(0.05),
+                            primaryColor.withValues(alpha: 0.15),
+                            primaryColor.withValues(alpha: 0.05),
                           ],
                         ),
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(cornerRadius),
                           topRight: Radius.circular(cornerRadius),
+                        ),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: context.appTheme.borderVisible,
+                            width: 1,
+                          ),
                         ),
                       ),
                       child: Row(
@@ -887,10 +951,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.2),
+                              color: primaryColor.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.arrow_downward_rounded,
                               color: primaryColor,
                               size: 24,
@@ -902,7 +966,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Egreso',
                                   style: TextStyle(
                                     color: primaryColor,
@@ -955,7 +1019,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                     color: context.appTheme.textHint,
                                   ),
                                   border: InputBorder.none,
-                                  prefixIcon: const Icon(
+                                  prefixIcon: Icon(
                                     Icons.attach_money_rounded,
                                     color: primaryColor,
                                   ),
@@ -1003,12 +1067,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                           },
                                           items: _accountItems.map((account) {
                                             // Extraer ícono y color
-                                            final IconData iconData = account
-                                                    .icon ??
-                                                Icons.account_balance_wallet;
+                                            final IconData iconData =
+                                                account.icon;
                                             final Color iconColor =
-                                                account.iconColor ??
-                                                    Colors.blue;
+                                                AppColors.getReadableColor(
+                                              account.iconColor,
+                                              context,
+                                            );
 
                                             return DropdownMenuItem<
                                                 AccountItem>(
@@ -1104,7 +1169,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                               color: context.appTheme.textHint,
                                             ),
                                             border: InputBorder.none,
-                                            prefixIcon: const Icon(
+                                            prefixIcon: Icon(
                                               Icons.layers_rounded,
                                               color: primaryColor,
                                               size: 18,
@@ -1134,8 +1199,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(
                                             color: _isInterestFree
-                                                ? Colors.greenAccent.withOpacity(0.5)
-                                                : context.appTheme.borderSubtle,
+                                                ? incomeColor.withValues(alpha: 0.6)
+                                                : context.appTheme.borderVisible,
                                             width: 1,
                                           ),
                                         ),
@@ -1157,8 +1222,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                                         ? Icons.check_circle_rounded
                                                         : Icons.circle_outlined,
                                                     color: _isInterestFree
-                                                        ? Colors.greenAccent
-                                                        : Colors.grey,
+                                                        ? incomeColor
+                                                        : context.appTheme.textSecondary,
                                                     size: 20,
                                                   ),
                                                   const SizedBox(width: 10),
@@ -1166,7 +1231,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                                     _isInterestFree ? 'Sí' : 'No',
                                                     style: TextStyle(
                                                       color: _isInterestFree
-                                                          ? Colors.greenAccent
+                                                          ? incomeColor
                                                           : context.appTheme.textSecondary,
                                                       fontWeight: FontWeight.w600,
                                                       fontSize: 15,
@@ -1210,7 +1275,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                             color: context.appTheme.textHint,
                                           ),
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(
+                                          prefixIcon: Icon(
                                             Icons.description_outlined,
                                             color: primaryColor,
                                             size: 18,
@@ -1243,7 +1308,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                               vertical: 11),
                                           child: Row(
                                             children: [
-                                              const Icon(
+                                              Icon(
                                                 Icons.calendar_today_rounded,
                                                 color: primaryColor,
                                                 size: 18,
@@ -1348,15 +1413,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                             .pop();
                                       }
 
-                                      // Mostrar mensaje de error
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content:
-                                              Text('Error: ${e.toString()}'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
+                                       // Mostrar mensaje de error
+                                       final errColor = context.appTheme.error;
+                                       ScaffoldMessenger.of(context)
+                                           .showSnackBar(
+                                         SnackBar(
+                                           content: Text(
+                                             'Error: ${e.toString()}',
+                                             style: TextStyle(
+                                               color: context.appTheme
+                                                   .foregroundOn(errColor),
+                                             ),
+                                           ),
+                                           backgroundColor: errColor,
+                                         ),
+                                       );
                                     }
                                   },
                                 ),
@@ -1500,7 +1571,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final catDetails = _getObligationCategoryDetails();
     final String catText = catDetails['text'] as String;
     final IconData catIcon = AppIcons.getIcon(catDetails['icon'] as int);
-    final Color catColor = Color(catDetails['color'] as int);
+    final Color catColor = AppColors.getReadableColor(
+      Color(catDetails['color'] as int),
+      context,
+    );
 
     return _buildInputField(
       child: Padding(
@@ -1563,9 +1637,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.add_circle_outline_rounded,
-                    color: Color(0xFFFF6B6B),
+                    color: AppColors.getReadableColor(
+                      context.appTheme.expense,
+                      context,
+                    ),
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -1615,7 +1692,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           items: _categories.map((category) {
             final catText = category['text'] as String;
             final catIcon = AppIcons.getIcon(category['icon']);
-            final catColor = Color(category['color']);
+            final catColor = AppColors.getReadableColor(
+              Color(category['color']),
+              context,
+            );
 
             return DropdownMenuItem<String>(
               value: catText,
@@ -1675,7 +1755,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         color: context.appTheme.darkBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: context.appTheme.borderSubtle,
+          color: context.appTheme.borderVisible,
           width: 1,
         ),
       ),
@@ -1709,6 +1789,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     required VoidCallback onPressed,
     bool isOutlined = false,
   }) {
+    final Color fgColor =
+        isOutlined ? color : context.appTheme.foregroundOn(color);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1718,8 +1800,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           decoration: BoxDecoration(
             color: isOutlined ? Colors.transparent : color,
             borderRadius: BorderRadius.circular(12),
-            border:
-                isOutlined ? Border.all(color: context.appTheme.borderSubtle, width: 1) : null,
+            border: isOutlined
+                ? Border.all(color: context.appTheme.borderVisible, width: 1)
+                : null,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
@@ -1728,12 +1811,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, color: isOutlined ? color : Colors.white, size: 16),
+                  Icon(icon, color: fgColor, size: 16),
                   const SizedBox(width: 6),
                   Text(
                     label,
                     style: TextStyle(
-                      color: isOutlined ? color : Colors.white,
+                      color: fgColor,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
