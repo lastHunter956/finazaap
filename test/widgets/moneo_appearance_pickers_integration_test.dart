@@ -64,7 +64,7 @@ void main() {
 
   group('MoneoAppearancePickersRow', () {
     testWidgets(
-      'renderiza ambos triggers lado a lado (48dp+) y gestiona despliegue inline exclusivo',
+      'renderiza ambos triggers lado a lado (48dp+) y abre cada selector en ventana emergente',
       (tester) async {
         await setCompactSurface(tester);
 
@@ -111,13 +111,14 @@ void main() {
         expect((colorRect.top - iconRect.top).abs(), lessThanOrEqualTo(4));
         expect(iconRect.left, greaterThan(colorRect.right));
 
-        // Estado inicial colapsado
+        // Estado inicial cerrado
         expect(find.byType(MoneoColorPickerPanel), findsNothing);
         expect(find.byType(MoneoIconPickerPanel), findsNothing);
 
-        // 1. Abrir Color -> muestra Rueda y favoritos; permite alternar a Paleta
+        // 1. Abrir Color -> muestra ventana emergente con Rueda, Paleta y Aplicar
         await tester.tap(colorTrigger);
         await tester.pumpAndSettle();
+        expect(find.text('Elegir color'), findsOneWidget);
         expect(find.byType(MoneoColorPickerPanel), findsOneWidget);
         expect(find.byType(MoneoIconPickerPanel), findsNothing);
         expect(find.byKey(const Key('moneo_color_wheel')), findsOneWidget);
@@ -128,43 +129,43 @@ void main() {
 
         await tester.tap(find.byKey(const Key('moneo_palette_color_18')));
         await tester.pump();
-        expect(selectedColor.toARGB32(), kMoneoWheelColors[18].toARGB32());
-
-        await tester.tap(find.text('Rueda'));
+        await tester.tap(find.text('Aplicar'));
         await tester.pumpAndSettle();
-        expect(find.byKey(const Key('moneo_color_wheel')), findsOneWidget);
+        expect(selectedColor.toARGB32(), kMoneoWheelColors[18].toARGB32());
+        expect(find.byType(MoneoColorPickerPanel), findsNothing);
 
-        // 2. Tocar Ícono -> cierra Color y despliega Ícono
+        // 2. Abrir Ícono -> muestra ventana emergente con categorías, búsqueda y cierre al elegir
         await tester.tap(iconTrigger);
         await tester.pumpAndSettle();
-        expect(find.byType(MoneoColorPickerPanel), findsNothing);
+        expect(find.text('Elegir ícono'), findsOneWidget);
         expect(find.byType(MoneoIconPickerPanel), findsOneWidget);
+        expect(find.byType(MoneoColorPickerPanel), findsNothing);
 
+        await tester.drag(find.text('Finanzas'), const Offset(-120, 0));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Comida'));
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.restaurant), findsOneWidget);
 
+        await tester.drag(find.text('Comida'), const Offset(120, 0));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Todos'));
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), 'café');
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.local_cafe), findsOneWidget);
 
+        await tester.ensureVisible(find.byIcon(Icons.local_cafe));
         await tester.tap(find.byIcon(Icons.local_cafe));
-        await tester.pump();
-        expect(selectedIcon, Icons.local_cafe);
-
-        // 3. Volver a tocar Ícono -> colapsa todo
-        await tester.tap(iconTrigger);
         await tester.pumpAndSettle();
-        expect(find.byType(MoneoColorPickerPanel), findsNothing);
+        expect(selectedIcon, Icons.local_cafe);
         expect(find.byType(MoneoIconPickerPanel), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
 
     testWidgets(
-      'cero overflow en 360x640 @ 1.35x en los 4 temas (colapsado, color e ícono)',
+      'cero overflow en 360x640 @ 1.35x en los 4 temas (triggers y ventanas emergentes)',
       (tester) async {
         await setCompactSurface(tester);
 
@@ -210,7 +211,7 @@ void main() {
           expect(
             tester.takeException(),
             isNull,
-            reason: 'Overflow en panel Color (Rueda) en $mode',
+            reason: 'Overflow en popup Color (Rueda) en $mode',
           );
 
           await tester.tap(find.text('Paleta'));
@@ -218,8 +219,11 @@ void main() {
           expect(
             tester.takeException(),
             isNull,
-            reason: 'Overflow en panel Color (Paleta) en $mode',
+            reason: 'Overflow en popup Color (Paleta) en $mode',
           );
+
+          await tester.tap(find.text('Aplicar'));
+          await tester.pumpAndSettle();
 
           await tester.tap(find.byType(MoneoIconPickerTrigger));
           await tester.pumpAndSettle();
@@ -227,8 +231,11 @@ void main() {
           expect(
             tester.takeException(),
             isNull,
-            reason: 'Overflow en panel Ícono en $mode',
+            reason: 'Overflow en popup Ícono en $mode',
           );
+
+          await tester.tap(find.byTooltip('Cerrar'));
+          await tester.pumpAndSettle();
         }
       },
     );
@@ -270,6 +277,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(MoneoColorPickerPanel), findsOneWidget);
         expect(tester.takeException(), isNull);
+        await tester.tap(find.text('Aplicar'));
+        await tester.pumpAndSettle();
 
         final iconTrigger = find.byType(MoneoIconPickerTrigger);
         await tester.ensureVisible(iconTrigger);
@@ -279,6 +288,8 @@ void main() {
         expect(find.byType(MoneoColorPickerPanel), findsNothing);
         expect(find.byType(MoneoIconPickerPanel), findsOneWidget);
         expect(tester.takeException(), isNull);
+        await tester.tap(find.byTooltip('Cerrar').last);
+        await tester.pumpAndSettle();
       },
     );
 
@@ -326,11 +337,13 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(MoneoIconPickerPanel), findsOneWidget);
         expect(tester.takeException(), isNull);
+        await tester.tap(find.byTooltip('Cerrar').last);
+        await tester.pumpAndSettle();
       },
     );
 
     testWidgets(
-      'AddResponsibilityDialog integra MoneoIconPickerTrigger + MoneoIconPickerPanel inline sin overflow',
+      'AddResponsibilityDialog integra MoneoIconPickerTrigger con ventana emergente sin overflow',
       (tester) async {
         await setCompactSurface(tester);
 
@@ -381,6 +394,7 @@ void main() {
         await tester.tap(receiptIcon);
         await tester.pumpAndSettle();
 
+        expect(find.byType(MoneoIconPickerPanel), findsNothing);
         expect(
           tester.widget<MoneoIconPickerTrigger>(iconTrigger).selectedIcon,
           Icons.receipt_long,
@@ -419,6 +433,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(MoneoColorPickerPanel), findsOneWidget);
         expect(tester.takeException(), isNull);
+        await tester.tap(find.text('Aplicar'));
+        await tester.pumpAndSettle();
 
         final iconTrigger = find.byType(MoneoIconPickerTrigger);
         await tester.ensureVisible(iconTrigger);
@@ -428,6 +444,8 @@ void main() {
         expect(find.byType(MoneoColorPickerPanel), findsNothing);
         expect(find.byType(MoneoIconPickerPanel), findsOneWidget);
         expect(tester.takeException(), isNull);
+        await tester.tap(find.byTooltip('Cerrar').last);
+        await tester.pumpAndSettle();
       },
     );
   });

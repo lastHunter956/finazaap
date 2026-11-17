@@ -5,6 +5,7 @@ import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/data/responsibility_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
+import 'package:finazaap/widgets/moneo_appearance_pickers_row.dart';
 import 'package:finazaap/widgets/moneo_icon_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:finazaap/utils/currency_helper.dart';
@@ -35,7 +36,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
   String _selectedFrequency = 'mensual';
   late int _selectedIconCode;
   Color iconColor = const Color(0xFF3D7AF0);
-  bool _isIconPickerExpanded = false;
+  bool _isIconPickerOpen = false;
 
   @override
   void initState() {
@@ -478,29 +479,24 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                           MoneoIconPickerTrigger(
                             selectedIcon: AppIcons.getIcon(_selectedIconCode),
                             accentColor: iconColor,
-                            isExpanded: _isIconPickerExpanded,
+                            isExpanded: _isIconPickerOpen,
                             label: 'Ícono',
-                            onTap: () => setState(
-                              () => _isIconPickerExpanded = !_isIconPickerExpanded,
-                            ),
-                          ),
-                          AnimatedSize(
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOutCubic,
-                            alignment: Alignment.topCenter,
-                            child: _isIconPickerExpanded
-                                ? Padding(
-                                    padding: const EdgeInsets.only(top: 10),
-                                    child: MoneoIconPickerPanel(
-                                      selectedIcon:
-                                          AppIcons.getIcon(_selectedIconCode),
-                                      accentColor: iconColor,
-                                      onIconSelected: (icon) => setState(
-                                        () => _selectedIconCode = icon.codePoint,
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
+                            onTap: () async {
+                              setState(() => _isIconPickerOpen = true);
+                              final picked = await showMoneoIconPickerPopup(
+                                context: context,
+                                initialIcon:
+                                    AppIcons.getIcon(_selectedIconCode),
+                                accentColor: iconColor,
+                              );
+                              if (!mounted) return;
+                              setState(() {
+                                _isIconPickerOpen = false;
+                                if (picked != null) {
+                                  _selectedIconCode = picked.codePoint;
+                                }
+                              });
+                            },
                           ),
                         ],
                       ),
