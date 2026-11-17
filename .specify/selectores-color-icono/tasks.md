@@ -1,0 +1,5 @@
+# Tasks — Selectores Minimalistas Lado a Lado (`selectores-color-icono`)
+
+- [ ] **T1 (Agente 1):** Implementar `lib/widgets/moneo_color_picker.dart` (`MoneoColorPickerTrigger` minimalista `48dp` + `MoneoColorPickerPanel` con rueda 48 colores + paleta + tests `test/widgets/moneo_color_picker_test.dart`) y validar en Docker.
+- [ ] **T2 (Agente 2):** Ampliar `lib/utils/app_icons.dart` (conservar 43 históricos + ~65+ específicos en 8 categorías) e implementar `lib/widgets/moneo_icon_picker.dart` (`MoneoIconPickerTrigger` minimalista `48dp` + `MoneoIconPickerPanel` con búsqueda y chips + tests `test/widgets/moneo_icon_picker_test.dart`) y validar en Docker.
+- [ ] **T3 (Integrador):** Consolidar ambas ramas en `integration/pulido-visual-web`, crear `MoneoAppearancePickersRow`, reemplazar todos los selectores de color/ícono en `categories_screen.dart`, `add_account_dialogs.dart`, `edit_account_dialogs.dart`, `ai_chat_screen.dart` y `add_responsibility_dialog.dart`, validar suite completa + `flutter build web` en Docker, actualizar `moneo-pulido-web` (`localhost:8085`) y eliminar `wt-sel-color` / `wt-sel-icons` y sus ramas.
