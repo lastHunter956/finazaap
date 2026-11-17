@@ -81,6 +81,31 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     final netBalance = _dailyIncome - _dailyExpense;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final double topBarHeight = 32.0 +
+        math.max(
+          48.0,
+          textScaler.scale(12.0) * 1.35 + 2.0 + textScaler.scale(20.0) * 1.35,
+        );
+    final double compactSummaryHeight =
+        44.0 + textScaler.scale(11.0) * 1.35 + 4.0 + textScaler.scale(16.0) * 1.35 + 12.0;
+    final double expandedSummaryHeight = 24.0 +
+        (32.0 +
+            math.max(20.0, textScaler.scale(13.0) * 1.35) +
+            8.0 +
+            textScaler.scale(32.0) * 1.25) +
+        16.0 +
+        (32.0 +
+            math.max(26.0, textScaler.scale(12.0) * 1.35) +
+            8.0 +
+            textScaler.scale(18.0) * 1.35) +
+        16.0;
+    final double dynamicMinHeight =
+        math.max(165.0, topBarHeight + compactSummaryHeight);
+    final double dynamicMaxHeight = math.max(
+      325.0,
+      math.max(dynamicMinHeight + 40.0, topBarHeight + expandedSummaryHeight),
+    );
 
     return Scaffold(
       backgroundColor: context.appTheme.primaryBackground,
@@ -90,8 +115,8 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
             SliverPersistentHeader(
               pinned: true,
               delegate: _CollapsibleHeaderDelegate(
-                minHeight: 165,
-                maxHeight: 325,
+                minHeight: dynamicMinHeight,
+                maxHeight: dynamicMaxHeight,
                 dateString: widget.dateString,
                 netBalance: netBalance,
                 dailyIncome: _dailyIncome,
@@ -245,6 +270,8 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
                     isTransfer
                         ? (history.explain ?? '')
                         : history.safeAccount,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.w400,
                       color: context.appTheme.textSecondary,
@@ -255,23 +282,29 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
               ),
             ),
 
-            Container(
-              margin: const EdgeInsets.only(left: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    CurrencyHelper.formatString(history.safeAmount),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: isTransfer
-                          ? context.appTheme.textSecondary
-                          : (isIncome
-                              ? context.appTheme.income
-                              : context.appTheme.expense),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 132),
+              child: Container(
+                margin: const EdgeInsets.only(left: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        CurrencyHelper.formatString(history.safeAmount),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: isTransfer
+                              ? context.appTheme.textSecondary
+                              : (isIncome
+                                  ? context.appTheme.income
+                                  : context.appTheme.expense),
+                        ),
+                      ),
                     ),
-                  ),
                   if (history.installments != null && history.installments != '1' && history.installments!.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Container(
@@ -293,6 +326,7 @@ class _DailyTransactionsScreenState extends State<DailyTransactionsScreen> {
                   ],
                 ],
               ),
+            ),
             ),
           ],
         ),
@@ -432,9 +466,18 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
             padding: const EdgeInsets.fromLTRB(8, 16, 16, 16),
             child: Row(
               children: [
-                IconButton(
-                  icon: Icon(Icons.arrow_back_ios_rounded, color: context.appTheme.textPrimary),
-                  onPressed: onBackPressed,
+                Semantics(
+                  button: true,
+                  label: 'Volver',
+                  child: IconButton(
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    tooltip: 'Volver',
+                    icon: Icon(Icons.arrow_back_ios_rounded, color: context.appTheme.textPrimary),
+                    onPressed: onBackPressed,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -443,6 +486,8 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                     children: [
                       Text(
                         'Transacciones del día',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: context.appTheme.textSecondary,
                           fontSize: 12,
@@ -452,6 +497,8 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                       const SizedBox(height: 2),
                       Text(
                         dateString,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: context.appTheme.textPrimary,
                           fontSize: 20,
@@ -471,9 +518,15 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
               duration: const Duration(milliseconds: 300),
               switchInCurve: Curves.easeInOut,
               switchOutCurve: Curves.easeInOut,
-              child: showCollapsed
-                  ? _buildCompactSummary(context)
-                  : _buildExpandedSummary(context),
+              child: ClipRect(
+                key: ValueKey(showCollapsed ? 'compact' : 'expanded'),
+                child: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: showCollapsed
+                      ? _buildCompactSummary(context)
+                      : _buildExpandedSummary(context),
+                ),
+              ),
             ),
           ),
         ],
@@ -482,6 +535,8 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 
   Widget _buildExpandedSummary(BuildContext context) {
+    final t = context.appTheme;
+    final balanceColor = netBalance >= 0 ? t.income : t.expense;
     return Padding(
       key: const ValueKey('expanded'),
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -491,13 +546,14 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: netBalance >= 0
-                    ? [Colors.green.withOpacity(0.15), Colors.green.withOpacity(0.05)]
-                    : [Colors.redAccent.withOpacity(0.15), Colors.redAccent.withOpacity(0.05)],
+                colors: [
+                  balanceColor.withValues(alpha: 0.15),
+                  balanceColor.withValues(alpha: 0.05),
+                ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: netBalance >= 0 ? Colors.green.withOpacity(0.3) : Colors.redAccent.withOpacity(0.3),
+                color: balanceColor.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -508,28 +564,35 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                   children: [
                     Icon(
                       netBalance >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                      color: netBalance >= 0 ? context.appTheme.income : context.appTheme.expense,
+                      color: balanceColor,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Balance del Día',
-                      style: TextStyle(
-                        color: context.appTheme.textSecondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Text(
+                        'Balance del Día',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: t.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  CurrencyHelper.format(netBalance),
-                  style: TextStyle(
-                    color: netBalance >= 0 ? context.appTheme.income : context.appTheme.expense,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -1,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    CurrencyHelper.format(netBalance),
+                    style: TextStyle(
+                      color: balanceColor,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -1,
+                    ),
                   ),
                 ),
               ],
@@ -544,9 +607,9 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
+                    color: t.income.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green.withOpacity(0.2), width: 1),
+                    border: Border.all(color: t.income.withValues(alpha: 0.2), width: 1),
                   ),
                   child: Column(
                     children: [
@@ -556,39 +619,45 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                           Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.2),
+                              color: t.income.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.arrow_downward_rounded,
-                              color: context.appTheme.income,
+                              color: t.income,
                               size: 14,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            "Ingresos",
-                            style: TextStyle(
-                              color: context.appTheme.textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Text(
+                              "Ingresos",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: t.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        dailyIncome >= 1000000
-                            ? NumberFormat.compact(locale: 'es').format(dailyIncome) + ' ' + CurrencyHelper.currencySymbol
-                            : CurrencyHelper.format(dailyIncome),
-                        style: TextStyle(
-                          color: context.appTheme.income,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          dailyIncome >= 1000000
+                              ? '${NumberFormat.compact(locale: 'es').format(dailyIncome)} ${CurrencyHelper.currencySymbol}'
+                              : CurrencyHelper.format(dailyIncome),
+                          style: TextStyle(
+                            color: t.income,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -601,9 +670,9 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.redAccent.withOpacity(0.1),
+                    color: t.expense.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.redAccent.withOpacity(0.2), width: 1),
+                    border: Border.all(color: t.expense.withValues(alpha: 0.2), width: 1),
                   ),
                   child: Column(
                     children: [
@@ -613,39 +682,45 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                           Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: Colors.redAccent.withOpacity(0.2),
+                              color: t.expense.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.arrow_upward_rounded,
-                              color: context.appTheme.expense,
+                              color: t.expense,
                               size: 14,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            "Gastos",
-                            style: TextStyle(
-                              color: context.appTheme.textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Text(
+                              "Gastos",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: t.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        dailyExpense >= 1000000
-                            ? NumberFormat.compact(locale: 'es').format(dailyExpense) + ' ' + CurrencyHelper.currencySymbol
-                            : CurrencyHelper.format(dailyExpense),
-                        style: TextStyle(
-                          color: context.appTheme.expense,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          dailyExpense >= 1000000
+                              ? '${NumberFormat.compact(locale: 'es').format(dailyExpense)} ${CurrencyHelper.currencySymbol}'
+                              : CurrencyHelper.format(dailyExpense),
+                          style: TextStyle(
+                            color: t.expense,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -659,16 +734,18 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 
   Widget _buildCompactSummary(BuildContext context) {
+    final t = context.appTheme;
+    final balanceColor = netBalance >= 0 ? t.income : t.expense;
     return Padding(
       key: const ValueKey('compact'),
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: context.appTheme.cardBackground,
+          color: t.cardBackground,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: context.appTheme.borderSubtle,
+            color: t.borderSubtle,
             width: 1,
           ),
         ),
@@ -683,27 +760,35 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                     children: [
                       Icon(
                         netBalance >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                        color: netBalance >= 0 ? context.appTheme.income : context.appTheme.expense,
+                        color: balanceColor,
                         size: 16,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        'Balance',
-                        style: TextStyle(
-                          color: context.appTheme.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                      Flexible(
+                        child: Text(
+                          'Balance',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: t.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    NumberFormat.compact(locale: 'es').format(netBalance),
-                    style: TextStyle(
-                      color: netBalance >= 0 ? context.appTheme.income : context.appTheme.expense,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      NumberFormat.compact(locale: 'es').format(netBalance),
+                      style: TextStyle(
+                        color: balanceColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -713,7 +798,7 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
             Container(
               width: 1,
               height: 40,
-              color: context.appTheme.borderSubtle,
+              color: t.borderSubtle,
             ),
 
             const SizedBox(width: 12),
@@ -726,27 +811,35 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                     children: [
                       Icon(
                         Icons.arrow_downward_rounded,
-                        color: context.appTheme.income,
+                        color: t.income,
                         size: 12,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        'Ingresos',
-                        style: TextStyle(
-                          color: context.appTheme.textSecondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
+                      Flexible(
+                        child: Text(
+                          'Ingresos',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: t.textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    NumberFormat.compact(locale: 'es').format(dailyIncome),
-                    style: TextStyle(
-                      color: context.appTheme.income,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      NumberFormat.compact(locale: 'es').format(dailyIncome),
+                      style: TextStyle(
+                        color: t.income,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -763,27 +856,35 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
                     children: [
                       Icon(
                         Icons.arrow_upward_rounded,
-                        color: context.appTheme.expense,
+                        color: t.expense,
                         size: 12,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        'Gastos',
-                        style: TextStyle(
-                          color: context.appTheme.textSecondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
+                      Flexible(
+                        child: Text(
+                          'Gastos',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: t.textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    NumberFormat.compact(locale: 'es').format(dailyExpense),
-                    style: TextStyle(
-                      color: context.appTheme.expense,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      NumberFormat.compact(locale: 'es').format(dailyExpense),
+                      style: TextStyle(
+                        color: t.expense,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -797,7 +898,9 @@ class _CollapsibleHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_CollapsibleHeaderDelegate oldDelegate) {
-    return netBalance != oldDelegate.netBalance ||
+    return minHeight != oldDelegate.minHeight ||
+        maxHeight != oldDelegate.maxHeight ||
+        netBalance != oldDelegate.netBalance ||
         dailyIncome != oldDelegate.dailyIncome ||
         dailyExpense != oldDelegate.dailyExpense ||
         dateString != oldDelegate.dateString;

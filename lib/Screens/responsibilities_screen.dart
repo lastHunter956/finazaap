@@ -19,6 +19,7 @@ import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'package:finazaap/widgets/show_responsibility_options.dart';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
@@ -93,6 +94,13 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
               valueListenable: _responsibilitiesListenable!,
               builder: (context, Box<Responsibility> box, _) {
                 final list = box.values.toList();
+                final textScaler = MediaQuery.textScalerOf(context);
+                final titleRowHeight =
+                    8.0 + math.max(24.0, textScaler.scale(18.0) * 1.45);
+                final chipBarHeight =
+                    math.max(48.0, textScaler.scale(13.0) * 1.4 + 24.0);
+                final stickyExtent =
+                    20.0 + titleRowHeight + 8.0 + chipBarHeight + 4.0;
                 return CustomScrollView(
                   physics: const BouncingScrollPhysics(),
                   slivers: [
@@ -139,6 +147,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                     SliverPersistentHeader(
                       pinned: true,
                       delegate: _StickyCategoryDelegate(
+                        extent: stickyExtent,
                         child: Container(
                           color: context.appTheme.primaryBackground,
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -150,14 +159,19 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'Obligaciones',
-                                      style: TextStyle(
-                                        color: context.appTheme.textPrimary,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                    Expanded(
+                                      child: Text(
+                                        'Obligaciones',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: context.appTheme.textPrimary,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Text(
                                       '${box.length} total',
                                       style: TextStyle(
@@ -170,7 +184,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                               ),
                               const SizedBox(height: 8),
                               Container(
-                                height: 48,
+                                height: chipBarHeight,
                                 margin: const EdgeInsets.symmetric(horizontal: 16),
                                 decoration: BoxDecoration(
                                   color: context.appTheme.cardBackground.withOpacity(.8),
@@ -190,35 +204,42 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                     // Botón "Más Filtros" al final
                                     if (index == _quickCategories.length) {
                                       return Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
                                         child: Material(
                                           color: Colors.transparent,
                                           child: InkWell(
                                             onTap: _showFilterDialog,
                                             borderRadius: BorderRadius.circular(8),
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: context.appTheme.darkBackground,
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(
-                                                  color: context.appTheme.borderSubtle,
-                                                  width: 1,
-                                                ),
+                                            child: ConstrainedBox(
+                                              constraints: const BoxConstraints(
+                                                minWidth: 44,
+                                                minHeight: 44,
                                               ),
-                                              alignment: Alignment.center,
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.filter_list_rounded, size: 16, color: context.appTheme.textSecondary),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    'Más',
-                                                    style: TextStyle(
-                                                      color: context.appTheme.textPrimary,
-                                                      fontSize: 12.5,
-                                                    ),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: context.appTheme.darkBackground,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: context.appTheme.borderSubtle,
+                                                    width: 1,
                                                   ),
-                                                ],
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.filter_list_rounded, size: 16, color: context.appTheme.textSecondary),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      'Más',
+                                                      style: TextStyle(
+                                                        color: context.appTheme.textPrimary,
+                                                        fontSize: 12.5,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -538,44 +559,96 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
   bool _showAllObligations = false;
   
   Widget _buildResponsibilitySliver(List<String> categories) {
-    List<Responsibility> responsibilities;
-    
-    if (categories.contains('Todos')) {
-      responsibilities = ResponsibilityService.getAllResponsibilities();
-    } else {
-      final all = ResponsibilityService.getAllResponsibilities();
-      responsibilities = all.where((r) => categories.contains(r.safeCategory)).toList();
-    }
+    final allResponsibilities = ResponsibilityService.getAllResponsibilities();
+    final List<Responsibility> responsibilities = categories.contains('Todos')
+        ? allResponsibilities
+        : allResponsibilities
+            .where((r) => categories.contains(r.safeCategory))
+            .toList();
 
     if (responsibilities.isEmpty) {
-      return SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: context.appTheme.darkBackground,
-                  shape: BoxShape.circle,
+      final t = context.appTheme;
+      final isFilteredEmpty = allResponsibilities.isNotEmpty;
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: t.cardBackground,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: t.borderSubtle),
+                  ),
+                  child: Icon(
+                    Icons.inbox_outlined,
+                    size: 52,
+                    color: t.textHint,
+                  ),
                 ),
-                child: Icon(
-                  Icons.inbox_outlined,
-                  size: 64,
-                  color: context.appTheme.textHint,
+                const SizedBox(height: 16),
+                Text(
+                  isFilteredEmpty
+                      ? 'No hay obligaciones con este filtro'
+                      : 'No hay responsabilidades',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: t.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No hay responsabilidades',
-                style: TextStyle(
-                  color: context.appTheme.textSecondary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(height: 8),
+                Text(
+                  isFilteredEmpty
+                      ? 'Prueba otra categoría o registra una nueva obligación.'
+                      : 'Registra servicios, suscripciones o deudas para controlar sus vencimientos.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: t.textSecondary,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 20),
+                Semantics(
+                  container: true,
+                  button: true,
+                  label: 'Nueva obligación',
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showAddResponsibilityDialog(),
+                    icon: Icon(
+                      Icons.add_rounded,
+                      color: t.buttonForeground,
+                    ),
+                    label: ExcludeSemantics(
+                      child: Text(
+                        'Nueva obligación',
+                        style: TextStyle(
+                          color: t.buttonForeground,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: t.buttonBackground,
+                      foregroundColor: t.buttonForeground,
+                      minimumSize: const Size(48, 48),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -1715,21 +1788,25 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
 
 class _StickyCategoryDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
+  final double extent;
 
-  _StickyCategoryDelegate({required this.child});
+  _StickyCategoryDelegate({
+    required this.child,
+    required this.extent,
+  });
 
   @override
-  double get minExtent => 110; // Reducido para ajustarse al contenido comprimido
+  double get minExtent => extent;
   @override
-  double get maxExtent => 110;
+  double get maxExtent => extent;
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return child;
+    return SizedBox.expand(child: child);
   }
 
   @override
   bool shouldRebuild(covariant _StickyCategoryDelegate oldDelegate) {
-    return oldDelegate.child != child;
+    return oldDelegate.extent != extent || oldDelegate.child != child;
   }
 }

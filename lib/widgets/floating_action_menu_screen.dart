@@ -93,13 +93,14 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                 child: ScaleTransition(
                   scale: _scaleAnimation,
                   child: Center(
-                    child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Contenedor principal con diseño de tarjeta
-                      Container(
-                        width: menuWidth,
-                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        constraints: BoxConstraints(maxWidth: menuWidth),
                         decoration: BoxDecoration(
                           color: context.appTheme.secondaryCardBackground,
                           borderRadius: BorderRadius.circular(
@@ -159,27 +160,33 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                     ),
                                     const SizedBox(width: 15),
                                     // Texto con sombra sutil
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          "Nueva Operación",
-                                          style: TextStyle(
-                                            color: context.appTheme.textPrimary,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 0.3,
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            "Nueva Operación",
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: context.appTheme.textPrimary,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.3,
+                                            ),
                                           ),
-                                        ),
-                                        Text(
-                                          "Selecciona una opción",
-                                          style: TextStyle(
-                                            color: context.appTheme.textSecondary,
-                                            fontSize: 12,
-                                            letterSpacing: 0.2,
+                                          Text(
+                                            "Selecciona una opción",
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: context.appTheme.textSecondary,
+                                              fontSize: 12,
+                                              letterSpacing: 0.2,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -283,13 +290,17 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                                                 size: 20,
                                               ),
                                               const SizedBox(width: 8),
-                                              Text(
-                                                'Cerrar',
-                                                style: TextStyle(
-                                                  color: context
-                                                      .appTheme.textSecondary,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
+                                              Flexible(
+                                                child: Text(
+                                                  'Cerrar',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: context
+                                                        .appTheme.textSecondary,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
                                                 ),
                                               ),
                                             ],
@@ -304,10 +315,9 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
               ),
             ),
           ],
@@ -436,9 +446,14 @@ class _FloatingActionMenuScreenState extends State<FloatingActionMenuScreen> wit
                         fontWeight: isHovered ? FontWeight.w700 : FontWeight.w600,
                         letterSpacing: isHovered ? 0.2 : 0,
                       ),
-                      child: Text(label),
+                      child: Text(
+                        label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   // Flecha con contraste garantizado
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),

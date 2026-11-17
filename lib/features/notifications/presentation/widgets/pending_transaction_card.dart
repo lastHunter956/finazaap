@@ -110,9 +110,12 @@ class PendingTransactionCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 165),
-                  child: SuspiciousBadge.fromItem(item),
+                Flexible(
+                  flex: 0,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 150),
+                    child: SuspiciousBadge.fromItem(item),
+                  ),
                 ),
               ],
             ),
@@ -124,12 +127,19 @@ class PendingTransactionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(
-                  amountText,
-                  style: TextStyle(
-                    color: _resolveAmountColor(theme),
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      amountText,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: _resolveAmountColor(theme),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -141,6 +151,7 @@ class PendingTransactionCard extends StatelessWidget {
                       fontSize: 12,
                     ),
                     textAlign: TextAlign.right,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -214,7 +225,7 @@ class PendingTransactionCard extends StatelessWidget {
                     onPressed: onDiscard,
                     style: TextButton.styleFrom(
                       foregroundColor: theme.textSecondary,
-                      minimumSize: const Size(44, 44),
+                      minimumSize: const Size(48, 48),
                       tapTargetSize: MaterialTapTargetSize.padded,
                       padding:
                           const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -229,7 +240,7 @@ class PendingTransactionCard extends StatelessWidget {
                         onPressed: onCorrect,
                         style: OutlinedButton.styleFrom(
                           foregroundColor: theme.accent,
-                          minimumSize: const Size(44, 44),
+                          minimumSize: const Size(48, 48),
                           tapTargetSize: MaterialTapTargetSize.padded,
                           side: BorderSide(
                             color: theme.accent.withValues(alpha: 0.55),
@@ -251,7 +262,7 @@ class PendingTransactionCard extends StatelessWidget {
                           disabledBackgroundColor:
                               theme.borderSubtle.withValues(alpha: 0.25),
                           disabledForegroundColor: theme.textHint,
-                          minimumSize: const Size(44, 44),
+                          minimumSize: const Size(48, 48),
                           tapTargetSize: MaterialTapTargetSize.padded,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(

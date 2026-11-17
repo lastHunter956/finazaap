@@ -553,7 +553,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                     ),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.12),
+                      color: context.appTheme.borderVisible,
                       width: 1.2,
                     ),
                     boxShadow: [
@@ -577,6 +577,8 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                               children: [
                                 Text(
                                   'PROYECCIÓN ANUAL TOTAL',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: context.appTheme.textSecondary,
                                     fontSize: 11,
@@ -585,45 +587,61 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                Text(
-                                  CurrencyHelper.format(totalAnnual),
-                                  style: TextStyle(
-                                    color: context.appTheme.textPrimary,
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    CurrencyHelper.format(totalAnnual),
+                                    style: TextStyle(
+                                      color: context.appTheme.textPrimary,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: context.appTheme.secondaryCardBackground,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: context.appTheme.borderVisible, width: 1.5),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Promedio Mensual',
-                                  style: TextStyle(
-                                    color: context.appTheme.textSecondary,
-                                    fontSize: 10,
-                                  ),
+                          Flexible(
+                            flex: 0,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 148),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: context.appTheme.secondaryCardBackground,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: context.appTheme.borderVisible, width: 1.5),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  CurrencyHelper.format(monthlyAverage),
-                                  style: TextStyle(
-                                    color: context.appTheme.textPrimary,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'Promedio Mensual',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: context.appTheme.textSecondary,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerRight,
+                                      child: Text(
+                                        CurrencyHelper.format(monthlyAverage),
+                                        style: TextStyle(
+                                          color: context.appTheme.textPrimary,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ],
@@ -653,33 +671,47 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            color: color,
-                                            shape: BoxShape.circle,
+                                    Expanded(
+                                      flex: 2,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              color: color,
+                                              shape: BoxShape.circle,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          cat.toUpperCase(),
-                                          style: TextStyle(
-                                            color: context.appTheme.textSecondary,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              cat.toUpperCase(),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: context.appTheme.textSecondary,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                    Text(
-                                      '${CurrencyHelper.format(amt)} (${(percentage * 100).toStringAsFixed(0)}%)',
-                                      style: TextStyle(
-                                        color: context.appTheme.textPrimary,
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w600,
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      flex: 3,
+                                      child: Text(
+                                        '${CurrencyHelper.format(amt)} (${(percentage * 100).toStringAsFixed(0)}%)',
+                                        textAlign: TextAlign.right,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: context.appTheme.textPrimary,
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -732,25 +764,98 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                 ),
               ),
               if (sortedResponsibilities.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.calendar_today_outlined, size: 60, color: context.appTheme.borderSubtle),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No tienes obligaciones registradas',
-                          style: TextStyle(color: context.appTheme.textHint),
-                        ),
-                      ],
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: MoneoLayoutMetrics.scrollBottomPadding(
+                      context,
+                      hasFab: true,
+                      horizontal: 24,
+                      top: 24,
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: context.appTheme.cardBackground,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: context.appTheme.borderSubtle),
+                            ),
+                            child: Icon(
+                              Icons.calendar_today_outlined,
+                              size: 48,
+                              color: context.appTheme.textHint,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No tienes obligaciones registradas',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: context.appTheme.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Registra tus obligaciones recurrentes para calcular tu proyección anual y promedio mensual.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: context.appTheme.textSecondary,
+                              fontSize: 13,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Semantics(
+                            container: true,
+                            button: true,
+                            label: 'Nueva obligación',
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showAddResponsibilityDialog(),
+                              icon: Icon(
+                                Icons.add_rounded,
+                                color: context.appTheme.buttonForeground,
+                              ),
+                              label: ExcludeSemantics(
+                                child: Text(
+                                  'Nueva obligación',
+                                  style: TextStyle(
+                                    color: context.appTheme.buttonForeground,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: context.appTheme.buttonBackground,
+                                foregroundColor: context.appTheme.buttonForeground,
+                                minimumSize: const Size(48, 48),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 )
               else
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  padding: MoneoLayoutMetrics.scrollBottomPadding(
+                    context,
+                    hasFab: true,
+                    horizontal: 16,
+                    top: 10,
+                  ),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -811,6 +916,8 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                         children: [
                                           Text(
                                             r.safeName,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                               color: context.appTheme.textPrimary,
                                               fontSize: 16,
@@ -820,6 +927,8 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                           const SizedBox(height: 4),
                                           Text(
                                             '${CurrencyHelper.format(r.safeAmount, showSymbol: true)} / ${r.safeFrequency}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                               color: context.appTheme.textSecondary,
                                               fontSize: 12.5,
@@ -828,27 +937,36 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                         ],
                                       ),
                                     ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          CurrencyHelper.format(annualCost),
-                                          style: TextStyle(
-                                            color: context.appTheme.accent,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
+                                    const SizedBox(width: 8),
+                                    ConstrainedBox(
+                                      constraints: const BoxConstraints(maxWidth: 132),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerRight,
+                                            child: Text(
+                                              CurrencyHelper.format(annualCost),
+                                              style: TextStyle(
+                                                color: context.appTheme.accent,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: catColor.withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: catColor.withOpacity(0.25)),
-                                          ),
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: catColor.withOpacity(0.15),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: catColor.withOpacity(0.25)),
+                                            ),
                                             child: Text(
                                               r.safeFrequency.toUpperCase(),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 color: AppColors.getReadableColor(catColor, context),
                                                 fontSize: 9,
@@ -856,8 +974,9 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                                                 letterSpacing: 0.5,
                                               ),
                                             ),
-                                        ),
-                                      ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -870,14 +989,6 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                     ),
                   ),
                 ),
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: MoneoLayoutMetrics.scrollBottomPadding(
-                    context,
-                    hasFab: true,
-                  ).bottom,
-                ),
-              ),
             ],
           );
         },

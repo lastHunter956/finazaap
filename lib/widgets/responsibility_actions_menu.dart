@@ -104,21 +104,28 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
             ),
             
             // Menu
-            Center(
-              child: AnimatedBuilder(
-                animation: _scaleAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _scaleAnimation.value,
-                    child: Opacity(
-                      opacity: _scaleAnimation.value,
-                      child: child,
-                    ),
-                  );
-                },
-                child: Container(
-                  width: menuWidth,
-                  decoration: BoxDecoration(
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  child: AnimatedBuilder(
+                    animation: _scaleAnimation,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: _scaleAnimation.value,
+                        child: Opacity(
+                          opacity: _scaleAnimation.value,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      constraints: BoxConstraints(maxWidth: menuWidth),
+                      decoration: BoxDecoration(
                     color: context.appTheme.secondaryCardBackground,
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
@@ -158,28 +165,32 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                               child: const Icon(Icons.auto_awesome_rounded, color: primaryColor, size: 24),
                             ),
                             const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Acciones",
-                                    style: TextStyle(
-                                      color: context.appTheme.textPrimary,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Acciones",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: context.appTheme.textPrimary,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        "Gestionar responsabilidades",
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: context.appTheme.textSecondary,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    "Gestionar responsabilidades",
-                                    style: TextStyle(
-                                      color: context.appTheme.textSecondary,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                ),
                           ],
                         ),
                       ),
@@ -211,25 +222,45 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                       ),
                       
                       // Footer
-                      InkWell(
-                        onTap: _animatedDismiss,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 20),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.2),
+                      Semantics(
+                        button: true,
+                        label: 'Cerrar menú',
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _animatedDismiss,
                             borderRadius: const BorderRadius.only(
                               bottomLeft: Radius.circular(28),
                               bottomRight: Radius.circular(28),
                             ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              "Cerrar",
-                              style: TextStyle(
-                                color: context.appTheme.textSecondary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 48),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: context.appTheme.darkBackground,
+                                  borderRadius: const BorderRadius.only(
+                                    bottomLeft: Radius.circular(28),
+                                    bottomRight: Radius.circular(28),
+                                  ),
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: context.appTheme.borderSubtle,
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    "Cerrar",
+                                    style: TextStyle(
+                                      color: context.appTheme.textSecondary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -240,6 +271,8 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                 ),
               ),
             ),
+          ),
+        ),
           ],
         ),
       ),
@@ -292,6 +325,8 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                   children: [
                     Text(
                       label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: context.appTheme.textPrimary,
                         fontSize: 16,
@@ -301,6 +336,8 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: context.appTheme.textSecondary,
                         fontSize: 11,
@@ -309,6 +346,7 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 color: isHovered ? color : context.appTheme.textHint,
