@@ -14,6 +14,7 @@ import 'package:finazaap/themes/app_colors.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/widgets/moneo_appearance_pickers_row.dart';
 
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({super.key});
@@ -34,28 +35,6 @@ class _AiChatScreenState extends State<AiChatScreen>
   bool _isLoading = false;
   bool _isInputEmpty = true;
   Map<String, dynamic>? _financialState;
-
-  final List<IconData> _availableIcons = AppIcons.allIcons;
-  final List<Color> _availableColors = const [
-    Colors.redAccent,
-    Colors.pinkAccent,
-    Colors.purpleAccent,
-    Colors.deepPurpleAccent,
-    Colors.indigoAccent,
-    Colors.blueAccent,
-    Colors.lightBlueAccent,
-    Colors.cyanAccent,
-    Colors.tealAccent,
-    Colors.greenAccent,
-    Colors.lightGreenAccent,
-    Colors.limeAccent,
-    Colors.yellowAccent,
-    Colors.amberAccent,
-    Colors.orangeAccent,
-    Colors.deepOrangeAccent,
-    Colors.blueGrey,
-    Colors.grey,
-  ];
 
   @override
   void initState() {
@@ -2119,7 +2098,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                 ),
                                 const SizedBox(height: 18),
                                 Text(
-                                  'Color distintivo',
+                                  'Apariencia',
                                   style: GoogleFonts.outfit(
                                     color: t.textSecondary,
                                     fontSize: 12,
@@ -2127,96 +2106,18 @@ class _AiChatScreenState extends State<AiChatScreen>
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                SizedBox(
-                                  height: 48,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: _availableColors.length,
-                                    itemBuilder: (context, index) {
-                                      final color = _availableColors[index];
-                                      final isSelected =
-                                          color.toARGB32() == selectedColor.toARGB32();
-                                      return GestureDetector(
-                                        onTap: () {
-                                          setDialogState(() {
-                                            selectedColor = color;
-                                          });
-                                        },
-                                        child: Container(
-                                          width: 38,
-                                          margin: const EdgeInsets.only(
-                                            right: 10,
-                                            top: 4,
-                                            bottom: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: color,
-                                            shape: BoxShape.circle,
-                                            border: isSelected
-                                                ? Border.all(
-                                                    color: t.textPrimary,
-                                                    width: 2.5,
-                                                  )
-                                                : null,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
-                                Text(
-                                  'Ícono representativo',
-                                  style: GoogleFonts.outfit(
-                                    color: t.textSecondary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 6,
-                                    crossAxisSpacing: 8,
-                                    mainAxisSpacing: 8,
-                                  ),
-                                  itemCount: _availableIcons.length,
-                                  itemBuilder: (context, index) {
-                                    final icon = _availableIcons[index];
-                                    final isSelected =
-                                        icon.codePoint == selectedIcon.codePoint;
-                                    return GestureDetector(
-                                      onTap: () {
-                                        setDialogState(() {
-                                          selectedIcon = icon;
-                                        });
-                                      },
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? readableSelected.withValues(alpha: 0.16)
-                                              : t.darkBackground,
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? readableSelected
-                                                : t.borderSubtle,
-                                            width: isSelected ? 1.5 : 1,
-                                          ),
-                                        ),
-                                        child: Icon(
-                                          icon,
-                                          color: isSelected
-                                              ? readableSelected
-                                              : t.textSecondary,
-                                          size: 20,
-                                        ),
-                                      ),
-                                    );
+                                MoneoAppearancePickersRow(
+                                  selectedColor: selectedColor,
+                                  selectedIcon: selectedIcon,
+                                  onColorChanged: (color) {
+                                    setDialogState(() {
+                                      selectedColor = color;
+                                    });
+                                  },
+                                  onIconChanged: (icon) {
+                                    setDialogState(() {
+                                      selectedIcon = icon;
+                                    });
                                   },
                                 ),
                               ],

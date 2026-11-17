@@ -7,6 +7,8 @@ import 'package:finazaap/widgets/account_dialogs.dart'; // Import for helper wid
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/theme.dart';
+import 'package:finazaap/widgets/moneo_appearance_pickers_row.dart';
+import 'package:finazaap/widgets/moneo_color_picker.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 
 class CategoriesScreen extends StatefulWidget {
@@ -22,18 +24,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
   List<Map<String, dynamic>> _incomeCategories = [];
   List<Map<String, dynamic>> _expenseCategories = [];
   bool _isLoading = true;
-
-  // Predefined Icons for selection
-  final List<IconData> _availableIcons = AppIcons.allIcons;
-
-  // Predefined Colors for selection
-  final List<Color> _availableColors = [
-    Colors.redAccent, Colors.pinkAccent, Colors.purpleAccent, Colors.deepPurpleAccent,
-    Colors.indigoAccent, Colors.blueAccent, Colors.lightBlueAccent, Colors.cyanAccent,
-    Colors.tealAccent, Colors.greenAccent, Colors.lightGreenAccent, Colors.limeAccent,
-    Colors.yellowAccent, Colors.amberAccent, Colors.orangeAccent, Colors.deepOrangeAccent,
-    Colors.blueGrey, Colors.grey,
-  ];
 
   @override
   void initState() {
@@ -496,16 +486,15 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
     final bool isEditing = categoryToEdit != null;
     final TextEditingController _nameController = TextEditingController(text: isEditing ? categoryToEdit['text'] : '');
     
-    IconData _selectedIcon = isEditing 
-        ? AppIcons.getIcon(categoryToEdit['icon'] ?? Icons.category.codePoint) 
-        : _availableIcons[0];
-    Color _selectedColor = isEditing 
-        ? Color(categoryToEdit['color'] ?? Colors.blueAccent.value) 
-        : _availableColors[0];
+    IconData _selectedIcon = isEditing
+        ? AppIcons.getIcon(categoryToEdit['icon'] ?? Icons.category.codePoint)
+        : AppIcons.allIcons.first;
+    Color _selectedColor = isEditing
+        ? Color(categoryToEdit['color'] ?? Colors.blueAccent.value)
+        : kMoneoWheelColors[12];
 
     final bool isLight = Theme.of(context).brightness == Brightness.light;
     final Color cardColor = context.appTheme.secondaryCardBackground;
-    final Color readableSelectedColor = AppColors.getReadableColor(_selectedColor, context);
 
     showGeneralDialog(
       context: context,
@@ -528,6 +517,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                 insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                 child: StatefulBuilder(
                   builder: (context, setDialogState) {
+                    final Color readableSelectedColor =
+                        AppColors.getReadableColor(_selectedColor, context);
                     return Container(
                       width: double.infinity,
                       constraints: const BoxConstraints(maxWidth: 400, maxHeight: 560),
@@ -684,122 +675,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
                                     ),
                                   ),
                                   const SizedBox(height: 16),
-                                  
-
-                                  
-                                  // Color Selection
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                       buildInputLabel('Color', context),
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 8, right: 4),
-                                        child: Text(
-                                          'Desplázate para ver más >>',
-                                          style: TextStyle(
-                                            color: context.appTheme.textHint,
-                                            fontSize: 11,
-                                            fontStyle: FontStyle.italic,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                  buildInputLabel('Apariencia', context),
+                                  MoneoAppearancePickersRow(
+                                    selectedColor: _selectedColor,
+                                    selectedIcon: _selectedIcon,
+                                    onColorChanged: (color) =>
+                                        setDialogState(() => _selectedColor = color),
+                                    onIconChanged: (icon) =>
+                                        setDialogState(() => _selectedIcon = icon),
                                   ),
-                                  SizedBox(
-                                    height: 55, // Height increased
-                                    child: ListView.builder(
-                                      scrollDirection: Axis.horizontal,
-                                      itemCount: _availableColors.length,
-                                      itemBuilder: (context, index) {
-                                        final color = _availableColors[index];
-                                        final isSelected = color.value == _selectedColor.value;
-                                        return GestureDetector(
-                                          onTap: () => setDialogState(() => _selectedColor = color),
-                                          child: AnimatedContainer(
-                                            duration: const Duration(milliseconds: 200),
-                                            margin: const EdgeInsets.only(right: 14), // Increased margin
-                                            width: isSelected ? 48 : 40, // Restored sizes
-                                            height: isSelected ? 48 : 40,
-                                            decoration: BoxDecoration(
-                                              color: color,
-                                              shape: BoxShape.circle,
-                                              border: isSelected ? Border.all(color: Colors.white, width: 2.5) : null,
-                                              boxShadow: isSelected 
-                                                ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 10, spreadRadius: 1)] 
-                                                : [],
-                                            ),
-                                            child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 24) : null,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  
-                                  const SizedBox(height: 24), // Increased spacing
-                                  
-                                  // Icon Selection
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                       buildInputLabel('Icono', context),
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 8, right: 4),
-                                        child: Text(
-                                          'Desplázate para ver más >>',
-                                          style: TextStyle(
-                                            color: context.appTheme.textHint,
-                                            fontSize: 11,
-                                            fontStyle: FontStyle.italic,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    height: 60, // Restored height
-                                    child: ListView.builder(
-                                      scrollDirection: Axis.horizontal,
-                                      itemCount: _availableIcons.length,
-                                      itemBuilder: (context, index) {
-                                        final icon = _availableIcons[index];
-                                        final isSelected = icon == _selectedIcon;
-                                        return GestureDetector(
-                                          onTap: () => setDialogState(() => _selectedIcon = icon),
-                                          child: AnimatedContainer(
-                                            duration: const Duration(milliseconds: 200),
-                                            margin: const EdgeInsets.only(right: 14), // Increased margin
-                                            width: 52, // Slightly larger
-                                            decoration: BoxDecoration(
-                                              color: isSelected 
-                                                  ? _selectedColor.withOpacity(0.2) 
-                                                  : (isLight 
-                                                      ? context.appTheme.darkBackground 
-                                                      : Colors.white.withOpacity(0.05)),
-                                              borderRadius: BorderRadius.circular(14), // Slightly rounder
-                                              border: Border.all(
-                                                color: isSelected 
-                                                    ? _selectedColor 
-                                                    : (isLight 
-                                                        ? context.appTheme.borderSubtle 
-                                                        : Colors.transparent),
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                            child: Icon(
-                                              icon,
-                                              color: isSelected 
-                                                  ? _selectedColor 
-                                                  : (isLight 
-                                                      ? context.appTheme.textSecondary 
-                                                      : Colors.white.withOpacity(0.5)),
-                                              size: 26, // Larger icon
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  //const SizedBox(height: 20),
+                                  const SizedBox(height: 8),
 
 
                                 ],

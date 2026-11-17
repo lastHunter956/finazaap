@@ -4,7 +4,8 @@ import 'dart:ui';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/data/responsibility_service.dart';
-import 'package:finazaap/icon_lists.dart';
+import 'package:finazaap/utils/app_icons.dart';
+import 'package:finazaap/widgets/moneo_icon_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'dart:math' as math;
@@ -34,6 +35,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
   String _selectedFrequency = 'mensual';
   late int _selectedIconCode;
   Color iconColor = const Color(0xFF3D7AF0);
+  bool _isIconPickerExpanded = false;
 
   @override
   void initState() {
@@ -158,7 +160,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                               ],
                             ),
                             child: Icon(
-                              IconData(_selectedIconCode, fontFamily: 'MaterialIcons'),
+                              AppIcons.getIcon(_selectedIconCode),
                               color: Colors.white,
                               size: 30,
                             ),
@@ -472,31 +474,33 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
                           ),
                           const SizedBox(height: 18),
 
-                          _buildInputLabel('Icono'),
-                          SizedBox(
-                            height: 60,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: accountIcons.length,
-                              itemBuilder: (context, index) {
-                                final icon = accountIcons[index];
-                                final isSelected = _selectedIconCode == icon.codePoint;
-                                return GestureDetector(
-                                  onTap: () => setState(() => _selectedIconCode = icon.codePoint),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    margin: const EdgeInsets.only(right: 12),
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? iconColor : context.appTheme.darkBackground,
-                                      borderRadius: BorderRadius.circular(14),
-                                      boxShadow: isSelected ? [BoxShadow(color: iconColor.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))] : [],
-                                    ),
-                                    child: Icon(icon, color: isSelected ? Colors.white : context.appTheme.textSecondary, size: 24),
-                                  ),
-                                );
-                              },
+                          _buildInputLabel('Ícono'),
+                          MoneoIconPickerTrigger(
+                            selectedIcon: AppIcons.getIcon(_selectedIconCode),
+                            accentColor: iconColor,
+                            isExpanded: _isIconPickerExpanded,
+                            label: 'Ícono',
+                            onTap: () => setState(
+                              () => _isIconPickerExpanded = !_isIconPickerExpanded,
                             ),
+                          ),
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            alignment: Alignment.topCenter,
+                            child: _isIconPickerExpanded
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 10),
+                                    child: MoneoIconPickerPanel(
+                                      selectedIcon:
+                                          AppIcons.getIcon(_selectedIconCode),
+                                      accentColor: iconColor,
+                                      onIconSelected: (icon) => setState(
+                                        () => _selectedIconCode = icon.codePoint,
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
                           ),
                         ],
                       ),

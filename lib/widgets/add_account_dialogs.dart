@@ -6,8 +6,8 @@ import 'package:finazaap/data/models/account_item.dart';
 import 'package:finazaap/widgets/account_dialogs.dart';
 import 'package:finazaap/themes/theme.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
-import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+import 'package:finazaap/widgets/moneo_appearance_pickers_row.dart';
 
 Future<AccountItem?> showAddAccountDialog(BuildContext context) async {
   return showDialog<AccountItem>(
@@ -49,16 +49,6 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
     "Tarjeta de Crédito"
   ];
   late String selectedAccountType;
-
-  // Listas para selección
-  final List<IconData> _availableIcons = AppIcons.allIcons;
-  final List<Color> _availableColors = const [
-    Colors.redAccent, Colors.pinkAccent, Colors.purpleAccent, Colors.deepPurpleAccent,
-    Colors.indigoAccent, Colors.blueAccent, Colors.lightBlueAccent, Colors.cyanAccent,
-    Colors.tealAccent, Colors.greenAccent, Colors.lightGreenAccent, Colors.limeAccent,
-    Colors.yellowAccent, Colors.amberAccent, Colors.orangeAccent, Colors.deepOrangeAccent,
-    Colors.blueGrey, Colors.grey,
-  ];
 
   // Scroll Controller
   final ScrollController _scrollController = ScrollController();
@@ -419,89 +409,17 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
                             Divider(color: context.appTheme.darkBackground),
                             const SizedBox(height: 16),
         
-                            // --- SELECTORES HORIZONTALES ---
-                            
-                            // Selector de Color
-                            _buildSectionHeader('Color'),
-                            SizedBox(
-                              height: 55,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _availableColors.length,
-                                itemBuilder: (context, index) {
-                                  final color = _availableColors[index];
-                                  final isSelected = color.value == iconColor.value;
-                                  return GestureDetector(
-                                    onTap: () => setState(() => iconColor = color),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 200),
-                                      margin: const EdgeInsets.only(right: 14),
-                                      width: isSelected ? 48 : 40,
-                                      height: isSelected ? 48 : 40,
-                                      decoration: BoxDecoration(
-                                        color: color,
-                                        shape: BoxShape.circle,
-                                        border: isSelected ? Border.all(color: Colors.white, width: 2.5) : null,
-                                        boxShadow: isSelected 
-                                          ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 10, spreadRadius: 1)] 
-                                          : [],
-                                      ),
-                                      child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 24) : null,
-                                    ),
-                                  );
-                                },
-                              ),
+                            // --- SELECTORES DE APARIENCIA (Color e Ícono) ---
+                            _buildInputLabel('Apariencia'),
+                            MoneoAppearancePickersRow(
+                              selectedColor: iconColor,
+                              selectedIcon: selectedIcon,
+                              onColorChanged: (color) =>
+                                  setState(() => iconColor = color),
+                              onIconChanged: (icon) =>
+                                  setState(() => selectedIcon = icon),
                             ),
-        
-                            const SizedBox(height: 24),
-        
-                            // Selector de Icono
-                            _buildSectionHeader('Icono'),
-                            SizedBox(
-                              height: 60,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _availableIcons.length,
-                                itemBuilder: (context, index) {
-                                  final icon = _availableIcons[index];
-                                  final isSelected = icon == selectedIcon;
-                                  return GestureDetector(
-                                    onTap: () => setState(() => selectedIcon = icon),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 200),
-                                      margin: const EdgeInsets.only(right: 14),
-                                      width: 52,
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? iconColor.withOpacity(0.2)
-                                            : (Theme.of(context).brightness == Brightness.light
-                                                ? context.appTheme.darkBackground
-                                                : Colors.white.withOpacity(0.05)),
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? iconColor
-                                              : (Theme.of(context).brightness == Brightness.light
-                                                  ? context.appTheme.borderSubtle
-                                                  : Colors.transparent),
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      child: Icon(
-                                        icon,
-                                        color: isSelected
-                                            ? iconColor
-                                            : (Theme.of(context).brightness == Brightness.light
-                                                ? context.appTheme.textSecondary
-                                                : Colors.white.withOpacity(0.5)),
-                                        size: 26,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-        
+
                             const SizedBox(height: 24),
         
                             // Opción de incluir en total
@@ -726,33 +644,6 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(child: _buildInputLabel(title)),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 8, right: 4),
-              child: Text(
-                'Desplázate para ver más >>',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: context.appTheme.textSecondary,
-                  fontSize: 11,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
