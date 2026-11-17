@@ -34,6 +34,8 @@ import 'package:finazaap/Screens/ai_chat_screen.dart';
 import 'package:finazaap/services/widget_service.dart';
 import 'dart:async'; // Necesario para StreamSubscription
 import 'package:gradient_borders/gradient_borders.dart';
+import 'package:finazaap/themes/app_colors.dart';
+import 'package:finazaap/themes/app_sizes.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
@@ -49,16 +51,6 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   final box = Hive.box<Add_data>('data');
   String filter = 'Todos';
-
-  final List<String> day = [
-    'lunes',
-    "martes",
-    "miércoles",
-    "jueves",
-    'viernes',
-    'sábado',
-    'domingo'
-  ];
 
   // Notificador de saldo disponible
   final ValueNotifier<double> availableBalanceNotifier =
@@ -154,7 +146,7 @@ class _HomeState extends State<Home> {
   void dispose() {
     // Limpiar listeners para evitar memory leaks
     _widgetRefreshTimer?.cancel();
-    if (_widgetSubscription != null) _widgetSubscription!.cancel();
+    _widgetSubscription?.cancel().catchError((_) {});
     _boxListenable.removeListener(_boxListener);
     availableBalanceNotifier.dispose();
     availableBalancesByCurrencyNotifier.dispose();
@@ -184,10 +176,14 @@ class _HomeState extends State<Home> {
       final Map<String, int> colors = {};
       
       for (var cat in incomeCats) {
-        colors[cat['text']] = cat['color'];
+        if (cat['text'] is String && cat['color'] is int) {
+          colors[cat['text'] as String] = cat['color'] as int;
+        }
       }
       for (var cat in expenseCats) {
-        colors[cat['text']] = cat['color'];
+        if (cat['text'] is String && cat['color'] is int) {
+          colors[cat['text'] as String] = cat['color'] as int;
+        }
       }
       
       if (mounted) {
@@ -197,6 +193,70 @@ class _HomeState extends State<Home> {
       }
     } catch (e) {
       debugPrint('Error loading category metadata: $e');
+    }
+  }
+
+  String _selectedPeriodLabel() {
+    final date = DateTime(_selectedYear, _selectedMonth);
+    try {
+      return DateFormat.yMMMM('es').format(date);
+    } catch (_) {
+      return '${_selectedMonth.toString().padLeft(2, '0')}/$_selectedYear';
+    }
+  }
+
+  String _formatDateSectionLabel(String dateKey) {
+    try {
+      final parts = dateKey.split('/');
+      if (parts.length != 3) return dateKey;
+      final day = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final year = int.parse(parts[2]);
+      final date = DateTime(year, month, day);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+
+      if (date == today) {
+        final compact =
+            DateFormat('dd MMM', 'es').format(date).replaceAll('.', '');
+        return 'Hoy · $compact';
+      }
+      if (date == yesterday) {
+        final compact =
+            DateFormat('dd MMM', 'es').format(date).replaceAll('.', '');
+        return 'Ayer · $compact';
+      }
+      final full =
+          DateFormat('EEE dd MMM yyyy', 'es').format(date).replaceAll('.', '');
+      if (full.isEmpty) return dateKey;
+      return full[0].toUpperCase() + full.substring(1);
+    } catch (_) {
+      return dateKey;
+    }
+  }
+
+  String _formatTime(DateTime date) {
+    try {
+      return DateFormat('HH:mm', 'es').format(date);
+    } catch (_) {
+      return DateFormat('HH:mm').format(date);
+    }
+  }
+
+  Future<void> _openRegisterTransaction() async {
+    final Widget target = filter == 'Ingresos'
+        ? const Add_Screen()
+        : const AddExpenseScreen();
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => target),
+    );
+    if (mounted) {
+      MonthlySummaryCache.instance.invalidate();
+      _groupedTransactionsCache = null;
+      setState(() {});
+      await _updateAvailableBalance();
+      await _loadCategoryMetadata();
     }
   }
 
@@ -622,7 +682,7 @@ class _HomeState extends State<Home> {
                         availableBalanceNotifier: availableBalanceNotifier,
                         availableBalancesByCurrencyNotifier:
                             availableBalancesByCurrencyNotifier,
-                        accountingBalance: accountingBalance(), // Usar el nuevo método que excluye transferencias
+                        accountingBalance: accountingBalance(),
                         totalExpenses: expenses(),
                         totalIncome: income(),
                         onManageAccounts: () async {
@@ -642,70 +702,105 @@ class _HomeState extends State<Home> {
                             setState(() {});
                           }
                         },
-                        // Se ha removido onSelectDate, ya que el widget maneja internamente la selección de fecha.
-                        onShowAll: () {
-                          setState(() {
-                            filter = 'Todos';
-                            _groupedTransactionsCache = null;
-                          });
-                        },
-                        onShowExpenses: () {
-                          setState(() {
-                            filter = 'Gastos';
-                            _groupedTransactionsCache = null;
-                          });
-                        },
-                        onShowIncome: () {
-                          setState(() {
-                            filter = 'Ingresos';
-                            _groupedTransactionsCache = null;
-                          });
-                        },
-                        selectedMonthYear: DateFormat.yMMMM('es').format(
-                          DateTime(_selectedYear, _selectedMonth)
-                        ), // <-- Inicializar con fecha actual
-                        onDateSelected: _onDateSelected, // <-- Nuevo callback
+                        selectedMonthYear: _selectedPeriodLabel(),
+                        onDateSelected: _onDateSelected,
                       ),
                     ),
                   ),
-                  // Indicador de filtrado activo
-                  if (_filterByDate) 
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        
-                      ),
-                    ),
-                  // Título para "Historial de transacciones" (opcional)
+                  // Título "Historial de transacciones" + MoneoSegmentedControl
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                      child: Text(
-                        'Historial de transacciones',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                          color: context.appTheme.textPrimary,
-                        ),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final textScaler = MediaQuery.textScalerOf(context);
+                          final isWide = constraints.maxWidth >= 520 &&
+                              textScaler.scale(14) <= 16.5;
+
+                          const segmentedOptions = [
+                            MoneoSegmentOption<String>(
+                              value: 'Todos',
+                              label: 'Todos',
+                            ),
+                            MoneoSegmentOption<String>(
+                              value: 'Gastos',
+                              label: 'Gastos',
+                            ),
+                            MoneoSegmentOption<String>(
+                              value: 'Ingresos',
+                              label: 'Ingresos',
+                            ),
+                          ];
+
+                          final titleWidget = Text(
+                            'Historial de transacciones',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: context.appTheme.textPrimary,
+                            ),
+                          );
+
+                          final segmentedWidget = MoneoSegmentedControl<String>(
+                            key: const Key('home_transaction_filter_segmented'),
+                            options: segmentedOptions,
+                            selectedValue: filter,
+                            onChanged: (value) {
+                              setState(() {
+                                filter = value;
+                                _groupedTransactionsCache = null;
+                              });
+                            },
+                          );
+
+                          if (isWide) {
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(child: titleWidget),
+                                const SizedBox(width: 12),
+                                SizedBox(width: 260, child: segmentedWidget),
+                              ],
+                            );
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              titleWidget,
+                              const SizedBox(height: 10),
+                              segmentedWidget,
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),
-                  // Lista de transacciones agrupadas por fecha
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        // Obtenemos la fecha y las transacciones de ese día
-                        final dateKey = transactionsByDate.keys.elementAt(index);
-                        final dailyTransactions = transactionsByDate[dateKey]!;
-                        final dailyIncome = _calculateDailyBalance(dailyTransactions);
-                        
-                        // Construimos la sección de fecha con sus transacciones
-                        return _buildDateSection(dateKey, dailyIncome, dailyTransactions);
-                      },
-                      childCount: transactionsByDate.length,
+                  // Estado vacío accionable o lista de transacciones agrupadas por fecha
+                  if (transactionsByDate.isEmpty)
+                    SliverToBoxAdapter(
+                      child: _buildEmptyTransactionsState(),
+                    )
+                  else
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final dateKey =
+                              transactionsByDate.keys.elementAt(index);
+                          final dailyTransactions =
+                              transactionsByDate[dateKey]!;
+                          final dailyIncome =
+                              _calculateDailyBalance(dailyTransactions);
+
+                          return _buildDateSection(
+                            dateKey,
+                            dailyIncome,
+                            dailyTransactions,
+                          );
+                        },
+                        childCount: transactionsByDate.length,
+                      ),
                     ),
-                  ),
                   SliverToBoxAdapter(
                     child: SizedBox(
                       height: MoneoLayoutMetrics.scrollBottomPadding(
@@ -787,9 +882,124 @@ class _HomeState extends State<Home> {
   return balance;
 }
 
+  Widget _buildEmptyTransactionsState() {
+    final t = context.appTheme;
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
+    final String filterTitle = switch (filter) {
+      'Gastos' => 'Sin gastos en este período',
+      'Ingresos' => 'Sin ingresos en este período',
+      _ => 'Sin movimientos en este período',
+    };
+    final String filterDescription =
+        'No hay movimientos registrados para ${_selectedPeriodLabel()} con el filtro "$filter".';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Container(
+        key: const Key('home_empty_transactions_state'),
+        padding: const EdgeInsets.all(AppSizes.paddingXLarge),
+        decoration: BoxDecoration(
+          color: t.cardBackground,
+          borderRadius: BorderRadius.circular(
+            context.isDiurno ? 18 : AppSizes.borderRadiusLarge,
+          ),
+          border: Border.all(color: t.borderSubtle, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isLight ? 0.06 : 0.1),
+              blurRadius: context.isDiurno ? 12 : 4,
+              offset: Offset(0, context.isDiurno ? 4 : 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: t.accent.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: t.accent.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                Icons.receipt_long_outlined,
+                size: 28,
+                color: t.accent,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              filterTitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: t.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              filterDescription,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: t.textSecondary,
+                fontSize: 13.5,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Semantics(
+              button: true,
+              label: 'Registrar movimiento',
+              child: SizedBox(
+                width: double.infinity,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: ElevatedButton.icon(
+                    key: const Key('home_empty_register_cta'),
+                    onPressed: _openRegisterTransaction,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: t.buttonBackground,
+                      foregroundColor: t.buttonForeground,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.paddingLarge,
+                        vertical: AppSizes.paddingMedium,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppSizes.borderRadiusMedium,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    label: const Text(
+                      'Registrar movimiento',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Construir la sección de fecha con sus transacciones
   Widget _buildDateSection(String dateKey, double dailyIncome, List<Add_data> transactions) {
-    bool isExpanded = _expandedDates.contains(dateKey);
+    final bool isExpanded = _expandedDates.contains(dateKey);
+    final String dateLabel = _formatDateSectionLabel(dateKey);
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
 
     // Calcular totales separados para el resumen
     double totalIncome = 0;
@@ -808,67 +1018,94 @@ class _HomeState extends State<Home> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Encabezado de fecha y total - CON GESTO TÁCTIL
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                if (isExpanded) {
-                  _expandedDates.remove(dateKey);
-                } else {
-                  _expandedDates.add(dateKey);
-                }
-              });
-            },
-            behavior: HitTestBehavior.opaque, // Para facilitar el toque
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 8, left: 4, right: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+          // Encabezado de fecha y total - accesible con target >= 44dp
+          Semantics(
+            button: true,
+            expanded: isExpanded,
+            label: '$dateLabel, ${CurrencyHelper.format(dailyIncome)}',
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  if (isExpanded) {
+                    _expandedDates.remove(dateKey);
+                  } else {
+                    _expandedDates.add(dateKey);
+                  }
+                });
+              },
+              borderRadius: BorderRadius.circular(AppSizes.borderRadiusSmall),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Fecha formateada
-                      Text(
-                        dateKey,
-                        style: TextStyle(
-                          color: context.appTheme.textPrimary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                dateLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: context.appTheme.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              isExpanded
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              color: context.appTheme.textSecondary,
+                              size: 18,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Icono de flecha
-                      Icon(
-                        isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                        color: context.appTheme.textSecondary,
-                        size: 18,
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 135),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            CurrencyHelper.format(dailyIncome),
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: dailyIncome >= 0
+                                  ? context.appTheme.income
+                                  : context.appTheme.expense,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  // Total del día
-                  Text(
-                    CurrencyHelper.format(dailyIncome),
-                    style: TextStyle(
-                      // Color dinámico según si es positivo (ingreso neto) o negativo (gasto neto)
-                      color: dailyIncome >= 0 
-                          ? context.appTheme.income // Verde
-                          : context.appTheme.expense, // Rojo claro
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-          
+
           // MOSTRAR LISTA O RESUMEN SEGÚN ESTADO
           if (isExpanded)
             // === LISTA DE TRANSACCIONES (EXPANDIDO) ===
             Container(
               decoration: BoxDecoration(
-                color: context.appTheme.cardBackground, // Color aplicado al contenedor principal
-                borderRadius: BorderRadius.circular(context.isDiurno ? 18 : 16),
+                color: context.appTheme.cardBackground,
+                borderRadius: BorderRadius.circular(
+                  context.isDiurno ? 18 : AppSizes.borderRadiusLarge,
+                ),
                 border: context.isDefaultDark
                     ? null
                     : Border.all(
@@ -878,7 +1115,7 @@ class _HomeState extends State<Home> {
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(
-                      alpha: Theme.of(context).brightness == Brightness.light ? 0.06 : 0.1,
+                      alpha: isLight ? 0.06 : 0.1,
                     ),
                     blurRadius: context.isDiurno ? 12 : 4,
                     offset: Offset(0, context.isDiurno ? 4 : 2),
@@ -886,26 +1123,24 @@ class _HomeState extends State<Home> {
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(context.isDiurno ? 18 : 16),
+                borderRadius: BorderRadius.circular(
+                  context.isDiurno ? 18 : AppSizes.borderRadiusLarge,
+                ),
                 child: Column(
                   children: [
-                    // Lista de transacciones del día
                     ...transactions.asMap().entries.map((entry) {
                       final index = entry.key;
                       final transaction = entry.value;
-                      
+
                       return Column(
                         children: [
                           _buildTransactionItem(transaction),
-                          // Mostrar divisor solo si no es la última transacción
                           if (index < transactions.length - 1)
                             Divider(
-                              color: context.isDefaultDark
-                                  ? Colors.grey
-                                  : context.appTheme.borderSubtle,
+                              color: context.appTheme.borderSubtle,
                               height: 1,
-                              thickness: context.isDefaultDark ? 0.2 : 0.8,
-                              indent: 60, // Indentación para que el divisor empiece después del icono
+                              thickness: context.isDefaultDark ? 0.4 : 0.8,
+                              indent: 60,
                               endIndent: 10,
                             ),
                         ],
@@ -915,7 +1150,6 @@ class _HomeState extends State<Home> {
                 ),
               ),
             )
-
           else
             // === TARJETA RESUMEN (CONTRAÍDO) ===
             InkWell(
@@ -930,17 +1164,20 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                 ).then((_) {
-                  // Al volver, refrescar para mostrar cambios
                   setState(() {});
                   _updateAvailableBalance();
                 });
               },
-              borderRadius: BorderRadius.circular(context.isDiurno ? 18 : 16),
+              borderRadius: BorderRadius.circular(
+                context.isDiurno ? 18 : AppSizes.borderRadiusLarge,
+              ),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                 decoration: BoxDecoration(
                   color: context.appTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(context.isDiurno ? 18 : 16),
+                  borderRadius: BorderRadius.circular(
+                    context.isDiurno ? 18 : AppSizes.borderRadiusLarge,
+                  ),
                   border: Border.all(
                     color: context.appTheme.borderSubtle,
                     width: 1,
@@ -948,7 +1185,7 @@ class _HomeState extends State<Home> {
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(
-                        alpha: Theme.of(context).brightness == Brightness.light ? 0.06 : 0.1,
+                        alpha: isLight ? 0.06 : 0.1,
                       ),
                       blurRadius: context.isDiurno ? 12 : 4,
                       offset: Offset(0, context.isDiurno ? 4 : 2),
@@ -963,17 +1200,13 @@ class _HomeState extends State<Home> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: (context.isDefaultDark
-                                    ? Colors.green
-                                    : context.appTheme.income)
+                            color: context.appTheme.income
                                 .withValues(alpha: 0.12),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            Icons.arrow_downward_rounded, // Ingreso (entrada)
-                            color: context.isDefaultDark
-                                ? Colors.green
-                                : context.appTheme.income,
+                            Icons.arrow_downward_rounded,
+                            color: context.appTheme.income,
                             size: 18,
                           ),
                         ),
@@ -996,6 +1229,9 @@ class _HomeState extends State<Home> {
                                   color: context.appTheme.income,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
                             ],
@@ -1003,7 +1239,7 @@ class _HomeState extends State<Home> {
                         ),
                       ],
                     ),
-                    
+
                     // Separador horizontal
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1019,17 +1255,13 @@ class _HomeState extends State<Home> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: (context.isDefaultDark
-                                    ? Colors.redAccent
-                                    : context.appTheme.expense)
+                            color: context.appTheme.expense
                                 .withValues(alpha: 0.12),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            Icons.arrow_upward_rounded, // Gasto (salida)
-                            color: context.isDefaultDark
-                                ? Colors.redAccent
-                                : context.appTheme.expense,
+                            Icons.arrow_upward_rounded,
+                            color: context.appTheme.expense,
                             size: 18,
                           ),
                         ),
@@ -1052,6 +1284,9 @@ class _HomeState extends State<Home> {
                                   color: context.appTheme.expense,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
                             ],
@@ -1070,265 +1305,210 @@ class _HomeState extends State<Home> {
 
   // Widget para cada transacción - Con funcionalidad de edición y eliminación
   Widget _buildTransactionItem(Add_data history) {
-    // Detectar tipo de transacción
-    bool isTransfer = history.IN == 'Transfer';
-    bool isIncome = history.IN == 'Income';
-    
-    // Construir el título según tipo de transacción
-    String mainTitle;
+    final bool isTransfer = history.IN == 'Transfer';
+    final bool isIncome = history.IN == 'Income';
+
+    final String mainTitle;
     if (isTransfer) {
-      mainTitle = history.safeDetail.isNotEmpty 
-          ? "Transferencia - ${history.safeDetail}" 
+      mainTitle = history.safeDetail.isNotEmpty
+          ? "Transferencia - ${history.safeDetail}"
           : "Transferencia";
     } else {
-      mainTitle = history.safeDetail.isNotEmpty 
-          ? "${history.safeCategory} - ${history.safeDetail}" 
+      mainTitle = history.safeDetail.isNotEmpty
+          ? "${history.safeCategory} - ${history.safeDetail}"
           : history.safeCategory;
     }
-    
-    // Determinar qué icono mostrar
-    IconData transactionIcon;
-    if (isTransfer) {
-      transactionIcon = Icons.sync_alt;
-    } else {
-      transactionIcon = AppIcons.getIcon(history.safeIconCode);
-    }
 
-    // Envolver en InkWell para detectar toques y mostrar efecto visual
-    return InkWell(
-      onTap: () => showTransactionOptions(history, context, _editTransaction, _confirmDeleteTransaction),
-      splashColor: Colors.blueAccent.withOpacity(0.1),
-      highlightColor: Colors.blueAccent.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Icono con fondo coloreado, borde claro y sombra oscura
-            Container(
-              decoration: BoxDecoration(
-                color: isTransfer
-                    ? Colors.blueAccent
-                    : (isIncome ? Colors.green : Colors.redAccent),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3), // Borde claro para contraste
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3), // Sombra oscura estándar
-                    blurRadius: 5,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(10),
-              child: Icon(
-                transactionIcon,
-                size: 22,
-                color: Colors.white,
-              ),
-            ),
-            
-            const SizedBox(width: 14),
-            
-            // Contenido de la transacción
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Título principal: Categoría - Descripción
-                  Text(
-                    mainTitle,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: context.appTheme.textPrimary,
-                      height: 1.3,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                  ),
-                  
-                  const SizedBox(height: 4),
-                  
-                  // Cuenta o ruta de transferencia
-                  Text(
-                    isTransfer 
-                        ? (history.explain ?? '')  // Ruta de transferencia: "Cuenta origen > Cuenta destino"
-                        : history.safeAccount,     // Nombre de la cuenta
-                    style: TextStyle(
-                      fontWeight: FontWeight.w400,
-                      color: context.appTheme.textSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Monto y detalles de tarjeta (Columna derecha)
-            Container(
-              margin: const EdgeInsets.only(left: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    CurrencyHelper.formatString(history.safeAmount),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: isTransfer 
-                          ? context.appTheme.textSecondary 
-                          : (isIncome
-                              ? context.appTheme.income
-                              : context.appTheme.expense),
-                    ),
-                  ),
+    final IconData transactionIcon =
+        isTransfer ? Icons.sync_alt : AppIcons.getIcon(history.safeIconCode);
 
-                  // Detalles de tarjeta de crédito (si existen)
-                  if (history.installments != null && history.installments != '1' && history.installments!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: (context.isDefaultDark
-                                ? Colors.blueAccent
-                                : context.appTheme.accent)
-                            .withValues(alpha: context.isDefaultDark ? 0.2 : 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: (context.isDefaultDark
-                                  ? Colors.blueAccent
-                                  : context.appTheme.accent)
-                              .withValues(alpha: 0.4),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Text(
-                        '${history.installments} cuotas',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: context.isDefaultDark
-                              ? Colors.lightBlueAccent
-                              : context.appTheme.accent,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                  
-                  if (history.isInterestFree == true) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: (context.isDefaultDark
-                                ? Colors.greenAccent
-                                : context.appTheme.income)
-                            .withValues(alpha: context.isDefaultDark ? 0.2 : 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: (context.isDefaultDark
-                                  ? Colors.greenAccent
-                                  : context.appTheme.income)
-                              .withValues(alpha: 0.4),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Text(
-                        'Sin interés',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: context.isDefaultDark
-                              ? Colors.greenAccent
-                              : context.appTheme.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
+    final int? rawCategoryColorValue =
+        isTransfer ? null : _categoryColors[history.safeCategory];
+    final Color baseCategoryColor = rawCategoryColorValue != null
+        ? Color(rawCategoryColorValue)
+        : (isTransfer
+            ? context.appTheme.secondaryAccent
+            : (isIncome
+                ? context.appTheme.income
+                : context.appTheme.expense));
+    final Color categoryColor =
+        AppColors.getReadableColor(baseCategoryColor, context);
+
+    final String timeFormatted = _formatTime(history.safeDate);
+    final String accountOrRoute = isTransfer
+        ? (history.explain ?? '').trim()
+        : history.safeAccount.trim();
+    final String subtitleText = accountOrRoute.isNotEmpty
+        ? '$timeFormatted · $accountOrRoute'
+        : timeFormatted;
+    final String formattedAmount = CurrencyHelper.formatString(history.safeAmount);
+
+    return Semantics(
+      button: true,
+      label: '$mainTitle, $subtitleText, $formattedAmount',
+      child: InkWell(
+        onTap: () => showTransactionOptions(
+          history,
+          context,
+          _editTransaction,
+          _confirmDeleteTransaction,
+        ),
+        splashColor: context.appTheme.accent.withValues(alpha: 0.1),
+        highlightColor: context.appTheme.accent.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(AppSizes.borderRadiusSmall),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double maxRightWidth =
+                  ((constraints.maxWidth - 67) * 0.45).clamp(72.0, 160.0);
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    key: ValueKey('tx_icon_${history.safeCategory}'),
+                    decoration: BoxDecoration(
+                      color: categoryColor.withValues(alpha: 0.16),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: categoryColor.withValues(alpha: 0.45),
+                        width: 1.5,
                       ),
                     ),
-                  ],
+                    padding: const EdgeInsets.all(10),
+                    child: Icon(
+                      transactionIcon,
+                      size: 22,
+                      color: categoryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          mainTitle,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: context.appTheme.textPrimary,
+                            height: 1.3,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitleText,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w400,
+                            color: context.appTheme.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    constraints: BoxConstraints(maxWidth: maxRightWidth),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            formattedAmount,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                              color: isTransfer
+                                  ? context.appTheme.textSecondary
+                                  : (isIncome
+                                      ? context.appTheme.income
+                                      : context.appTheme.expense),
+                            ),
+                          ),
+                        ),
+                        if (history.installments != null &&
+                            history.installments != '1' &&
+                            history.installments!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: context.appTheme.accent
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: context.appTheme.accent
+                                    .withValues(alpha: 0.4),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              '${history.installments} cuotas',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: context.appTheme.accent,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (history.isInterestFree == true) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: context.appTheme.income
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: context.appTheme.income
+                                    .withValues(alpha: 0.4),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              'Sin interés',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: context.appTheme.income,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
-
-
-
-// Widget de botón premium con efecto de presión
-Widget _buildPremiumButton({
-  required IconData icon,
-  required String label,
-  required Color color,
-  required VoidCallback onTap,
-}) {
-  return Material(
-    color: Colors.transparent,
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      splashColor: color.withOpacity(0.1),
-      highlightColor: color.withOpacity(0.05),
-      child: Ink(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              color.withOpacity(0.15),
-              color.withOpacity(0.05),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: color.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icono con fondo
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  size: 22,
-                  color: color.withOpacity(0.9),
-                ),
-              ),
-              
-              const SizedBox(height: 10),
-              
-              // Etiqueta
-              Text(
-                label,
-                style: TextStyle(
-                  color: color.withOpacity(0.9),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
 
 void _editTransaction(Add_data transaction) async {
   try {
@@ -1560,42 +1740,45 @@ Future<bool> _showDeletedReferenceWarning(
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
-    builder: (context) => AlertDialog(
-      backgroundColor: context.appTheme.secondaryCardBackground,
-      title: const Text(
-        '⚠️ Referencia eliminada detectada',
-        style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold),
-      ),
-      content: Text(
-        message,
-        style: TextStyle(color: context.appTheme.textPrimary),
-      ),
-      actions: [
-        // Botón rojo de eliminar
-        TextButton(
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.white,
-            backgroundColor: Colors.red,
-          ),
-          onPressed: () {
-            Navigator.of(context).pop(false); // No continuar con la edición
-            _confirmDeleteTransaction(transaction); // Mostrar diálogo de eliminación
-          },
-          child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+    builder: (context) {
+      final t = context.appTheme;
+      return AlertDialog(
+        backgroundColor: t.secondaryCardBackground,
+        title: Text(
+          '⚠️ Referencia eliminada detectada',
+          style: TextStyle(color: t.warning, fontWeight: FontWeight.bold),
         ),
-        
-        // Botón blanco de editar
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: context.appTheme.borderSubtle),
-          ),
-          onPressed: () {
-            Navigator.of(context).pop(true); // Continuar con la edición
-          },
-          child: Text('Editar de todas formas', style: TextStyle(color: context.appTheme.textPrimary)),
+        content: Text(
+          message,
+          style: TextStyle(color: t.textPrimary),
         ),
-      ],
-    ),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: t.buttonForeground,
+              backgroundColor: t.expense,
+            ),
+            onPressed: () {
+              Navigator.of(context).pop(false);
+              _confirmDeleteTransaction(transaction);
+            },
+            child: Text('Eliminar', style: TextStyle(color: t.buttonForeground)),
+          ),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: t.borderSubtle),
+            ),
+            onPressed: () {
+              Navigator.of(context).pop(true);
+            },
+            child: Text(
+              'Editar de todas formas',
+              style: TextStyle(color: t.textPrimary),
+            ),
+          ),
+        ],
+      );
+    },
   );
   
   // Retorna true si el usuario eligió editar, false si eligió eliminar
@@ -1606,33 +1789,40 @@ Future<bool> _showDeletedReferenceWarning(
   void _confirmDeleteTransaction(Add_data transaction) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: context.appTheme.secondaryCardBackground,
-        title: Text('Confirmar eliminación', style: TextStyle(color: context.appTheme.textPrimary)),
-        content: Text(
-          '¿Estás seguro que deseas eliminar esta transacción? Esta acción no se puede deshacer.',
-          style: TextStyle(color: context.appTheme.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.redAccent)),
+      builder: (context) {
+        final t = context.appTheme;
+        return AlertDialog(
+          backgroundColor: t.secondaryCardBackground,
+          title: Text(
+            'Confirmar eliminación',
+            style: TextStyle(color: t.textPrimary),
           ),
+          content: Text(
+            '¿Estás seguro que deseas eliminar esta transacción? Esta acción no se puede deshacer.',
+            style: TextStyle(color: t.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancelar', style: TextStyle(color: t.textSecondary)),
+            ),
             ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: t.expense,
+                foregroundColor: t.buttonForeground,
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteTransaction(transaction);
+              },
+              child: Text(
+                'Eliminar',
+                style: TextStyle(color: t.buttonForeground),
+              ),
             ),
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteTransaction(transaction);
-            },
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
