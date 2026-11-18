@@ -10,6 +10,7 @@ class TransactionClassification {
   final bool createTransaction;
   final String
       decisionSource; // 'anti_fraud', 'learned_patterns', 'deterministic_rules', 'gemma_fallback', 'fallback_ambiguous'
+  final String? strategicNote;
 
   const TransactionClassification({
     required this.classification,
@@ -21,6 +22,7 @@ class TransactionClassification {
     required this.requiresReview,
     required this.createTransaction,
     required this.decisionSource,
+    this.strategicNote,
   });
 
   static String? resolveMoneoType(String classification) {
@@ -52,6 +54,7 @@ class TransactionClassification {
     bool? requiresReview,
     bool? createTransaction,
     String? decisionSource,
+    String? strategicNote,
   }) {
     return TransactionClassification(
       classification: classification ?? this.classification,
@@ -63,6 +66,7 @@ class TransactionClassification {
       requiresReview: requiresReview ?? this.requiresReview,
       createTransaction: createTransaction ?? this.createTransaction,
       decisionSource: decisionSource ?? this.decisionSource,
+      strategicNote: strategicNote ?? this.strategicNote,
     );
   }
 
@@ -76,6 +80,7 @@ class TransactionClassification {
         'requires_review': requiresReview,
         'create_transaction': createTransaction,
         'decision_source': decisionSource,
+        if (strategicNote != null) 'strategic_note': strategicNote,
       };
 
   factory TransactionClassification.fromJson(
@@ -95,6 +100,8 @@ class TransactionClassification {
             (json['create_transaction'] ?? json['createTransaction']) as bool,
         decisionSource:
             (json['decision_source'] ?? json['decisionSource']) as String,
+        strategicNote:
+            (json['strategic_note'] ?? json['strategicNote']) as String?,
       );
 
   @override
