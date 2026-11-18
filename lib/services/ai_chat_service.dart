@@ -14,6 +14,8 @@ import 'package:finazaap/data/monthly_summary_cache.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/services/device_capability_service.dart';
 import 'package:finazaap/services/ai_financial_tools.dart';
+import 'package:finazaap/services/ai_provider_config.dart';
+import 'package:finazaap/services/ai_provider_router.dart';
 import 'package:finazaap/services/ai_report_templates.dart';
 
 class ChatMessage {
@@ -137,6 +139,30 @@ class AiChatService extends ChangeNotifier {
   Future<int> Function(String url, void Function(double progress) onProgress)?
       networkDownloadOverride;
 
+  @visibleForTesting
+  AiProviderConfigStore? testConfigStore;
+
+  @visibleForTesting
+  AiProviderRouter? testRouter;
+
+  @visibleForTesting
+  Duration gemmaIdleTimeout = const Duration(minutes: 2);
+
+  AiProviderConfigStore get _effectiveConfigStore =>
+      testConfigStore ?? AiProviderConfigStore.instance;
+
+  AiProviderRouter get _effectiveRouter =>
+      testRouter ?? AiProviderRouter.instance;
+
+  AiProviderId _activeProvider = AiProviderId.simulator;
+  String? _lastUsedModelLabel;
+  String? _lastUsedModel;
+  AiProviderId? _lastUsedProvider;
+  Timer? _idleUnloadTimer;
+  int _idleUnloadCount = 0;
+  StreamSubscription<AiRouterStreamChunk>? _activeCloudStreamSub;
+  AiProviderConfigStore? _listeningStore;
+
   int _downloadAttemptCount = 0;
   int _networkRequestCount = 0;
   int _bytesTransferred = 0;
@@ -193,6 +219,22 @@ class AiChatService extends ChangeNotifier {
   bool get isDownloading => _isDownloading;
   bool get isCheckingDeviceSpecs => _checkingDeviceSpecs;
   DeviceCapabilityResult? get deviceCapability => _deviceCapability;
+  AiProviderId get activeProvider => _activeProvider;
+  String? get lastUsedModelLabel => _lastUsedModelLabel;
+  String? get lastUsedModel => _lastUsedModel;
+  AiProviderId? get lastUsedProvider => _lastUsedProvider;
+  bool get isGemmaModelInMemory => _gemmaModel != null;
+  bool get isGemmaSessionActive => _sessionAdapter != null;
+  int get idleUnloadCount => _idleUnloadCount;
+  String get activeEngineLabel {
+    if (_activeProvider.isCloud) {
+      return _lastUsedModelLabel ?? '${_activeProvider.displayName} (Cloud)';
+    }
+    if (_activeProvider == AiProviderId.simulator || _useLocalSimulator) {
+      return 'Simulador Local (Offline)';
+    }
+    return _activeProvider.displayName;
+  }
 
   double get savingsRatio => _savingsRatio;
   String get topCategory => _topCategory;
@@ -203,21 +245,94 @@ class AiChatService extends ChangeNotifier {
   String get ratioStatus => _ratioStatus;
   String get ratioMessageText => _ratioMessageText;
 
+  void _attachConfigStoreListener() {
+    final store = _effectiveConfigStore;
+    if (identical(_listeningStore, store)) return;
+    _listeningStore?.removeListener(_onConfigStoreChanged);
+    _listeningStore = store;
+    store.addListener(_onConfigStoreChanged);
+  }
+
+  void _onConfigStoreChanged() {
+    final nextProvider = _effectiveConfigStore.current.primaryProvider;
+    final changed = nextProvider != _activeProvider;
+    _activeProvider = nextProvider;
+    _useLocalSimulator = nextProvider == AiProviderId.simulator;
+    if (!nextProvider.isLocalGemma) {
+      _cancelIdleUnloadTimer();
+      unawaited(unloadGemmaForInactivity(notify: false));
+    }
+    if (changed) {
+      _lastUsedModelLabel = null;
+    }
+    notifyListeners();
+  }
+
+  void _cancelIdleUnloadTimer() {
+    _idleUnloadTimer?.cancel();
+    _idleUnloadTimer = null;
+  }
+
+  void _scheduleGemmaIdleUnload() {
+    _cancelIdleUnloadTimer();
+    if (!_activeProvider.isLocalGemma && testSessionCreator == null) return;
+    if (_useLocalSimulator) return;
+    if (_gemmaModel == null && _sessionAdapter == null) return;
+    _idleUnloadTimer = Timer(gemmaIdleTimeout, () {
+      unawaited(unloadGemmaForInactivity());
+    });
+  }
+
+  /// Libera sesión y referencias del modelo Gemma tras inactividad prolongada (2 minutos).
+  Future<void> unloadGemmaForInactivity({bool notify = true}) async {
+    _cancelIdleUnloadTimer();
+    if (_isGenerating) {
+      _scheduleGemmaIdleUnload();
+      return;
+    }
+    final hadResources =
+        _sessionAdapter != null || _gemmaChat != null || _gemmaModel != null;
+    try {
+      await _sessionAdapter?.close();
+    } catch (_) {}
+    try {
+      await _gemmaModel?.close();
+    } catch (_) {}
+    _sessionAdapter = null;
+    _gemmaChat = null;
+    _gemmaModel = null;
+    _sessionTokensUsed = 0;
+    if (hadResources) {
+      _idleUnloadCount++;
+      AppLogger.info(
+        'Sesión y referencias de Gemma liberadas por inactividad.',
+      );
+      if (notify) {
+        notifyListeners();
+      }
+    }
+  }
+
   // Cargar historial, configuración y notas de aprendizaje
   Future<void> initialize() async {
     try {
+      AiProviderRouter.ensureHooksRegistered();
+      _attachConfigStoreListener();
       final prefs = await SharedPreferences.getInstance();
-      
-      // En Web: intentar Gemma por defecto. En Android/iOS: simulador por defecto.
-      // Solo respetar la preferencia guardada si el usuario la cambió explícitamente.
+      final cfg = await _effectiveConfigStore.loadConfig(forceReload: true);
+
+      final hasUnifiedConfig =
+          prefs.containsKey(AiProviderConfigStore.configPrefsKey);
       final savedMode = prefs.getBool('ai_use_local_simulator');
-      if (savedMode != null) {
-        _useLocalSimulator = savedMode;
+
+      if (!hasUnifiedConfig && savedMode == null && kIsWeb) {
+        _activeProvider = AiProviderId.localGemmaDefault;
+        _useLocalSimulator = false;
       } else {
-        // Primera vez: Web usa Gemma, nativo usa simulador
-        _useLocalSimulator = !kIsWeb;
+        _activeProvider = cfg.primaryProvider;
+        _useLocalSimulator = _activeProvider == AiProviderId.simulator;
       }
-      
+
       // Cargar metas y notas aprendidas
       _userGoals = prefs.getString('ai_user_goals') ?? 'Sin metas definidas aún. Cuéntame qué quieres lograr (ej. comprar un auto, ahorrar 20%, salir de deudas).';
       _userNotes = prefs.getString('ai_user_notes') ?? 'Perfil inicial: Esperando analizar transacciones...';
@@ -248,9 +363,11 @@ class AiChatService extends ChangeNotifier {
         ];
       }
 
-      // Intentar cargar Gemma solo si ya está instalado localmente (nunca descargar al abrir Chat)
-      if (!_useLocalSimulator) {
-        await _tryLoadGemmaModel(allowDownload: false);
+      // Verificar disponibilidad de Gemma sin bloquear con carga pesada ni descargar automáticamente
+      if (!_useLocalSimulator && _activeProvider.isLocalGemma) {
+        await _checkLocalModelStatusWithoutDownload();
+      } else {
+        _cancelIdleUnloadTimer();
       }
 
       // Analizar transacciones para actualizar perfil en el arranque
@@ -258,6 +375,79 @@ class AiChatService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       AppLogger.error('Error inicializando AiChatService', error: e);
+    }
+  }
+
+  /// Verifica en disco si el modelo local ya está descargado sin autodescargar ni cargar pesos en RAM.
+  Future<void> _checkLocalModelStatusWithoutDownload() async {
+    if (testSessionCreator != null) {
+      _gemmaInitialized = true;
+      return;
+    }
+    if (ensureGemmaInitialized != null) {
+      await ensureGemmaInitialized!();
+    }
+    if (initError != null) {
+      _gemmaError = 'Error de inicialización del motor de IA: $initError';
+      _gemmaInitialized = false;
+      return;
+    }
+
+    try {
+      String resolvedUrl;
+      if (kIsWeb) {
+        resolvedUrl = kDebugMode
+            ? 'http://localhost:8081/gemma.litertlm'
+            : Uri.base.resolve('models/gemma.litertlm').toString();
+      } else {
+        var mobileUrl = await _getSavedModelUrl();
+        if (mobileUrl == null || mobileUrl.isEmpty) {
+          _checkingDeviceSpecs = true;
+          notifyListeners();
+          try {
+            final cap = await DeviceCapabilityService.check();
+            _deviceCapability = cap;
+            _checkingDeviceSpecs = false;
+            notifyListeners();
+            if (cap.canRunModel) {
+              mobileUrl = _defaultModelUrl;
+            } else {
+              _gemmaError =
+                  'INCOMPATIBLE: RAM ${cap.totalRAMGB?.toStringAsFixed(1) ?? "?"} GB | '
+                  'RAM disp ${cap.availRAMGB?.toStringAsFixed(1) ?? "?"} GB | '
+                  'lowMemory ${cap.lowMemory} | '
+                  'Espacio ${cap.freeStorageGB.toStringAsFixed(1)} GB | '
+                  'ARM64: ${cap.isArm64}';
+              _gemmaInitialized = false;
+              return;
+            }
+          } catch (_) {
+            _checkingDeviceSpecs = false;
+            notifyListeners();
+            _gemmaError =
+                'URL del modelo requerida. Introduce la URL de descarga.';
+            _gemmaInitialized = false;
+            return;
+          }
+        }
+        resolvedUrl = mobileUrl;
+      }
+
+      final filename = Uri.parse(resolvedUrl).pathSegments.last;
+      final isInstalled = isModelInstalledOverride != null
+          ? await isModelInstalledOverride!(filename)
+          : await FlutterGemma.isModelInstalled(filename);
+      if (!isInstalled) {
+        _gemmaError =
+            'Modelo no descargado. Descárgalo manualmente cuando lo necesites.';
+        _gemmaInitialized = false;
+      } else {
+        _gemmaError = null;
+        _gemmaInitialized = true;
+      }
+    } catch (e) {
+      _gemmaError = e.toString();
+      _gemmaInitialized = false;
     }
   }
 
@@ -393,7 +583,7 @@ class AiChatService extends ChangeNotifier {
             }
           }
           
-          final resolvedUrl = mobileUrl!;
+          final resolvedUrl = mobileUrl;
           final filename = Uri.parse(resolvedUrl).pathSegments.last;
           final isInstalled = isModelInstalledOverride != null
               ? await isModelInstalledOverride!(filename)
@@ -467,11 +657,12 @@ class AiChatService extends ChangeNotifier {
       _gemmaInitialized = true;
       _useLocalSimulator = false;
       _isDownloading = false;
-      
+
       // Persistir preferencia
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('ai_use_local_simulator', false);
-      
+      _scheduleGemmaIdleUnload();
+
       AppLogger.success('Modelo Gemma cargado y listo para inferencia.');
     } catch (e) {
       AppLogger.warning('Modelo Gemma no disponible: $e');
@@ -494,12 +685,30 @@ class AiChatService extends ChangeNotifier {
 
   /// Guarda una URL de modelo y dispara la descarga explícita
   Future<void> setModelUrl(String url) async {
+    final cleanUrl = url.trim();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('ai_model_url', url);
+    await prefs.setString('ai_model_url', cleanUrl);
+
+    final cfg = await _effectiveConfigStore.loadConfig();
+    final targetProvider = cleanUrl == defaultModelUrl
+        ? AiProviderId.localGemmaDefault
+        : AiProviderId.localHuggingFace;
+    await _effectiveConfigStore.saveConfig(
+      cfg.copyWith(
+        primaryProvider: targetProvider,
+        clearPrimaryKeyId: true,
+        localHuggingFaceUrl: targetProvider == AiProviderId.localHuggingFace
+            ? cleanUrl
+            : cfg.localHuggingFaceUrl,
+      ),
+    );
+    _activeProvider = targetProvider;
+    _useLocalSimulator = false;
+
     _deviceCapability = null;
     _gemmaError = null;
     notifyListeners();
-    await _tryLoadGemmaModel(customMobileUrl: url, allowDownload: true);
+    await _tryLoadGemmaModel(customMobileUrl: cleanUrl, allowDownload: true);
   }
 
   /// Re-evalúa las capacidades del dispositivo sin iniciar descarga automática.
@@ -507,17 +716,22 @@ class AiChatService extends ChangeNotifier {
     _deviceCapability = null;
     _gemmaError = null;
     notifyListeners();
-    await _tryLoadGemmaModel(allowDownload: false);
+    await _checkLocalModelStatusWithoutDownload();
+    notifyListeners();
   }
 
   @visibleForTesting
   void resetCapabilityStateForTest() {
+    _cancelIdleUnloadTimer();
     _gemmaInitializing = false;
     _initCompleter = null;
     _checkingDeviceSpecs = false;
     _deviceCapability = null;
     _gemmaError = null;
     _gemmaInitialized = false;
+    _lastUsedModelLabel = null;
+    _lastUsedModel = null;
+    _lastUsedProvider = null;
   }
 
   /// Construye el prompt del sistema respetando el presupuesto de ~380 tokens.
@@ -551,10 +765,45 @@ class AiChatService extends ChangeNotifier {
   Future<void> setSimulatorMode(bool useSimulator) async {
     _useLocalSimulator = useSimulator;
     final prefs = await SharedPreferences.getInstance();
+    final existingUrl = prefs.getString('ai_model_url');
     await prefs.setBool('ai_use_local_simulator', useSimulator);
-    
-    if (!useSimulator && !_gemmaInitialized) {
-      await _tryLoadGemmaModel();
+
+    final cfg = await _effectiveConfigStore.loadConfig(forceReload: true);
+    if (useSimulator) {
+      _cancelIdleUnloadTimer();
+      await unloadGemmaForInactivity(notify: false);
+      _activeProvider = AiProviderId.simulator;
+      if (cfg.primaryProvider != AiProviderId.simulator) {
+        await _effectiveConfigStore.setPrimaryProvider(AiProviderId.simulator);
+      }
+    } else {
+      if (cfg.primaryProvider == AiProviderId.simulator) {
+        final trimmedUrl = existingUrl?.trim();
+        final targetProvider = (trimmedUrl != null &&
+                trimmedUrl.isNotEmpty &&
+                trimmedUrl != defaultModelUrl)
+            ? AiProviderId.localHuggingFace
+            : AiProviderId.localGemmaDefault;
+        await _effectiveConfigStore.saveConfig(
+          cfg.copyWith(
+            primaryProvider: targetProvider,
+            clearPrimaryKeyId: true,
+            localHuggingFaceUrl: targetProvider == AiProviderId.localHuggingFace
+                ? trimmedUrl
+                : cfg.localHuggingFaceUrl,
+          ),
+        );
+        if (existingUrl == null) {
+          await prefs.remove('ai_model_url');
+        }
+        _activeProvider = targetProvider;
+      } else {
+        _activeProvider = cfg.primaryProvider;
+      }
+
+      if (_activeProvider.isLocalGemma && !_gemmaInitialized) {
+        await _checkLocalModelStatusWithoutDownload();
+      }
     }
     notifyListeners();
   }
@@ -586,6 +835,7 @@ class AiChatService extends ChangeNotifier {
 
   // Limpiar historial
   Future<void> clearHistory() async {
+    _cancelIdleUnloadTimer();
     _messages = [
       ChatMessage(
         role: 'model',
@@ -593,14 +843,14 @@ class AiChatService extends ChangeNotifier {
         timestamp: DateTime.now(),
       )
     ];
-    
+
     _chatSummary = '';
     _lastSummaryCount = 0;
-    
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('ai_chat_summary');
     await prefs.setInt('ai_last_summary_count', 0);
-    
+
     // Recrear la sesión de chat si Gemma está activo
     try {
       await _sessionAdapter?.close();
@@ -619,7 +869,9 @@ class AiChatService extends ChangeNotifier {
       } catch (e) {
         AppLogger.warning('Error recreando sesión de chat de prueba: $e');
       }
-    } else if (_gemmaInitialized && _gemmaModel != null) {
+    } else if (_activeProvider.isLocalGemma &&
+        _gemmaInitialized &&
+        _gemmaModel != null) {
       try {
         final state = await getFinancialState();
         final systemPrompt = _buildSystemPrompt(state);
@@ -631,11 +883,12 @@ class AiChatService extends ChangeNotifier {
         );
         _sessionAdapter = _FlutterGemmaSessionAdapter(_gemmaChat!);
         _sessionTokensUsed = AiTokenBudget.estimateTokens(systemPrompt);
+        _scheduleGemmaIdleUnload();
       } catch (e) {
         AppLogger.warning('Error recreando sesión de chat: $e');
       }
     }
-    
+
     await _saveHistory();
     notifyListeners();
   }
@@ -815,10 +1068,14 @@ class AiChatService extends ChangeNotifier {
     };
   }
 
-  /// Cancela la generación activa de Gemma si está en curso.
+  /// Cancela la generación activa (Gemma local o proveedor Cloud) si está en curso.
   Future<void> cancelGeneration() async {
     if (!_isGenerating) return;
     _generationCancelled = true;
+    try {
+      await _activeCloudStreamSub?.cancel();
+    } catch (_) {}
+    _activeCloudStreamSub = null;
     try {
       await _sessionAdapter?.stopGeneration();
     } catch (e) {
@@ -829,21 +1086,43 @@ class AiChatService extends ChangeNotifier {
 
   @visibleForTesting
   Future<void> resetGemmaSessionForTests() async {
+    _cancelIdleUnloadTimer();
+    try {
+      await _activeCloudStreamSub?.cancel();
+    } catch (_) {}
+    _activeCloudStreamSub = null;
     try {
       await _sessionAdapter?.close();
     } catch (_) {}
+    try {
+      await _gemmaModel?.close();
+    } catch (_) {}
     _sessionAdapter = null;
     _gemmaChat = null;
+    _gemmaModel = null;
     _gemmaInitialized = false;
     _isGenerating = false;
     _generationCancelled = false;
+    _lastUsedModelLabel = null;
+    _lastUsedModel = null;
+    _lastUsedProvider = null;
+  }
+
+  @override
+  void dispose() {
+    _cancelIdleUnloadTimer();
+    unawaited(_activeCloudStreamSub?.cancel());
+    _activeCloudStreamSub = null;
+    _listeningStore?.removeListener(_onConfigStoreChanged);
+    _listeningStore = null;
+    super.dispose();
   }
 
   // --- ENVIAR MENSAJE Y PROCESAR RESPUESTA ---
   Future<void> sendMessage(String userMessage) async {
     if (userMessage.trim().isEmpty || _isGenerating) return;
 
-    if (_isDownloading && !_useLocalSimulator) {
+    if (_isDownloading && !_useLocalSimulator && _activeProvider.isLocalGemma) {
       final pct = (_downloadProgress * 100).clamp(0, 100).toStringAsFixed(0);
       _messages.add(ChatMessage(
         role: 'user',
@@ -1060,75 +1339,84 @@ class AiChatService extends ChangeNotifier {
         }
       }
 
-      final budgetedTurn = AiTokenBudget.fitToTokenBudget(
-        userMessage,
-        AiTokenBudget.maxCurrentTurnTokens,
-      );
-      final budgetedContext = AiTokenBudget.fitToTokenBudget(
-        retrievedBuffer.toString().trim(),
-        AiTokenBudget.maxRetrievedContextTokens,
-      );
-      final enrichedPrompt = budgetedContext.isEmpty
-          ? budgetedTurn
-          : '$budgetedTurn\n\n$budgetedContext';
-      final upcomingInputTokens = AiTokenBudget.estimateTokens(enrichedPrompt);
+      final effectiveCfg = await _effectiveConfigStore.loadConfig();
+      final bool routeToCloud =
+          testSessionCreator == null && effectiveCfg.primaryProvider.isCloud;
 
-      await _ensureOrRotateSession(
-        financialState,
-        upcomingInputTokens: upcomingInputTokens,
-      );
+      if (routeToCloud) {
+        _activeProvider = effectiveCfg.primaryProvider;
+        final systemPrompt = _buildSystemPrompt(financialState);
+        final cloudContext = retrievedBuffer.toString().trim();
+        final cloudPrompt = cloudContext.isEmpty
+            ? userMessage
+            : '$userMessage\n\n$cloudContext';
+        final cloudMessages = _buildCloudHistoryMessages(cloudPrompt);
 
-      if (_gemmaInitialized && _sessionAdapter != null) {
-        // --- RESPUESTA REAL USANDO SESIÓN PERSISTENTE + STREAMING GEMMA ---
+        final modelIndex = _messages.length;
+        _messages.add(
+          ChatMessage(
+            role: 'model',
+            content: deterministicPrefix,
+            timestamp: DateTime.now(),
+            categorySuggestions: suggestedCategories,
+            transactionSuggestions: suggestedTransactions,
+          ),
+        );
+        notifyListeners();
+
+        final buffer = StringBuffer();
+        final stopwatch = Stopwatch()..start();
+        Object? streamError;
+
         try {
-          await _sessionAdapter!.addUserMessage(enrichedPrompt);
-
-          final modelIndex = _messages.length;
-          _messages.add(
-            ChatMessage(
-              role: 'model',
-              content: deterministicPrefix,
-              timestamp: DateTime.now(),
-              categorySuggestions: suggestedCategories,
-              transactionSuggestions: suggestedTransactions,
-            ),
+          final done = Completer<void>();
+          final stream = _effectiveRouter.streamChat(
+            configOverride: effectiveCfg,
+            systemPrompt: systemPrompt,
+            messages: cloudMessages,
+            maxTokens: 640,
+            temperature: 0.4,
           );
-          notifyListeners();
 
-          final buffer = StringBuffer();
-          final stopwatch = Stopwatch()..start();
+          _activeCloudStreamSub = stream.listen(
+            (chunk) {
+              if (_generationCancelled) return;
+              _lastUsedProvider = chunk.provider;
+              _lastUsedModel = chunk.model;
+              _lastUsedModelLabel = '${chunk.provider.displayName} · ${chunk.model}';
+              buffer.write(chunk.delta);
+              if (stopwatch.elapsedMilliseconds >= 60) {
+                _messages[modelIndex] = ChatMessage(
+                  role: 'model',
+                  content: '$deterministicPrefix$buffer',
+                  timestamp: _messages[modelIndex].timestamp,
+                  categorySuggestions: suggestedCategories,
+                  transactionSuggestions: suggestedTransactions,
+                );
+                notifyListeners();
+                stopwatch.reset();
+              }
+            },
+            onError: (Object error) {
+              streamError = error;
+              if (!done.isCompleted) done.complete();
+            },
+            onDone: () {
+              if (!done.isCompleted) done.complete();
+            },
+            cancelOnError: true,
+          );
 
-          await for (final token in _sessionAdapter!.generateResponseStream()) {
-            if (_generationCancelled) break;
-            buffer.write(token);
-            if (stopwatch.elapsedMilliseconds >= 60) {
-              _messages[modelIndex] = ChatMessage(
-                role: 'model',
-                content: '$deterministicPrefix$buffer',
-                timestamp: _messages[modelIndex].timestamp,
-                categorySuggestions: suggestedCategories,
-                transactionSuggestions: suggestedTransactions,
-              );
-              notifyListeners();
-              stopwatch.reset();
-            }
-          }
+          await done.future;
+        } catch (e) {
+          streamError = e;
+        } finally {
+          await _activeCloudStreamSub?.cancel();
+          _activeCloudStreamSub = null;
+        }
 
-          if (buffer.isNotEmpty) {
-            responseText = '$deterministicPrefix${buffer.toString()}';
-          } else if (_generationCancelled) {
-            responseText = deterministicPrefix.isNotEmpty
-                ? '${deterministicPrefix}*(Generación cancelada.)*'
-                : '*(Generación cancelada.)*';
-          } else {
-            responseText = deterministicPrefix.isNotEmpty
-                ? '${deterministicPrefix}No pude generar el comentario adicional en este momento.'
-                : 'No pude generar una respuesta en este momento. Intenta de nuevo.';
-          }
-
-          _sessionTokensUsed += upcomingInputTokens +
-              AiTokenBudget.estimateTokens(buffer.toString());
-
+        if (buffer.isNotEmpty) {
+          responseText = '$deterministicPrefix${buffer.toString()}';
           _messages[modelIndex] = ChatMessage(
             role: 'model',
             content: responseText,
@@ -1138,37 +1426,151 @@ class AiChatService extends ChangeNotifier {
           );
           await _saveHistory();
           return;
-        } catch (e) {
-          AppLogger.error('Error en inferencia Gemma (replegando a simulador)', error: e);
-          responseText = '*(Nota: Ocurrió un error con Gemma IA. El simulador financiero respondió por seguridad.)*\n\n';
-          responseText += await _generateSimulatorResponse(
-            userMessage,
-            financialState,
-            purchaseAnalysis,
-            queryAnalysis,
-            monthlyReportData: monthlyReportData,
-            vehicleTcoResult: vehicleTcoResult,
-          );
-          if (_messages.isNotEmpty && _messages.last.role == 'model' && _messages.last.content.isEmpty) {
-            _messages.removeLast();
-          }
         }
+
+        if (_generationCancelled) {
+          responseText = deterministicPrefix.isNotEmpty
+              ? '$deterministicPrefix*(Generación cancelada.)*'
+              : '*(Generación cancelada.)*';
+          _messages[modelIndex] = ChatMessage(
+            role: 'model',
+            content: responseText,
+            timestamp: _messages[modelIndex].timestamp,
+            categorySuggestions: suggestedCategories,
+            transactionSuggestions: suggestedTransactions,
+          );
+          await _saveHistory();
+          return;
+        }
+
+        // Fallo o respuesta vacía desde Cloud -> retirar placeholder y replegar al simulador offline
+        if (modelIndex < _messages.length) {
+          _messages.removeAt(modelIndex);
+        }
+        AppLogger.warning(
+          'Fallo en proveedor Cloud ${effectiveCfg.primaryProvider.displayName} (replegando a simulador): $streamError',
+        );
+        final simFallback = await _generateSimulatorResponse(
+          userMessage,
+          financialState,
+          purchaseAnalysis,
+          queryAnalysis,
+          monthlyReportData: monthlyReportData,
+          vehicleTcoResult: vehicleTcoResult,
+        );
+        responseText =
+            '*(Nota: No se pudo obtener respuesta de ${effectiveCfg.primaryProvider.displayName}. El simulador financiero respondió offline.)*\n\n$simFallback';
       } else {
-        // No está inicializado — dar respuesta de error con instrucciones claras
-        if (kIsWeb) {
-          responseText = '⚠️ **Motor Gemma IA no disponible en Web.**\n\n'
-              'Asegúrate de que el servidor de modelos esté corriendo (`make web`) y '
-              'que el archivo `models/gemma.litertlm` esté accesible en el puerto 8081.\n\n'
-              '_Usando el simulador financiero mientras tanto..._\n\n'
-              '${await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis, monthlyReportData: monthlyReportData, vehicleTcoResult: vehicleTcoResult)}';
+        final budgetedTurn = AiTokenBudget.fitToTokenBudget(
+          userMessage,
+          AiTokenBudget.maxCurrentTurnTokens,
+        );
+        final budgetedContext = AiTokenBudget.fitToTokenBudget(
+          retrievedBuffer.toString().trim(),
+          AiTokenBudget.maxRetrievedContextTokens,
+        );
+        final enrichedPrompt = budgetedContext.isEmpty
+            ? budgetedTurn
+            : '$budgetedTurn\n\n$budgetedContext';
+        final upcomingInputTokens = AiTokenBudget.estimateTokens(enrichedPrompt);
+
+        await _ensureOrRotateSession(
+          financialState,
+          upcomingInputTokens: upcomingInputTokens,
+        );
+
+        if (_gemmaInitialized && _sessionAdapter != null) {
+          // --- RESPUESTA REAL USANDO SESIÓN PERSISTENTE + STREAMING GEMMA ---
+          try {
+            await _sessionAdapter!.addUserMessage(enrichedPrompt);
+
+            final modelIndex = _messages.length;
+            _messages.add(
+              ChatMessage(
+                role: 'model',
+                content: deterministicPrefix,
+                timestamp: DateTime.now(),
+                categorySuggestions: suggestedCategories,
+                transactionSuggestions: suggestedTransactions,
+              ),
+            );
+            notifyListeners();
+
+            final buffer = StringBuffer();
+            final stopwatch = Stopwatch()..start();
+
+            await for (final token in _sessionAdapter!.generateResponseStream()) {
+              if (_generationCancelled) break;
+              buffer.write(token);
+              if (stopwatch.elapsedMilliseconds >= 60) {
+                _messages[modelIndex] = ChatMessage(
+                  role: 'model',
+                  content: '$deterministicPrefix$buffer',
+                  timestamp: _messages[modelIndex].timestamp,
+                  categorySuggestions: suggestedCategories,
+                  transactionSuggestions: suggestedTransactions,
+                );
+                notifyListeners();
+                stopwatch.reset();
+              }
+            }
+
+            if (buffer.isNotEmpty) {
+              responseText = '$deterministicPrefix${buffer.toString()}';
+            } else if (_generationCancelled) {
+              responseText = deterministicPrefix.isNotEmpty
+                  ? '$deterministicPrefix*(Generación cancelada.)*'
+                  : '*(Generación cancelada.)*';
+            } else {
+              responseText = deterministicPrefix.isNotEmpty
+                  ? '${deterministicPrefix}No pude generar el comentario adicional en este momento.'
+                  : 'No pude generar una respuesta en este momento. Intenta de nuevo.';
+            }
+
+            _sessionTokensUsed += upcomingInputTokens +
+                AiTokenBudget.estimateTokens(buffer.toString());
+
+            _messages[modelIndex] = ChatMessage(
+              role: 'model',
+              content: responseText,
+              timestamp: _messages[modelIndex].timestamp,
+              categorySuggestions: suggestedCategories,
+              transactionSuggestions: suggestedTransactions,
+            );
+            await _saveHistory();
+            return;
+          } catch (e) {
+            AppLogger.error('Error en inferencia Gemma (replegando a simulador)', error: e);
+            responseText = '*(Nota: Ocurrió un error con Gemma IA. El simulador financiero respondió por seguridad.)*\n\n';
+            responseText += await _generateSimulatorResponse(
+              userMessage,
+              financialState,
+              purchaseAnalysis,
+              queryAnalysis,
+              monthlyReportData: monthlyReportData,
+              vehicleTcoResult: vehicleTcoResult,
+            );
+            if (_messages.isNotEmpty && _messages.last.role == 'model' && _messages.last.content.isEmpty) {
+              _messages.removeLast();
+            }
+          }
         } else {
-          responseText = '⚠️ **Gemma IA no configurado para este dispositivo.**\n\n'
-              'El modelo (2.5 GB) debe descargarse una sola vez. Para configurarlo:\n\n'
-              '1. Toca el ícono ⚙️ en la esquina superior de esta pantalla\n'
-              '2. Ingresa la URL de descarga de tu modelo `.litertlm`\n'
-              '3. Espera a que se complete la descarga (~5-20 min según tu red)\n\n'
-              '_Mientras tanto, el simulador financiero está activo y funcional._\n\n'
-              '${await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis, monthlyReportData: monthlyReportData, vehicleTcoResult: vehicleTcoResult)}';
+          // No está inicializado — dar respuesta de error con instrucciones claras
+          if (kIsWeb) {
+            responseText = '⚠️ **Motor Gemma IA no disponible en Web.**\n\n'
+                'Asegúrate de que el servidor de modelos esté corriendo (`make web`) y '
+                'que el archivo `models/gemma.litertlm` esté accesible en el puerto 8081.\n\n'
+                '_Usando el simulador financiero mientras tanto..._\n\n'
+                '${await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis, monthlyReportData: monthlyReportData, vehicleTcoResult: vehicleTcoResult)}';
+          } else {
+            responseText = '⚠️ **Gemma IA no configurado para este dispositivo.**\n\n'
+                'El modelo (2.5 GB) debe descargarse una sola vez. Para configurarlo:\n\n'
+                '1. Toca el ícono ⚙️ en la esquina superior de esta pantalla\n'
+                '2. Ingresa la URL de descarga de tu modelo `.litertlm`\n'
+                '3. Espera a que se complete la descarga (~5-20 min según tu red)\n\n'
+                '_Mientras tanto, el simulador financiero está activo y funcional._\n\n'
+                '${await _generateSimulatorResponse(userMessage, financialState, purchaseAnalysis, queryAnalysis, monthlyReportData: monthlyReportData, vehicleTcoResult: vehicleTcoResult)}';
+          }
         }
       }
     } else {
@@ -1197,8 +1599,28 @@ class AiChatService extends ChangeNotifier {
     } finally {
       _isGenerating = false;
       _generationCancelled = false;
+      if (testSessionCreator != null ||
+          (_activeProvider.isLocalGemma && !_useLocalSimulator)) {
+        _scheduleGemmaIdleUnload();
+      }
       notifyListeners();
     }
+  }
+
+  List<AiRouterMessage> _buildCloudHistoryMessages(String currentEnrichedPrompt) {
+    final history = <AiRouterMessage>[];
+    if (_messages.length > 1) {
+      final prior = _messages.sublist(0, _messages.length - 1);
+      final recent = prior.length > 6 ? prior.sublist(prior.length - 6) : prior;
+      for (final msg in recent) {
+        final content = msg.content.trim();
+        if (content.isEmpty) continue;
+        final role = msg.role == 'user' ? 'user' : 'assistant';
+        history.add(AiRouterMessage(role: role, content: content));
+      }
+    }
+    history.add(AiRouterMessage(role: 'user', content: currentEnrichedPrompt));
+    return history;
   }
 
   /// Extrae metas implícitas del mensaje y las acumula sin borrar las previas.
@@ -1281,8 +1703,8 @@ class AiChatService extends ChangeNotifier {
       return;
     }
 
-    if (!_gemmaInitialized) {
-      AppLogger.info('Gemma no inicializado, intentando cargar sobre la marcha...');
+    if (!_gemmaInitialized || _gemmaModel == null) {
+      AppLogger.info('Gemma no cargado en memoria, cargando bajo demanda...');
       await _tryLoadGemmaModel();
     }
 

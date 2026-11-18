@@ -18,9 +18,12 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:finazaap/services/ai_chat_service.dart';
+import 'package:finazaap/services/ai_provider_config.dart';
+import 'package:finazaap/services/ai_provider_router.dart';
 import 'package:finazaap/themes/app_theme_mode.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/core/theme_notifier.dart';
+import 'package:finazaap/features/notifications/services/gemma_classifier_adapter.dart';
 import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 
 /// Punto de entrada principal de FinazaApp
@@ -70,11 +73,15 @@ void main() async {
       ThemeNotifier.init(),
     ]);
 
+    // Registrar router multi-IA y hooks lazy de Gemma antes de montar el árbol de widgets
+    AiProviderRouter.registerHooks();
+    AiChatService.ensureGemmaInitialized = _ensureGemmaInitialized;
+    DefaultGemmaInferenceClient.ensureGemmaInitialized = _ensureGemmaInitialized;
+
     // Ejecutar la aplicación inmediatamente tras inicializar estado esencial
     runApp(const FinazaApp());
 
-    // Diferir inicializaciones no críticas para el primer frame, exponiendo hook para acceso temprano al chat
-    AiChatService.ensureGemmaInitialized = _ensureGemmaInitialized;
+    // Diferir inicializaciones no críticas para el primer frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeDeferredServices();
     });
@@ -166,8 +173,24 @@ Future<void> _ensureGemmaInitialized() {
 }
 
 /// Inicializa servicios secundarios después del primer frame.
+///
+/// Carga perezosa: si la IA Principal configurada es Cloud o Simulador,
+/// omite por completo `FlutterGemma.initialize(...)` al arrancar (0 MB RAM de Gemma).
 Future<void> _initializeDeferredServices() async {
-  await _ensureGemmaInitialized();
+  AiProviderRouter.registerHooks();
+  try {
+    final aiConfig = await AiProviderConfigStore.instance.loadConfig();
+    if (aiConfig.primaryProvider.isLocalGemma) {
+      await _ensureGemmaInitialized();
+    } else {
+      AppLogger.info(
+        'IA Principal (${aiConfig.primaryProvider.displayName}): '
+        'se omite inicialización de FlutterGemma en arranque.',
+      );
+    }
+  } catch (e) {
+    AppLogger.warning('Error consultando AiProviderConfigStore en arranque: $e');
+  }
 
   try {
     final notificationService = NotificationService();
