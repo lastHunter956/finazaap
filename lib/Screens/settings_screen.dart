@@ -2131,14 +2131,16 @@ class _SettingsScreenState extends State<SettingsScreen>
         cfg.primaryProvider,
         keyId: keyId,
       );
-      final models = await _aiStore.fetchAvailableModels(
-        cfg.primaryProvider,
-        keyId: keyId,
-      );
+      final models = probe.discoveredModels.isNotEmpty
+          ? probe.discoveredModels
+          : await _aiStore.fetchAvailableModels(
+              cfg.primaryProvider,
+              keyId: keyId,
+            );
       if (!mounted) return;
       setState(() {
         _lastAiProbeResult = probe;
-        _discoveredAiModels = models.isNotEmpty ? models : probe.discoveredModels;
+        _discoveredAiModels = models;
       });
     } catch (e) {
       if (!mounted) return;

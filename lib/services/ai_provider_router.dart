@@ -244,6 +244,51 @@ class AiProviderRouter {
 
           attempts++;
           lastProvider = provider;
+
+          Future<AiRouterResponse?> tryOpenRouterFallback() async {
+            if (primaryMarker == 'openrouter/free' ||
+                _isModelInCooldownInternal(
+                  provider,
+                  keyEntry.id,
+                  'openrouter/free',
+                )) {
+              return null;
+            }
+            attempts++;
+            try {
+              return await _sendCompletionRequest(
+                provider: provider,
+                keyEntry: keyEntry,
+                rawApiKey: rawKey.trim(),
+                model: 'openrouter/free',
+                openRouterModels: null,
+                messages: messages,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                temperature: temperature,
+                timeout: timeout,
+                attempts: attempts,
+                usedFallbackProvider: pIdx > 0,
+              );
+            } on _RetryableHttpFailure catch (fallbackErr) {
+              lastStatus = fallbackErr.statusCode;
+              lastError = fallbackErr.message;
+              _recordHttpFailureCooldown(
+                provider: provider,
+                keyId: keyEntry.id,
+                model: 'openrouter/free',
+                statusCode: fallbackErr.statusCode,
+                headers: fallbackErr.headers,
+              );
+            } on TimeoutException {
+              lastError =
+                  'Tiempo de espera agotado en ${provider.displayName}.';
+            } catch (e) {
+              lastError = _formatConnectionError(provider, e);
+            }
+            return null;
+          }
+
           try {
             final result = await _sendCompletionRequest(
               provider: provider,
@@ -270,49 +315,18 @@ class AiProviderRouter {
               statusCode: err.statusCode,
               headers: err.headers,
             );
-            // Si el subconjunto de 3 modelos falla en OpenRouter con 400/404,
-            // reintentar una vez con el router automático "openrouter/free".
-            if ((err.statusCode == 400 || err.statusCode == 404) &&
-                primaryMarker != 'openrouter/free' &&
-                !_isModelInCooldownInternal(
-                  provider,
-                  keyEntry.id,
-                  'openrouter/free',
-                )) {
-              attempts++;
-              try {
-                return await _sendCompletionRequest(
-                  provider: provider,
-                  keyEntry: keyEntry,
-                  rawApiKey: rawKey.trim(),
-                  model: 'openrouter/free',
-                  openRouterModels: null,
-                  messages: messages,
-                  systemPrompt: systemPrompt,
-                  maxTokens: maxTokens,
-                  temperature: temperature,
-                  timeout: timeout,
-                  attempts: attempts,
-                  usedFallbackProvider: pIdx > 0,
-                );
-              } on _RetryableHttpFailure catch (fallbackErr) {
-                lastStatus = fallbackErr.statusCode;
-                lastError = fallbackErr.message;
-                _recordHttpFailureCooldown(
-                  provider: provider,
-                  keyId: keyEntry.id,
-                  model: 'openrouter/free',
-                  statusCode: fallbackErr.statusCode,
-                  headers: fallbackErr.headers,
-                );
-              } on TimeoutException {
-                lastError =
-                    'Tiempo de espera agotado en ${provider.displayName}.';
-              } catch (e) {
-                lastError = _formatConnectionError(provider, e);
-              }
+            if (err.statusCode == 400 ||
+                err.statusCode == 404 ||
+                err.statusCode == 410) {
+              final fallback = await tryOpenRouterFallback();
+              if (fallback != null) return fallback;
             }
             // OpenRouter ya evaluó su cola de modelos en el servidor; pasar a la siguiente API Key
+            continue;
+          } on FormatException catch (err) {
+            lastError = _formatConnectionError(provider, err);
+            final fallback = await tryOpenRouterFallback();
+            if (fallback != null) return fallback;
             continue;
           } on TimeoutException {
             lastError = 'Tiempo de espera agotado en ${provider.displayName}.';
@@ -606,12 +620,14 @@ class AiProviderRouter {
       );
       final completion = await completeChat(
         messages: const [
-          AiRouterMessage(role: 'user', content: 'Responde OK.'),
+          AiRouterMessage(role: 'user', content: 'Responde solo: OK'),
         ],
         configOverride: probeCfg,
         providerOverride: provider,
         keyIdOverride: keyEntry.id,
-        maxTokens: 12,
+        // Modelos de razonamiento (:free, o3, gpt-5) consumen tokens previos
+        // antes de emitir choices[0].message.content; 512 evita respuestas vacías.
+        maxTokens: 512,
         temperature: 0.0,
         timeout: const Duration(seconds: 15),
       );
@@ -1284,7 +1300,13 @@ class AiProviderRouter {
               !lower.contains('parse') &&
               !lower.contains('guard') &&
               !lower.contains('reward') &&
-              !lower.contains('cosmos');
+              !lower.contains('cosmos') &&
+              !lower.contains('video-detector') &&
+              !lower.contains('safety') &&
+              !lower.contains('topic-control') &&
+              !lower.contains('translate') &&
+              !lower.contains('ising') &&
+              !lower.contains('starcoder');
         }).toList();
         return _promotePreferredModels(
           chatLike.isNotEmpty ? chatLike : allIds,
@@ -1482,7 +1504,7 @@ class AiProviderRouter {
       return;
     }
 
-    if (statusCode == 404) {
+    if (statusCode == 404 || statusCode == 410) {
       final retry = _parseRetryAfter(headers, fallback: notFoundCooldown);
       _cooldownUntil[_globalModelCooldownKey(provider, model)] = now.add(retry);
       return;
@@ -1589,15 +1611,18 @@ class AiProviderRouter {
     var detail = '';
     try {
       final decoded = jsonDecode(body);
-      if (decoded is Map && decoded['error'] is Map) {
-        final msg = (decoded['error'] as Map)['message'];
-        if (msg is String && msg.trim().isNotEmpty) {
-          detail = ': ${msg.trim()}';
+      if (decoded is Map) {
+        final nestedError = decoded['error'];
+        final rawMsg = nestedError is Map
+            ? nestedError['message']
+            : (decoded['detail'] ?? decoded['message']);
+        if (rawMsg is String && rawMsg.trim().isNotEmpty) {
+          detail = ': ${rawMsg.trim()}';
         }
       }
     } catch (_) {}
-    if (detail.length > 140) {
-      detail = '${detail.substring(0, 140)}...';
+    if (detail.length > 220) {
+      detail = '${detail.substring(0, 220)}...';
     }
     return '${provider.displayName} ($target) HTTP $statusCode$detail';
   }

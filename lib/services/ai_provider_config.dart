@@ -76,24 +76,24 @@ enum AiProviderId {
       case AiProviderId.openRouter:
         return const [
           'openrouter/free',
-          'google/gemma-3-27b-it:free',
-          'meta-llama/llama-3.3-70b-instruct:free',
-          'deepseek/deepseek-r1:free',
+          'google/gemma-4-31b-it:free',
+          'nvidia/nemotron-3.5-lightning:free',
+          'google/gemma-4-26b-a4b-it:free',
         ];
       case AiProviderId.nvidiaNim:
         return const [
-          'meta/llama-3.3-70b-instruct',
-          'nvidia/llama-3.1-nemotron-ultra-253b-v1',
-          'google/gemma-3-27b-it',
-          'meta/llama-3.1-8b-instruct',
+          'google/gemma-4-31b-it',
+          'nvidia/nemotron-3.5-lightning-30b-a3b',
+          'google/gemma-3-12b-it',
+          'openai/gpt-oss-20b',
         ];
       case AiProviderId.openCodeZen:
         return const [
-          'deepseek-v4-flash-free',
-          'qwen3.6-plus-free',
-          'nemotron-3-ultra-free',
-          'minimax-m3-free',
-          'mimo-v2.5-free',
+          'nemotron-3.5-lightning-free',
+          'deepseek-v4.1-flash-free',
+          'mimo-v2.6-flash-free',
+          'glm-5.3-flash-free',
+          'hy4-flash-free',
         ];
       case AiProviderId.gemini:
         return const [
@@ -286,13 +286,12 @@ class AiEngineConfig {
     return AiEngineConfig(
       primaryProvider: AiProviderId.fromWire(
           (json['primary_provider'] ?? json['primaryProvider']) as String?),
-      primaryKeyId:
-          (json['primary_key_id'] ?? json['primaryKeyId']) as String?,
+      primaryKeyId: (json['primary_key_id'] ?? json['primaryKeyId']) as String?,
       autoRotateFreeModels: (json['auto_rotate_free_models'] ??
-          json['autoRotateFreeModels']) as bool? ??
+              json['autoRotateFreeModels']) as bool? ??
           true,
       crossProviderFallback: (json['cross_provider_fallback'] ??
-          json['crossProviderFallback']) as bool? ??
+              json['crossProviderFallback']) as bool? ??
           false,
       localHuggingFaceUrl: (json['local_huggingface_url'] ??
           json['localHuggingFaceUrl']) as String?,
@@ -370,7 +369,8 @@ class AiProviderConfigStore extends ChangeNotifier {
       try {
         final decoded = jsonDecode(rawConfig);
         if (decoded is Map) {
-          _current = AiEngineConfig.fromJson(Map<String, dynamic>.from(decoded));
+          _current =
+              AiEngineConfig.fromJson(Map<String, dynamic>.from(decoded));
           _loaded = true;
           return _current;
         }
@@ -395,8 +395,9 @@ class AiProviderConfigStore extends ChangeNotifier {
 
     _current = AiEngineConfig(
       primaryProvider: migratedProvider,
-      localHuggingFaceUrl:
-          (legacyUrl != null && legacyUrl != defaultGemmaUrl) ? legacyUrl : null,
+      localHuggingFaceUrl: (legacyUrl != null && legacyUrl != defaultGemmaUrl)
+          ? legacyUrl
+          : null,
     );
     _loaded = true;
     return _current;
@@ -445,7 +446,8 @@ class AiProviderConfigStore extends ChangeNotifier {
     }
 
     final cfg = await loadConfig();
-    final id = 'key_${provider.wireValue}_${DateTime.now().microsecondsSinceEpoch}';
+    final id =
+        'key_${provider.wireValue}_${DateTime.now().microsecondsSinceEpoch}';
     await _keyStore.write('$secretKeyPrefix$id', cleanKey);
 
     final entry = AiApiKeyEntry(

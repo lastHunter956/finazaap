@@ -292,7 +292,7 @@ void main() {
         final model = payload['model'] as String;
         requestedModels.add(model);
 
-        if (failFirstModel && model == 'meta/llama-3.3-70b-instruct') {
+        if (failFirstModel && model == 'google/gemma-4-31b-it') {
           return _jsonResponse(
             {
               'error': {'message': 'Rate limit exceeded'}
@@ -322,13 +322,13 @@ void main() {
       final res1 = await router.completeChat(
         messages: const [AiRouterMessage(role: 'user', content: 'Hola NIM')],
       );
-      expect(res1.model, equals('nvidia/llama-3.1-nemotron-ultra-253b-v1'));
+      expect(res1.model, equals('nvidia/nemotron-3.5-lightning-30b-a3b'));
       expect(res1.attempts, equals(2));
       expect(
         requestedModels,
         equals([
-          'meta/llama-3.3-70b-instruct',
-          'nvidia/llama-3.1-nemotron-ultra-253b-v1',
+          'google/gemma-4-31b-it',
+          'nvidia/nemotron-3.5-lightning-30b-a3b',
         ]),
       );
       expect(router.cooldownUntil, isNotEmpty);
@@ -339,10 +339,10 @@ void main() {
       final res2 = await router.completeChat(
         messages: const [AiRouterMessage(role: 'user', content: 'Segunda')],
       );
-      expect(res2.model, equals('nvidia/llama-3.1-nemotron-ultra-253b-v1'));
+      expect(res2.model, equals('nvidia/nemotron-3.5-lightning-30b-a3b'));
       expect(
         requestedModels,
-        equals(['nvidia/llama-3.1-nemotron-ultra-253b-v1']),
+        equals(['nvidia/nemotron-3.5-lightning-30b-a3b']),
       );
 
       // A los +30s (50s > 45s): el cooldown expiró y modelo 1 vuelve a ser elegible
@@ -352,8 +352,8 @@ void main() {
       final res3 = await router.completeChat(
         messages: const [AiRouterMessage(role: 'user', content: 'Tercera')],
       );
-      expect(res3.model, equals('meta/llama-3.3-70b-instruct'));
-      expect(requestedModels, equals(['meta/llama-3.3-70b-instruct']));
+      expect(res3.model, equals('google/gemma-4-31b-it'));
+      expect(requestedModels, equals(['google/gemma-4-31b-it']));
     });
 
     test(
@@ -775,13 +775,13 @@ void main() {
       final client = MockClient((request) async {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         expect(body['stream'], isTrue);
-        if (body['model'] == 'meta/llama-3.3-70b-instruct') {
+        if (body['model'] == 'google/gemma-4-31b-it') {
           return _jsonResponse({'error': 'busy'}, statusCode: 429);
         }
         final sse = [
-          'data: {"model":"nvidia/llama-3.1-nemotron-ultra-253b-v1","choices":[{"delta":{"content":"Hola "}}]}',
+          'data: {"model":"nvidia/nemotron-3.5-lightning-30b-a3b","choices":[{"delta":{"content":"Hola "}}]}',
           '',
-          'data: {"model":"nvidia/llama-3.1-nemotron-ultra-253b-v1","choices":[{"delta":{"content":"Moneo"}}]}',
+          'data: {"model":"nvidia/nemotron-3.5-lightning-30b-a3b","choices":[{"delta":{"content":"Moneo"}}]}',
           '',
           'data: [DONE]',
           '',
@@ -806,7 +806,112 @@ void main() {
       expect(chunks.map((c) => c.delta).join(), equals('Hola Moneo'));
       expect(
         chunks.first.model,
-        equals('nvidia/llama-3.1-nemotron-ultra-253b-v1'),
+        equals('nvidia/nemotron-3.5-lightning-30b-a3b'),
+      );
+    });
+
+    test(
+        'testConnection usa max_tokens >= 256 para modelos reasoning, reintenta openrouter/free ante content vacío y marca 410 Gone en NVIDIA',
+        () async {
+      await configStore.addApiKey(
+        provider: AiProviderId.openRouter,
+        label: 'OR Reasoning Probe',
+        rawApiKey: 'sk-or-reasoning-1234',
+        setAsPrimary: true,
+      );
+
+      final openRouterBodies = <Map<String, dynamic>>[];
+      final orClient = MockClient((request) async {
+        if (request.method == 'GET') {
+          return _jsonResponse({
+            'data': [
+              {'id': 'inclusionai/ling-3.2-flash:free'},
+              {'id': 'baidu/ernie-5.5-flash-preview:free'},
+            ],
+          });
+        }
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        openRouterBodies.add(body);
+        if (body.containsKey('models')) {
+          return _jsonResponse({
+            'model': 'inclusionai/ling-3.2-flash:free',
+            'choices': [
+              {
+                'message': {
+                  'role': 'assistant',
+                  'content': '',
+                  'reasoning': 'pensando...',
+                }
+              }
+            ],
+          });
+        }
+        return _jsonResponse({
+          'model': 'google/gemma-4-31b-it:free',
+          'choices': [
+            {
+              'message': {'content': 'OK'}
+            }
+          ],
+        });
+      });
+
+      final orRouter = AiProviderRouter(
+        httpClient: orClient,
+        configStore: configStore,
+        nowProvider: () => fakeNow,
+      );
+      final orProbe = await orRouter.testConnection(AiProviderId.openRouter);
+      expect(orProbe.ok, isTrue);
+      expect(orProbe.activeModel, equals('google/gemma-4-31b-it:free'));
+      expect(openRouterBodies.first['max_tokens'], greaterThanOrEqualTo(256));
+
+      await configStore.addApiKey(
+        provider: AiProviderId.nvidiaNim,
+        label: 'NVIDIA 410',
+        rawApiKey: 'nvapi-test-410',
+        setAsPrimary: true,
+      );
+      final nimClient = MockClient((request) async {
+        if (request.method == 'GET') {
+          return _jsonResponse({}, statusCode: 404);
+        }
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        if (body['model'] == 'google/gemma-4-31b-it') {
+          return _jsonResponse(
+            {
+              'title': 'Gone',
+              'status': 410,
+              'detail': 'Model reached end of life.',
+            },
+            statusCode: 410,
+          );
+        }
+        return _jsonResponse({
+          'model': body['model'],
+          'choices': [
+            {
+              'message': {'content': 'OK'}
+            }
+          ],
+        });
+      });
+
+      final nimRouter = AiProviderRouter(
+        httpClient: nimClient,
+        configStore: configStore,
+        nowProvider: () => fakeNow,
+      );
+      final nimProbe = await nimRouter.testConnection(AiProviderId.nvidiaNim);
+      expect(nimProbe.ok, isTrue);
+      expect(nimProbe.activeModel,
+          equals('nvidia/nemotron-3.5-lightning-30b-a3b'));
+      expect(
+        nimRouter.isModelInCooldown(
+          AiProviderId.nvidiaNim,
+          'google/gemma-4-31b-it',
+        ),
+        isTrue,
       );
     });
   });
