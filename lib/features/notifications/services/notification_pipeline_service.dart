@@ -209,8 +209,12 @@ class NotificationPipelineService {
         await _dedupCorrelator.warmUp();
         await _getRecentAccounts();
       } else {
-        unawaited(pruneStorageTtl());
-        unawaited(_dedupCorrelator.warmUp());
+        unawaited(pruneStorageTtl().catchError((_) => (
+              dedupPruned: 0,
+              executedPruned: 0,
+              patternsPruned: 0,
+            )));
+        unawaited(_dedupCorrelator.warmUp().catchError((_) {}));
       }
     } catch (_) {
       // Permite continuar en entornos de prueba sin plugin de FlutterSecureStorage.

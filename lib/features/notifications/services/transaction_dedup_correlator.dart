@@ -187,8 +187,16 @@ class TransactionDedupCorrelator {
   /// Precarga en memoria reglas de deduplicación y el anillo de movimientos recientes
   /// para evitar latencia en frío cuando llegue la primera notificación.
   Future<void> warmUp() async {
-    await _loadAllRules();
-    await _ensureRecentLoaded();
+    try {
+      await _loadAllRules();
+    } catch (_) {
+      // Entornos sin canal nativo de FlutterSecureStorage o cajas cerradas.
+    }
+    try {
+      await _ensureRecentLoaded();
+    } catch (_) {
+      // Entornos sin canal nativo de FlutterSecureStorage o cajas cerradas.
+    }
   }
 
   Future<List<DedupRule>> _loadAllRules() async {
