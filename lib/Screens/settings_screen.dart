@@ -12,11 +12,17 @@ import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/themes/app_theme_mode.dart';
 import 'package:finazaap/core/theme_notifier.dart';
+import 'package:finazaap/services/ai_provider_config.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 import 'package:finazaap/Screens/onboarding_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+  final AiProviderConfigStore? aiConfigStore;
+
+  const SettingsScreen({
+    Key? key,
+    this.aiConfigStore,
+  }) : super(key: key);
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -29,6 +35,12 @@ class _SettingsScreenState extends State<SettingsScreen>
   final NotificationPipelineService _pipeline =
       NotificationPipelineService.instance;
   BankWhitelistService get _whitelistService => _pipeline.whitelistService;
+  AiProviderConfigStore get _aiStore =>
+      widget.aiConfigStore ?? AiProviderConfigStore.instance;
+  AiEngineConfig _aiConfig = const AiEngineConfig();
+  bool _isTestingAiConnection = false;
+  AiProviderProbeResult? _lastAiProbeResult;
+  List<String> _discoveredAiModels = const [];
   bool _isLoading = true;
   bool _pinEnabled = false;
   bool _biometricEnabled = false;
@@ -66,13 +78,22 @@ class _SettingsScreenState extends State<SettingsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _aiStore.addListener(_onAiConfigChanged);
     _loadSettings();
   }
 
   @override
   void dispose() {
+    _aiStore.removeListener(_onAiConfigChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _onAiConfigChanged() {
+    if (!mounted) return;
+    setState(() {
+      _aiConfig = _aiStore.current;
+    });
   }
 
   @override
@@ -147,9 +168,14 @@ class _SettingsScreenState extends State<SettingsScreen>
     // Cargar configuración de notificaciones
     final hour = await _notificationService.getHour();
     final minute = await _notificationService.getMinute();
+    AiEngineConfig aiCfg = _aiStore.current;
+    try {
+      aiCfg = await _aiStore.loadConfig();
+    } catch (_) {}
     
     if (!mounted) return;
     setState(() {
+      _aiConfig = aiCfg;
       _pinEnabled = _pinProvider.isPinEnabled;
       _biometricEnabled = _pinProvider.isBiometricEnabled;
       _biometricAvailable = _pinProvider.isBiometricAvailable;
@@ -1240,6 +1266,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                 ),
                 
+                const SizedBox(height: 24),
+
+                // ═══════════════════════════════════════════════════════════════
+                // SECCIÓN: MOTOR DE IA PRINCIPAL Y PROVEEDORES
+                // ═══════════════════════════════════════════════════════════════
+                _buildAiEngineSection(context),
+
                 const SizedBox(height: 20),
                 
                 // ═══════════════════════════════════════════════════════════
@@ -1665,6 +1698,764 @@ class _SettingsScreenState extends State<SettingsScreen>
         shape: BoxShape.circle,
         border: Border.all(color: Colors.black12, width: 0.5),
       ),
+    );
+  }
+
+  Widget _buildAiEngineSection(BuildContext context) {
+    final t = context.appTheme;
+    final cfg = _aiConfig;
+    final activeKey = cfg.activePrimaryKey;
+    final cloudKeys = cfg.apiKeys;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Motor de IA',
+          style: TextStyle(
+            color: t.accent,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Material(
+          color: t.cardBackground,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'IA Principal activa',
+                      style: TextStyle(
+                        color: t.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Aplica a Notificaciones, Reportes y Chat de IA',
+                      style: TextStyle(
+                        color: t.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    InputDecorator(
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: t.darkBackground,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: t.borderSubtle),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: t.borderSubtle),
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<AiProviderId>(
+                          key: const Key('settings_ai_primary_provider_dropdown'),
+                          value: cfg.primaryProvider,
+                          isExpanded: true,
+                          dropdownColor: t.cardBackground,
+                          style: TextStyle(
+                            color: t.textPrimary,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          items: AiProviderId.values.map((provider) {
+                            return DropdownMenuItem<AiProviderId>(
+                              value: provider,
+                              child: Text(
+                                provider.displayName,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (next) async {
+                            if (next == null) return;
+                            await _aiStore.setPrimaryProvider(next);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: t.borderSubtle),
+              ListTile(
+                key: const Key('settings_ai_local_model_tile'),
+                minVerticalPadding: 12,
+                leading: Icon(Icons.memory_rounded, color: t.accent),
+                title: Text(
+                  'Modelo local (.litertlm)',
+                  style: TextStyle(color: t.textPrimary),
+                ),
+                subtitle: Text(
+                  cfg.primaryProvider == AiProviderId.localHuggingFace &&
+                          (cfg.localHuggingFaceUrl?.isNotEmpty ?? false)
+                      ? cfg.localHuggingFaceUrl!
+                      : 'Gemma 4 E2B por defecto (o URL HuggingFace personalizada)',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: t.textSecondary, fontSize: 12),
+                ),
+                trailing: Icon(Icons.chevron_right, color: t.textSecondary),
+                onTap: _showHuggingFaceUrlDialog,
+              ),
+              Divider(height: 1, color: t.borderSubtle),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'API Keys Cloud (${cloudKeys.length})',
+                              style: TextStyle(
+                                color: t.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              'Almacenadas cifradas en FlutterSecureStorage',
+                              style: TextStyle(
+                                color: t.textSecondary,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        ElevatedButton.icon(
+                          key: const Key('settings_ai_add_key_button'),
+                          onPressed: _showAddApiKeyDialog,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Agregar API Key'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: t.buttonBackground,
+                            foregroundColor: t.buttonForeground,
+                            minimumSize: const Size(48, 48),
+                            tapTargetSize: MaterialTapTargetSize.padded,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (cloudKeys.isEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: t.darkBackground.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: t.borderSubtle),
+                        ),
+                        child: Text(
+                          'No hay API Keys registradas. Agrega OpenRouter, NVIDIA NIM, OpenCode Zen, Gemini u OpenAI.',
+                          style: TextStyle(
+                            color: t.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 10),
+                      for (final entry in cloudKeys)
+                        Container(
+                          key: ValueKey('ai_key_card_${entry.id}'),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: t.darkBackground.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: activeKey?.id == entry.id
+                                  ? t.accent
+                                  : t.borderSubtle,
+                              width: activeKey?.id == entry.id ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${entry.label} · ${entry.provider.displayName}',
+                                      style: TextStyle(
+                                        color: t.textPrimary,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  if (activeKey?.id == entry.id)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: t.accent.withValues(alpha: 0.16),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        'Principal',
+                                        style: TextStyle(
+                                          color: t.accent,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${entry.maskedKey} • Modelo: ${entry.preferredModel ?? 'Automático gratuito'}',
+                                style: TextStyle(
+                                  color: t.textSecondary,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: [
+                                  TextButton(
+                                    key: ValueKey('ai_key_set_primary_${entry.id}'),
+                                    onPressed: () => _aiStore.setPrimaryProvider(
+                                      entry.provider,
+                                      keyId: entry.id,
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: t.accent,
+                                      minimumSize: const Size(48, 48),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.padded,
+                                    ),
+                                    child: const Text('Usar como Principal'),
+                                  ),
+                                  TextButton(
+                                    key: ValueKey('ai_key_toggle_${entry.id}'),
+                                    onPressed: () => _aiStore.updateApiKey(
+                                      entry.copyWith(isEnabled: !entry.isEnabled),
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: t.textSecondary,
+                                      minimumSize: const Size(48, 48),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.padded,
+                                    ),
+                                    child: Text(
+                                      entry.isEnabled ? 'Desactivar' : 'Activar',
+                                    ),
+                                  ),
+                                  TextButton(
+                                    key: ValueKey('ai_key_delete_${entry.id}'),
+                                    onPressed: () =>
+                                        _aiStore.removeApiKey(entry.id),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: t.error,
+                                      minimumSize: const Size(48, 48),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.padded,
+                                    ),
+                                    child: const Text('Eliminar'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: t.borderSubtle),
+              SwitchListTile(
+                key: const Key('settings_ai_auto_rotate_switch'),
+                title: Text(
+                  'Rotación automática gratuita ante límite (429)',
+                  style: TextStyle(color: t.textPrimary, fontSize: 13.5),
+                ),
+                subtitle: Text(
+                  'Rota automáticamente entre modelos gratuitos y llaves del proveedor activo',
+                  style: TextStyle(color: t.textSecondary, fontSize: 11.5),
+                ),
+                value: cfg.autoRotateFreeModels,
+                activeThumbColor: t.accent,
+                onChanged: (value) async {
+                  await _aiStore.saveConfig(
+                    cfg.copyWith(autoRotateFreeModels: value),
+                  );
+                },
+              ),
+              Divider(height: 1, color: t.borderSubtle),
+              SwitchListTile(
+                key: const Key('settings_ai_cross_fallback_switch'),
+                title: Text(
+                  'Respaldo automático entre mis otras APIs',
+                  style: TextStyle(color: t.textPrimary, fontSize: 13.5),
+                ),
+                subtitle: Text(
+                  'Si el proveedor principal se agota, intenta con otra API Key activa',
+                  style: TextStyle(color: t.textSecondary, fontSize: 11.5),
+                ),
+                value: cfg.crossProviderFallback,
+                activeThumbColor: t.accent,
+                onChanged: (value) async {
+                  await _aiStore.saveConfig(
+                    cfg.copyWith(crossProviderFallback: value),
+                  );
+                },
+              ),
+              Divider(height: 1, color: t.borderSubtle),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const Key('settings_ai_test_connection_button'),
+                      onPressed: _isTestingAiConnection ? null : _testAiConnection,
+                      icon: _isTestingAiConnection
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: t.accent,
+                              ),
+                            )
+                          : const Icon(Icons.wifi_tethering_rounded, size: 18),
+                      label: const Text('Probar conexión / Ver modelos'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: t.accent,
+                        minimumSize: const Size(48, 48),
+                        tapTargetSize: MaterialTapTargetSize.padded,
+                        side: BorderSide(color: t.accent.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    if (_lastAiProbeResult != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        key: const Key('settings_ai_probe_result_banner'),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: (_lastAiProbeResult!.ok ? t.success : t.error)
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _lastAiProbeResult!.message,
+                              style: TextStyle(
+                                color: _lastAiProbeResult!.ok
+                                    ? t.success
+                                    : t.error,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (_discoveredAiModels.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Modelos: ${_discoveredAiModels.take(5).join(', ')}',
+                                style: TextStyle(
+                                  color: t.textSecondary,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _testAiConnection() async {
+    setState(() {
+      _isTestingAiConnection = true;
+    });
+    try {
+      final cfg = _aiStore.current;
+      final keyId = cfg.activePrimaryKey?.id;
+      final probe = await _aiStore.testConnection(
+        cfg.primaryProvider,
+        keyId: keyId,
+      );
+      final models = await _aiStore.fetchAvailableModels(
+        cfg.primaryProvider,
+        keyId: keyId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _lastAiProbeResult = probe;
+        _discoveredAiModels = models.isNotEmpty ? models : probe.discoveredModels;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTestingAiConnection = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showHuggingFaceUrlDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _HuggingFaceUrlDialog(
+        initialUrl: _aiConfig.localHuggingFaceUrl ??
+            AiProviderConfigStore.defaultGemmaUrl,
+        aiStore: _aiStore,
+      ),
+    );
+  }
+
+  Future<void> _showAddApiKeyDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _AddApiKeyDialog(aiStore: _aiStore),
+    );
+  }
+}
+
+class _HuggingFaceUrlDialog extends StatefulWidget {
+  final String initialUrl;
+  final AiProviderConfigStore aiStore;
+
+  const _HuggingFaceUrlDialog({
+    required this.initialUrl,
+    required this.aiStore,
+  });
+
+  @override
+  State<_HuggingFaceUrlDialog> createState() => _HuggingFaceUrlDialogState();
+}
+
+class _HuggingFaceUrlDialogState extends State<_HuggingFaceUrlDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialUrl);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.appTheme;
+    return AlertDialog(
+      backgroundColor: t.cardBackground,
+      title: Text(
+        'Modelo local (.litertlm)',
+        style: TextStyle(color: t.textPrimary),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Pega una URL de HuggingFace (.litertlm) o restaura Gemma 4 E2B por defecto.',
+              style: TextStyle(color: t.textSecondary, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('ai_hf_url_input'),
+              controller: _controller,
+              style: TextStyle(color: t.textPrimary, fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'URL .litertlm',
+                labelStyle: TextStyle(color: t.textSecondary),
+                filled: true,
+                fillColor: t.darkBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            await widget.aiStore.setPrimaryProvider(
+              AiProviderId.localGemmaDefault,
+            );
+            if (context.mounted) Navigator.pop(context);
+          },
+          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+          child: const Text('Restaurar Gemma 4'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final url = _controller.text.trim();
+            if (url.isNotEmpty) {
+              await widget.aiStore.setPrimaryProvider(
+                AiProviderId.localHuggingFace,
+                huggingFaceUrl: url,
+              );
+            }
+            if (context.mounted) Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: t.buttonBackground,
+            foregroundColor: t.buttonForeground,
+            minimumSize: const Size(48, 48),
+          ),
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AddApiKeyDialog extends StatefulWidget {
+  final AiProviderConfigStore aiStore;
+
+  const _AddApiKeyDialog({required this.aiStore});
+
+  @override
+  State<_AddApiKeyDialog> createState() => _AddApiKeyDialogState();
+}
+
+class _AddApiKeyDialogState extends State<_AddApiKeyDialog> {
+  AiProviderId _selectedProvider = AiProviderId.openRouter;
+  final TextEditingController _labelController = TextEditingController();
+  final TextEditingController _keyController = TextEditingController();
+  final TextEditingController _modelController = TextEditingController();
+  bool _setAsPrimary = true;
+  bool _obscureSecret = true;
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _labelController.dispose();
+    _keyController.dispose();
+    _modelController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.appTheme;
+    final cloudProviders =
+        AiProviderId.values.where((p) => p.isCloud).toList(growable: false);
+
+    return AlertDialog(
+      backgroundColor: t.cardBackground,
+      title: Text(
+        'Agregar API Key Cloud',
+        style: TextStyle(color: t.textPrimary),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<AiProviderId>(
+              key: const Key('ai_key_dialog_provider'),
+              initialValue: _selectedProvider,
+              isExpanded: true,
+              dropdownColor: t.cardBackground,
+              style: TextStyle(color: t.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Proveedor',
+                labelStyle: TextStyle(color: t.textSecondary),
+                filled: true,
+                fillColor: t.darkBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              items: cloudProviders.map((p) {
+                return DropdownMenuItem<AiProviderId>(
+                  value: p,
+                  child: Text(
+                    p.displayName,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _selectedProvider = value;
+                });
+              },
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              key: const Key('ai_key_dialog_label'),
+              controller: _labelController,
+              style: TextStyle(color: t.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Etiqueta (ej. Cuenta Principal)',
+                labelStyle: TextStyle(color: t.textSecondary),
+                filled: true,
+                fillColor: t.darkBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              key: const Key('ai_key_dialog_secret'),
+              controller: _keyController,
+              obscureText: _obscureSecret,
+              style: TextStyle(color: t.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'API Key',
+                errorText: _errorText,
+                labelStyle: TextStyle(color: t.textSecondary),
+                filled: true,
+                fillColor: t.darkBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _obscureSecret = !_obscureSecret;
+                    });
+                  },
+                  icon: Icon(
+                    _obscureSecret
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: t.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              key: const Key('ai_key_dialog_model'),
+              controller: _modelController,
+              style: TextStyle(color: t.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Modelo preferido (opcional)',
+                hintText: 'Automático gratuito',
+                hintStyle: TextStyle(color: t.textHint),
+                labelStyle: TextStyle(color: t.textSecondary),
+                filled: true,
+                fillColor: t.darkBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              key: const Key('ai_key_dialog_set_primary'),
+              contentPadding: EdgeInsets.zero,
+              value: _setAsPrimary,
+              activeColor: t.accent,
+              title: Text(
+                'Marcar como IA Principal',
+                style: TextStyle(color: t.textPrimary, fontSize: 13),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _setAsPrimary = value ?? false;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          key: const Key('ai_key_dialog_save'),
+          onPressed: () async {
+            final rawKey = _keyController.text.trim();
+            if (rawKey.isEmpty) {
+              setState(() {
+                _errorText = 'Ingresa una API Key válida';
+              });
+              return;
+            }
+            await widget.aiStore.addApiKey(
+              provider: _selectedProvider,
+              label: _labelController.text.trim(),
+              rawApiKey: rawKey,
+              preferredModel: _modelController.text.trim().isEmpty
+                  ? null
+                  : _modelController.text.trim(),
+              setAsPrimary: _setAsPrimary,
+            );
+            if (context.mounted) Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: t.buttonBackground,
+            foregroundColor: t.buttonForeground,
+            minimumSize: const Size(48, 48),
+          ),
+          child: const Text('Guardar'),
+        ),
+      ],
     );
   }
 }

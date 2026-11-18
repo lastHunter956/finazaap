@@ -37,6 +37,8 @@ class PendingTransactionsScreen extends StatefulWidget {
 class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
   late final PendingTransactionsNotifier _notifier;
   bool _ownsNotifier = false;
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
 
   @override
   void initState() {
@@ -111,7 +113,46 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
   }
 
   Future<void> _handleDiscard(PendingTransactionItem item) async {
+    _selectedIds.remove(item.id);
     await _notifier.discardItem(item.id);
+  }
+
+  Future<void> _handleSplit(PendingTransactionItem item) async {
+    final ok = await _notifier.splitMergedItem(item.id);
+    if (!mounted) return;
+    if (ok) {
+      AlertHelper.success(context, 'Avisos separados en movimientos individuales');
+    }
+  }
+
+  Future<void> _handleMergeSelected() async {
+    if (_selectedIds.length < 2) return;
+    final merged = await _notifier.mergePendingItems(_selectedIds.toList());
+    if (!mounted) return;
+    if (merged != null) {
+      setState(() {
+        _isSelectionMode = false;
+        _selectedIds.clear();
+      });
+      AlertHelper.success(context, 'Notificaciones agrupadas en 1 movimiento');
+    }
+  }
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      _selectedIds.clear();
+    });
+  }
+
+  void _toggleItemSelection(String id, bool? selected) {
+    setState(() {
+      if (selected ?? false) {
+        _selectedIds.add(id);
+      } else {
+        _selectedIds.remove(id);
+      }
+    });
   }
 
   @override
@@ -269,6 +310,14 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
       );
     }
 
+    final validIds = items.map((e) => e.id).toSet();
+    _selectedIds.removeWhere((id) => !validIds.contains(id));
+    final canSelectToGroup = items.length >= 2;
+    if (!canSelectToGroup && _isSelectionMode) {
+      _isSelectionMode = false;
+      _selectedIds.clear();
+    }
+
     return Column(
       children: [
         // Barra de resumen y aprobación en lote fuera del AppBar (evita desbordamiento)
@@ -279,61 +328,148 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
             color: theme.cardBackground,
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hasEligible
-                          ? '${_notifier.eligibleCount} listas para aprobar'
-                          : 'Revisión manual requerida',
-                      style: TextStyle(
-                        color: theme.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (_notifier.manualReviewCount > 0) ...[
-                      const SizedBox(height: 2),
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Text(
-                        '${_notifier.manualReviewCount} requieren revisión manual',
+                        _isSelectionMode
+                            ? '${_selectedIds.length} seleccionadas para agrupar'
+                            : hasEligible
+                                ? '${_notifier.eligibleCount} listas para aprobar'
+                                : 'Revisión manual requerida',
                         style: TextStyle(
-                          color: theme.warning,
-                          fontSize: 11.5,
+                          color: theme.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (!_isSelectionMode &&
+                          _notifier.manualReviewCount > 0) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '${_notifier.manualReviewCount} requieren revisión manual',
+                          style: TextStyle(
+                            color: theme.warning,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              ElevatedButton(
-                key: const Key('accept_all_button'),
-                onPressed: hasEligible ? _handleAcceptAll : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.buttonBackground,
-                  foregroundColor: theme.buttonForeground,
-                  disabledBackgroundColor:
-                      theme.borderSubtle.withValues(alpha: 0.25),
-                  disabledForegroundColor: theme.textHint,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (canSelectToGroup)
+                        Semantics(
+                          button: true,
+                          label: _isSelectionMode
+                              ? 'Cancelar selección para agrupar'
+                              : 'Seleccionar avisos para agrupar',
+                          child: OutlinedButton.icon(
+                            key: const Key('toggle_selection_mode_button'),
+                            onPressed: _toggleSelectionMode,
+                            icon: Icon(
+                              _isSelectionMode
+                                  ? Icons.close_rounded
+                                  : Icons.layers_outlined,
+                              size: 16,
+                            ),
+                            label: Text(
+                              _isSelectionMode ? 'Cancelar' : 'Agrupar',
+                              style: const TextStyle(fontSize: 12.5),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.accent,
+                              minimumSize: const Size(48, 48),
+                              tapTargetSize: MaterialTapTargetSize.padded,
+                              side: BorderSide(
+                                color: theme.accent.withValues(alpha: 0.45),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_isSelectionMode)
+                        ElevatedButton(
+                          key: const Key('merge_selected_button'),
+                          onPressed: _selectedIds.length >= 2
+                              ? _handleMergeSelected
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.buttonBackground,
+                            foregroundColor: theme.buttonForeground,
+                            disabledBackgroundColor:
+                                theme.borderSubtle.withValues(alpha: 0.25),
+                            disabledForegroundColor: theme.textHint,
+                            minimumSize: const Size(48, 48),
+                            tapTargetSize: MaterialTapTargetSize.padded,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            'Agrupar en 1',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        )
+                      else
+                        ElevatedButton(
+                          key: const Key('accept_all_button'),
+                          onPressed: hasEligible ? _handleAcceptAll : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.buttonBackground,
+                            foregroundColor: theme.buttonForeground,
+                            disabledBackgroundColor:
+                                theme.borderSubtle.withValues(alpha: 0.25),
+                            disabledForegroundColor: theme.textHint,
+                            minimumSize: const Size(48, 48),
+                            tapTargetSize: MaterialTapTargetSize.padded,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            'Aceptar todo',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
-                child: const Text(
-                  'Aceptar todo',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
+                ],
               ),
             ],
           ),
@@ -355,6 +491,11 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
                 onConfirm: () => _handleConfirm(item),
                 onCorrect: () => _handleCorrect(item),
                 onDiscard: () => _handleDiscard(item),
+                onSplit: item.isGrouped ? () => _handleSplit(item) : null,
+                isSelectionMode: _isSelectionMode,
+                isSelected: _selectedIds.contains(item.id),
+                onSelectionChanged: (selected) =>
+                    _toggleItemSelection(item.id, selected),
               );
             },
           ),
