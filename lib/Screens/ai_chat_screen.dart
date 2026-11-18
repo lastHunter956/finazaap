@@ -8,7 +8,9 @@ import 'package:intl/intl.dart';
 import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/transaction_service.dart';
+import 'package:finazaap/Screens/settings_screen.dart';
 import 'package:finazaap/services/ai_chat_service.dart';
+import 'package:finazaap/services/ai_provider_config.dart';
 import 'package:finazaap/services/device_capability_service.dart';
 import 'package:finazaap/themes/app_colors.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
@@ -32,6 +34,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       TextEditingController(text: AiChatService.defaultModelUrl);
   final ScrollController _scrollController = ScrollController();
   final AiChatService _chatService = AiChatService();
+  final AiProviderConfigStore _aiConfigStore = AiProviderConfigStore.instance;
   bool _isLoading = false;
   bool _isInputEmpty = true;
   Map<String, dynamic>? _financialState;
@@ -41,9 +44,11 @@ class _AiChatScreenState extends State<AiChatScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _chatService.addListener(_onServiceUpdate);
+    _aiConfigStore.addListener(_onServiceUpdate);
     _messageController.addListener(_onInputChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _aiConfigStore.loadConfig();
       await _chatService.initialize();
       if (!mounted) return;
       _goalsController.text = _chatService.userGoals;
@@ -55,6 +60,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   @override
   void dispose() {
     _chatService.removeListener(_onServiceUpdate);
+    _aiConfigStore.removeListener(_onServiceUpdate);
     _messageController.removeListener(_onInputChanged);
     _messageController.dispose();
     _goalsController.dispose();
@@ -221,14 +227,19 @@ class _AiChatScreenState extends State<AiChatScreen>
   Widget _buildUnifiedHeader(BuildContext context) {
     final t = context.appTheme;
     final isDiurno = context.isDiurno;
-    final isGemma = !_chatService.useLocalSimulator;
+    final primaryProvider = _aiConfigStore.current.primaryProvider;
+    final isGemma = primaryProvider.isLocalGemma || !_chatService.useLocalSimulator;
     final scaledTabFont = MediaQuery.textScalerOf(context).scale(12.5);
     final tabContainerHeight =
         36.0 + math.max(0.0, scaledTabFont - 12.5) * 1.5;
 
     final Color statusColor;
     final String statusLabel;
-    if (!isGemma) {
+    if (primaryProvider.isCloud) {
+      statusColor =
+          _aiConfigStore.current.activePrimaryKey != null ? t.success : t.warning;
+      statusLabel = _cloudProviderLabel(primaryProvider);
+    } else if (!isGemma) {
       statusColor = t.accent;
       statusLabel = 'Simulador local offline';
     } else if (_chatService.gemmaInitialized) {
@@ -313,31 +324,49 @@ class _AiChatScreenState extends State<AiChatScreen>
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: statusColor,
-                            shape: BoxShape.circle,
+                    Semantics(
+                      button: true,
+                      label: 'Cambiar o configurar motor de IA',
+                      child: InkWell(
+                        key: const Key('ai_chat_engine_config_button'),
+                        onTap: _showEngineSwitcherSheet,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  statusLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.outfit(
+                                    color: t.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.tune_rounded,
+                                size: 13,
+                                color: t.accent,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            statusLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                              color: t.textSecondary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -423,9 +452,118 @@ class _AiChatScreenState extends State<AiChatScreen>
     );
   }
 
+  String _cloudProviderLabel(AiProviderId provider) {
+    switch (provider) {
+      case AiProviderId.openRouter:
+        return 'OpenRouter (Cloud)';
+      case AiProviderId.nvidiaNim:
+        return 'NVIDIA NIM (Cloud)';
+      case AiProviderId.openCodeZen:
+        return 'OpenCode Zen (Cloud)';
+      case AiProviderId.gemini:
+        return 'Google Gemini (Cloud)';
+      case AiProviderId.openAi:
+        return 'OpenAI (Cloud)';
+      case AiProviderId.localGemmaDefault:
+      case AiProviderId.localHuggingFace:
+        return 'Gemma IA activo';
+      case AiProviderId.simulator:
+        return 'Simulador local offline';
+    }
+  }
+
+  Future<void> _showEngineSwitcherSheet() async {
+    final t = context.appTheme;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: t.cardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        final cfg = _aiConfigStore.current;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Motor de IA Principal',
+                  style: GoogleFonts.outfit(
+                    color: t.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Activo: ${cfg.primaryProvider.displayName}',
+                  style: GoogleFonts.outfit(
+                    color: t.textSecondary,
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: Icon(Icons.offline_bolt_outlined, color: t.accent),
+                  title: Text('Simulador Local',
+                      style: TextStyle(color: t.textPrimary)),
+                  trailing: cfg.primaryProvider == AiProviderId.simulator
+                      ? Icon(Icons.check_circle_rounded, color: t.accent)
+                      : null,
+                  onTap: () async {
+                    await _aiConfigStore.setPrimaryProvider(AiProviderId.simulator);
+                    await _chatService.setSimulatorMode(true);
+                    if (sheetContext.mounted) Navigator.pop(sheetContext);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.memory_rounded, color: t.accent),
+                  title: Text('Gemma 4 E2B (Local)',
+                      style: TextStyle(color: t.textPrimary)),
+                  trailing: cfg.primaryProvider == AiProviderId.localGemmaDefault
+                      ? Icon(Icons.check_circle_rounded, color: t.accent)
+                      : null,
+                  onTap: () async {
+                    await _aiConfigStore
+                        .setPrimaryProvider(AiProviderId.localGemmaDefault);
+                    await _chatService.setSimulatorMode(false);
+                    if (sheetContext.mounted) Navigator.pop(sheetContext);
+                  },
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.key_rounded, size: 18),
+                  label: const Text('Configurar HuggingFace o API Keys Cloud'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: t.buttonBackground,
+                    foregroundColor: t.buttonForeground,
+                    minimumSize: const Size(48, 48),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildEngineSegmentedControl(BuildContext context, bool isGemma) {
     final t = context.appTheme;
     final isDiurno = context.isDiurno;
+    final primaryProvider = _aiConfigStore.current.primaryProvider;
+    final isCloud = primaryProvider.isCloud;
 
     return Container(
       padding: const EdgeInsets.all(2),
@@ -441,13 +579,24 @@ class _AiChatScreenState extends State<AiChatScreen>
         children: [
           _buildEngineTab(
             label: 'Simulador',
-            isSelected: !isGemma,
-            onTap: () => _chatService.setSimulatorMode(true),
+            isSelected: !isGemma && !isCloud,
+            onTap: () async {
+              await _aiConfigStore.setPrimaryProvider(AiProviderId.simulator);
+              await _chatService.setSimulatorMode(true);
+            },
           ),
           _buildEngineTab(
-            label: 'Gemma IA',
-            isSelected: isGemma,
-            onTap: () => _chatService.setSimulatorMode(false),
+            label: isCloud ? 'Cloud IA' : 'Gemma IA',
+            isSelected: isGemma || isCloud,
+            onTap: () async {
+              if (isCloud) {
+                await _showEngineSwitcherSheet();
+              } else {
+                await _aiConfigStore
+                    .setPrimaryProvider(AiProviderId.localGemmaDefault);
+                await _chatService.setSimulatorMode(false);
+              }
+            },
           ),
         ],
       ),
@@ -515,7 +664,9 @@ class _AiChatScreenState extends State<AiChatScreen>
   }
 
   Widget _buildChatTab() {
-    final isGemma = !_chatService.useLocalSimulator;
+    final primaryProvider = _aiConfigStore.current.primaryProvider;
+    final isGemma =
+        !primaryProvider.isCloud && !_chatService.useLocalSimulator;
     final showEngineBanner = isGemma && !_chatService.gemmaInitialized;
     final messages = _chatService.messages;
     final bottomClearance = MoneoLayoutMetrics.floatingComposerClearance(context);

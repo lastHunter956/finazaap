@@ -15,6 +15,10 @@ class PendingTransactionCard extends StatelessWidget {
   final VoidCallback onConfirm;
   final VoidCallback onCorrect;
   final VoidCallback onDiscard;
+  final VoidCallback? onSplit;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final ValueChanged<bool?>? onSelectionChanged;
 
   const PendingTransactionCard({
     super.key,
@@ -22,6 +26,10 @@ class PendingTransactionCard extends StatelessWidget {
     required this.onConfirm,
     required this.onCorrect,
     required this.onDiscard,
+    this.onSplit,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onSelectionChanged,
   });
 
   bool get isSuspicious => item.classification == 'sospechosa';
@@ -37,11 +45,13 @@ class PendingTransactionCard extends StatelessWidget {
 
     final amountText = CurrencyHelper.format(item.monto ?? 0.0);
     final typeColor = _resolveTypeColor(theme);
-    final borderColor = isSuspicious
-        ? theme.error.withValues(alpha: 0.45)
-        : item.requiresReview
-            ? theme.warning.withValues(alpha: 0.35)
-            : Colors.transparent;
+    final borderColor = isSelectionMode && isSelected
+        ? theme.accent
+        : isSuspicious
+            ? theme.error.withValues(alpha: 0.45)
+            : item.requiresReview
+                ? theme.warning.withValues(alpha: 0.35)
+                : Colors.transparent;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -50,7 +60,10 @@ class PendingTransactionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: borderColor == Colors.transparent
             ? null
-            : Border.all(color: borderColor, width: 1),
+            : Border.all(
+                color: borderColor,
+                width: (isSelectionMode && isSelected) ? 1.5 : 1,
+              ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -64,10 +77,27 @@ class PendingTransactionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabecera: Ícono circular + Comercio + Insignia
+            // Cabecera: Selector (si aplica) + Ícono circular + Comercio + Insignia
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (isSelectionMode) ...[
+                  Semantics(
+                    checked: isSelected,
+                    label: 'Seleccionar $merchantTitle para agrupar',
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Checkbox(
+                        key: ValueKey('select_pending_${item.id}'),
+                        value: isSelected,
+                        activeColor: theme.accent,
+                        checkColor: theme.buttonForeground,
+                        onChanged: onSelectionChanged,
+                      ),
+                    ),
+                  ),
+                ],
                 Container(
                   width: 38,
                   height: 38,
@@ -178,6 +208,119 @@ class PendingTransactionCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+
+            // Badge de notificaciones agrupadas + botón Separar
+            if (item.isGrouped) ...[
+              const SizedBox(height: 8),
+              Container(
+                key: ValueKey('grouped_banner_${item.id}'),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: theme.accent.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.layers_outlined,
+                          size: 15,
+                          color: theme.accent,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Agrupada (${item.groupedCount} avisos)',
+                            style: TextStyle(
+                              color: theme.accent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (onSplit != null)
+                      Semantics(
+                        button: true,
+                        label: 'Separar avisos agrupados',
+                        child: TextButton(
+                          key: ValueKey('split_grouped_${item.id}'),
+                          onPressed: onSplit,
+                          style: TextButton.styleFrom(
+                            foregroundColor: theme.accent,
+                            minimumSize: const Size(48, 48),
+                            tapTargetSize: MaterialTapTargetSize.padded,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                          ),
+                          child: const Text(
+                            'Separar',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Cápsula discreta de comentario estratégico / RAG
+            if (item.strategicNote != null &&
+                item.strategicNote!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                key: ValueKey('strategic_note_${item.id}'),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: theme.accent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: theme.accent.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Icon(
+                        Icons.auto_awesome,
+                        size: 15,
+                        color: theme.accent,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        item.strategicNote!.trim(),
+                        style: TextStyle(
+                          color: theme.textPrimary,
+                          fontSize: 11.5,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             // Alerta si es sospechosa
             if (isSuspicious) ...[
