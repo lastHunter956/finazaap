@@ -206,8 +206,11 @@ class NotificationPipelineService {
           _injectedExecutedBox != null ||
           _injectedPendingBox != null) {
         await pruneStorageTtl();
+        await _dedupCorrelator.warmUp();
+        await _getRecentAccounts();
       } else {
         unawaited(pruneStorageTtl());
+        unawaited(_dedupCorrelator.warmUp());
       }
     } catch (_) {
       // Permite continuar en entornos de prueba sin plugin de FlutterSecureStorage.

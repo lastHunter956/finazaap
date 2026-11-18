@@ -184,6 +184,13 @@ class TransactionDedupCorrelator {
     return result;
   }
 
+  /// Precarga en memoria reglas de deduplicación y el anillo de movimientos recientes
+  /// para evitar latencia en frío cuando llegue la primera notificación.
+  Future<void> warmUp() async {
+    await _loadAllRules();
+    await _ensureRecentLoaded();
+  }
+
   Future<List<DedupRule>> _loadAllRules() async {
     final box = await _getRulesBox();
     if (box != null) {

@@ -1,13 +1,19 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-17 (Integración `pulido-visual-web` consolidada en `main` — P0 + P1 + P2 + Selectores minimalistas en ventana emergente + Modo Nocturno y formularios)
+> **Última actualización:** 2026-11-17 (Rama de integración `integration/notificaciones-rag-y-multi-ia` lista para validación humana; `main` sin cambios)
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
 
 ## 1. Estado Verificado del Repositorio y Entorno
 
-- **Rama actual:** `main` (sin `git push`; cambios locales listos para validar en teléfono o publicar cuando el usuario autorice `git push`).
+- **Rama actual:** `integration/notificaciones-rag-y-multi-ia` (pendiente de validación humana antes de fusionar a `main`; `main` permanece intacta en `0b8cd3a`).
+- **Feature `notificaciones-rag-y-multi-ia` integrada desde 4 ramas de agentes en paralelo:**
+  - **Mini-RAG en disco (`agent/rag/indice-semantico-y-patrones`):** `LearnedPattern` con `aliases`/`knownPackages` retrocompatibles, `CompactSimilarityIndex` (`posting lists` + ecuación híbrida BM25/Jaccard/Paquete/Confirmaciones `< 1 ms`), lectura perezosa por cabeceras en `LearnedPatternsService`, resolución semántica en Etapa 1 (`Score >= 0.88`) y `strategicNote` O(1) con `MonthlySummaryCache` en `TransactionClassifier`.
+  - **Correlación Multi-App y Feedback Loop (`agent/dedup/correlacion-multi-app`):** anillo de movimientos confirmados 48 h (`notification_recent_movements`, tope 100), aprendizaje automático de `DedupRule` multi-app cuando se confirma/corrige 1 y se descartan duplicados en `< 30 min`, agrupación en 1 tarjeta con `strategicNote` de avisos agrupados y `warmUp()` en `NotificationPipelineService`.
+  - **Router Multi-Proveedor y Carga Lazy (`agent/ai/router-multi-proveedor`):** `AiProviderConfigStore` (múltiples API Keys cifradas en `FlutterSecureStorage` + selector de **IA Principal**), `AiProviderRouter` (`OpenRouter` con `models` + `openrouter/free`, `NVIDIA NIM`, `OpenCode Zen`, `Google Gemini`, `OpenAI`) con rotación por `429`/`Retry-After`/`503`, `GemmaClassifierAdapter` y `AiChatService` enrutando a la IA Principal, y arranque *lazy* sin cargar `FlutterGemma` cuando se usa Cloud/Simulador + descarga de RAM tras 2 min de inactividad en Local.
+  - **UI de Bandeja Agrupada y Ajustes Multi-IA (`agent/ui/bandeja-y-ajustes-ia`):** cápsula `strategicNote`, badge `"Agrupada (N avisos)"`, botón **Separar** y selección múltiple **Agrupar en 1** en `PendingTransactionsScreen`/`PendingTransactionCard`; gestor multi-API Key, selector de IA Principal, prueba de conexión / catálogo y opciones HuggingFace/Gemma 4 en `SettingsScreen` y `AiChatScreen`.
+  - **Sin tocar archivos protegidos** (`transaction_service.dart`, `credit_card_calculator.dart`, `*.g.dart`, `build.gradle`, `AndroidManifest.xml`, `lib/core/security/*`).
 - **Sprint `pulido-visual-web` consolidado en `main`:**
   - **P0 (Accesibilidad, contraste WCAG AA/AAA y tokens):** Tokens centralizados en `lib/themes/app_theme_data.dart` (`borderVisible`, `foregroundOn`, `datePickerThemeWithAccent`, umbral `onSecondary > 0.25`, `_nocturno.secondaryCardBackground: 0xFF252733`), objetivos táctiles `>= 48dp`, `Semantics` unificada y cero literales opacos rotos en diálogos/formularios.
   - **P1 (`Home` + `TotalBalanceWidget`):** Jerarquía balance-first (`Disponible` 32px tabular, `MoneoSegmentedControl` junto al historial, agrupación temporal `"Hoy · ..."`, color-coding de categoría, hora `HH:mm` y estado vacío accionable).
