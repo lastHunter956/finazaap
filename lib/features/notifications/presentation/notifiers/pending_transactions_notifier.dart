@@ -28,6 +28,36 @@ class BatchApprovalSummary {
       'BatchApprovalSummary(accepted: $acceptedCount, remaining: $remainingCount)';
 }
 
+class _RecentPendingAction {
+  final String id;
+  final int roundedAmount;
+  final int originalRoundedAmount;
+  final DateTime timestamp;
+  final DateTime actionAt;
+  final String? merchantKey;
+  final String? comercio;
+  final String? accountName;
+  final String? packageName;
+  final String channel;
+  final Set<String> packages;
+  final Set<String> channels;
+
+  _RecentPendingAction({
+    required this.id,
+    required this.roundedAmount,
+    required this.originalRoundedAmount,
+    required this.timestamp,
+    required this.actionAt,
+    this.merchantKey,
+    this.comercio,
+    this.accountName,
+    this.packageName,
+    required this.channel,
+    required this.packages,
+    required this.channels,
+  });
+}
+
 /// Gestor de estado de la bandeja de transacciones pendientes en Moneo.
 ///
 /// Invariantes fundamentales:
@@ -45,6 +75,8 @@ class BatchApprovalSummary {
 class PendingTransactionsNotifier extends ChangeNotifier {
   static const String defaultBoxName = 'pending_notifications';
   static const String executedBoxName = 'notification_executed_ids';
+  static const Duration implicitLearnWindow = Duration(minutes: 30);
+  static const int _maxRecentActions = 30;
 
   final Box<dynamic>? _injectedBox;
   final Box<dynamic>? _injectedExecutedBox;
@@ -57,6 +89,8 @@ class PendingTransactionsNotifier extends ChangeNotifier {
   List<PendingTransactionItem> _items = [];
   final Set<String> _inFlightIds = {};
   final Set<String> _memoryExecutedIds = {};
+  final List<_RecentPendingAction> _recentConfirmations = [];
+  final List<_RecentPendingAction> _recentDiscards = [];
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -345,6 +379,11 @@ class PendingTransactionsNotifier extends ChangeNotifier {
 
       await _markExecuted(item.id, txId: result.transactionId);
 
+      final now = DateTime.now();
+      try {
+        await _dedupCorrelator.recordConfirmedItem(item, at: now);
+      } catch (_) {}
+
       // Feedback loop: Solo confirmaciones humanas actualizan learned_patterns
       if (recordHumanFeedback) {
         final merchant = item.comercio ?? item.merchantKey;
@@ -356,12 +395,13 @@ class PendingTransactionsNotifier extends ChangeNotifier {
               accountName: item.accountName,
               classification: item.classification,
               moneoType: resolvedType,
-              at: DateTime.now(),
+              at: now,
             );
           } catch (_) {
             // La actualización de patrones no debe romper la confirmación de la tx
           }
         }
+        await _recordConfirmedActionAndLearn(item, now: now);
       }
 
       await box.delete(item.id);
@@ -456,6 +496,18 @@ class PendingTransactionsNotifier extends ChangeNotifier {
 
       await _markExecuted(item.id, txId: result.transactionId);
 
+      final now = DateTime.now();
+      try {
+        await _dedupCorrelator.recordConfirmedItem(
+          item,
+          at: now,
+          overrideAmount: effectiveAmount,
+          overrideAccountName: newAccountName,
+          overrideDestinationAccount: newDestinationAccount,
+          overrideDate: newDate ?? item.fecha,
+        );
+      } catch (_) {}
+
       // Feedback loop: Registrar corrección en learned_patterns
       final merchant = item.comercio ?? item.merchantKey ?? 'comercio';
       if (merchant.trim().isNotEmpty) {
@@ -466,12 +518,21 @@ class PendingTransactionsNotifier extends ChangeNotifier {
             newAccountName: newAccountName,
             newClassification: newClassification,
             newMoneoType: resolvedType,
-            at: DateTime.now(),
+            at: now,
           );
         } catch (_) {
           // La actualización de patrones no debe romper la corrección de la tx
         }
       }
+
+      await _recordConfirmedActionAndLearn(
+        item,
+        overrideAmount: effectiveAmount,
+        overrideDate: newDate ?? item.fecha,
+        overrideDetail: effectiveDetail,
+        overrideAccountName: newAccountName,
+        now: now,
+      );
 
       await box.delete(item.id);
       _items.removeWhere((i) => i.id == id);
@@ -484,18 +545,196 @@ class PendingTransactionsNotifier extends ChangeNotifier {
     }
   }
 
-  /// Descarta un ítem de la bandeja sin tocar saldos ni patrones aprendidos.
+  /// Descarta un ítem de la bandeja sin tocar saldos ni `learned_patterns`.
+  ///
+  /// Si otro movimiento del mismo monto redondeado dentro de `< 30 min` fue
+  /// confirmado/corregido recientemente desde otra app/canal, aprende
+  /// automáticamente una `DedupRule` multi-app para agrupar futuros avisos.
   Future<bool> discardItem(String id) async {
     final index = _items.indexWhere((i) => i.id == id);
     if (index < 0) return false;
 
+    final item = _items[index];
     final box = await _getBox();
     await box.delete(id);
     _items.removeAt(index);
     _errorMessage = null;
 
+    await _handleImplicitDiscardLearning(item);
+
     notifyListeners();
     return true;
+  }
+
+  _RecentPendingAction _buildActionRecord(
+    PendingTransactionItem item, {
+    double? overrideAmount,
+    DateTime? overrideDate,
+    String? overrideDetail,
+    String? overrideAccountName,
+    required DateTime actionAt,
+  }) {
+    final packages = <String>{};
+    if (item.packageName != null && item.packageName!.trim().isNotEmpty) {
+      packages.add(item.packageName!.trim());
+    }
+    final channels = <String>{};
+    if (item.channel.trim().isNotEmpty) {
+      channels.add(item.channel.trim());
+    }
+    for (final ev in item.groupedEvents) {
+      final pkg = ((ev['package_name'] ?? ev['packageName']) as String?)?.trim();
+      if (pkg != null && pkg.isNotEmpty) packages.add(pkg);
+      final ch = (ev['channel'] as String?)?.trim();
+      if (ch != null && ch.isNotEmpty) channels.add(ch);
+    }
+
+    final effectiveAmount = overrideAmount ?? item.monto ?? 0.0;
+    final originalAmount = item.monto ?? 0.0;
+    return _RecentPendingAction(
+      id: item.id,
+      roundedAmount: effectiveAmount.round(),
+      originalRoundedAmount: originalAmount.round(),
+      timestamp: overrideDate ?? item.fecha,
+      actionAt: actionAt,
+      merchantKey: item.merchantKey,
+      comercio: item.comercio ?? overrideDetail,
+      accountName: overrideAccountName ?? item.accountName,
+      packageName: item.packageName,
+      channel: item.channel,
+      packages: packages,
+      channels: channels,
+    );
+  }
+
+  void _pruneActionBuffer(List<_RecentPendingAction> buffer, DateTime now) {
+    buffer.removeWhere(
+      (entry) => now.difference(entry.actionAt).abs() > implicitLearnWindow,
+    );
+    while (buffer.length > _maxRecentActions) {
+      buffer.removeAt(0);
+    }
+  }
+
+  bool _withinImplicitWindow(_RecentPendingAction a, _RecentPendingAction b) {
+    if (a.roundedAmount <= 0 || b.roundedAmount <= 0) return false;
+    final sameAmount = a.roundedAmount == b.roundedAmount ||
+        a.originalRoundedAmount == b.roundedAmount ||
+        a.roundedAmount == b.originalRoundedAmount;
+    if (!sameAmount) return false;
+    if (a.timestamp.difference(b.timestamp).abs() >= implicitLearnWindow) {
+      return false;
+    }
+    if (a.actionAt.difference(b.actionAt).abs() >= implicitLearnWindow) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _isDistinctSource(_RecentPendingAction a, _RecentPendingAction b) {
+    if (a.packages.isNotEmpty && b.packages.isNotEmpty) {
+      return a.packages.difference(b.packages).isNotEmpty ||
+          b.packages.difference(a.packages).isNotEmpty ||
+          a.channels.difference(b.channels).isNotEmpty ||
+          b.channels.difference(a.channels).isNotEmpty;
+    }
+    return a.channels.difference(b.channels).isNotEmpty ||
+        b.channels.difference(a.channels).isNotEmpty;
+  }
+
+  Future<void> _learnImplicitMultiAppRule(
+    _RecentPendingAction confirmed,
+    _RecentPendingAction discarded, {
+    required DateTime at,
+  }) async {
+    confirmed.packages.addAll(discarded.packages);
+    confirmed.channels.addAll(discarded.channels);
+
+    final primaryMerchant = confirmed.merchantKey ??
+        confirmed.comercio ??
+        discarded.merchantKey ??
+        discarded.comercio ??
+        confirmed.accountName ??
+        'movimiento';
+
+    final mergedPackages = confirmed.packages.toList();
+    final mergedChannels = confirmed.channels.toList();
+
+    try {
+      await _dedupCorrelator.learnMergeRule(
+        merchant: primaryMerchant,
+        channels: mergedChannels,
+        packages: mergedPackages,
+        at: at,
+      );
+
+      final secondary = discarded.comercio ?? discarded.merchantKey;
+      if (secondary != null && secondary.trim().isNotEmpty) {
+        final normPrimary =
+            LearnedPatternsService.normalizeMerchant(primaryMerchant);
+        final normSecondary =
+            LearnedPatternsService.normalizeMerchant(secondary);
+        if (normSecondary.isNotEmpty && normSecondary != normPrimary) {
+          await _dedupCorrelator.learnMergeRule(
+            merchant: secondary,
+            channels: mergedChannels,
+            packages: mergedPackages,
+            at: at,
+          );
+        }
+      }
+    } catch (_) {
+      // El aprendizaje implícito nunca debe interrumpir el flujo principal.
+    }
+  }
+
+  Future<void> _recordConfirmedActionAndLearn(
+    PendingTransactionItem item, {
+    double? overrideAmount,
+    DateTime? overrideDate,
+    String? overrideDetail,
+    String? overrideAccountName,
+    required DateTime now,
+  }) async {
+    if (item.classification == 'sospechosa') return;
+    final action = _buildActionRecord(
+      item,
+      overrideAmount: overrideAmount,
+      overrideDate: overrideDate,
+      overrideDetail: overrideDetail,
+      overrideAccountName: overrideAccountName,
+      actionAt: now,
+    );
+    _pruneActionBuffer(_recentConfirmations, now);
+    _pruneActionBuffer(_recentDiscards, now);
+    _recentConfirmations.add(action);
+
+    for (final discard in _recentDiscards) {
+      if (_withinImplicitWindow(action, discard) &&
+          _isDistinctSource(action, discard)) {
+        await _learnImplicitMultiAppRule(action, discard, at: now);
+      }
+    }
+  }
+
+  Future<void> _handleImplicitDiscardLearning(
+      PendingTransactionItem item) async {
+    if (item.classification == 'sospechosa') return;
+    if ((item.monto ?? 0) <= 0) return;
+
+    final now = DateTime.now();
+    final discardAction = _buildActionRecord(item, actionAt: now);
+    _pruneActionBuffer(_recentConfirmations, now);
+    _pruneActionBuffer(_recentDiscards, now);
+
+    for (final confirmed in _recentConfirmations) {
+      if (_withinImplicitWindow(confirmed, discardAction) &&
+          _isDistinctSource(confirmed, discardAction)) {
+        await _learnImplicitMultiAppRule(confirmed, discardAction, at: now);
+      }
+    }
+
+    _recentDiscards.add(discardAction);
   }
 
   /// Ejecuta la aprobación masiva ("Aceptar todo") respetando el filtro estricto de alta confianza.
@@ -539,10 +778,31 @@ class PendingTransactionsNotifier extends ChangeNotifier {
 
     var merged = selected.first;
     final channels = <String>{merged.channel};
+    final packages = <String>{
+      if (merged.packageName != null && merged.packageName!.trim().isNotEmpty)
+        merged.packageName!.trim(),
+    };
+    for (final ev in merged.groupedEvents) {
+      final pkg = ((ev['package_name'] ?? ev['packageName']) as String?)?.trim();
+      if (pkg != null && pkg.isNotEmpty) packages.add(pkg);
+      final ch = (ev['channel'] as String?)?.trim();
+      if (ch != null && ch.isNotEmpty) channels.add(ch);
+    }
 
     for (var i = 1; i < selected.length; i++) {
       final incoming = selected[i];
       channels.add(incoming.channel);
+      if (incoming.packageName != null &&
+          incoming.packageName!.trim().isNotEmpty) {
+        packages.add(incoming.packageName!.trim());
+      }
+      for (final ev in incoming.groupedEvents) {
+        final pkg =
+            ((ev['package_name'] ?? ev['packageName']) as String?)?.trim();
+        if (pkg != null && pkg.isNotEmpty) packages.add(pkg);
+        final ch = (ev['channel'] as String?)?.trim();
+        if (ch != null && ch.isNotEmpty) channels.add(ch);
+      }
       final isTransferPair =
           (merged.classification == 'gasto' && incoming.classification == 'ingreso') ||
               (merged.classification == 'ingreso' && incoming.classification == 'gasto');
@@ -600,6 +860,7 @@ class PendingTransactionsNotifier extends ChangeNotifier {
       await _dedupCorrelator.learnMergeRule(
         merchant: merchant,
         channels: channels.toList(),
+        packages: packages.toList(),
       );
     }
 
@@ -684,6 +945,8 @@ class PendingTransactionsNotifier extends ChangeNotifier {
     final box = await _getBox();
     await box.clear();
     _items.clear();
+    _recentConfirmations.clear();
+    _recentDiscards.clear();
     _errorMessage = null;
     notifyListeners();
   }
