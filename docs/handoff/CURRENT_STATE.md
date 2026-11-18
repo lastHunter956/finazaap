@@ -1,6 +1,6 @@
 # Estado Actual del Proyecto (`docs/handoff/CURRENT_STATE.md`)
 
-> **Última actualización:** 2026-11-17 (Rama de integración `integration/notificaciones-rag-y-multi-ia` lista para validación humana; `main` sin cambios)
+> **Última actualización:** 2026-11-18 (Rama de integración `integration/notificaciones-rag-y-multi-ia` @ `833a966` con fixes Multi-IA y APK `prod` recompilado listo para firma y validación humana; `main` sin cambios)
 > **Nota:** Tratar este documento como contexto previo, no como evidencia definitiva. Verificar `git status`, ramas, worktrees y Docker antes de actuar.
 
 ---
@@ -14,6 +14,10 @@
   - **Router Multi-Proveedor y Carga Lazy (`agent/ai/router-multi-proveedor`):** `AiProviderConfigStore` (múltiples API Keys cifradas en `FlutterSecureStorage` + selector de **IA Principal**), `AiProviderRouter` (`OpenRouter` con `models` + `openrouter/free`, `NVIDIA NIM`, `OpenCode Zen`, `Google Gemini`, `OpenAI`) con rotación por `429`/`Retry-After`/`503`, `GemmaClassifierAdapter` y `AiChatService` enrutando a la IA Principal, y arranque *lazy* sin cargar `FlutterGemma` cuando se usa Cloud/Simulador + descarga de RAM tras 2 min de inactividad en Local.
   - **UI de Bandeja Agrupada y Ajustes Multi-IA (`agent/ui/bandeja-y-ajustes-ia`):** cápsula `strategicNote`, badge `"Agrupada (N avisos)"`, botón **Separar** y selección múltiple **Agrupar en 1** en `PendingTransactionsScreen`/`PendingTransactionCard`; gestor multi-API Key, selector de IA Principal, prueba de conexión / catálogo y opciones HuggingFace/Gemma 4 en `SettingsScreen` y `AiChatScreen`.
   - **Sin tocar archivos protegidos** (`transaction_service.dart`, `credit_card_calculator.dart`, `*.g.dart`, `build.gradle`, `AndroidManifest.xml`, `lib/core/security/*`).
+- **Fixes Multi-IA posteriores en `integration/notificaciones-rag-y-multi-ia` (`32a9baf`, `833a966`) y APK `prod` recompilado:**
+  - Límite de arreglo `models` en OpenRouter (`<= 3` ítems), `maxTokens: 512` en `testConnection` para modelos con `reasoning`, fallback automático a `openrouter/free` ante `HTTP 400/404/410` o `FormatException`, actualización de modelos vigentes de NVIDIA NIM / OpenRouter / OpenCode Zen (resolviendo `HTTP 410 Gone`), filtro de catálogo OpenAI + `max_completion_tokens` en `o1/o3/o4/gpt-5`, preservación del detalle `HTTP 429` y aviso CORS en Web.
+  - Pruebas en Docker tras `833a966`: `dart analyze` limpio en archivos editados (`No issues found!`), `128/128` y `50/50` pruebas pasando en suites de router IA, ajustes y módulo de notificaciones (con HTTP mockeado vía `MockClient`).
+  - Compilado `build/app/outputs/flutter-apk/app-prod-release.apk` (`281M` / `294.0MB`, SHA-256 `0f7ae6044dd25e6c17ed108e2280feb662ae6d6fc1e81ae7eec291097fdb105d`), pendiente únicamente de firma local del usuario con `$HOME/keystores/moneo-release.jks` y validación en dispositivo.
 - **Sprint `pulido-visual-web` consolidado en `main`:**
   - **P0 (Accesibilidad, contraste WCAG AA/AAA y tokens):** Tokens centralizados en `lib/themes/app_theme_data.dart` (`borderVisible`, `foregroundOn`, `datePickerThemeWithAccent`, umbral `onSecondary > 0.25`, `_nocturno.secondaryCardBackground: 0xFF252733`), objetivos táctiles `>= 48dp`, `Semantics` unificada y cero literales opacos rotos en diálogos/formularios.
   - **P1 (`Home` + `TotalBalanceWidget`):** Jerarquía balance-first (`Disponible` 32px tabular, `MoneoSegmentedControl` junto al historial, agrupación temporal `"Hoy · ..."`, color-coding de categoría, hora `HH:mm` y estado vacío accionable).
