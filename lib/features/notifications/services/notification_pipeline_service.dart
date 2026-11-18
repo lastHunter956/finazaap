@@ -45,7 +45,9 @@ class NotificationPipelineService {
     Box<dynamic>? executedBox,
     Box<dynamic>? patternsBox,
     Box<dynamic>? dedupRulesBox,
+    Box<dynamic>? recentMovementsBox,
     TransactionDedupCorrelator? dedupCorrelator,
+    TransactionClassifier? classifier,
   }) {
     if (boxEncryption == null &&
         whitelistService == null &&
@@ -56,7 +58,9 @@ class NotificationPipelineService {
         executedBox == null &&
         patternsBox == null &&
         dedupRulesBox == null &&
-        dedupCorrelator == null) {
+        recentMovementsBox == null &&
+        dedupCorrelator == null &&
+        classifier == null) {
       return instance;
     }
     return NotificationPipelineService._custom(
@@ -69,7 +73,9 @@ class NotificationPipelineService {
       executedBox: executedBox,
       patternsBox: patternsBox,
       dedupRulesBox: dedupRulesBox,
+      recentMovementsBox: recentMovementsBox,
       dedupCorrelator: dedupCorrelator,
+      classifier: classifier,
     );
   }
 
@@ -83,7 +89,9 @@ class NotificationPipelineService {
         _injectedExecutedBox = null,
         _injectedPatternsBox = null,
         _injectedDedupRulesBox = null,
-        _injectedDedupCorrelator = null {
+        _injectedRecentMovementsBox = null,
+        _injectedDedupCorrelator = null,
+        _injectedClassifier = null {
     _buildCollaborators();
   }
 
@@ -97,7 +105,9 @@ class NotificationPipelineService {
     Box<dynamic>? executedBox,
     Box<dynamic>? patternsBox,
     Box<dynamic>? dedupRulesBox,
+    Box<dynamic>? recentMovementsBox,
     TransactionDedupCorrelator? dedupCorrelator,
+    TransactionClassifier? classifier,
   })  : _boxEncryption = boxEncryption ?? NotificationBoxEncryption(),
         _whitelistService = whitelistService ?? BankWhitelistService(),
         _source = source ?? AndroidNotificationSource(),
@@ -107,7 +117,9 @@ class NotificationPipelineService {
         _injectedExecutedBox = executedBox,
         _injectedPatternsBox = patternsBox,
         _injectedDedupRulesBox = dedupRulesBox,
-        _injectedDedupCorrelator = dedupCorrelator {
+        _injectedRecentMovementsBox = recentMovementsBox,
+        _injectedDedupCorrelator = dedupCorrelator,
+        _injectedClassifier = classifier {
     _buildCollaborators();
   }
 
@@ -120,7 +132,9 @@ class NotificationPipelineService {
   final Box<dynamic>? _injectedExecutedBox;
   final Box<dynamic>? _injectedPatternsBox;
   final Box<dynamic>? _injectedDedupRulesBox;
+  final Box<dynamic>? _injectedRecentMovementsBox;
   final TransactionDedupCorrelator? _injectedDedupCorrelator;
+  final TransactionClassifier? _injectedClassifier;
 
   late final NotificationIngestionService _ingestionService;
   late final NotificationParser _parser;
@@ -147,13 +161,18 @@ class NotificationPipelineService {
       box: _injectedPatternsBox,
       boxEncryption: _injectedPatternsBox == null ? _boxEncryption : null,
     );
-    _classifier = TransactionClassifier(
-      patternsService: _patternsService,
-    );
+    _classifier = _injectedClassifier ??
+        TransactionClassifier(
+          patternsService: _patternsService,
+        );
     _dedupCorrelator = _injectedDedupCorrelator ??
         TransactionDedupCorrelator(
           rulesBox: _injectedDedupRulesBox,
-          boxEncryption: _injectedDedupRulesBox == null ? _boxEncryption : null,
+          recentMovementsBox: _injectedRecentMovementsBox,
+          boxEncryption: (_injectedDedupRulesBox == null ||
+                  _injectedRecentMovementsBox == null)
+              ? _boxEncryption
+              : null,
         );
     _pendingNotifier = PendingTransactionsNotifier(
       box: _injectedPendingBox,
@@ -277,6 +296,10 @@ class NotificationPipelineService {
     try {
       patternsPruned =
           await _patternsService.pruneObsoletePatterns(now: reference);
+    } catch (_) {}
+
+    try {
+      await _dedupCorrelator.pruneRecentMovements(now: reference);
     } catch (_) {}
 
     return (
@@ -419,6 +442,8 @@ class NotificationPipelineService {
         packageName: event.packageName,
         rawText: rawText,
       ).wireValue,
+      packageName: event.packageName,
+      strategicNote: classification.strategicNote,
     );
 
     // Deduplicación y correlación ANTES de crear un nuevo movimiento en bandeja.
@@ -428,6 +453,9 @@ class NotificationPipelineService {
         existingPending: _pendingNotifier.items,
         packageName: event.packageName,
       );
+      if (correlation.shouldIgnoreAsAlreadyConfirmed) {
+        return;
+      }
       if (correlation.shouldMergeIntoExisting) {
         final existingIdx = _pendingNotifier.items
             .indexWhere((p) => p.id == correlation.matchedPendingItemId);
@@ -458,6 +486,7 @@ class NotificationPipelineService {
     _cachedAccountsAt = null;
     await _pendingNotifier.clearAll();
     await _patternsService.clearAll();
+    await _dedupCorrelator.clearAll();
 
     if (_injectedDedupBox != null) {
       await _injectedDedupBox!.clear();
@@ -466,6 +495,8 @@ class NotificationPipelineService {
         PendingTransactionsNotifier.defaultBoxName,
         PendingTransactionsNotifier.executedBoxName,
         LearnedPatternsService.defaultBoxName,
+        TransactionDedupCorrelator.defaultRulesBoxName,
+        TransactionDedupCorrelator.defaultRecentMovementsBoxName,
         dedupHistoryBoxName,
       ]);
     }

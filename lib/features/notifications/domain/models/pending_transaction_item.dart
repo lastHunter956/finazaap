@@ -22,6 +22,7 @@ class PendingTransactionItem {
   final String executionStatus; // 'pending' | 'executing' | 'executed'
   final String? referenceId;
   final String channel; // 'app' | 'sms' | 'correo'
+  final String? packageName;
   final List<Map<String, dynamic>> groupedEvents;
   final String? strategicNote;
 
@@ -48,6 +49,7 @@ class PendingTransactionItem {
     this.executionStatus = 'pending',
     this.referenceId,
     this.channel = 'app',
+    this.packageName,
     this.groupedEvents = const [],
     this.strategicNote,
   });
@@ -91,6 +93,7 @@ class PendingTransactionItem {
     String? executionStatus,
     String? referenceId,
     String? channel,
+    String? packageName,
     List<Map<String, dynamic>>? groupedEvents,
     String? strategicNote,
   }) {
@@ -117,6 +120,7 @@ class PendingTransactionItem {
       executionStatus: executionStatus ?? this.executionStatus,
       referenceId: referenceId ?? this.referenceId,
       channel: channel ?? this.channel,
+      packageName: packageName ?? this.packageName,
       groupedEvents: groupedEvents ?? this.groupedEvents,
       strategicNote: strategicNote ?? this.strategicNote,
     );
@@ -145,6 +149,7 @@ class PendingTransactionItem {
         'execution_status': executionStatus,
         if (referenceId != null) 'reference_id': referenceId,
         'channel': channel,
+        if (packageName != null) 'package_name': packageName,
         if (groupedEvents.isNotEmpty) 'grouped_events': groupedEvents,
         if (strategicNote != null) 'strategic_note': strategicNote,
       };
@@ -195,6 +200,7 @@ class PendingTransactionItem {
             'pending',
         referenceId: (json['reference_id'] ?? json['referenceId']) as String?,
         channel: (json['channel'] as String?) ?? 'app',
+        packageName: (json['package_name'] ?? json['packageName']) as String?,
         groupedEvents: (json['grouped_events'] is List)
             ? (json['grouped_events'] as List)
                 .whereType<Map>()
