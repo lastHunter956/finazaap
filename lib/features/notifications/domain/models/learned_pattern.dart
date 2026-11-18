@@ -66,6 +66,12 @@ class LearnedPattern {
   /// Categoría propuesta en corrección reciente mientras el patrón está en revisión.
   final String? pendingCorrectionCategory;
 
+  /// Variantes textuales conocidas del comercio para búsqueda semántica offline.
+  final List<String> aliases;
+
+  /// Paquetes Android desde los cuales se ha observado este comercio.
+  final List<String> knownPackages;
+
   LearnedPattern({
     required this.merchantKey,
     required this.category,
@@ -81,6 +87,8 @@ class LearnedPattern {
     PatternStatus? status,
     this.correctionStreak = 0,
     this.pendingCorrectionCategory,
+    List<String> aliases = const [],
+    List<String> knownPackages = const [],
   })  : categoryScores = Map<String, int>.unmodifiable(
           categoryScores ?? {category: confirmations},
         ),
@@ -90,12 +98,34 @@ class LearnedPattern {
                   ? {accountName: confirmations}
                   : const <String, int>{}),
         ),
+        aliases = List<String>.unmodifiable(_sanitizeDistinctStrings(aliases)),
+        knownPackages =
+            List<String>.unmodifiable(_sanitizeDistinctStrings(knownPackages)),
         status = status ??
             computeStatus(
               confirmations: confirmations,
               lastUsedAt: lastUsedAt,
               correctionStreak: correctionStreak,
             );
+
+  static List<String> _sanitizeDistinctStrings(Iterable<String> items) {
+    final seenLower = <String>{};
+    final result = <String>[];
+    for (final raw in items) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) continue;
+      final lower = trimmed.toLowerCase();
+      if (seenLower.add(lower)) {
+        result.add(trimmed);
+      }
+    }
+    return result;
+  }
+
+  static List<String> _mergeStringEntry(List<String> current, String? entry) {
+    if (entry == null || entry.trim().isEmpty) return current;
+    return _sanitizeDistinctStrings([...current, entry]);
+  }
 
   /// Calcula el [PatternStatus] efectivo según confirmaciones, conflictos e inactividad.
   static PatternStatus computeStatus({
@@ -137,6 +167,8 @@ class LearnedPattern {
     DateTime? at,
     String? confirmedCategory,
     String? confirmedAccountName,
+    String? alias,
+    String? packageName,
   }) {
     final now = at ?? DateTime.now();
     final effectiveCategory = confirmedCategory ?? category;
@@ -151,6 +183,8 @@ class LearnedPattern {
           (nextAccountScores[effectiveAccount] ?? 0) + 1;
     }
 
+    final nextAliases = _mergeStringEntry(aliases, alias);
+    final nextPackages = _mergeStringEntry(knownPackages, packageName);
     final nextConfirmations = confirmations + 1;
     return LearnedPattern(
       merchantKey: merchantKey,
@@ -166,6 +200,8 @@ class LearnedPattern {
       accountScores: nextAccountScores,
       correctionStreak: 0,
       pendingCorrectionCategory: null,
+      aliases: nextAliases,
+      knownPackages: nextPackages,
       status: computeStatus(
         confirmations: nextConfirmations,
         lastUsedAt: now,
@@ -180,9 +216,13 @@ class LearnedPattern {
     String? newAccountName,
     String? newClassification,
     String? newMoneoType,
+    String? alias,
+    String? packageName,
     DateTime? at,
   }) {
     final now = at ?? DateTime.now();
+    final nextAliases = _mergeStringEntry(aliases, alias);
+    final nextPackages = _mergeStringEntry(knownPackages, packageName);
     final nextCategoryScores = Map<String, int>.from(categoryScores);
     if (!nextCategoryScores.containsKey(category)) {
       nextCategoryScores[category] = confirmations;
@@ -224,6 +264,8 @@ class LearnedPattern {
         accountScores: nextAccountScores,
         correctionStreak: 0,
         pendingCorrectionCategory: null,
+        aliases: nextAliases,
+        knownPackages: nextPackages,
         status: computeStatus(
           confirmations: confirmations,
           lastUsedAt: now,
@@ -250,6 +292,8 @@ class LearnedPattern {
         accountScores: nextAccountScores,
         correctionStreak: 0,
         pendingCorrectionCategory: null,
+        aliases: nextAliases,
+        knownPackages: nextPackages,
         status: PatternStatus.nuevo,
       );
     }
@@ -276,6 +320,8 @@ class LearnedPattern {
         accountScores: nextAccountScores,
         correctionStreak: 0,
         pendingCorrectionCategory: null,
+        aliases: nextAliases,
+        knownPackages: nextPackages,
         status: computeStatus(
           confirmations: newCategoryScore,
           lastUsedAt: now,
@@ -299,6 +345,8 @@ class LearnedPattern {
       accountScores: nextAccountScores,
       correctionStreak: nextStreak,
       pendingCorrectionCategory: newCategory,
+      aliases: nextAliases,
+      knownPackages: nextPackages,
       status: PatternStatus.enRevision,
     );
   }
@@ -336,6 +384,8 @@ class LearnedPattern {
     PatternStatus? status,
     int? correctionStreak,
     String? pendingCorrectionCategory,
+    List<String>? aliases,
+    List<String>? knownPackages,
   }) {
     final nextConfirmations = confirmations ?? this.confirmations;
     final nextLastUsedAt = lastUsedAt ?? this.lastUsedAt;
@@ -361,6 +411,8 @@ class LearnedPattern {
       correctionStreak: nextStreak,
       pendingCorrectionCategory:
           pendingCorrectionCategory ?? this.pendingCorrectionCategory,
+      aliases: aliases ?? this.aliases,
+      knownPackages: knownPackages ?? this.knownPackages,
     );
   }
 
@@ -379,7 +431,17 @@ class LearnedPattern {
         'status': status.wireValue,
         'correction_streak': correctionStreak,
         'pending_correction_category': pendingCorrectionCategory,
+        'aliases': aliases,
+        'known_packages': knownPackages,
       };
+
+  static List<String> _parseStringList(dynamic raw) {
+    if (raw is! Iterable) return const [];
+    return raw
+        .map((e) => e?.toString().trim() ?? '')
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
 
   factory LearnedPattern.fromJson(Map<String, dynamic> json) {
     final category = json['category'] as String;
@@ -442,6 +504,10 @@ class LearnedPattern {
             lastUsedAt: lastUsedAt,
             correctionStreak: correctionStreak,
           );
+    final parsedAliases = _parseStringList(json['aliases']);
+    final parsedPackages = _parseStringList(
+      json['known_packages'] ?? json['knownPackages'],
+    );
 
     return LearnedPattern(
       merchantKey: (json['merchant_key'] ?? json['merchantKey']) as String,
@@ -459,7 +525,18 @@ class LearnedPattern {
       status: parsedStatus,
       correctionStreak: correctionStreak,
       pendingCorrectionCategory: pendingCorrectionCategory,
+      aliases: parsedAliases,
+      knownPackages: parsedPackages,
     );
+  }
+
+  static bool _listEquals(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   @override
@@ -472,7 +549,9 @@ class LearnedPattern {
           accountName == other.accountName &&
           classification == other.classification &&
           confirmations == other.confirmations &&
-          status == other.status;
+          status == other.status &&
+          _listEquals(aliases, other.aliases) &&
+          _listEquals(knownPackages, other.knownPackages);
 
   @override
   int get hashCode =>
@@ -481,10 +560,13 @@ class LearnedPattern {
       (accountName?.hashCode ?? 0) ^
       classification.hashCode ^
       confirmations.hashCode ^
-      status.hashCode;
+      status.hashCode ^
+      Object.hashAll(aliases) ^
+      Object.hashAll(knownPackages);
 
   @override
   String toString() =>
       'LearnedPattern(merchantKey: $merchantKey, category: $category, account: $accountName, '
-      'confirmations: $confirmations, status: ${status.wireValue}, lastUsedAt: $lastUsedAt)';
+      'confirmations: $confirmations, status: ${status.wireValue}, aliases: ${aliases.length}, '
+      'packages: ${knownPackages.length}, lastUsedAt: $lastUsedAt)';
 }

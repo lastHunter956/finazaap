@@ -1,12 +1,16 @@
 import 'dart:convert';
+import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/models/account_item.dart';
+import 'package:finazaap/data/monthly_summary_cache.dart';
 import 'package:finazaap/features/notifications/domain/models/learned_pattern.dart';
 import 'package:finazaap/features/notifications/domain/models/notification_parse_result.dart';
 import 'package:finazaap/features/notifications/domain/models/transaction_classification.dart';
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
 import 'package:finazaap/features/notifications/services/gemma_classifier_adapter.dart';
 import 'package:finazaap/features/notifications/services/notification_parser.dart';
+import 'package:finazaap/utils/currency_helper.dart';
 
 /// Clasificador jerárquico estricto de notificaciones bancarias en Moneo.
 ///
@@ -19,14 +23,17 @@ class TransactionClassifier {
   final LearnedPatternsService _patternsService;
   final GemmaClassifierAdapter _gemmaAdapter;
   final Future<List<AccountItem>> Function()? _accountsLoader;
+  final MonthlySummaryCache? _summaryCache;
 
   TransactionClassifier({
     LearnedPatternsService? patternsService,
     GemmaClassifierAdapter? gemmaAdapter,
     Future<List<AccountItem>> Function()? accountsLoader,
+    MonthlySummaryCache? summaryCache,
   })  : _patternsService = patternsService ?? LearnedPatternsService(),
         _gemmaAdapter = gemmaAdapter ?? GemmaClassifierAdapter(),
-        _accountsLoader = accountsLoader;
+        _accountsLoader = accountsLoader,
+        _summaryCache = summaryCache;
 
   // ---------------------------------------------------------------------------
   // Expresiones regulares para señales de fraude y urgencia
@@ -110,10 +117,23 @@ class TransactionClassifier {
     // =========================================================================
     final merchant = _extractMerchant(parseResult);
     if (merchant != null && merchant.trim().isNotEmpty) {
-      final pattern = await _patternsService.findPattern(merchant);
+      var pattern = await _patternsService.findPattern(merchant);
+      var matchedSemantically = false;
+      if (pattern == null && !_patternsService.isKnownEmpty) {
+        pattern = await _patternsService.findBestSemanticMatch(
+          merchant,
+          packageName: packageName,
+          minScore: 0.88,
+        );
+        matchedSemantically = pattern != null;
+      }
+
+      final patternStatus = pattern?.effectiveStatus();
       if (pattern != null &&
           pattern.confirmations >= 1 &&
-          pattern.effectiveStatus() != PatternStatus.obsoleto) {
+          patternStatus != PatternStatus.obsoleto &&
+          !(matchedSemantically &&
+              patternStatus == PatternStatus.enRevision)) {
         final resolvedAccount = pattern.accountName ??
             _detectAccountName(
               parseResult,
@@ -128,11 +148,15 @@ class TransactionClassifier {
 
         // Solo emitir transferencia-propia si la cuenta destino no es nula
         if (!isTransfer || destAccount != null) {
-          final isInRevision =
-              pattern.effectiveStatus() == PatternStatus.enRevision;
+          final isInRevision = patternStatus == PatternStatus.enRevision;
           final confidence = isInRevision
               ? 0.82
               : _confidenceFromConfirmations(pattern.confirmations);
+          final reason = matchedSemantically
+              ? 'Patrón similar "${pattern.merchantKey}" (${pattern.confirmations} conf.) → ${pattern.category}'
+              : isInRevision
+                  ? 'Patrón "${pattern.merchantKey}" en revisión → ${pattern.category}'
+                  : 'Patrón aprendido "${pattern.merchantKey}" (${pattern.confirmations} conf.) → ${pattern.category}';
           return TransactionClassification(
             classification: pattern.classification,
             moneoType: pattern.moneoType ??
@@ -145,6 +169,12 @@ class TransactionClassifier {
             requiresReview: isInRevision,
             createTransaction: !isInRevision,
             decisionSource: 'learned_patterns',
+            strategicNote: _buildStrategicNote(
+              reason: reason,
+              classification: pattern.classification,
+              category: pattern.category,
+              referenceDate: parseResult.fecha,
+            ),
           );
         }
       }
@@ -164,7 +194,24 @@ class TransactionClassifier {
         (deterministicResult.confidence >= 0.80 ||
             deterministicResult.decisionSource ==
                 'ambiguous_account_or_destination')) {
-      return deterministicResult;
+      if (deterministicResult.strategicNote != null &&
+          deterministicResult.strategicNote!.trim().isNotEmpty) {
+        return deterministicResult;
+      }
+      final reason = deterministicResult.decisionSource ==
+              'ambiguous_account_or_destination'
+          ? 'Cuenta origen o destino ambigua; requiere confirmación'
+          : deterministicResult.classification == 'transferencia-propia'
+              ? 'Transferencia propia detectada por reglas locales'
+              : 'Regla determinista → ${deterministicResult.category ?? 'Otros'}';
+      return deterministicResult.copyWith(
+        strategicNote: _buildStrategicNote(
+          reason: reason,
+          classification: deterministicResult.classification,
+          category: deterministicResult.category,
+          referenceDate: parseResult.fecha,
+        ),
+      );
     }
 
     // =========================================================================
@@ -198,13 +245,23 @@ class TransactionClassifier {
       // Transferencia propia exige destino no nulo
       if (!isTransfer || destAccount != null) {
         final bool reqReview = gemmaResult.confidence < 0.85;
+        final resolvedCategory =
+            gemmaResult.category ?? deterministicResult?.category ?? 'Otros';
+        final gemmaNote = gemmaResult.strategicNote?.trim();
+        final strategicNote = (gemmaNote != null && gemmaNote.isNotEmpty)
+            ? gemmaNote
+            : _buildStrategicNote(
+                reason: 'Clasificado por asistente IA → $resolvedCategory',
+                classification: gemmaResult.classification,
+                category: resolvedCategory,
+                referenceDate: parseResult.fecha,
+              );
         return TransactionClassification(
           classification: gemmaResult.classification,
           moneoType: TransactionClassification.resolveMoneoType(
             gemmaResult.classification,
           ),
-          category:
-              gemmaResult.category ?? deterministicResult?.category ?? 'Otros',
+          category: resolvedCategory,
           accountName: deterministicResult?.accountName ??
               _detectAccountName(parseResult, text, accounts),
           destinationAccount: destAccount,
@@ -212,6 +269,7 @@ class TransactionClassifier {
           requiresReview: reqReview,
           createTransaction: !reqReview,
           decisionSource: 'gemma_fallback',
+          strategicNote: strategicNote,
         );
       }
     }
@@ -232,11 +290,12 @@ class TransactionClassifier {
             : rawFallbackType;
     final actualMoneo =
         TransactionClassification.resolveMoneoType(actualClassification);
+    final fallbackCategory = deterministicResult?.category ?? 'Otros';
 
     return TransactionClassification(
       classification: actualClassification,
       moneoType: actualMoneo,
-      category: deterministicResult?.category ?? 'Otros',
+      category: fallbackCategory,
       accountName: fallbackAccount,
       destinationAccount:
           actualClassification == 'transferencia-propia' ? fallbackDest : null,
@@ -248,6 +307,13 @@ class TransactionClassifier {
       requiresReview: true,
       createTransaction: false,
       decisionSource: 'fallback_ambiguous',
+      strategicNote: _buildStrategicNote(
+        reason:
+            'Clasificación tentativa ($fallbackCategory) sin confirmación; requiere revisión',
+        classification: actualClassification,
+        category: fallbackCategory,
+        referenceDate: parseResult.fecha,
+      ),
     );
   }
 
@@ -808,6 +874,68 @@ class TransactionClassifier {
     if (confirmations >= 3) return 0.95;
     if (confirmations >= 2) return 0.92;
     return 0.88;
+  }
+
+  String _buildStrategicNote({
+    required String reason,
+    required String classification,
+    String? category,
+    required DateTime referenceDate,
+  }) {
+    final buffer = StringBuffer(reason);
+    final cat = category?.trim();
+    if (cat != null &&
+        cat.isNotEmpty &&
+        (classification == 'gasto' || classification == 'ingreso')) {
+      final monthlyTotal = _readCategoryMonthTotalSafe(
+        classification: classification,
+        category: cat,
+        referenceDate: referenceDate,
+      );
+      if (monthlyTotal != null) {
+        if (monthlyTotal == 0.0) {
+          buffer.write('. Sin acumulado previo en $cat este mes');
+        } else {
+          try {
+            final formatted = CurrencyHelper.format(monthlyTotal);
+            buffer.write('. Acumulado del mes en $cat: $formatted');
+          } catch (_) {
+            buffer.write(
+              '. Acumulado del mes en $cat: ${monthlyTotal.toStringAsFixed(0)}',
+            );
+          }
+        }
+      }
+    }
+    return '$buffer.';
+  }
+
+  double? _readCategoryMonthTotalSafe({
+    required String classification,
+    required String category,
+    required DateTime referenceDate,
+  }) {
+    try {
+      if (_summaryCache == null) {
+        if (!Hive.isBoxOpen('data')) return null;
+        final dataBox = Hive.box<Add_data>('data');
+        if (dataBox.isEmpty) return 0.0;
+      }
+      final cache = _summaryCache ?? MonthlySummaryCache.instance;
+      final summary = cache.getMonthSummary(
+        referenceDate.year,
+        referenceDate.month,
+      );
+      if (classification == 'gasto') {
+        return summary.expensesByCategory[category] ?? 0.0;
+      }
+      if (classification == 'ingreso') {
+        return summary.incomeByCategory[category] ?? 0.0;
+      }
+    } catch (_) {
+      // Caja 'data' cerrada o con tipo distinto en pruebas unitarias aisladas.
+    }
+    return null;
   }
 
   Future<List<AccountItem>> _loadAccounts() async {
