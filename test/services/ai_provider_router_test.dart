@@ -162,8 +162,70 @@ void main() {
       final sentModels = List<String>.from(body['models'] as List);
       expect(sentModels.first, equals('google/gemma-3-27b-it:free'));
       expect(sentModels.last, equals('openrouter/free'));
-      expect(sentModels.length, greaterThanOrEqualTo(3));
+      expect(sentModels.length, equals(3));
       expect(body['provider'], equals({'allow_fallbacks': true}));
+    });
+
+    test(
+        'limita el arreglo models de OpenRouter a <= 3 elementos y reintenta con openrouter/free ante HTTP 400',
+        () async {
+      await configStore.addApiKey(
+        provider: AiProviderId.openRouter,
+        label: 'OR Cache Largo',
+        rawApiKey: 'sk-or-test-key-cap3',
+        setAsPrimary: true,
+      );
+
+      final sentBodies = <Map<String, dynamic>>[];
+      final client = MockClient((request) async {
+        if (request.method == 'GET') {
+          return _jsonResponse({
+            'data': [
+              {'id': 'vendor/model-a:free'},
+              {'id': 'vendor/model-b:free'},
+              {'id': 'vendor/model-c:free'},
+              {'id': 'vendor/model-d:free'},
+              {'id': 'vendor/model-e:free'},
+              {'id': 'vendor/model-f:free'},
+            ],
+          });
+        }
+        final payload = jsonDecode(request.body) as Map<String, dynamic>;
+        sentBodies.add(payload);
+        if (payload.containsKey('models')) {
+          final models = payload['models'] as List;
+          expect(models.length, lessThanOrEqualTo(3));
+          return _jsonResponse(
+            {
+              'error': {'message': 'model unavailable'}
+            },
+            statusCode: 400,
+          );
+        }
+        expect(payload['model'], equals('openrouter/free'));
+        return _jsonResponse({
+          'model': 'nvidia/nemotron:free',
+          'choices': [
+            {
+              'message': {'content': 'OK via router automático'}
+            }
+          ],
+        });
+      });
+
+      final router = AiProviderRouter(
+        httpClient: client,
+        configStore: configStore,
+        nowProvider: () => fakeNow,
+      );
+      router.bindConfigStoreHooks();
+
+      final probe = await configStore.testConnection(AiProviderId.openRouter);
+      expect(probe.ok, isTrue);
+      expect(probe.activeModel, equals('nvidia/nemotron:free'));
+      expect(sentBodies.length, equals(2));
+      expect((sentBodies.first['models'] as List).length, equals(3));
+      expect(sentBodies.last.containsKey('models'), isFalse);
     });
 
     test(
@@ -326,9 +388,8 @@ void main() {
           request.url.toString(),
           equals('https://opencode.ai/zen/v1/chat/completions'),
         );
-        final model =
-            (jsonDecode(request.body) as Map<String, dynamic>)['model']
-                as String;
+        final model = (jsonDecode(request.body)
+            as Map<String, dynamic>)['model'] as String;
         triedChatModels.add(model);
 
         if (model == 'zen-fast-free') {
@@ -629,6 +690,78 @@ void main() {
       );
       expect(badProbe.ok, isFalse);
       expect(badProbe.message, contains('401'));
+    });
+
+    test(
+        'OpenAI filtra modelos no-chat, prioriza gpt-4o-mini/4.1-mini, usa max_completion_tokens en o3 y preserva detalle 429',
+        () async {
+      final openaiKey = await configStore.addApiKey(
+        provider: AiProviderId.openAi,
+        label: 'OpenAI Quota',
+        rawApiKey: 'sk-proj-test-quota',
+        setAsPrimary: true,
+      );
+
+      final sentPayloads = <Map<String, dynamic>>[];
+      final client = MockClient((request) async {
+        if (request.method == 'GET') {
+          return _jsonResponse({
+            'data': [
+              {'id': 'o3-2025-04-16'},
+              {'id': 'gpt-image-2.5-sunburst'},
+              {'id': 'gpt-4o-realtime-preview'},
+              {'id': 'gpt-5.2-2025-12-11'},
+              {'id': 'gpt-4.1-mini'},
+              {'id': 'gpt-4o-mini'},
+            ],
+          });
+        }
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        sentPayloads.add(body);
+        return _jsonResponse(
+          {
+            'error': {
+              'message':
+                  'You exceeded your current quota, please check your plan and billing details.'
+            }
+          },
+          statusCode: 429,
+        );
+      });
+
+      final router = AiProviderRouter(
+        httpClient: client,
+        configStore: configStore,
+        nowProvider: () => fakeNow,
+      );
+      router.bindConfigStoreHooks();
+
+      final probe = await configStore.testConnection(
+        AiProviderId.openAi,
+        keyId: openaiKey.id,
+      );
+      expect(probe.ok, isFalse);
+      expect(probe.message, contains('You exceeded your current quota'));
+      expect(probe.message, contains('billing'));
+      expect(
+        probe.discoveredModels,
+        equals([
+          'gpt-4o-mini',
+          'gpt-4.1-mini',
+          'o3-2025-04-16',
+          'gpt-5.2-2025-12-11',
+        ]),
+      );
+      // Confirmar que o3 recibió max_completion_tokens sin temperature
+      final o3Payload =
+          sentPayloads.firstWhere((p) => p['model'] == 'o3-2025-04-16');
+      expect(o3Payload.containsKey('max_completion_tokens'), isTrue);
+      expect(o3Payload.containsKey('max_tokens'), isFalse);
+      expect(o3Payload.containsKey('temperature'), isFalse);
+      final miniPayload =
+          sentPayloads.firstWhere((p) => p['model'] == 'gpt-4o-mini');
+      expect(miniPayload.containsKey('max_tokens'), isTrue);
+      expect(miniPayload.containsKey('temperature'), isTrue);
     });
 
     test('streamChat decodifica eventos SSE y rota tras HTTP 429', () async {
@@ -940,7 +1073,8 @@ void main() {
     });
   });
 
-  group('AiProviderRouter - Google Gemini & GemmaClassifierAdapter Circuit-Breaker Cloud',
+  group(
+      'AiProviderRouter - Google Gemini & GemmaClassifierAdapter Circuit-Breaker Cloud',
       () {
     test('Google Gemini normaliza prefijo models/ en /models y completa chat',
         () async {

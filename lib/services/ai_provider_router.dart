@@ -233,11 +233,12 @@ class AiProviderRouter {
         if (useOpenRouterQueue) {
           final openRouterQueue = _buildOpenRouterModelsQueue(
             candidateModels,
-            preferredModel: (pIdx == 0 ? modelOverride : null) ??
-                keyEntry.preferredModel,
+            preferredModel:
+                (pIdx == 0 ? modelOverride : null) ?? keyEntry.preferredModel,
           );
           final primaryMarker = openRouterQueue.first;
-          if (_isModelInCooldownInternal(provider, keyEntry.id, primaryMarker)) {
+          if (_isModelInCooldownInternal(
+              provider, keyEntry.id, primaryMarker)) {
             continue;
           }
 
@@ -269,6 +270,48 @@ class AiProviderRouter {
               statusCode: err.statusCode,
               headers: err.headers,
             );
+            // Si el subconjunto de 3 modelos falla en OpenRouter con 400/404,
+            // reintentar una vez con el router automático "openrouter/free".
+            if ((err.statusCode == 400 || err.statusCode == 404) &&
+                primaryMarker != 'openrouter/free' &&
+                !_isModelInCooldownInternal(
+                  provider,
+                  keyEntry.id,
+                  'openrouter/free',
+                )) {
+              attempts++;
+              try {
+                return await _sendCompletionRequest(
+                  provider: provider,
+                  keyEntry: keyEntry,
+                  rawApiKey: rawKey.trim(),
+                  model: 'openrouter/free',
+                  openRouterModels: null,
+                  messages: messages,
+                  systemPrompt: systemPrompt,
+                  maxTokens: maxTokens,
+                  temperature: temperature,
+                  timeout: timeout,
+                  attempts: attempts,
+                  usedFallbackProvider: pIdx > 0,
+                );
+              } on _RetryableHttpFailure catch (fallbackErr) {
+                lastStatus = fallbackErr.statusCode;
+                lastError = fallbackErr.message;
+                _recordHttpFailureCooldown(
+                  provider: provider,
+                  keyId: keyEntry.id,
+                  model: 'openrouter/free',
+                  statusCode: fallbackErr.statusCode,
+                  headers: fallbackErr.headers,
+                );
+              } on TimeoutException {
+                lastError =
+                    'Tiempo de espera agotado en ${provider.displayName}.';
+              } catch (e) {
+                lastError = _formatConnectionError(provider, e);
+              }
+            }
             // OpenRouter ya evaluó su cola de modelos en el servidor; pasar a la siguiente API Key
             continue;
           } on TimeoutException {
@@ -281,7 +324,7 @@ class AiProviderRouter {
             );
             continue;
           } catch (e) {
-            lastError = 'Error de red en ${provider.displayName}: $e';
+            lastError = _formatConnectionError(provider, e);
             continue;
           }
         }
@@ -324,7 +367,8 @@ class AiProviderRouter {
               break;
             }
           } on TimeoutException {
-            lastError = 'Tiempo de espera agotado en ${provider.displayName} ($model).';
+            lastError =
+                'Tiempo de espera agotado en ${provider.displayName} ($model).';
             _markModelCooldown(
               provider,
               keyEntry.id,
@@ -332,7 +376,7 @@ class AiProviderRouter {
               const Duration(seconds: 20),
             );
           } catch (e) {
-            lastError = 'Error de conexión con ${provider.displayName}: $e';
+            lastError = _formatConnectionError(provider, e);
           }
         }
       }
@@ -408,16 +452,6 @@ class AiProviderRouter {
           modelOverride: pIdx == 0 ? modelOverride : null,
         );
 
-        final modelsToTry = useOpenRouterQueue
-            ? [
-                _buildOpenRouterModelsQueue(
-                  candidateModels,
-                  preferredModel: (pIdx == 0 ? modelOverride : null) ??
-                      keyEntry.preferredModel,
-                ).first,
-              ]
-            : candidateModels;
-
         final openRouterQueue = useOpenRouterQueue
             ? _buildOpenRouterModelsQueue(
                 candidateModels,
@@ -426,6 +460,14 @@ class AiProviderRouter {
               )
             : null;
 
+        final modelsToTry = useOpenRouterQueue
+            ? [
+                openRouterQueue!.first,
+                if (openRouterQueue.first != 'openrouter/free')
+                  'openrouter/free',
+              ]
+            : candidateModels;
+
         for (final model in modelsToTry) {
           if (_isModelInCooldownInternal(provider, keyEntry.id, model)) {
             continue;
@@ -433,6 +475,9 @@ class AiProviderRouter {
 
           lastProvider = provider;
           var emittedAnyToken = false;
+          final useQueuePayload = useOpenRouterQueue &&
+              openRouterQueue != null &&
+              model == openRouterQueue.first;
 
           try {
             final chunkStream = _sendStreamingRequest(
@@ -440,7 +485,7 @@ class AiProviderRouter {
               keyEntry: keyEntry,
               rawApiKey: rawKey.trim(),
               model: model,
-              openRouterModels: openRouterQueue,
+              openRouterModels: useQueuePayload ? openRouterQueue : null,
               messages: messages,
               systemPrompt: systemPrompt,
               maxTokens: maxTokens,
@@ -457,7 +502,8 @@ class AiProviderRouter {
               return;
             }
             // Respuesta vacía sin error HTTP: intentar siguiente candidato
-            lastError = 'Respuesta vacía desde ${provider.displayName} ($model).';
+            lastError =
+                'Respuesta vacía desde ${provider.displayName} ($model).';
           } on _RetryableHttpFailure catch (err) {
             if (emittedAnyToken) return;
             lastStatus = err.statusCode;
@@ -474,7 +520,8 @@ class AiProviderRouter {
             }
           } on TimeoutException {
             if (emittedAnyToken) return;
-            lastError = 'Tiempo de espera agotado en ${provider.displayName} ($model).';
+            lastError =
+                'Tiempo de espera agotado en ${provider.displayName} ($model).';
             _markModelCooldown(
               provider,
               keyEntry.id,
@@ -483,7 +530,7 @@ class AiProviderRouter {
             );
           } catch (e) {
             if (emittedAnyToken) return;
-            lastError = 'Error de streaming en ${provider.displayName}: $e';
+            lastError = _formatConnectionError(provider, e);
           }
         }
       }
@@ -566,7 +613,7 @@ class AiProviderRouter {
         keyIdOverride: keyEntry.id,
         maxTokens: 12,
         temperature: 0.0,
-        timeout: const Duration(seconds: 10),
+        timeout: const Duration(seconds: 15),
       );
       return AiProviderProbeResult(
         ok: true,
@@ -578,15 +625,14 @@ class AiProviderRouter {
     } on AiRouterException catch (e) {
       return AiProviderProbeResult(
         ok: false,
-        message: e.statusCode == 429
-            ? 'Límite temporal alcanzado en ${provider.displayName} (HTTP 429). Intenta más tarde.'
-            : e.message,
+        message: _formatProbeExceptionMessage(provider, e),
         discoveredModels: discovered,
       );
     } catch (e) {
       return AiProviderProbeResult(
         ok: false,
-        message: 'No se pudo completar la prueba en ${provider.displayName}: $e',
+        message:
+            'No se pudo completar la prueba en ${provider.displayName}: $e',
         discoveredModels: discovered,
       );
     }
@@ -652,7 +698,8 @@ class AiProviderRouter {
   }) async {
     final baseUrl = provider.defaultBaseUrl;
     if (baseUrl == null || baseUrl.isEmpty) {
-      throw AiRouterException('Base URL no definida para ${provider.displayName}.');
+      throw AiRouterException(
+          'Base URL no definida para ${provider.displayName}.');
     }
 
     final uri = Uri.parse('${_trimTrailingSlash(baseUrl)}/chat/completions');
@@ -691,7 +738,8 @@ class AiProviderRouter {
     final rawJson = _safeUtf8(response.bodyBytes);
     final decoded = jsonDecode(rawJson);
     if (decoded is! Map) {
-      throw const FormatException('Respuesta JSON inesperada en chat/completions.');
+      throw const FormatException(
+          'Respuesta JSON inesperada en chat/completions.');
     }
 
     final text = _extractChoiceText(decoded);
@@ -727,7 +775,8 @@ class AiProviderRouter {
   }) async* {
     final baseUrl = provider.defaultBaseUrl;
     if (baseUrl == null || baseUrl.isEmpty) {
-      throw AiRouterException('Base URL no definida para ${provider.displayName}.');
+      throw AiRouterException(
+          'Base URL no definida para ${provider.displayName}.');
     }
 
     final uri = Uri.parse('${_trimTrailingSlash(baseUrl)}/chat/completions');
@@ -747,7 +796,8 @@ class AiProviderRouter {
       );
 
     final streamedResponse = await _httpClient.send(request).timeout(timeout);
-    if (streamedResponse.statusCode < 200 || streamedResponse.statusCode >= 300) {
+    if (streamedResponse.statusCode < 200 ||
+        streamedResponse.statusCode >= 300) {
       final errBytes = await streamedResponse.stream.toBytes();
       throw _RetryableHttpFailure(
         statusCode: streamedResponse.statusCode,
@@ -769,8 +819,7 @@ class AiProviderRouter {
       final rawBytes = await streamedResponse.stream.toBytes();
       final bodyText = _safeUtf8(rawBytes);
       // Algunos mocks o servidores devuelven SSE sin header content-type explícito
-      if (!bodyText.trimLeft().startsWith('{') &&
-          bodyText.contains('data:')) {
+      if (!bodyText.trimLeft().startsWith('{') && bodyText.contains('data:')) {
         yield* _parseSseLines(
           LineSplitter.split(bodyText),
           provider: provider,
@@ -913,11 +962,17 @@ class AiProviderRouter {
       for (final m in messages) m.toJson(),
     ];
 
+    final usesMaxCompletionTokens =
+        provider == AiProviderId.openAi && _isOpenAiReasoningModel(model);
+
     final payload = <String, dynamic>{
       'model': model,
       'messages': msgList,
-      if (maxTokens != null) 'max_tokens': maxTokens,
-      if (temperature != null) 'temperature': temperature,
+      if (maxTokens != null)
+        (usesMaxCompletionTokens ? 'max_completion_tokens' : 'max_tokens'):
+            maxTokens,
+      if (temperature != null && !usesMaxCompletionTokens)
+        'temperature': temperature,
       if (stream) 'stream': true,
     };
 
@@ -929,6 +984,14 @@ class AiProviderRouter {
     }
 
     return payload;
+  }
+
+  bool _isOpenAiReasoningModel(String model) {
+    final lower = model.trim().toLowerCase();
+    return lower.startsWith('o1') ||
+        lower.startsWith('o3') ||
+        lower.startsWith('o4') ||
+        lower.startsWith('gpt-5');
   }
 
   Map<String, String> _buildHeaders(AiProviderId provider, String rawApiKey) {
@@ -1061,8 +1124,9 @@ class AiProviderRouter {
       }
     }
 
-    // Limitar para payloads compactos preservando siempre "openrouter/free" al final
-    final bounded = specificFree.take(5).toList();
+    // OpenRouter acepta un máximo de 3 elementos en el arreglo "models"
+    // ("'models' array must have 3 items or fewer").
+    final bounded = specificFree.take(2).toList();
     bounded.add('openrouter/free');
     return bounded;
   }
@@ -1127,7 +1191,8 @@ class AiProviderRouter {
   }) async {
     final baseUrl = provider.defaultBaseUrl;
     if (baseUrl == null || baseUrl.isEmpty) {
-      return _ModelProbeOutcome(models: provider.defaultFreeOrRecommendedModels);
+      return _ModelProbeOutcome(
+          models: provider.defaultFreeOrRecommendedModels);
     }
 
     final uri = Uri.parse('${_trimTrailingSlash(baseUrl)}/models');
@@ -1216,9 +1281,15 @@ class AiProviderRouter {
           return !lower.contains('embed') &&
               !lower.contains('rerank') &&
               !lower.contains('nvclip') &&
-              !lower.contains('parse');
+              !lower.contains('parse') &&
+              !lower.contains('guard') &&
+              !lower.contains('reward') &&
+              !lower.contains('cosmos');
         }).toList();
-        return chatLike.isNotEmpty ? chatLike : allIds;
+        return _promotePreferredModels(
+          chatLike.isNotEmpty ? chatLike : allIds,
+          provider.defaultFreeOrRecommendedModels,
+        );
 
       case AiProviderId.gemini:
         final geminiChat = allIds.where((id) {
@@ -1233,12 +1304,29 @@ class AiProviderRouter {
       case AiProviderId.openAi:
         final gptChat = allIds.where((id) {
           final lower = id.toLowerCase();
-          return lower.startsWith('gpt-') ||
+          final isChatFamily = lower.startsWith('gpt-') ||
               lower.startsWith('o1') ||
               lower.startsWith('o3') ||
               lower.startsWith('o4');
+          final isNonChat = lower.contains('image') ||
+              lower.contains('audio') ||
+              lower.contains('realtime') ||
+              lower.contains('transcribe') ||
+              lower.contains('tts') ||
+              lower.contains('instruct') ||
+              lower.contains('search') ||
+              lower.contains('moderation') ||
+              lower.contains('embedding') ||
+              lower.contains('whisper') ||
+              lower.contains('dall-e') ||
+              lower.contains('sora') ||
+              lower.contains('codex');
+          return isChatFamily && !isNonChat;
         }).toList();
-        return gptChat.isNotEmpty ? gptChat : allIds;
+        return _promotePreferredModels(
+          gptChat.isNotEmpty ? gptChat : allIds,
+          provider.defaultFreeOrRecommendedModels,
+        );
 
       case AiProviderId.localGemmaDefault:
       case AiProviderId.localHuggingFace:
@@ -1482,8 +1570,7 @@ class AiProviderRouter {
     return null;
   }
 
-  String _trimTrailingSlash(String url) =>
-      url.replaceAll(RegExp(r'/+$'), '');
+  String _trimTrailingSlash(String url) => url.replaceAll(RegExp(r'/+$'), '');
 
   String _safeUtf8(List<int> bytes) {
     try {
@@ -1513,6 +1600,58 @@ class AiProviderRouter {
       detail = '${detail.substring(0, 140)}...';
     }
     return '${provider.displayName} ($target) HTTP $statusCode$detail';
+  }
+
+  List<String> _promotePreferredModels(
+    List<String> discovered,
+    List<String> preferredOrder,
+  ) {
+    if (discovered.isEmpty) return discovered;
+    final discoveredSet = discovered.toSet();
+    final ordered = <String>[];
+    final seen = <String>{};
+    for (final preferred in preferredOrder) {
+      if (discoveredSet.contains(preferred) && seen.add(preferred)) {
+        ordered.add(preferred);
+      }
+    }
+    for (final id in discovered) {
+      if (seen.add(id)) {
+        ordered.add(id);
+      }
+    }
+    return ordered;
+  }
+
+  String _formatProbeExceptionMessage(
+    AiProviderId provider,
+    AiRouterException error,
+  ) {
+    final msg = error.message.trim();
+    if (error.statusCode == 429) {
+      final lower = msg.toLowerCase();
+      if (lower.contains('quota') || lower.contains('billing')) {
+        return '$msg (Verifica créditos/billing activos en ${provider.displayName}).';
+      }
+      if (msg.contains(': ')) {
+        return msg;
+      }
+      return 'Límite temporal alcanzado en ${provider.displayName} (HTTP 429). Intenta más tarde.';
+    }
+    return msg;
+  }
+
+  String _formatConnectionError(AiProviderId provider, Object error) {
+    final raw = error.toString();
+    final lower = raw.toLowerCase();
+    if (kIsWeb &&
+        (lower.contains('networkerror') ||
+            lower.contains('failed to fetch') ||
+            lower.contains('xmlhttprequest'))) {
+      return 'El navegador Web bloqueó la petición directa a ${provider.displayName} por política CORS ($raw). '
+          'Este proveedor funciona en el APK Android nativo; en Web puedes usar OpenRouter, Google Gemini u OpenAI.';
+    }
+    return 'Error de conexión con ${provider.displayName}: $raw';
   }
 }
 

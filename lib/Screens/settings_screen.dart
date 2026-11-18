@@ -2140,6 +2140,14 @@ class _SettingsScreenState extends State<SettingsScreen>
         _lastAiProbeResult = probe;
         _discoveredAiModels = models.isNotEmpty ? models : probe.discoveredModels;
       });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _lastAiProbeResult = AiProviderProbeResult(
+          ok: false,
+          message: 'Error inesperado al probar conexión: $e',
+        );
+      });
     } finally {
       if (mounted) {
         setState(() {
