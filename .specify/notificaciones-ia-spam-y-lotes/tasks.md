@@ -36,4 +36,4 @@
 - [x] **T7 — Verificación integral en Docker:**
   - [x] Ejecutar `dart analyze` (`No issues found!`) y `flutter test --no-pub -j 1` (`170/170` pasaron en Docker `finazaap-flutter`).
   - [x] Actualizar `docs/handoff/CURRENT_STATE.md` y `docs/handoff/ACTIVE_TASK.md`.
-  - [ ] Consolidar en `integration/notificaciones-rag-y-multi-ia` (previa aprobación de `git merge`) y recompilar APK para validación humana en dispositivo.
+  - [x] Consolidar en `integration/notificaciones-rag-y-multi-ia` (`2e540b8`, *fast-forward*) y recompilar APK `prod` release (`bd76ab0137b80be71d9aa855971aa4bd306416a60ce4eacb523d2ebe465ffb4d`) para validación humana en dispositivo.
