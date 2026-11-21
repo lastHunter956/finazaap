@@ -26,3 +26,7 @@
 
 7. **Widget tests con `Hive` bajo `FakeAsync`:**
    - Según `docs/discovery/SPRINT_1_REPORT.md`, las pruebas `testWidgets` pueden sufrir timeout si ejecutan E/S real de `Hive` en disco dentro de `FakeAsync`; usar mocks/cajas en memoria en widget tests y dejar `Hive` en disco para tests unitarios y de integración.
+
+8. **Caché incremental obsoleto de Gradle en `mergeProdReleaseNativeLibs` (Docker bind-mount):**
+   - Al recompilar un APK release tras cambios en Dart sobre el bind-mount de macOS en Docker, `compileFlutterBuildProdRelease` puede generar un `libapp.so` nuevo en `build/app/intermediates/flutter/prodRelease/jniLibs/`, pero `mergeProdReleaseNativeLibs` puede marcarse `UP-TO-DATE` y empaquetar un `libapp.so` viejo dentro del APK.
+   - Verificar siempre el SHA-256 de `lib/arm64-v8a/libapp.so` extraído del APK final (`unzip -p ... | sha256sum`); si coincide con el build anterior, ejecutar `flutter clean` antes de `flutter build apk --release --flavor prod --no-tree-shake-icons --android-skip-build-dependency-validation`.
