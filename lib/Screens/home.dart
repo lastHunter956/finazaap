@@ -1,6 +1,7 @@
 // Reemplaza las importaciones conflictivas por estas líneas:
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/utils/app_icons.dart';
 import 'package:hive_flutter/adapters.dart';
@@ -93,9 +94,7 @@ class _HomeState extends State<Home> {
       if (mounted) {
         MonthlySummaryCache.instance.invalidate();
         _groupedTransactionsCache = null;
-        setState(() {});
         _updateAvailableBalance();
-        _loadCategoryMetadata();
       }
     };
     _boxListenable.addListener(_boxListener);
@@ -678,32 +677,34 @@ class _HomeState extends State<Home> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
-                      child: TotalBalanceWidget(
-                        availableBalanceNotifier: availableBalanceNotifier,
-                        availableBalancesByCurrencyNotifier:
-                            availableBalancesByCurrencyNotifier,
-                        accountingBalance: accountingBalance(),
-                        totalExpenses: expenses(),
-                        totalIncome: income(),
-                        onManageAccounts: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => MyHomePage(
-                                      onBalanceUpdated: (double balance) {
-                                        availableBalanceNotifier.value =
-                                            balance;
-                                        _updateAvailableBalance();
-                                      },
-                                    )),
-                          );
-                          if (mounted) {
-                            await _updateAvailableBalance();
-                            setState(() {});
-                          }
-                        },
-                        selectedMonthYear: _selectedPeriodLabel(),
-                        onDateSelected: _onDateSelected,
+                      child: RepaintBoundary(
+                        child: TotalBalanceWidget(
+                          availableBalanceNotifier: availableBalanceNotifier,
+                          availableBalancesByCurrencyNotifier:
+                              availableBalancesByCurrencyNotifier,
+                          accountingBalance: accountingBalance(),
+                          totalExpenses: expenses(),
+                          totalIncome: income(),
+                          onManageAccounts: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => MyHomePage(
+                                        onBalanceUpdated: (double balance) {
+                                          availableBalanceNotifier.value =
+                                              balance;
+                                          _updateAvailableBalance();
+                                        },
+                                      )),
+                            );
+                            if (mounted) {
+                              await _updateAvailableBalance();
+                              setState(() {});
+                            }
+                          },
+                          selectedMonthYear: _selectedPeriodLabel(),
+                          onDateSelected: _onDateSelected,
+                        ),
                       ),
                     ),
                   ),
@@ -904,13 +905,15 @@ class _HomeState extends State<Home> {
             context.isDiurno ? 18 : AppSizes.borderRadiusLarge,
           ),
           border: Border.all(color: t.borderSubtle, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isLight ? 0.06 : 0.1),
-              blurRadius: context.isDiurno ? 12 : 4,
-              offset: Offset(0, context.isDiurno ? 4 : 2),
-            ),
-          ],
+          boxShadow: isLight
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -997,24 +1000,41 @@ class _HomeState extends State<Home> {
 
   // Construir la sección de fecha con sus transacciones
   Widget _buildDateSection(String dateKey, double dailyIncome, List<Add_data> transactions) {
+    final t = context.appTheme;
     final bool isExpanded = _expandedDates.contains(dateKey);
     final String dateLabel = _formatDateSectionLabel(dateKey);
     final bool isLight = Theme.of(context).brightness == Brightness.light;
+    final double cardRadius =
+        context.isDiurno ? 18 : AppSizes.borderRadiusLarge;
 
     // Calcular totales separados para el resumen
     double totalIncome = 0;
     double totalExpense = 0;
-    for (var t in transactions) {
-      double amount = double.tryParse(t.safeAmount) ?? 0;
-      if (t.safeType == 'Income') {
+    for (final tx in transactions) {
+      final double amount = double.tryParse(tx.safeAmount) ?? 0;
+      if (tx.safeType == 'Income') {
         totalIncome += amount;
-      } else if (t.IN == 'Expenses') {
+      } else if (tx.IN == 'Expenses') {
         totalExpense += amount;
       }
     }
 
+    final int count = transactions.length;
+    final String countLabel =
+        count == 1 ? '1 movimiento' : '$count movimientos';
+
+    final List<BoxShadow>? cardShadow = isLight
+        ? [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ]
+        : null;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1026,6 +1046,7 @@ class _HomeState extends State<Home> {
             excludeSemantics: true,
             child: InkWell(
               onTap: () {
+                HapticFeedback.selectionClick();
                 setState(() {
                   if (isExpanded) {
                     _expandedDates.remove(dateKey);
@@ -1051,19 +1072,22 @@ class _HomeState extends State<Home> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: context.appTheme.textPrimary,
-                                  fontWeight: FontWeight.bold,
+                                  color: t.textPrimary,
+                                  fontWeight: FontWeight.w700,
                                   fontSize: 14,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 6),
-                            Icon(
-                              isExpanded
-                                  ? Icons.keyboard_arrow_up_rounded
-                                  : Icons.keyboard_arrow_down_rounded,
-                              color: context.appTheme.textSecondary,
-                              size: 18,
+                            AnimatedRotation(
+                              turns: isExpanded ? 0.5 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOutCubic,
+                              child: Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: t.textSecondary,
+                                size: 20,
+                              ),
                             ),
                           ],
                         ),
@@ -1078,10 +1102,8 @@ class _HomeState extends State<Home> {
                             CurrencyHelper.format(dailyIncome),
                             maxLines: 1,
                             style: TextStyle(
-                              color: dailyIncome >= 0
-                                  ? context.appTheme.income
-                                  : context.appTheme.expense,
-                              fontWeight: FontWeight.bold,
+                              color: dailyIncome >= 0 ? t.income : t.expense,
+                              fontWeight: FontWeight.w700,
                               fontSize: 14,
                               fontFeatures: const [
                                 FontFeature.tabularFigures(),
@@ -1097,214 +1119,166 @@ class _HomeState extends State<Home> {
             ),
           ),
 
-          // MOSTRAR LISTA O RESUMEN SEGÚN ESTADO
-          if (isExpanded)
-            // === LISTA DE TRANSACCIONES (EXPANDIDO) ===
-            Container(
-              decoration: BoxDecoration(
-                color: context.appTheme.cardBackground,
-                borderRadius: BorderRadius.circular(
-                  context.isDiurno ? 18 : AppSizes.borderRadiusLarge,
-                ),
-                border: context.isDefaultDark
-                    ? null
-                    : Border.all(
-                        color: context.appTheme.borderSubtle,
+          // MOSTRAR LISTA O RESUMEN COMPACTO CON TRANSICIÓN SUAVE
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: isExpanded
+                ? Container(
+                    decoration: BoxDecoration(
+                      color: t.cardBackground,
+                      borderRadius: BorderRadius.circular(cardRadius),
+                      border: Border.all(
+                        color: t.borderSubtle,
                         width: 1,
                       ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: isLight ? 0.06 : 0.1,
+                      boxShadow: cardShadow,
                     ),
-                    blurRadius: context.isDiurno ? 12 : 4,
-                    offset: Offset(0, context.isDiurno ? 4 : 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(
-                  context.isDiurno ? 18 : AppSizes.borderRadiusLarge,
-                ),
-                child: Column(
-                  children: [
-                    ...transactions.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final transaction = entry.value;
-
-                      return Column(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(cardRadius),
+                      child: Column(
                         children: [
-                          _buildTransactionItem(transaction),
-                          if (index < transactions.length - 1)
-                            Divider(
-                              color: context.appTheme.borderSubtle,
-                              height: 1,
-                              thickness: context.isDefaultDark ? 0.4 : 0.8,
-                              indent: 60,
-                              endIndent: 10,
-                            ),
+                          for (int index = 0;
+                              index < transactions.length;
+                              index++) ...[
+                            _buildTransactionItem(transactions[index]),
+                            if (index < transactions.length - 1)
+                              Divider(
+                                color: t.borderSubtle,
+                                height: 1,
+                                thickness: 0.7,
+                                indent: 70,
+                                endIndent: 16,
+                              ),
+                          ],
                         ],
-                      );
-                    }).toList(),
-                  ],
-                ),
-              ),
-            )
-          else
-            // === TARJETA RESUMEN (CONTRAÍDO) ===
-            InkWell(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => DailyTransactionsScreen(
-                      dateString: dateKey,
-                      transactions: transactions,
-                      dailyIncome: totalIncome,
-                      dailyExpense: totalExpense,
-                    ),
-                  ),
-                ).then((_) {
-                  setState(() {});
-                  _updateAvailableBalance();
-                });
-              },
-              borderRadius: BorderRadius.circular(
-                context.isDiurno ? 18 : AppSizes.borderRadiusLarge,
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: context.appTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(
-                    context.isDiurno ? 18 : AppSizes.borderRadiusLarge,
-                  ),
-                  border: Border.all(
-                    color: context.appTheme.borderSubtle,
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isLight ? 0.06 : 0.1,
                       ),
-                      blurRadius: context.isDiurno ? 12 : 4,
-                      offset: Offset(0, context.isDiurno ? 4 : 2),
                     ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Ingresos (Fila superior)
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: context.appTheme.income
-                                .withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.arrow_downward_rounded,
-                            color: context.appTheme.income,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Ingresos",
-                                style: TextStyle(
-                                  color: context.appTheme.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                  )
+                : Semantics(
+                    button: true,
+                    label: 'Ver detalle de $dateLabel, $countLabel',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => DailyTransactionsScreen(
+                                dateString: dateKey,
+                                transactions: transactions,
+                                dailyIncome: totalIncome,
+                                dailyExpense: totalExpense,
                               ),
-                              Text(
-                                CurrencyHelper.format(totalIncome),
-                                style: TextStyle(
-                                  color: context.appTheme.income,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
+                            ),
+                          ).then((_) {
+                            if (mounted) {
+                              MonthlySummaryCache.instance.invalidate();
+                              _groupedTransactionsCache = null;
+                              setState(() {});
+                              _updateAvailableBalance();
+                              _loadCategoryMetadata();
+                            }
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(cardRadius),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: t.cardBackground,
+                            borderRadius: BorderRadius.circular(cardRadius),
+                            border: Border.all(
+                              color: t.borderSubtle,
+                              width: 1,
+                            ),
+                            boxShadow: cardShadow,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  crossAxisAlignment:
+                                      WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      countLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: t.textSecondary,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (totalIncome > 0 ||
+                                        (totalIncome == 0 && totalExpense == 0))
+                                      _buildCompactSummaryChip(
+                                        text:
+                                            '+${CurrencyHelper.format(totalIncome)}',
+                                        color: t.income,
+                                      ),
+                                    if (totalExpense > 0)
+                                      _buildCompactSummaryChip(
+                                        text:
+                                            '-${CurrencyHelper.format(totalExpense)}',
+                                        color: t.expense,
+                                      ),
                                   ],
                                 ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                color: t.textSecondary,
+                                size: 20,
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-
-                    // Separador horizontal
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Divider(
-                        color: context.appTheme.borderSubtle,
-                        height: 1,
                       ),
                     ),
-
-                    // Gastos (Fila inferior)
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: context.appTheme.expense
-                                .withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.arrow_upward_rounded,
-                            color: context.appTheme.expense,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Gastos",
-                                style: TextStyle(
-                                  color: context.appTheme.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                CurrencyHelper.format(totalExpense),
-                                style: TextStyle(
-                                  color: context.appTheme.expense,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                  ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompactSummaryChip({
+    required String text,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
       ),
     );
   }
 
   // Widget para cada transacción - Con funcionalidad de edición y eliminación
   Widget _buildTransactionItem(Add_data history) {
+    final t = context.appTheme;
     final bool isTransfer = history.IN == 'Transfer';
     final bool isIncome = history.IN == 'Income';
 
@@ -1320,17 +1294,15 @@ class _HomeState extends State<Home> {
     }
 
     final IconData transactionIcon =
-        isTransfer ? Icons.sync_alt : AppIcons.getIcon(history.safeIconCode);
+        isTransfer ? Icons.sync_alt_rounded : AppIcons.getIcon(history.safeIconCode);
 
     final int? rawCategoryColorValue =
         isTransfer ? null : _categoryColors[history.safeCategory];
     final Color baseCategoryColor = rawCategoryColorValue != null
         ? Color(rawCategoryColorValue)
         : (isTransfer
-            ? context.appTheme.secondaryAccent
-            : (isIncome
-                ? context.appTheme.income
-                : context.appTheme.expense));
+            ? t.secondaryAccent
+            : (isIncome ? t.income : t.expense));
     final Color categoryColor =
         AppColors.getReadableColor(baseCategoryColor, context);
 
@@ -1353,36 +1325,33 @@ class _HomeState extends State<Home> {
           _editTransaction,
           _confirmDeleteTransaction,
         ),
-        splashColor: context.appTheme.accent.withValues(alpha: 0.1),
-        highlightColor: context.appTheme.accent.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(AppSizes.borderRadiusSmall),
+        splashColor: t.accent.withValues(alpha: 0.08),
+        highlightColor: t.accent.withValues(alpha: 0.04),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final double maxRightWidth =
-                  ((constraints.maxWidth - 67) * 0.45).clamp(72.0, 160.0);
+                  ((constraints.maxWidth - 66) * 0.45).clamp(72.0, 160.0);
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
                     key: ValueKey('tx_icon_${history.safeCategory}'),
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: categoryColor.withValues(alpha: 0.16),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: categoryColor.withValues(alpha: 0.45),
-                        width: 1.5,
-                      ),
+                      color: categoryColor.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    padding: const EdgeInsets.all(10),
                     child: Icon(
                       transactionIcon,
-                      size: 22,
+                      size: 21,
                       color: categoryColor,
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1391,22 +1360,22 @@ class _HomeState extends State<Home> {
                           mainTitle,
                           style: TextStyle(
                             fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: context.appTheme.textPrimary,
-                            height: 1.3,
+                            fontWeight: FontWeight.w600,
+                            color: t.textPrimary,
+                            height: 1.25,
                           ),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 2,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
                           subtitleText,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.w400,
-                            color: context.appTheme.textSecondary,
-                            fontSize: 13,
+                            color: t.textSecondary,
+                            fontSize: 12.5,
                           ),
                         ),
                       ],
@@ -1425,16 +1394,14 @@ class _HomeState extends State<Home> {
                             formattedAmount,
                             maxLines: 1,
                             style: TextStyle(
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                               fontSize: 15,
                               fontFeatures: const [
                                 FontFeature.tabularFigures(),
                               ],
                               color: isTransfer
-                                  ? context.appTheme.textSecondary
-                                  : (isIncome
-                                      ? context.appTheme.income
-                                      : context.appTheme.expense),
+                                  ? t.textSecondary
+                                  : (isIncome ? t.income : t.expense),
                             ),
                           ),
                         ),
@@ -1448,14 +1415,8 @@ class _HomeState extends State<Home> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: context.appTheme.accent
-                                  .withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: context.appTheme.accent
-                                    .withValues(alpha: 0.4),
-                                width: 0.5,
-                              ),
+                              color: t.accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               '${history.installments} cuotas',
@@ -1463,7 +1424,7 @@ class _HomeState extends State<Home> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 10,
-                                color: context.appTheme.accent,
+                                color: t.accent,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1477,14 +1438,8 @@ class _HomeState extends State<Home> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: context.appTheme.income
-                                  .withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: context.appTheme.income
-                                    .withValues(alpha: 0.4),
-                                width: 0.5,
-                              ),
+                              color: t.income.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               'Sin interés',
@@ -1492,7 +1447,7 @@ class _HomeState extends State<Home> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 10,
-                                color: context.appTheme.income,
+                                color: t.income,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1595,6 +1550,9 @@ void _editTransaction(Add_data transaction) async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => editScreen),
     );
+    if (mounted) {
+      await _loadCategoryMetadata();
+    }
     
   } catch (e) {
     debugPrint('❌ Error al preparar edición de transacción: $e');

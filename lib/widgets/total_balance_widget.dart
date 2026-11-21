@@ -1,8 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'dart:ui';
 import 'package:flutter/services.dart';
-import 'package:gradient_borders/gradient_borders.dart';
+import 'package:intl/intl.dart';
 import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/themes/app_sizes.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
@@ -46,7 +46,7 @@ class TotalBalanceWidget extends StatefulWidget {
     this.accountingBalancesByCurrency,
     this.expensesByCurrency,
     this.incomeByCurrency,
-    this.onDateSelected,  // <-- Nueva propiedad
+    this.onDateSelected,
     this.selectedMonthYear = 'Diciembre 2025',
   }) : super(key: key);
 
@@ -85,317 +85,280 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
     }
   }
 
-  // Método mejorado para mostrar el selector de mes/año con diseño premium
+  // Selector de Mes/Año en Bottom Sheet moderno (sin BackdropFilter)
   void _showMonthYearSelector() {
-    // Variables para el selector
     int localMonth = _selectedMonth;
     int localYear = _selectedYear;
-    
-    // Constantes de diseño - Sistema de tokens profesional
-    const double cornerRadius = 24.0;
-    final t = this.context.appTheme;
-    final Color accentColor = t.buttonBackground;
-    final Color surfaceColor = t.secondaryCardBackground;
-    final Color cardColor = t.darkBackground;
-    
-    // Lista de nombres de meses con formato capitalizado
-    final List<String> monthNames = [
+
+    const List<String> monthNames = [
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
     ];
-    
-    // Mostrar diálogo con animaciones optimizadas
-    showGeneralDialog(
+
+    showModalBottomSheet<void>(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: "Selector de período",
-      barrierColor: Colors.black.withOpacity(0.75),
-      transitionDuration: const Duration(milliseconds: 280),
-      pageBuilder: (_, __, ___) => Container(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (sheetContext) {
+        final t = sheetContext.appTheme;
+        final Color accentColor = t.buttonBackground;
+        final Color surfaceColor = t.secondaryCardBackground;
+        final Color cardColor = t.cardBackground;
+
         return StatefulBuilder(
-          builder: (context, setState) {
-            // Animaciones compuestas para efecto profesional
-            final curveAnimation = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutQuint,
-              reverseCurve: Curves.easeInQuint,
-            );
-            
-            // Múltiples animaciones coordinadas
-            final scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(curveAnimation);
-            final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-              CurvedAnimation(parent: animation, curve: Interval(0.1, 1.0))
-            );
-            final blurAnimation = Tween<double>(begin: 20, end: 0).animate(curveAnimation);
-            
-            final bool useBlur = !LiquidGlassSurface.shouldReduceEffects(context) &&
-                blurAnimation.value > 0.1;
-            final Widget dialogCard = Material(
-              color: Colors.transparent,
+          builder: (modalContext, setModalState) {
+            final double maxHeight =
+                MediaQuery.of(modalContext).size.height * 0.85;
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: AppSizes.dialogMaxWidth + 80,
+                maxHeight: maxHeight,
+              ),
               child: Container(
-                width: MediaQuery.of(context).size.width * 0.87,
-                constraints: BoxConstraints(
-                  maxWidth: AppSizes.dialogMaxWidth,
-                  maxHeight: MediaQuery.of(context).size.height * 0.85,
-                ),
                 decoration: BoxDecoration(
                   color: surfaceColor,
-                  borderRadius: BorderRadius.circular(cornerRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.22),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: t.borderSubtle,
-                    width: 1.2,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppSizes.borderRadius2XLarge),
+                  ),
+                  border: Border(
+                    top: BorderSide(color: t.borderSubtle, width: 1),
                   ),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(cornerRadius),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ===== CABECERA PREMIUM =====
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Drag handle
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        margin: const EdgeInsets.only(top: 12, bottom: 8),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              accentColor.withValues(alpha: 0.22),
-                              accentColor.withValues(alpha: 0.10),
-                              accentColor.withValues(alpha: 0.05),
-                            ],
-                            stops: const [0.0, 0.6, 1.0],
-                          ),
+                          color: t.borderVisible,
+                          borderRadius: BorderRadius.circular(2),
                         ),
+                      ),
+                    ),
+
+                    // Cabecera limpia
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Seleccionar período',
+                                  style: TextStyle(
+                                    color: t.textPrimary,
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 150),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: t.accent.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '${monthNames[localMonth - 1]} $localYear',
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        color: t.accent,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Filtrar transacciones por mes y año',
+                            style: TextStyle(
+                              color: t.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Divider(height: 1, thickness: 1, color: t.borderSubtle),
+
+                    // Cuerpo scrollable (Año + Grilla de 12 meses)
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(
-                              'Seleccionar período',
-                              style: TextStyle(
-                                color: t.textPrimary,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.1,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Filtrar transacciones por mes y año',
-                              style: TextStyle(
-                                color: t.textSecondary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            // Vista previa de selección
+                            // Selector de año
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
+                              height: 52,
                               decoration: BoxDecoration(
-                                color: cardColor.withValues(alpha: 0.6),
+                                color: cardColor,
                                 borderRadius: BorderRadius.circular(
-                                  AppSizes.borderRadiusMedium,
+                                  AppSizes.borderRadiusLarge,
                                 ),
                                 border: Border.all(
                                   color: t.borderSubtle,
+                                  width: 1,
                                 ),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    Icons.calendar_today_rounded,
-                                    size: 16,
-                                    color: accentColor,
+                                  _buildDirectionalButton(
+                                    icon: Icons.chevron_left_rounded,
+                                    label: 'Año anterior',
+                                    color: t.textPrimary,
+                                    onTap: () {
+                                      setModalState(() {
+                                        localYear--;
+                                      });
+                                      HapticFeedback.selectionClick();
+                                    },
                                   ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        "${monthNames[localMonth - 1]} $localYear",
-                                        maxLines: 1,
-                                        style: TextStyle(
-                                          color: t.textPrimary,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 16,
+                                  Expanded(
+                                    child: Center(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          localYear.toString(),
+                                          style: TextStyle(
+                                            color: t.textPrimary,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.4,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
+                                  ),
+                                  _buildDirectionalButton(
+                                    icon: Icons.chevron_right_rounded,
+                                    label: 'Año siguiente',
+                                    color: t.textPrimary,
+                                    onTap: () {
+                                      setModalState(() {
+                                        localYear++;
+                                      });
+                                      HapticFeedback.selectionClick();
+                                    },
                                   ),
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 16),
+
+                            // Grilla de 12 meses con targets cómodos (>= 48dp)
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                mainAxisExtent: 48,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                              ),
+                              itemCount: 12,
+                              itemBuilder: (context, index) {
+                                final int monthNumber = index + 1;
+                                final bool isSelected =
+                                    localMonth == monthNumber;
+
+                                return _buildMonthSelector(
+                                  monthName:
+                                      monthNames[index].substring(0, 3),
+                                  fullMonthName: monthNames[index],
+                                  isSelected: isSelected,
+                                  accentColor: accentColor,
+                                  cardColor: cardColor,
+                                  textColor: t.textPrimary,
+                                  borderColor: t.borderSubtle,
+                                  buttonTextPrimaryColor: t.buttonForeground,
+                                  onTap: () {
+                                    setModalState(() {
+                                      localMonth = monthNumber;
+                                    });
+                                    HapticFeedback.selectionClick();
+                                  },
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
+                    ),
 
-                      // Contenedor principal con scroll si es necesario
-                      Flexible(
-                        child: SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Control para selección de año
-                                Container(
-                                  height: 56,
-                                  decoration: BoxDecoration(
-                                    color: cardColor,
-                                    borderRadius: BorderRadius.circular(
-                                      AppSizes.borderRadiusLarge,
-                                    ),
-                                    border: Border.all(
-                                      color: t.borderSubtle,
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      _buildDirectionalButton(
-                                        icon: Icons.chevron_left_rounded,
-                                        label: 'Año anterior',
-                                        color: t.textPrimary,
-                                        onTap: () {
-                                          setState(() {
-                                            localYear--;
-                                          });
-                                          HapticFeedback.lightImpact();
-                                        },
-                                      ),
-                                      Expanded(
-                                        child: Center(
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: Text(
-                                              localYear.toString(),
-                                              style: TextStyle(
-                                                color: t.textPrimary,
-                                                fontSize: 22,
-                                                fontWeight: FontWeight.bold,
-                                                letterSpacing: 0.5,
-                                                fontFeatures: const [
-                                                  FontFeature.tabularFigures(),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      _buildDirectionalButton(
-                                        icon: Icons.chevron_right_rounded,
-                                        label: 'Año siguiente',
-                                        color: t.textPrimary,
-                                        onTap: () {
-                                          setState(() {
-                                            localYear++;
-                                          });
-                                          HapticFeedback.lightImpact();
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-
-                                // Grid de meses
-                                GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    childAspectRatio: 1.65,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 10,
-                                  ),
-                                  itemCount: 12,
-                                  itemBuilder: (context, index) {
-                                    final int monthNumber = index + 1;
-                                    final bool isSelected =
-                                        localMonth == monthNumber;
-
-                                    return _buildMonthSelector(
-                                      monthName:
-                                          monthNames[index].substring(0, 3),
-                                      fullMonthName: monthNames[index],
-                                      isSelected: isSelected,
-                                      accentColor: accentColor,
-                                      cardColor: cardColor,
-                                      textColor: t.textPrimary,
-                                      borderColor: t.borderSubtle,
-                                      buttonTextPrimaryColor:
-                                          t.buttonForeground,
-                                      onTap: () {
-                                        setState(() {
-                                          localMonth = monthNumber;
-                                        });
-                                        HapticFeedback.selectionClick();
-                                      },
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
+                    // Botones de acción
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        border: Border(
+                          top: BorderSide(color: t.borderSubtle, width: 1),
                         ),
                       ),
-
-                      // ===== BOTONES DE ACCIÓN =====
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cardColor,
-                          border: Border(
-                            top: BorderSide(color: t.borderSubtle, width: 1),
-                          ),
-                        ),
-                        child: SafeArea(
-                          top: false,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 4,
-                                child: _buildActionButton(
-                                  label: 'Cancelar',
-                                  isOutlined: true,
-                                  textColor: t.textSecondary,
-                                  borderColor: t.borderVisible,
-                                  buttonTextPrimaryColor: t.buttonForeground,
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    HapticFeedback.mediumImpact();
-                                  },
-                                ),
+                      child: SafeArea(
+                        top: false,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 4,
+                              child: _buildActionButton(
+                                label: 'Cancelar',
+                                isOutlined: true,
+                                textColor: t.textSecondary,
+                                borderColor: t.borderVisible,
+                                buttonTextPrimaryColor: t.buttonForeground,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  Navigator.pop(modalContext);
+                                },
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                flex: 6,
-                                child: _buildActionButton(
-                                  label: 'Aplicar filtro',
-                                  isPrimary: true,
-                                  accentColor: accentColor,
-                                  textColor: t.textSecondary,
-                                  borderColor: t.borderVisible,
-                                  buttonTextPrimaryColor: t.buttonForeground,
-                                  onTap: () {
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 6,
+                              child: _buildActionButton(
+                                label: 'Aplicar filtro',
+                                isPrimary: true,
+                                accentColor: accentColor,
+                                textColor: t.textSecondary,
+                                borderColor: t.borderVisible,
+                                buttonTextPrimaryColor: t.buttonForeground,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  if (mounted) {
                                     setState(() {
                                       _selectedMonth = localMonth;
                                       _selectedYear = localYear;
@@ -404,43 +367,21 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                                         _selectedMonth,
                                       );
                                       _selectedMonthYear = _formatDate(date);
-
-                                      if (widget.onDateSelected != null) {
-                                        widget.onDateSelected!(
-                                          _selectedMonth,
-                                          _selectedYear,
-                                        );
-                                      }
                                     });
-                                    Navigator.pop(context);
-                                    HapticFeedback.mediumImpact();
-                                  },
-                                ),
+                                  }
+                                  widget.onDateSelected?.call(
+                                    localMonth,
+                                    localYear,
+                                  );
+                                  Navigator.pop(modalContext);
+                                },
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-
-            return ScaleTransition(
-              scale: scaleAnimation,
-              child: FadeTransition(
-                opacity: fadeAnimation,
-                child: Center(
-                  child: useBlur
-                      ? BackdropFilter(
-                          filter: ImageFilter.blur(
-                            sigmaX: blurAnimation.value,
-                            sigmaY: blurAnimation.value,
-                          ),
-                          child: dialogCard,
-                        )
-                      : dialogCard,
+                    ),
+                  ],
                 ),
               ),
             );
@@ -512,6 +453,128 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
     return buildAmountText(text);
   }
 
+  Widget _buildAccountingBalanceSection(AppTheme t) {
+    final bool isMultiAccounting = widget.accountingBalancesByCurrency != null &&
+        widget.accountingBalancesByCurrency!.length > 1;
+
+    if (isMultiAccounting) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Balance Contable',
+            style: TextStyle(
+              color: t.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          _buildMultiCurrencyAmountColumn(
+            widget.accountingBalancesByCurrency,
+            widget.accountingBalance,
+            TextStyle(
+              color: t.textPrimary,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+            useSignPrefix: true,
+          ),
+        ],
+      );
+    }
+
+    final String formattedAccounting =
+        '${widget.accountingBalance < 0 ? "- " : ""}'
+        '${CurrencyHelper.format(widget.accountingBalance.abs())}';
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 2,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          'Balance Contable',
+          style: TextStyle(
+            color: t.textSecondary,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          formattedAccounting,
+          style: TextStyle(
+            color: widget.accountingBalance >= 0 ? t.textPrimary : t.expense,
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricColumn({
+    required AppTheme t,
+    required String label,
+    required IconData icon,
+    required Color semanticColor,
+    required Map<String, double>? byCurrency,
+    required double fallbackAmount,
+  }) {
+    final bool isMulti = byCurrency != null && byCurrency.length > 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 20,
+              height: 20,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: semanticColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                icon,
+                size: 13,
+                color: semanticColor,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        _buildMultiCurrencyAmountColumn(
+          byCurrency,
+          fallbackAmount,
+          TextStyle(
+            color: semanticColor,
+            fontSize: isMulti ? 13.5 : 16,
+            fontWeight: FontWeight.w700,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Listenable balanceListenable =
@@ -521,20 +584,20 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
     return AnimatedBuilder(
       animation: balanceListenable,
       builder: (context, child) {
+        final t = context.appTheme;
         final double availableBalance = widget.availableBalanceNotifier.value;
         final Map<String, double>? availableByCurrency =
             widget.availableBalancesByCurrencyNotifier?.value ??
                 widget.availableBalancesByCurrency;
         final bool isDark = Theme.of(context).brightness == Brightness.dark;
         final bool isLight = !isDark;
-        final bool isDiurno = context.isDiurno;
         final bool isMultiCurrencyAvailable =
             availableByCurrency != null && availableByCurrency.length > 1;
 
+        final bool hasMovements =
+            widget.totalIncome > 0 || widget.totalExpenses > 0;
         final bool isExceeded = widget.totalExpenses > widget.totalIncome;
-        final Color ringStatusColor = isExceeded
-            ? context.appTheme.expense
-            : context.appTheme.income;
+        final Color ringStatusColor = isExceeded ? t.expense : t.income;
         final double ringValue = isExceeded
             ? 1.0
             : (widget.totalIncome > 0
@@ -553,379 +616,115 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
             ? 'EXCEDIDO'
             : (widget.totalExpenses == 0 ? 'COMPLETO' : 'RESTANTE');
 
+        final Color metricsSurface = isLight
+            ? t.secondaryCardBackground
+            : t.darkBackground.withValues(alpha: 0.45);
+
         return Container(
           decoration: BoxDecoration(
-            color: isDiurno ? null : context.appTheme.cardBackground,
-            gradient: isDiurno
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFFFFFFF),
-                      Color(0xFFF6F9FE),
-                    ],
-                  )
-                : null,
-            borderRadius: BorderRadius.circular(
-              isDiurno
-                  ? AppSizes.borderRadiusXLarge
-                  : AppSizes.borderRadiusLarge,
+            color: t.cardBackground,
+            borderRadius: BorderRadius.circular(AppSizes.borderRadius2XLarge),
+            border: Border.all(
+              color: t.borderSubtle,
+              width: 1,
             ),
-            border: isDiurno
-                ? GradientBoxBorder(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white,
-                        context.appTheme.borderSubtle,
-                      ],
+            boxShadow: isLight
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
                     ),
-                    width: 1.3,
-                  )
-                : Border.all(
-                    color: context.appTheme.borderSubtle,
-                    width: 1,
-                  ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isLight ? 0.06 : 0.12),
-                blurRadius: isDiurno ? 14 : 6,
-                offset: Offset(0, isDiurno ? 4 : 2),
-              ),
-            ],
+                  ]
+                : null,
           ),
-          padding: const EdgeInsets.all(AppSizes.paddingLarge),
+          padding: const EdgeInsets.all(AppSizes.paddingXLarge),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // FILA SUPERIOR: Disponible, Balance contable y gráfica
+              // CABECERA INTEGRADA: 'Disponible' a la izquierda + pill de período a la derecha
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Textos de Disponible y Balance contable
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Disponible',
-                          style: TextStyle(
-                            color: context.appTheme.textSecondary,
-                            fontSize: AppSizes.fontLarge,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        _buildMultiCurrencyAmountColumn(
-                          availableByCurrency,
-                          availableBalance,
-                          TextStyle(
-                            color: context.appTheme.textPrimary,
-                            fontSize: isMultiCurrencyAvailable ? 20 : 32,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing:
-                                isMultiCurrencyAvailable ? -0.2 : -0.5,
-                            height: 1.1,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (widget.accountingBalancesByCurrency != null &&
-                            widget.accountingBalancesByCurrency!.length > 1)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Balance Contable:',
-                                style: TextStyle(
-                                  color: context.appTheme.textSecondary,
-                                  fontSize: AppSizes.fontMedium,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              _buildMultiCurrencyAmountColumn(
-                                widget.accountingBalancesByCurrency,
-                                widget.accountingBalance,
-                                TextStyle(
-                                  color: context.appTheme.textPrimary,
-                                  fontSize: AppSizes.fontLarge,
-                                  fontWeight: FontWeight.bold,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
-                                  ],
-                                ),
-                                useSignPrefix: true,
-                              ),
-                            ],
-                          )
-                        else if (widget.accountingBalance.abs() > 9999)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Balance Contable:',
-                                style: TextStyle(
-                                  color: context.appTheme.textSecondary,
-                                  fontSize: AppSizes.fontMedium,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  '${widget.accountingBalance < 0 ? "- " : ""}'
-                                  '${CurrencyHelper.format(widget.accountingBalance.abs())}',
-                                  style: TextStyle(
-                                    color: widget.accountingBalance >= 0
-                                        ? context.appTheme.textPrimary
-                                        : context.appTheme.expense,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        else
-                          Text(
-                            'Balance Contable: '
-                            '${widget.accountingBalance < 0 ? "- " : ""}'
-                            '${CurrencyHelper.format(widget.accountingBalance.abs())}',
-                            style: TextStyle(
-                              color: context.appTheme.textSecondary,
-                              fontSize: AppSizes.fontMedium,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Gráfica: Anillo que muestra el % de ingresos/egresos
-                  Semantics(
-                    label: (widget.totalIncome > 0 || widget.totalExpenses > 0)
-                        ? 'Resumen del período: $ringPercentText $ringBadgeText'
-                        : 'Resumen del período sin movimientos',
-                    excludeSemantics: true,
-                    child: SizedBox(
-                      width: 100,
-                      height: 100,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          SizedBox(
-                            width: 90,
-                            height: 90,
-                            child: CircularProgressIndicator(
-                              value: ringValue,
-                              strokeWidth: 8,
-                              backgroundColor: context.appTheme.darkBackground,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                ringStatusColor,
-                              ),
-                            ),
-                          ),
-                          if (widget.totalIncome > 0 ||
-                              widget.totalExpenses > 0)
-                            SizedBox(
-                              width: 68,
-                              height: 68,
-                              child: Center(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        ringPercentText,
-                                        style: TextStyle(
-                                          color: context.appTheme.textPrimary,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.bold,
-                                          fontFeatures: const [
-                                            FontFeature.tabularFigures(),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 2),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: ringStatusColor.withValues(
-                                            alpha: isDark ? 0.18 : 0.08,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                          border: Border.all(
-                                            color: ringStatusColor.withValues(
-                                              alpha: 0.55,
-                                            ),
-                                            width: 0.6,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          ringBadgeText,
-                                          style: TextStyle(
-                                            color: isDark
-                                                ? context.appTheme.textPrimary
-                                                : ringStatusColor,
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 0.1,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // FILA DE BOTONES: Gestionar cuentas y Selector de mes/año
-              Row(
-                children: [
-                  Expanded(
-                    flex: 6,
-                    child: Semantics(
-                      button: true,
-                      label: 'Gestionar cuentas',
-                      child: Tooltip(
-                        message: 'Gestionar cuentas',
-                        child: ElevatedButton(
-                          onPressed: widget.onManageAccounts,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isDiurno
-                                ? context.appTheme.secondaryCardBackground
-                                : context.appTheme.primaryBackground,
-                            elevation: 0,
-                            minimumSize: const Size(0, 48),
-                            side: BorderSide(
-                              color: context.appTheme.borderSubtle,
-                              width: 1,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                isDiurno
-                                    ? AppSizes.borderRadiusMedium
-                                    : AppSizes.borderRadiusSmall,
-                              ),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.account_balance_wallet_outlined,
-                                size: 16,
-                                color: isDiurno
-                                    ? context.appTheme.accent
-                                    : context.appTheme.textPrimary,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    'Gestionar cuentas',
-                                    maxLines: 1,
-                                    style: TextStyle(
-                                      fontSize: AppSizes.fontMedium,
-                                      fontWeight: isDiurno
-                                          ? FontWeight.w600
-                                          : FontWeight.w500,
-                                      color: context.appTheme.textPrimary,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                    child: Text(
+                      'Disponible',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: t.textSecondary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.1,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    flex: 5,
-                    child: Semantics(
-                      button: true,
-                      label: 'Seleccionar período: $_selectedMonthYear',
-                      child: Tooltip(
-                        message: 'Seleccionar período',
-                        child: ElevatedButton(
-                          onPressed: _showMonthYearSelector,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isDiurno
-                                ? context.appTheme.secondaryCardBackground
-                                : context.appTheme.primaryBackground,
-                            elevation: 0,
-                            minimumSize: const Size(0, 48),
-                            side: BorderSide(
-                              color: context.appTheme.borderSubtle,
-                              width: 1,
+                  Semantics(
+                    button: true,
+                    label: 'Seleccionar período: $_selectedMonthYear',
+                    child: Tooltip(
+                      message: 'Seleccionar período',
+                      child: Material(
+                        color: metricsSurface,
+                        borderRadius: BorderRadius.circular(20),
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _showMonthYearSelector();
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              minHeight: 40,
+                              minWidth: 48,
+                              maxWidth: 170,
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                isDiurno
-                                    ? AppSizes.borderRadiusMedium
-                                    : AppSizes.borderRadiusSmall,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
                               ),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.calendar_month,
-                                size: 16,
-                                color: isDiurno
-                                    ? context.appTheme.accent
-                                    : context.appTheme.textPrimary,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    _selectedMonthYear,
-                                    maxLines: 1,
-                                    style: TextStyle(
-                                      fontSize: AppSizes.fontMedium,
-                                      fontWeight: isDiurno
-                                          ? FontWeight.w600
-                                          : FontWeight.w500,
-                                      color: context.appTheme.textPrimary,
-                                    ),
-                                  ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: t.borderSubtle,
+                                  width: 1,
                                 ),
                               ),
-                            ],
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.calendar_month_rounded,
+                                    size: 15,
+                                    color: t.accent,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        _selectedMonthYear,
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          color: t.textPrimary,
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    size: 16,
+                                    color: t.textSecondary,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -933,108 +732,301 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
 
-              // FILA: Total de egresos y Total de ingresos
+              // BLOQUE HERO: Saldo protagonista + Balance Contable + Arco animado
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(AppSizes.paddingMedium),
-                      margin: const EdgeInsets.only(right: 4.0),
-                      decoration: BoxDecoration(
-                        color: isDiurno
-                            ? context.appTheme.secondaryCardBackground
-                            : context.appTheme.primaryBackground,
-                        borderRadius: BorderRadius.circular(
-                          isDiurno
-                              ? AppSizes.borderRadiusMedium
-                              : AppSizes.borderRadiusSmall,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildMultiCurrencyAmountColumn(
+                          availableByCurrency,
+                          availableBalance,
+                          TextStyle(
+                            color: t.textPrimary,
+                            fontSize: isMultiCurrencyAvailable ? 22 : 34,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing:
+                                isMultiCurrencyAvailable ? -0.3 : -0.8,
+                            height: 1.08,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
-                        border: Border.all(color: context.appTheme.borderSubtle),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Total de egresos',
-                            style: TextStyle(
-                              color: context.appTheme.textSecondary,
-                              fontSize: AppSizes.fontMedium,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          _buildMultiCurrencyAmountColumn(
-                            widget.expensesByCurrency,
-                            widget.totalExpenses,
-                            TextStyle(
-                              color: context.appTheme.textPrimary,
-                              fontSize: (widget.expensesByCurrency != null &&
-                                      widget.expensesByCurrency!.length > 1)
-                                  ? 14
-                                  : 16,
-                              fontWeight: FontWeight.bold,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                        const SizedBox(height: 8),
+                        _buildAccountingBalanceSection(t),
+                      ],
                     ),
                   ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(AppSizes.paddingMedium),
-                      margin: const EdgeInsets.only(left: 4.0),
-                      decoration: BoxDecoration(
-                        color: isDiurno
-                            ? context.appTheme.secondaryCardBackground
-                            : context.appTheme.primaryBackground,
-                        borderRadius: BorderRadius.circular(
-                          isDiurno
-                              ? AppSizes.borderRadiusMedium
-                              : AppSizes.borderRadiusSmall,
+                  const SizedBox(width: 14),
+                  Semantics(
+                    label: hasMovements
+                        ? 'Resumen del período: $ringPercentText $ringBadgeText'
+                        : 'Resumen del período sin movimientos',
+                    excludeSemantics: true,
+                    child: SizedBox(
+                      width: 96,
+                      height: 96,
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0.0, end: ringValue),
+                        duration: const Duration(milliseconds: 450),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, animatedProgress, innerChild) {
+                          return CustomPaint(
+                            size: const Size(96, 96),
+                            painter: _BudgetArcPainter(
+                              progress: animatedProgress,
+                              trackColor: t.darkBackground,
+                              progressColor: ringStatusColor,
+                              strokeWidth: 8.5,
+                            ),
+                            child: innerChild,
+                          );
+                        },
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: hasMovements
+                                  ? Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          ringPercentText,
+                                          style: TextStyle(
+                                            color: t.textPrimary,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: ringStatusColor.withValues(
+                                              alpha: isDark ? 0.18 : 0.10,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            ringBadgeText,
+                                            style: TextStyle(
+                                              color: isDark
+                                                  ? t.textPrimary
+                                                  : ringStatusColor,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 0.25,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      '0%',
+                                      style: TextStyle(
+                                        color: t.textHint,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                            ),
+                          ),
                         ),
-                        border: Border.all(color: context.appTheme.borderSubtle),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Total de ingresos',
-                            style: TextStyle(
-                              color: context.appTheme.textSecondary,
-                              fontSize: AppSizes.fontMedium,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          _buildMultiCurrencyAmountColumn(
-                            widget.incomeByCurrency,
-                            widget.totalIncome,
-                            TextStyle(
-                              color: context.appTheme.income,
-                              fontSize: (widget.incomeByCurrency != null &&
-                                      widget.incomeByCurrency!.length > 1)
-                                  ? 14
-                                  : 16,
-                              fontWeight: FontWeight.bold,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 18),
+
+              // MÉTRICAS INGRESOS / EGRESOS EN SUPERFICIE TONAL ÚNICA CON DIVIDER SUTIL
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: metricsSurface,
+                  borderRadius: BorderRadius.circular(
+                    AppSizes.borderRadiusLarge,
+                  ),
+                ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _buildMetricColumn(
+                          t: t,
+                          label: 'Total de ingresos',
+                          icon: Icons.arrow_downward_rounded,
+                          semanticColor: t.income,
+                          byCurrency: widget.incomeByCurrency,
+                          fallbackAmount: widget.totalIncome,
+                        ),
+                      ),
+                      VerticalDivider(
+                        width: 24,
+                        thickness: 1,
+                        indent: 4,
+                        endIndent: 4,
+                        color: t.borderSubtle,
+                      ),
+                      Expanded(
+                        child: _buildMetricColumn(
+                          t: t,
+                          label: 'Total de egresos',
+                          icon: Icons.arrow_upward_rounded,
+                          semanticColor: t.expense,
+                          byCurrency: widget.expensesByCurrency,
+                          fallbackAmount: widget.totalExpenses,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // BOTÓN LIMPIO Y ERGONÓMICO PARA GESTIONAR CUENTAS
+              Semantics(
+                button: true,
+                label: 'Gestionar cuentas',
+                child: Tooltip(
+                  message: 'Gestionar cuentas',
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: widget.onManageAccounts,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: metricsSurface,
+                        foregroundColor: t.textPrimary,
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        minimumSize: const Size(double.infinity, 48),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(
+                            color: t.borderSubtle,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.account_balance_wallet_outlined,
+                            size: 18,
+                            color: t.accent,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'Gestionar cuentas',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: t.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: t.textSecondary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
         );
       },
     );
+  }
+}
+
+class _BudgetArcPainter extends CustomPainter {
+  final double progress;
+  final Color trackColor;
+  final Color progressColor;
+  final double strokeWidth;
+
+  const _BudgetArcPainter({
+    required this.progress,
+    required this.trackColor,
+    required this.progressColor,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double radius = (math.min(size.width, size.height) - strokeWidth) / 2;
+    if (radius <= 0) return;
+
+    final Offset center = Offset(size.width / 2, size.height / 2);
+    final Rect arcRect = Rect.fromCircle(center: center, radius: radius);
+
+    final Paint trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, trackPaint);
+
+    final double clampedProgress = progress.clamp(0.0, 1.0);
+    if (clampedProgress > 0) {
+      final Paint progressPaint = Paint()
+        ..color = progressColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+
+      final double sweepAngle = 2 * math.pi * clampedProgress;
+      canvas.drawArc(
+        arcRect,
+        -math.pi / 2,
+        sweepAngle,
+        false,
+        progressPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BudgetArcPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.progressColor != progressColor ||
+        oldDelegate.strokeWidth != strokeWidth;
   }
 }
 
@@ -1056,15 +1048,15 @@ Widget _buildDirectionalButton({
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppSizes.borderRadiusLarge),
           child: Ink(
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppSizes.borderRadiusLarge),
             ),
             child: Icon(
               icon,
               color: color,
-              size: 28,
+              size: 26,
             ),
           ),
         ),
@@ -1103,7 +1095,7 @@ Widget _buildMonthSelector({
             borderRadius: BorderRadius.circular(AppSizes.borderRadiusMedium),
             border: Border.all(
               color: isSelected ? accentColor : borderColor,
-              width: isSelected ? 1.2 : 0.8,
+              width: isSelected ? 1.2 : 0.9,
             ),
           ),
           child: Center(
@@ -1117,10 +1109,10 @@ Widget _buildMonthSelector({
                   style: TextStyle(
                     color: isSelected
                         ? buttonTextPrimaryColor
-                        : textColor.withValues(alpha: 0.85),
+                        : textColor.withValues(alpha: 0.88),
                     fontSize: 14,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    letterSpacing: isSelected ? 0.4 : 0.2,
+                    letterSpacing: isSelected ? 0.3 : 0.15,
                   ),
                 ),
               ),
@@ -1175,7 +1167,7 @@ Widget _buildActionButton({
                   children: [
                     if (isPrimary) ...[
                       Icon(
-                        Icons.check_circle_outline_rounded,
+                        Icons.check_rounded,
                         size: 18,
                         color: buttonTextPrimaryColor,
                       ),
@@ -1189,7 +1181,7 @@ Widget _buildActionButton({
                         fontSize: isPrimary ? 15 : 14,
                         fontWeight:
                             isPrimary ? FontWeight.w600 : FontWeight.w500,
-                        letterSpacing: 0.2,
+                        letterSpacing: 0.15,
                       ),
                     ),
                   ],
