@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:finazaap/core/theme_notifier.dart';
 import 'package:finazaap/data/account_service.dart';
@@ -382,13 +381,11 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkScroll());
     }
 
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: Container(
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Container(
           width: double.infinity,
           constraints: BoxConstraints(
             maxWidth: 440,
@@ -859,8 +856,7 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildAccountDropdown(AppTheme theme) {

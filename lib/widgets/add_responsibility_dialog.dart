@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/data/responsibility_service.dart';
@@ -92,33 +91,31 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
   Widget build(BuildContext context) {
     final isCredit = false; // El préstamo ahora es una obligación simple como servicio
 
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: SingleChildScrollView(
-          child: Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(maxWidth: 420),
-            decoration: BoxDecoration(
-              color: context.appTheme.secondaryCardBackground,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.5),
-                  blurRadius: 40,
-                  offset: const Offset(0, 20),
-                ),
-              ],
-              border: Border.all(
-                color: context.appTheme.borderSubtle,
-                width: 1,
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: SingleChildScrollView(
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxWidth: 420),
+          decoration: BoxDecoration(
+            color: context.appTheme.secondaryCardBackground,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 40,
+                offset: const Offset(0, 20),
               ),
+            ],
+            border: Border.all(
+              color: context.appTheme.borderSubtle,
+              width: 1,
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -547,8 +544,7 @@ class _AddResponsibilityDialogState extends State<AddResponsibilityDialog> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildInputLabel(String label) {

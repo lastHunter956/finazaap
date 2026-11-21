@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:finazaap/data/credit_card_calculator.dart';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -20,7 +21,6 @@ import 'package:finazaap/utils/app_icons.dart';
 import 'package:finazaap/Screens/transfer.dart';
 import 'package:finazaap/widgets/show_responsibility_options.dart';
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/widgets/moneo_header_bar.dart';
 
@@ -106,17 +106,19 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                   slivers: [
                     // Dashboard Card
                     SliverToBoxAdapter(
-                      child: ResponsibilityDashboardCard(
-                        responsibilities: [], 
-                        selectedMonth: _selectedMonth,
-                        selectedYear: _selectedYear,
-                        onDateSelected: (day, month, year) {
-                          setState(() {
-                            _selectedMonth = month;
-                            _selectedYear = year;
-                          });
-                          _loadResponsibilities();
-                        },
+                      child: RepaintBoundary(
+                        child: ResponsibilityDashboardCard(
+                          responsibilities: [], 
+                          selectedMonth: _selectedMonth,
+                          selectedYear: _selectedYear,
+                          onDateSelected: (day, month, year) {
+                            setState(() {
+                              _selectedMonth = month;
+                              _selectedYear = year;
+                            });
+                            _loadResponsibilities();
+                          },
+                        ),
                       ),
                     ),
                     
@@ -183,43 +185,37 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Container(
+                              SizedBox(
                                 height: chipBarHeight,
-                                margin: const EdgeInsets.symmetric(horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: context.appTheme.cardBackground.withOpacity(.8),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: context.appTheme.borderVisible,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: ListView.builder(
+                                child: ListView.separated(
                                   scrollDirection: Axis.horizontal,
                                   physics: const BouncingScrollPhysics(),
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  separatorBuilder: (_, __) => const SizedBox(width: 8),
                                   // +1 para el botón de "Más"
                                   itemCount: _quickCategories.length + 1,
                                   itemBuilder: (context, index) {
                                     // Botón "Más Filtros" al final
                                     if (index == _quickCategories.length) {
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                                      return Center(
                                         child: Material(
                                           color: Colors.transparent,
                                           child: InkWell(
-                                            onTap: _showFilterDialog,
-                                            borderRadius: BorderRadius.circular(8),
+                                            onTap: () {
+                                              HapticFeedback.selectionClick();
+                                              _showFilterDialog();
+                                            },
+                                            borderRadius: BorderRadius.circular(999),
                                             child: ConstrainedBox(
                                               constraints: const BoxConstraints(
                                                 minWidth: 44,
                                                 minHeight: 44,
                                               ),
                                               child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                                 decoration: BoxDecoration(
-                                                  color: context.appTheme.darkBackground,
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  color: context.appTheme.cardBackground,
+                                                  borderRadius: BorderRadius.circular(999),
                                                   border: Border.all(
                                                     color: context.appTheme.borderSubtle,
                                                     width: 1,
@@ -257,8 +253,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                     
                                     final accentColor = context.appTheme.accent;
                                     
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                                    return Center(
                                       child: Semantics(
                                         button: true,
                                         selected: isSelected,
@@ -268,6 +263,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                           color: Colors.transparent,
                                           child: InkWell(
                                             onTap: () {
+                                              HapticFeedback.selectionClick();
                                               setState(() {
                                                 if (category == 'Todos') {
                                                   _selectedCategories = ['Todos'];
@@ -284,25 +280,29 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                                 }
                                               });
                                             },
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(999),
                                             child: ConstrainedBox(
                                               constraints: const BoxConstraints(
                                                 minWidth: 44,
                                                 minHeight: 44,
                                               ),
                                               child: AnimatedContainer(
-                                                duration: const Duration(milliseconds: 250),
+                                                duration: const Duration(milliseconds: 200),
                                                 curve: Curves.easeOutCubic,
                                                 padding: EdgeInsets.symmetric(
                                                   horizontal: isSelected ? 16 : 14,
-                                                  vertical: 2,
+                                                  vertical: 6,
                                                 ),
                                                 decoration: BoxDecoration(
-                                                  color: isSelected ? accentColor.withOpacity(0.2) : Colors.transparent,
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  color: isSelected
+                                                      ? accentColor.withValues(alpha: 0.16)
+                                                      : context.appTheme.cardBackground,
+                                                  borderRadius: BorderRadius.circular(999),
                                                   border: Border.all(
-                                                    color: isSelected ? accentColor : Colors.transparent,
-                                                    width: 1.5,
+                                                    color: isSelected
+                                                        ? accentColor
+                                                        : context.appTheme.borderSubtle,
+                                                    width: isSelected ? 1.5 : 1,
                                                   ),
                                                 ),
                                                 alignment: Alignment.center,
@@ -423,14 +423,11 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
       barrierDismissible: true,
       barrierLabel: "Menu de Acciones",
       barrierColor: Colors.black.withOpacity(0.5),
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (_, __, ___) => Container(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return ResponsibilityActionsMenu(
-          onAddResponsibility: () => _showAddResponsibilityDialog(),
-          onPlanIncome: () => _showIncomeDistributorDialog(),
-        );
-      },
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (_, __, ___) => ResponsibilityActionsMenu(
+        onAddResponsibility: () => _showAddResponsibilityDialog(),
+        onPlanIncome: () => _showIncomeDistributorDialog(),
+      ),
     );
   }
 
@@ -744,10 +741,30 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
   }
 
   void _showAddResponsibilityDialog({Responsibility? responsibility}) {
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (context) => AddResponsibilityDialog(responsibility: responsibility),
-    ).then((_) => setState(() {}));
+      barrierDismissible: true,
+      barrierLabel: 'Obligación',
+      barrierColor: Colors.black.withOpacity(0.6),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, _, __) =>
+          AddResponsibilityDialog(responsibility: responsibility),
+      transitionBuilder: (context, animation, _, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+          child: FadeTransition(
+            opacity: curved,
+            child: child,
+          ),
+        );
+      },
+    ).then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   void _confirmDeleteResponsibility(Responsibility responsibility) async {
@@ -866,18 +883,27 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
       barrierDismissible: true,
       barrierLabel: "Pagar Obligación",
       barrierColor: Colors.black.withOpacity(0.7),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) => Container(),
-      transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
+      transitionDuration: const Duration(milliseconds: 200),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
         return ScaleTransition(
-          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
           child: FadeTransition(
-            opacity: animation,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: AlertDialog(
-                backgroundColor: context.appTheme.secondaryCardBackground,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            opacity: curved,
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (dialogContext, _, __) {
+        return AlertDialog(
+          backgroundColor: context.appTheme.secondaryCardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: context.appTheme.borderSubtle, width: 1),
+          ),
                 title: Row(
                   children: [
                     Container(
@@ -1246,10 +1272,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                     child: Text('Confirmar', style: TextStyle(color: context.appTheme.buttonForeground, fontWeight: FontWeight.bold)),
                   ),
                 ],
-              ),
-            ),
-          ),
-        );
+              );
       },
     );
   }
@@ -1263,36 +1286,43 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
       barrierDismissible: true,
       barrierLabel: "Asistente de Ingresos",
       barrierColor: Colors.black.withOpacity(0.5),
-      transitionDuration: const Duration(milliseconds: 350),
-      pageBuilder: (context, anim1, anim2) => Container(),
+      transitionDuration: const Duration(milliseconds: 200),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
         return ScaleTransition(
-          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
           child: FadeTransition(
-            opacity: animation,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Dialog(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                child: Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  decoration: BoxDecoration(
-                    color: context.appTheme.secondaryCardBackground,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
-                        blurRadius: 40,
-                        offset: const Offset(0, 20),
-                      ),
-                    ],
-                    border: Border.all(color: context.appTheme.borderSubtle, width: 1.5),
+            opacity: curved,
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (dialogContext, anim1, anim2) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: SingleChildScrollView(
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(
+                color: context.appTheme.secondaryCardBackground,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 40,
+                    offset: const Offset(0, 20),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
+                ],
+                border: Border.all(color: context.appTheme.borderSubtle, width: 1),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1414,7 +1444,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                             children: [
                               Expanded(
                                 child: TextButton(
-                                  onPressed: () => Navigator.pop(context),
+                                  onPressed: () => Navigator.pop(dialogContext),
                                   style: TextButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(vertical: 16),
                                     shape: RoundedRectangleBorder(
@@ -1433,7 +1463,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                                     final text = incomeController.text.replaceAll(RegExp(r'[^0-9]'), '');
                                     final income = double.tryParse(text);
                                     if (income != null) {
-                                      Navigator.pop(context);
+                                      Navigator.pop(dialogContext);
                                       _showDistributionResults(income, monthlyTotal);
                                     }
                                   },
@@ -1456,9 +1486,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                   ),
                 ),
               ),
-            ),
-          ),
-        );
+            );
       },
     );
   }
@@ -1474,36 +1502,42 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
       barrierDismissible: true,
       barrierLabel: "Resultados",
       barrierColor: Colors.black.withOpacity(0.7),
-      transitionDuration: const Duration(milliseconds: 400),
-      pageBuilder: (context, anim1, anim2) => Container(),
+      transitionDuration: const Duration(milliseconds: 200),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
         return ScaleTransition(
-          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
           child: FadeTransition(
-            opacity: animation,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Dialog(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                child: Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  decoration: BoxDecoration(
-                    color: context.appTheme.secondaryCardBackground,
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.6),
-                        blurRadius: 40,
-                        offset: const Offset(0, 20),
-                      ),
-                    ],
-                    border: Border.all(color: context.appTheme.borderSubtle, width: 1.5),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(32),
+            opacity: curved,
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (dialogContext, anim1, anim2) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 420),
+            decoration: BoxDecoration(
+              color: context.appTheme.secondaryCardBackground,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.6),
+                  blurRadius: 40,
+                  offset: const Offset(0, 20),
+                ),
+              ],
+              border: Border.all(color: context.appTheme.borderSubtle, width: 1),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1621,7 +1655,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                         Padding(
                           padding: const EdgeInsets.all(24),
                           child: ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: () => Navigator.pop(dialogContext),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF3B82F6),
                               foregroundColor: Colors.white,
@@ -1637,10 +1671,7 @@ class _ResponsibilitiesScreenState extends State<ResponsibilitiesScreen> {
                     ),
                   ),
                 ),
-              ),
-            ),
-          ),
-        );
+              );
       },
     );
   }

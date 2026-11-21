@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:finazaap/data/model/responsibility.dart';
 import 'package:finazaap/data/model/add_date.dart';
@@ -55,10 +54,30 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
   }
 
   void _showAddResponsibilityDialog({Responsibility? responsibility}) {
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (context) => AddResponsibilityDialog(responsibility: responsibility),
-    ).then((_) => setState(() {}));
+      barrierDismissible: true,
+      barrierLabel: 'Obligación',
+      barrierColor: Colors.black.withOpacity(0.6),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, _, __) =>
+          AddResponsibilityDialog(responsibility: responsibility),
+      transitionBuilder: (context, animation, _, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+          child: FadeTransition(
+            opacity: curved,
+            child: child,
+          ),
+        );
+      },
+    ).then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   void _confirmDeleteResponsibility(Responsibility responsibility) async {
@@ -134,18 +153,27 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
       barrierDismissible: true,
       barrierLabel: "Pagar Obligación",
       barrierColor: Colors.black.withOpacity(0.7),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) => Container(),
-      transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
+      transitionDuration: const Duration(milliseconds: 200),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
         return ScaleTransition(
-          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
           child: FadeTransition(
-            opacity: animation,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: AlertDialog(
-                backgroundColor: context.appTheme.cardBackground,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            opacity: curved,
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (dialogContext, _, __) {
+        return AlertDialog(
+          backgroundColor: context.appTheme.secondaryCardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: context.appTheme.borderSubtle, width: 1),
+          ),
                 title: Row(
                   children: [
                     Container(
@@ -499,10 +527,7 @@ class _AnnualProjectionScreenState extends State<AnnualProjectionScreen> {
                     child: const Text('Confirmar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ],
-              ),
-            ),
-          ),
-        );
+              );
       },
     );
   }

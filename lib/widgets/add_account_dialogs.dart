@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/data/models/account_item.dart';
 import 'package:finazaap/widgets/account_dialogs.dart';
@@ -10,10 +9,26 @@ import 'package:finazaap/utils/currency_helper.dart';
 import 'package:finazaap/widgets/moneo_appearance_pickers_row.dart';
 
 Future<AccountItem?> showAddAccountDialog(BuildContext context) async {
-  return showDialog<AccountItem>(
+  return showGeneralDialog<AccountItem>(
     context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Nueva cuenta',
     barrierColor: Colors.black.withOpacity(0.6),
-    builder: (context) => const AddAccountDialog(),
+    transitionDuration: const Duration(milliseconds: 200),
+    pageBuilder: (context, _, __) => const AddAccountDialog(),
+    transitionBuilder: (context, animation, _, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
+      return ScaleTransition(
+        scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+        child: FadeTransition(
+          opacity: curved,
+          child: child,
+        ),
+      );
+    },
   );
 }
 
@@ -97,13 +112,11 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
   Widget build(BuildContext context) {
     bool isCreditCard = selectedAccountType == "Tarjeta de Crédito";
 
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Container(
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
           width: double.infinity,
           constraints: const BoxConstraints(maxWidth: 450, maxHeight: 650),
           decoration: BoxDecoration(
@@ -630,8 +643,7 @@ class _AddAccountDialogState extends State<AddAccountDialog> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildInputLabel(String text) {

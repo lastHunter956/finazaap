@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'dart:ui';
 import 'package:finazaap/icon_lists.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 
@@ -49,41 +48,57 @@ Widget buildInputField({required Widget child, BuildContext? context}) {
 
 /// Selector de iconos mejorado
 Future<IconData?> showIconPickerDialog(BuildContext context, Color accentColor) async {
-  return showDialog<IconData>(
+  return showGeneralDialog<IconData>(
     context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Seleccionar Icono',
     barrierColor: Colors.black.withOpacity(0.6),
-    builder: (BuildContext context) {
-      return BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(maxHeight: 500),
-            decoration: BoxDecoration(
-              color: context.appTheme.secondaryCardBackground,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                  spreadRadius: -5,
-                ),
-                BoxShadow(
-                  color: accentColor.withOpacity(0.2),
-                  blurRadius: 20,
-                  offset: const Offset(0, 2),
-                  spreadRadius: -8,
-                ),
-              ],
-              border: Border.all(
-                color: context.appTheme.borderSubtle,
-                width: 1.0,
+    transitionDuration: const Duration(milliseconds: 200),
+    transitionBuilder: (context, animation, _, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
+      return ScaleTransition(
+        scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+        child: FadeTransition(
+          opacity: curved,
+          child: child,
+        ),
+      );
+    },
+    pageBuilder: (BuildContext context, _, __) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxHeight: 500),
+          decoration: BoxDecoration(
+            color: context.appTheme.secondaryCardBackground,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+                spreadRadius: -5,
               ),
+              BoxShadow(
+                color: accentColor.withOpacity(0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 2),
+                spreadRadius: -8,
+              ),
+            ],
+            border: Border.all(
+              color: context.appTheme.borderSubtle,
+              width: 1.0,
             ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,13 +121,15 @@ Future<IconData?> showIconPickerDialog(BuildContext context, Color accentColor) 
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Text(
-                        'Seleccionar Icono',
-                        style: TextStyle(
-                          color: context.appTheme.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.3,
+                      Expanded(
+                        child: Text(
+                          'Seleccionar Icono',
+                          style: TextStyle(
+                            color: context.appTheme.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
                         ),
                       ),
                     ],
@@ -206,15 +223,30 @@ Future<IconData?> showIconPickerDialog(BuildContext context, Color accentColor) 
 /// Selector de colores mejorado
 Future<Color?> showColorPickerDialog(BuildContext context, Color currentColor) async {
   Color tempColor = currentColor;
-  return showDialog<Color>(
+  return showGeneralDialog<Color>(
     context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Elige un color',
     barrierColor: Colors.black.withOpacity(0.6),
-    builder: (BuildContext context) {
-      return BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
+    transitionDuration: const Duration(milliseconds: 200),
+    transitionBuilder: (context, animation, _, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
+      return ScaleTransition(
+        scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+        child: FadeTransition(
+          opacity: curved,
+          child: child,
+        ),
+      );
+    },
+    pageBuilder: (BuildContext context, _, __) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: SingleChildScrollView(
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(

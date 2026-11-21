@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui';
 import 'package:finazaap/utils/alert_helper.dart';
 import 'package:finazaap/data/models/account_item.dart';
 import 'package:finazaap/widgets/account_dialogs.dart';
@@ -11,10 +10,26 @@ import 'package:finazaap/widgets/moneo_appearance_pickers_row.dart';
 
 /// Muestra el diálogo de edición de cuenta asegurando un manejo de estado correcto.
 Future<dynamic> showEditAccountDialog(BuildContext context, AccountItem item) async {
-  return showDialog<dynamic>(
+  return showGeneralDialog<dynamic>(
     context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Editar cuenta',
     barrierColor: Colors.black.withOpacity(0.5),
-    builder: (context) => EditAccountDialog(item: item),
+    transitionDuration: const Duration(milliseconds: 200),
+    pageBuilder: (context, _, __) => EditAccountDialog(item: item),
+    transitionBuilder: (context, animation, _, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
+      return ScaleTransition(
+        scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+        child: FadeTransition(
+          opacity: curved,
+          child: child,
+        ),
+      );
+    },
   );
 }
 
@@ -115,13 +130,11 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
   Widget build(BuildContext context) {
     bool isCreditCard = selectedAccountType == "Tarjeta de Crédito";
 
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Container(
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
           width: double.infinity,
           constraints: const BoxConstraints(maxWidth: 450, maxHeight: 600), // Aumentado un poco el ancho y alto máximo
           decoration: BoxDecoration(
@@ -555,8 +568,7 @@ class _EditAccountDialogState extends State<EditAccountDialog> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildInputLabel(String text) {

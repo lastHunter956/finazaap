@@ -1017,110 +1017,82 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _showAccountOptions(BuildContext context, AccountItem account) {
     bool isCreditCard = account.subtitle == "Tarjeta de Crédito";
-    // Formato eliminado
     double balanceValue = double.tryParse(account.balance) ?? 0.0;
-    
-    // Colores base de la aplicación para mantener coherencia
-    final Color primaryDark = AppColors.primaryBackground; // Fondo principal
-    final Color cardColor = AppColors.secondaryCardBackground;   // Color de tarjetas
-    final Color accentColor = account.iconColor;       // Color de acento personalizado
+
+    final Color accentColor = account.iconColor;
     final bool isLight = Theme.of(context).brightness == Brightness.light;
     final Color readableAccentColor = AppColors.getReadableColor(accentColor, context);
-    
+
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: "Opciones de cuenta",
       barrierColor: Colors.black.withOpacity(0.75),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation1, animation2) => Container(),
+      transitionDuration: const Duration(milliseconds: 200),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         final curvedAnimation = CurvedAnimation(
           parent: animation,
-          curve: Curves.easeOutQuart, // Curva más suave como en Home
+          curve: Curves.easeOutCubic,
         );
-        
+
         return ScaleTransition(
-          scale: Tween<double>(begin: 0.88, end: 1.0).animate(curvedAnimation),
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(curvedAnimation),
           child: FadeTransition(
-            opacity: animation,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Dialog(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                insetPadding: const EdgeInsets.all(20),
-                child: Container(
-                  width: double.infinity,
-                  constraints: BoxConstraints(maxWidth: 400),
-                  decoration: BoxDecoration(
-                    color: isLight ? cardColor : null,
-                    gradient: isLight
-                        ? null
-                        : LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              cardColor,
-                              Color.lerp(cardColor, accentColor.withOpacity(0.12), 0.25) ?? cardColor,
-                            ],
-                          ),
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      // Sombra principal
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.35),
-                        blurRadius: 25,
-                        spreadRadius: -5,
-                        offset: Offset(0, 10),
-                      ),
-                      // Sombra de acento - igual que en Home
-                      BoxShadow(
-                        color: accentColor.withOpacity(0.25),
-                        blurRadius: 20,
-                        spreadRadius: -10,
-                        offset: Offset(0, 5),
-                      ),
-                    ],
-                    border: isLight
-                        ? Border.all(color: readableAccentColor.withOpacity(0.7), width: 1.8)
-                        : GradientBoxBorder(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withOpacity(0.13),
-                                accentColor.withOpacity(0.1),
-                                Colors.white.withOpacity(0.05),
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.3, 0.7, 1.0],
-                            ),
-                            width: 1.2,
-                          ),
+            opacity: curvedAnimation,
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (dialogContext, animation1, animation2) {
+        final t = dialogContext.appTheme;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(
+                color: t.secondaryCardBackground,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.35),
+                    blurRadius: 25,
+                    spreadRadius: -5,
+                    offset: const Offset(0, 10),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Cabecera con diseño de tarjeta premium
-                      Container(
-                        padding: const EdgeInsets.all(22),
-                        decoration: BoxDecoration(
-                          color: isLight 
-                              ? readableAccentColor.withOpacity(0.08) 
-                              : null,
-                          gradient: isLight 
-                              ? null 
-                              : LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    accentColor.withOpacity(0.18),
-                                    accentColor.withOpacity(0.08),
-                                  ],
-                                ),
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                        ),
+                ],
+                border: Border.all(
+                  color: t.borderSubtle,
+                  width: 1,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Cabecera con diseño de tarjeta premium
+                    Container(
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: isLight
+                            ? readableAccentColor.withOpacity(0.08)
+                            : null,
+                        gradient: isLight
+                            ? null
+                            : LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  accentColor.withOpacity(0.18),
+                                  accentColor.withOpacity(0.08),
+                                ],
+                              ),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
                         child: Column(
                           children: [
                             Row(
@@ -1427,20 +1399,20 @@ class _MyHomePageState extends State<MyHomePage> {
                           color: isLight 
                               ? context.appTheme.darkBackground 
                               : Colors.black.withOpacity(0.2), // Consistente con Home
-                          borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             // Opción Editar - como en Home
                             _buildOptionButton(
-                              context,
+                              dialogContext,
                               icon: Icons.edit_outlined,
                               text: 'Editar cuenta',
                               description: 'Modificar nombre, tipo, saldo o imagen',
                               color: const Color(0xFF3498DB), // Azul como en Home
                               onTap: () async {
-                                Navigator.of(context).pop();
+                                Navigator.of(dialogContext).pop();
                                 final editedAccount = await showEditAccountDialog(context, account);
                                 if (editedAccount != null && editedAccount is AccountItem) {
                                   _editAccount(account, editedAccount);
@@ -1451,13 +1423,13 @@ class _MyHomePageState extends State<MyHomePage> {
                             
                             // Opción Eliminar - como en Home
                             _buildOptionButton(
-                              context,
+                              dialogContext,
                               icon: Icons.delete_outline,
                               text: 'Eliminar cuenta',
                               description: 'Eliminar permanentemente esta cuenta',
                               color: const Color(0xFFE74C3C), // Rojo como en Home
                               onTap: () {
-                                Navigator.of(context).pop();
+                                Navigator.of(dialogContext).pop();
                                 _showDeleteConfirmation(account);
                               },
                               showBorder: false,
@@ -1475,7 +1447,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                   backgroundColor: isLight 
                                       ? context.appTheme.cardBackground 
                                       : Colors.black.withOpacity(0.25),
-                                  padding: EdgeInsets.symmetric(vertical: 15),
+                                  padding: const EdgeInsets.symmetric(vertical: 15),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
                                     side: BorderSide(
@@ -1486,8 +1458,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                     ),
                                   ),
                                 ),
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: Text(
+                                onPressed: () => Navigator.of(dialogContext).pop(),
+                                child: const Text(
                                   'Cancelar',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
@@ -1505,8 +1477,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
             ),
-          ),
-        );
+          );
       },
     );
   }
@@ -1755,164 +1726,159 @@ class _MyHomePageState extends State<MyHomePage> {
       barrierDismissible: true,
       barrierLabel: "Eliminar cuenta",
       barrierColor: Colors.black.withOpacity(0.7),
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, animation1, animation2) => Container(),
+      transitionDuration: const Duration(milliseconds: 200),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         final curvedAnimation = CurvedAnimation(
           parent: animation,
-          curve: Curves.easeOutBack,
+          curve: Curves.easeOutCubic,
         );
-        
+
         return ScaleTransition(
-          scale: Tween<double>(begin: 0.8, end: 1.0).animate(curvedAnimation),
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(curvedAnimation),
           child: FadeTransition(
-            opacity: animation,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Dialog(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                insetPadding: const EdgeInsets.all(24),
-                child: Container(
-                  padding: EdgeInsets.all(28),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppColors.secondaryCardBackground,
-                        AppColors.darkBackground, // Usando darkBackground en lugar de 1B1B29 que es casi igual
+            opacity: curvedAnimation,
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (dialogContext, animation1, animation2) {
+        final t = dialogContext.appTheme;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: t.secondaryCardBackground,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.35),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                    spreadRadius: -8,
+                  ),
+                ],
+                border: Border.all(
+                  color: t.borderSubtle,
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.delete_forever,
+                      color: AppColors.error,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '¿Eliminar esta cuenta?',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'La cuenta "${account.title}" será eliminada permanentemente. Esta acción no se puede deshacer.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 15,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.warning.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Las transacciones asociadas a esta cuenta ya no serán visibles.',
+                            style: TextStyle(
+                              color: AppColors.warning,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: Offset(0, 8),
-                        spreadRadius: -8,
-                      ),
-                    ],
-                    border: Border.all(
-                      color: Colors.red.withOpacity(0.2),
-                      width: 1,
-                    ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                  const SizedBox(height: 24),
+                  Row(
                     children: [
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.delete_forever,
-                          color: AppColors.error,
-                          size: 32,
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        '¿Eliminar esta cuenta?',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'La cuenta "${account.title}" será eliminada permanentemente. Esta acción no se puede deshacer.',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 15,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: 16),
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.warning.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.warning.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Las transacciones asociadas a esta cuenta ya no serán visibles.',
-                                style: TextStyle(
-                                  color: AppColors.warning,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 24),
-                      Row(
-                        children: [
-                          // Botón Cancelar
-                          Expanded(
-                            child: TextButton(
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  side: BorderSide(color: AppColors.borderSubtle),
-                                ),
-                              ),
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: Text(
-                                'Cancelar',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                      // Botón Cancelar
+                      Expanded(
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: AppColors.borderSubtle),
                             ),
                           ),
-                          SizedBox(width: 12),
-                          // Botón Eliminar
-                          Expanded(
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.error,
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                elevation: 2,
-                              ),
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                                _deleteAccount(account);
-                                AlertHelper.success(context, 'Cuenta eliminada correctamente');
-                              },
-                              child: Text(
-                                'Eliminar',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          child: Text(
+                            'Cancelar',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Botón Eliminar
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.error,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 2,
+                          ),
+                          onPressed: () {
+                            Navigator.of(dialogContext).pop();
+                            _deleteAccount(account);
+                            AlertHelper.success(context, 'Cuenta eliminada correctamente');
+                          },
+                          child: const Text(
+                            'Eliminar',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
+                ],
               ),
             ),
           ),
