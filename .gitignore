@@ -80,5 +80,8 @@ docs/handoff/.local/
 coverage/
 *.lcov
 
+# Local AI model weights (>100MB, excluded from GitHub)
+*.litertlm
+
 # Local Maestro CLI binary, cache, and E2E evidence (external ADATA disk)
 .maestro-env/
