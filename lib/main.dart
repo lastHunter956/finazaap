@@ -214,7 +214,8 @@ Future<void> _initializeDeferredServices() async {
   }
 }
 
-/// ScrollBehavior sin StretchingOverscrollIndicator para evitar saveLayer de pantalla completa en scroll.
+/// ScrollBehavior uniforme sin StretchingOverscrollIndicator (evita saveLayer
+/// full-screen) ni GlowingOverscrollIndicator heredado de Android 11.
 class _MoneoScrollBehavior extends MaterialScrollBehavior {
   const _MoneoScrollBehavior();
 
@@ -224,10 +225,13 @@ class _MoneoScrollBehavior extends MaterialScrollBehavior {
     Widget child,
     ScrollableDetails details,
   ) {
-    return GlowingOverscrollIndicator(
-      axisDirection: details.direction,
-      color: Theme.of(context).colorScheme.primary,
-      child: child,
+    return child;
+  }
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const BouncingScrollPhysics(
+      parent: AlwaysScrollableScrollPhysics(),
     );
   }
 }

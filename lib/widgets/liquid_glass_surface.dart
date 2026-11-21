@@ -94,8 +94,8 @@ class MoneoNavBarScope extends InheritedWidget {
   }
 }
 
-/// Utilidades de física real (`SpringSimulation`) reservadas para transiciones
-/// discretas de continuidad en `Diurno` cuando la accesibilidad lo permite.
+/// Utilidades de física real (`SpringSimulation`) para transiciones discretas
+/// de continuidad en todos los temas cuando la accesibilidad lo permite.
 class MoneoSpringMotion {
   MoneoSpringMotion._();
 
@@ -105,10 +105,10 @@ class MoneoSpringMotion {
     damping: 30.0,
   );
 
-  /// Indica si se debe aplicar movimiento tipo spring (exclusivo de `Diurno` y
-  /// respetando la preferencia de reducir movimiento del sistema).
+  /// Indica si se debe aplicar movimiento tipo spring en cualquiera de los 4
+  /// temas, respetando la preferencia de reducir movimiento del sistema.
   static bool shouldUseSpring(BuildContext context) {
-    return context.isDiurno && !MediaQuery.disableAnimationsOf(context);
+    return !MediaQuery.disableAnimationsOf(context);
   }
 
   /// Conduce [controller] hacia [target] mediante `SpringSimulation` real o de

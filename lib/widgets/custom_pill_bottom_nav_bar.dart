@@ -78,24 +78,10 @@ class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
   }
 
   void _animateSelectionTo(double target) {
-    if (context.isDiurno) {
-      MoneoSpringMotion.animateTo(
-        _selectionController,
-        target,
-        useSpring: MoneoSpringMotion.shouldUseSpring(context),
-      );
-      return;
-    }
-
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _selectionController.value = target;
-      return;
-    }
-
-    _selectionController.animateTo(
+    MoneoSpringMotion.animateTo(
+      _selectionController,
       target,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutQuint,
+      useSpring: MoneoSpringMotion.shouldUseSpring(context),
     );
   }
 
@@ -112,7 +98,8 @@ class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
     final unselectedColor = isDiurno
         ? t.textPrimary.withValues(alpha: 0.72)
         : t.textHint;
-    final selectedIconColor = isDiurno ? t.accent : t.textPrimary;
+    final selectedIconColor = t.accent;
+    final selectedLabelColor = isDiurno ? t.textPrimary : t.accent;
 
     final scaledExtraHeight = math.max(0.0, textScaler.scale(12.5) - 12.5);
     final itemVerticalInset = math.max(4.0, 6.0 - scaledExtraHeight * 0.15);
@@ -179,7 +166,9 @@ class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
                       child: DecoratedBox(
                         key: const Key('nav_active_pill_indicator'),
                         decoration: BoxDecoration(
-                          color: isDiurno ? null : t.primaryBackground,
+                          color: isDiurno
+                              ? null
+                              : t.accent.withValues(alpha: 0.14),
                           gradient: isDiurno
                               ? LinearGradient(
                                   begin: Alignment.topCenter,
@@ -199,7 +188,7 @@ class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
                                   width: 1.2,
                                 )
                               : Border.all(
-                                  color: t.borderSubtle,
+                                  color: t.accent.withValues(alpha: 0.30),
                                   width: 1.0,
                                 ),
                           boxShadow: isDiurno
@@ -292,7 +281,7 @@ class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
                                       child: Text(
                                         item.label,
                                         style: TextStyle(
-                                          color: t.textPrimary,
+                                          color: selectedLabelColor,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 13,
                                         ),
@@ -311,12 +300,10 @@ class _CustomPillBottomNavBarState extends State<CustomPillBottomNavBar>
                         return SizedBox(
                           width: itemWidth,
                           height: itemHeight,
-                          child: isDiurno
-                              ? MoneoPressableScale(
-                                  pressedScale: 0.94,
-                                  child: navItemContent,
-                                )
-                              : navItemContent,
+                          child: MoneoPressableScale(
+                            pressedScale: 0.94,
+                            child: navItemContent,
+                          ),
                         );
                       }),
                       ),

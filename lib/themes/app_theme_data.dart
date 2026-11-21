@@ -360,6 +360,110 @@ ThemeData buildThemeData(AppThemeMode mode) {
     ),
     dividerTheme: DividerThemeData(color: t.borderSubtle),
     datePickerTheme: _buildDatePickerThemeData(t, t.accent),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.android: ZoomPageTransitionsBuilder(),
+        TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+        TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+        TargetPlatform.fuchsia: ZoomPageTransitionsBuilder(),
+      },
+    ),
+    textTheme: TextTheme(
+      displayLarge: TextStyle(
+        color: t.textPrimary,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+      ),
+      displayMedium: TextStyle(
+        color: t.textPrimary,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+      ),
+      headlineLarge: TextStyle(
+        color: t.textPrimary,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+      ),
+      headlineMedium: TextStyle(
+        color: t.textPrimary,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+      ),
+      headlineSmall: TextStyle(
+        color: t.textPrimary,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.3,
+      ),
+      titleLarge: TextStyle(
+        color: t.textPrimary,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+      ),
+      titleMedium: TextStyle(
+        color: t.textPrimary,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+      ),
+      titleSmall: TextStyle(
+        color: t.textPrimary,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.1,
+      ),
+      bodyLarge: TextStyle(
+        color: t.textPrimary,
+        height: 1.4,
+      ),
+      bodyMedium: TextStyle(
+        color: t.textPrimary,
+        height: 1.4,
+      ),
+      bodySmall: TextStyle(
+        color: t.textSecondary,
+        height: 1.35,
+      ),
+      labelLarge: TextStyle(
+        color: t.textPrimary,
+        fontWeight: FontWeight.w600,
+      ),
+      labelMedium: TextStyle(
+        color: t.textSecondary,
+        fontWeight: FontWeight.w500,
+      ),
+      labelSmall: TextStyle(
+        color: t.textSecondary,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: t.secondaryCardBackground,
+      surfaceTintColor: Colors.transparent,
+      modalBarrierColor: Colors.black.withValues(alpha: isDark ? 0.65 : 0.45),
+      showDragHandle: true,
+      dragHandleColor: t.borderVisible,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: t.secondaryCardBackground,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: t.borderSubtle),
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: t.secondaryCardBackground,
+      contentTextStyle: TextStyle(color: t.textPrimary),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: t.borderSubtle),
+      ),
+    ),
+    splashFactory: InkRipple.splashFactory,
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: t.darkBackground,

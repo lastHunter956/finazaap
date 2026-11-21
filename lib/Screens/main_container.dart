@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/Screens/home.dart';
 import 'package:finazaap/Screens/statistics.dart';
@@ -92,6 +93,8 @@ class _MainContainerState extends State<MainContainer>
   }
 
   void _onTabTapped(int index) {
+    if (index == _currentIndex) return;
+    HapticFeedback.selectionClick();
     setState(() {
       _currentIndex = index;
       _loadedTabs.add(index);
@@ -115,6 +118,9 @@ class _MainContainerState extends State<MainContainer>
     ];
 
     final isDiurno = context.isDiurno;
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final tabTransitionDuration =
+        disableAnimations ? Duration.zero : const Duration(milliseconds: 160);
     final navHeight = MoneoLayoutMetrics.bottomNavBarHeight(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final effectiveBottomClearance = math.max(0.0, navHeight - bottomInset);
@@ -146,15 +152,30 @@ class _MainContainerState extends State<MainContainer>
               data: bodyMediaQuery,
               child: IndexedStack(
                 index: _currentIndex,
-                children: screens,
+                children: List<Widget>.generate(screens.length, (index) {
+                  final isActive = _currentIndex == index;
+                  return AnimatedOpacity(
+                    opacity: isActive ? 1.0 : 0.0,
+                    duration: tabTransitionDuration,
+                    curve: Curves.easeOutCubic,
+                    child: AnimatedSlide(
+                      offset: isActive ? Offset.zero : const Offset(0, 0.015),
+                      duration: tabTransitionDuration,
+                      curve: Curves.easeOutCubic,
+                      child: screens[index],
+                    ),
+                  );
+                }),
               ),
             ),
           );
         },
       ),
-      bottomNavigationBar: CustomPillBottomNavBar(
-        selectedIndex: _currentIndex,
-        onItemSelected: _onTabTapped,
+      bottomNavigationBar: RepaintBoundary(
+        child: CustomPillBottomNavBar(
+          selectedIndex: _currentIndex,
+          onItemSelected: _onTabTapped,
+        ),
       ),
     );
   }
