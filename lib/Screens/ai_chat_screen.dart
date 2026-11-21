@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:finazaap/data/category_service.dart';
@@ -118,7 +117,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       SnackBar(
         content: Text(
           message,
-          style: GoogleFonts.outfit(
+          style: TextStyle(
             color: isError ? t.error : t.textPrimary,
             fontWeight: FontWeight.w500,
           ),
@@ -316,7 +315,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                       'Asistente Financiero',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
+                      style: TextStyle(
                         color: t.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -350,7 +349,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                   statusLabel,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.outfit(
+                                  style: TextStyle(
                                     color: t.textSecondary,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
@@ -416,11 +415,11 @@ class _AiChatScreenState extends State<AiChatScreen>
               indicatorSize: TabBarIndicatorSize.tab,
               labelColor: isDiurno ? t.textPrimary : t.buttonForeground,
               unselectedLabelColor: t.textSecondary,
-              labelStyle: GoogleFonts.outfit(
+              labelStyle: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12.5,
               ),
-              unselectedLabelStyle: GoogleFonts.outfit(
+              unselectedLabelStyle: const TextStyle(
                 fontWeight: FontWeight.w500,
                 fontSize: 12.5,
               ),
@@ -491,7 +490,7 @@ class _AiChatScreenState extends State<AiChatScreen>
               children: [
                 Text(
                   'Motor de IA Principal',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     color: t.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -500,7 +499,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                 const SizedBox(height: 6),
                 Text(
                   'Activo: ${cfg.primaryProvider.displayName}',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     color: t.textSecondary,
                     fontSize: 12.5,
                   ),
@@ -646,7 +645,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
+                style: TextStyle(
                   color: !isSelected
                       ? t.textSecondary
                       : isDiurno
@@ -744,7 +743,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                     _chatService.isDownloading
                         ? 'Descargando modelo Gemma AI (${(_chatService.downloadProgress * 100).clamp(0, 100).toStringAsFixed(0)}%)...'
                         : 'Cargando motor de IA...',
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(
                       color: t.textPrimary,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -770,7 +769,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             const SizedBox(height: 6),
             Text(
               'Este proceso puede tomar varios minutos según tu conexión. El modelo se guarda para usos futuros.',
-              style: GoogleFonts.outfit(color: t.textHint, fontSize: 10.5),
+              style: TextStyle(color: t.textHint, fontSize: 10.5),
             ),
           ] else if (_chatService.isCheckingDeviceSpecs) ...[
             Row(
@@ -787,7 +786,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                 Expanded(
                   child: Text(
                     'Verificando compatibilidad del dispositivo...',
-                    style: GoogleFonts.outfit(color: t.textPrimary, fontSize: 12),
+                    style: TextStyle(color: t.textPrimary, fontSize: 12),
                   ),
                 ),
               ],
@@ -803,7 +802,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                 Expanded(
                   child: Text(
                     _chatService.gemmaError!,
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(
                       color: t.textSecondary,
                       fontSize: 12,
                     ),
@@ -831,7 +830,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                         : !kIsWeb
                             ? 'Configura la URL de descarga del modelo para continuar.'
                             : 'Error: No se encontró el modelo gemma.litertlm.',
-                    style: GoogleFonts.outfit(color: t.error, fontSize: 12),
+                    style: TextStyle(color: t.error, fontSize: 12),
                   ),
                 ),
               ],
@@ -868,7 +867,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                 cap != null && !cap.canRunModel
                     ? 'Prueba con un modelo más ligero'
                     : 'Configura la descarga del modelo Gemma AI',
-                style: GoogleFonts.outfit(
+                style: TextStyle(
                   color: t.textPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -881,7 +880,7 @@ class _AiChatScreenState extends State<AiChatScreen>
         Text(
           'El modelo por defecto (Gemma 4 E2B) se descarga una sola vez y se guarda en tu dispositivo. '
           'Puedes descargarlo directamente o cambiar la URL por otro archivo .litertlm:',
-          style: GoogleFonts.outfit(color: t.textHint, fontSize: 10.5),
+          style: TextStyle(color: t.textHint, fontSize: 10.5),
         ),
         const SizedBox(height: 10),
         Row(
@@ -889,10 +888,10 @@ class _AiChatScreenState extends State<AiChatScreen>
             Expanded(
               child: TextField(
                 controller: urlController,
-                style: GoogleFonts.outfit(color: t.textPrimary, fontSize: 11.5),
+                style: TextStyle(color: t.textPrimary, fontSize: 11.5),
                 decoration: InputDecoration(
                   hintText: 'https://ejemplo.com/gemma.litertlm',
-                  hintStyle: GoogleFonts.outfit(color: t.textHint, fontSize: 11),
+                  hintStyle: TextStyle(color: t.textHint, fontSize: 11),
                   filled: true,
                   fillColor: t.darkBackground,
                   border: OutlineInputBorder(
@@ -938,9 +937,9 @@ class _AiChatScreenState extends State<AiChatScreen>
                 ),
                 elevation: 0,
               ),
-              child: Text(
+              child: const Text(
                 'Descargar',
-                style: GoogleFonts.outfit(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 11.5,
                 ),
@@ -956,9 +955,9 @@ class _AiChatScreenState extends State<AiChatScreen>
               urlController.text = AiChatService.defaultModelUrl;
             },
             icon: const Icon(Icons.restore_rounded, size: 14),
-            label: Text(
+            label: const Text(
               'Restaurar modelo por defecto',
-              style: GoogleFonts.outfit(
+              style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w600,
               ),
@@ -987,7 +986,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                 child: Text(
                   'Mientras tanto, el Simulador Financiero está completamente funcional '
                   'y puede responder todas tus consultas financieras sin necesidad del modelo de IA.',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     color: t.textSecondary,
                     fontSize: 10,
                   ),
@@ -1029,7 +1028,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                   onlyAvailRamLow
                       ? 'RAM disponible insuficiente en este momento'
                       : 'Tu dispositivo no tiene los recursos suficientes',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     color: t.warning,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -1070,7 +1069,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             onlyAvailRamLow
                 ? 'Cierra aplicaciones en segundo plano para liberar RAM y reintenta, o usa la URL de un modelo más ligero.'
                 : 'Aun así, puedes intentarlo ingresando la URL de un modelo más ligero abajo.',
-            style: GoogleFonts.outfit(color: t.textHint, fontSize: 10),
+            style: TextStyle(color: t.textHint, fontSize: 10),
           ),
           const SizedBox(height: 6),
           Align(
@@ -1080,9 +1079,9 @@ class _AiChatScreenState extends State<AiChatScreen>
                   ? null
                   : () => _chatService.recheckDeviceCapability(),
               icon: const Icon(Icons.refresh_rounded, size: 15),
-              label: Text(
+              label: const Text(
                 'Reintentar verificación',
-                style: GoogleFonts.outfit(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1115,7 +1114,7 @@ class _AiChatScreenState extends State<AiChatScreen>
           Expanded(
             child: Text(
               '$label: $value  (mín. $req)',
-              style: GoogleFonts.outfit(color: color, fontSize: 10.5),
+              style: TextStyle(color: color, fontSize: 10.5),
             ),
           ),
         ],
@@ -1149,7 +1148,7 @@ class _AiChatScreenState extends State<AiChatScreen>
               SizedBox(height: compact ? 14 : 20),
               Text(
                 'Preguntas Recomendadas',
-                style: GoogleFonts.outfit(
+                style: TextStyle(
                   color: t.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -1205,7 +1204,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             label,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
+            style: TextStyle(
               color: t.textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w500,
@@ -1219,10 +1218,11 @@ class _AiChatScreenState extends State<AiChatScreen>
             child: Text(
               value,
               maxLines: 1,
-              style: GoogleFonts.outfit(
+              style: TextStyle(
                 color: t.textPrimary,
                 fontSize: 13.5,
                 fontWeight: FontWeight.bold,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),
@@ -1286,7 +1286,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                   'Resumen Financiero para IA',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     color: t.textPrimary,
                     fontSize: 14.5,
                     fontWeight: FontWeight.bold,
@@ -1371,7 +1371,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                 Expanded(
                   child: Text(
                     healthText,
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(
                       color: t.textPrimary,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -1431,7 +1431,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                           title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
+                          style: TextStyle(
                             color: t.textPrimary,
                             fontSize: 13.5,
                             fontWeight: FontWeight.bold,
@@ -1442,7 +1442,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                           subtitle,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
+                          style: TextStyle(
                             color: t.textSecondary,
                             fontSize: 11.5,
                             height: 1.3,
@@ -1496,10 +1496,10 @@ class _AiChatScreenState extends State<AiChatScreen>
             !RegExp(r'[*_`#\[\]\n-]').hasMatch(message.content))
         ? Text(
             message.content,
-            style: GoogleFonts.outfit(
+            style: TextStyle(
               color: isUser ? userTextColor : aiBodyTextColor,
               fontSize: 14.5,
-              height: isUser ? 1.46 : 1.52,
+              height: 1.4,
             ),
           )
         : MarkdownBody(
@@ -1546,11 +1546,12 @@ class _AiChatScreenState extends State<AiChatScreen>
               const SizedBox(height: 5),
               Text(
                 timeStr,
-                style: GoogleFonts.outfit(
+                style: TextStyle(
                   color: isUser
                       ? userTextColor.withValues(alpha: 0.78)
                       : t.textHint,
                   fontSize: 10.5,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ],
@@ -1589,42 +1590,42 @@ class _AiChatScreenState extends State<AiChatScreen>
         : t.darkBackground;
 
     return MarkdownStyleSheet(
-      p: GoogleFonts.outfit(
+      p: TextStyle(
         color: baseColor,
         fontSize: 14.5,
-        height: 1.52,
+        height: 1.4,
       ),
-      strong: GoogleFonts.outfit(
+      strong: TextStyle(
         color: strongColor,
         fontWeight: FontWeight.bold,
         fontSize: 14.5,
       ),
-      listBullet: GoogleFonts.outfit(
+      listBullet: TextStyle(
         color: strongColor,
         fontSize: 14.5,
       ),
-      h1: GoogleFonts.outfit(
+      h1: TextStyle(
         color: strongColor,
         fontWeight: FontWeight.bold,
         fontSize: 17.5,
         height: 1.38,
       ),
-      h2: GoogleFonts.outfit(
+      h2: TextStyle(
         color: strongColor,
         fontWeight: FontWeight.bold,
         fontSize: 16,
         height: 1.38,
       ),
-      h3: GoogleFonts.outfit(
+      h3: TextStyle(
         color: baseColor,
         fontWeight: FontWeight.bold,
         fontSize: 15,
         height: 1.4,
       ),
-      blockquote: GoogleFonts.outfit(
+      blockquote: TextStyle(
         color: isUser ? userTextColor.withValues(alpha: 0.88) : t.textSecondary,
         fontSize: 13.5,
-        height: 1.45,
+        height: 1.4,
       ),
       blockquoteDecoration: BoxDecoration(
         color: isUser
@@ -1640,7 +1641,8 @@ class _AiChatScreenState extends State<AiChatScreen>
       ),
       blockquotePadding:
           const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      code: GoogleFonts.jetBrainsMono(
+      code: TextStyle(
+        fontFamily: 'monospace',
         color: strongColor,
         backgroundColor: codeBg,
         fontSize: 12.5,
@@ -1687,7 +1689,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       ),
       child: Text(
         type == 'Income' ? 'INGRESO' : 'GASTO',
-        style: GoogleFonts.outfit(
+        style: TextStyle(
           color: accentColor,
           fontSize: 10,
           fontWeight: FontWeight.w700,
@@ -1723,7 +1725,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                   'Descartar',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     color: t.textSecondary,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
@@ -1791,7 +1793,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                     'Guardar',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(
                       color: t.buttonForeground,
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
@@ -1903,7 +1905,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                 name,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.outfit(
+                                style: TextStyle(
                                   color: t.textPrimary,
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -2006,10 +2008,13 @@ class _AiChatScreenState extends State<AiChatScreen>
                                         child: Text(
                                           CurrencyHelper.format(amount),
                                           maxLines: 1,
-                                          style: GoogleFonts.outfit(
+                                          style: TextStyle(
                                             color: t.textPrimary,
                                             fontSize: 15,
                                             fontWeight: FontWeight.bold,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
                                           ),
                                         ),
                                       ),
@@ -2022,7 +2027,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                 displayTitle,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.outfit(
+                                style: TextStyle(
                                   color: t.textPrimary,
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w600,
@@ -2034,7 +2039,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                 '$category • $account',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.outfit(
+                                style: TextStyle(
                                   color: t.textSecondary,
                                   fontSize: 11.5,
                                   height: 1.25,
@@ -2172,7 +2177,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                   children: [
                                     Text(
                                       'Editar Sugerencia',
-                                      style: GoogleFonts.outfit(
+                                      style: TextStyle(
                                         color: t.textPrimary,
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -2183,7 +2188,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                       type == 'Income'
                                           ? 'Categoría de Ingreso'
                                           : 'Categoría de Egreso',
-                                      style: GoogleFonts.outfit(
+                                      style: TextStyle(
                                         color: t.textSecondary,
                                         fontSize: 12.5,
                                       ),
@@ -2202,7 +2207,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                               children: [
                                 Text(
                                   'Nombre de Categoría',
-                                  style: GoogleFonts.outfit(
+                                  style: TextStyle(
                                     color: t.textSecondary,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -2212,13 +2217,13 @@ class _AiChatScreenState extends State<AiChatScreen>
                                 TextField(
                                   controller: nameController,
                                   maxLength: 25,
-                                  style: GoogleFonts.outfit(
+                                  style: TextStyle(
                                     color: t.textPrimary,
                                     fontSize: 15,
                                   ),
                                   decoration: InputDecoration(
                                     hintText: 'Ej. Supermercado, Salario...',
-                                    hintStyle: GoogleFonts.outfit(
+                                    hintStyle: TextStyle(
                                       color: t.textHint,
                                     ),
                                     filled: true,
@@ -2250,7 +2255,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                 const SizedBox(height: 18),
                                 Text(
                                   'Apariencia',
-                                  style: GoogleFonts.outfit(
+                                  style: TextStyle(
                                     color: t.textSecondary,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -2296,9 +2301,9 @@ class _AiChatScreenState extends State<AiChatScreen>
                                     ),
                                   ),
                                   onPressed: () => Navigator.pop(dialogCtx),
-                                  child: Text(
+                                  child: const Text(
                                     'Cancelar',
-                                    style: GoogleFonts.outfit(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -2346,9 +2351,9 @@ class _AiChatScreenState extends State<AiChatScreen>
                                       'Categoría "$enteredName" guardada exitosamente.',
                                     );
                                   },
-                                  child: Text(
+                                  child: const Text(
                                     'Guardar',
-                                    style: GoogleFonts.outfit(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                     ),
@@ -2486,7 +2491,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                   children: [
                                     Text(
                                       'Editar Registro',
-                                      style: GoogleFonts.outfit(
+                                      style: TextStyle(
                                         color: t.textPrimary,
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -2497,7 +2502,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                       type == 'Income'
                                           ? 'Sugerencia de Ingreso'
                                           : 'Sugerencia de Gasto',
-                                      style: GoogleFonts.outfit(
+                                      style: TextStyle(
                                         color: t.textSecondary,
                                         fontSize: 12,
                                       ),
@@ -2516,7 +2521,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                               children: [
                                 Text(
                                   'Descripción / Detalle',
-                                  style: GoogleFonts.outfit(
+                                  style: TextStyle(
                                     color: t.textSecondary,
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.bold,
@@ -2526,13 +2531,13 @@ class _AiChatScreenState extends State<AiChatScreen>
                                 TextField(
                                   controller: detailController,
                                   maxLength: 35,
-                                  style: GoogleFonts.outfit(
+                                  style: TextStyle(
                                     color: t.textPrimary,
                                     fontSize: 14,
                                   ),
                                   decoration: InputDecoration(
                                     hintText: 'Ej. Almuerzo con amigos',
-                                    hintStyle: GoogleFonts.outfit(
+                                    hintStyle: TextStyle(
                                       color: t.textHint,
                                     ),
                                     filled: true,
@@ -2557,7 +2562,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                 const SizedBox(height: 14),
                                 Text(
                                   'Monto',
-                                  style: GoogleFonts.outfit(
+                                  style: TextStyle(
                                     color: t.textSecondary,
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.bold,
@@ -2570,14 +2575,17 @@ class _AiChatScreenState extends State<AiChatScreen>
                                   inputFormatters: [
                                     ThousandsSeparatorInputFormatter(),
                                   ],
-                                  style: GoogleFonts.outfit(
+                                  style: TextStyle(
                                     color: t.textPrimary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
                                   ),
                                   decoration: InputDecoration(
                                     prefixText: '${CurrencyHelper.currencySymbol} ',
-                                    prefixStyle: GoogleFonts.outfit(
+                                    prefixStyle: TextStyle(
                                       color: accentColor,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -2609,7 +2617,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                         children: [
                                           Text(
                                             'Cuenta',
-                                            style: GoogleFonts.outfit(
+                                            style: TextStyle(
                                               color: t.textSecondary,
                                               fontSize: 11.5,
                                               fontWeight: FontWeight.bold,
@@ -2634,7 +2642,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                                     ? selectedAccount
                                                     : null,
                                                 dropdownColor: t.cardBackground,
-                                                style: GoogleFonts.outfit(
+                                                style: TextStyle(
                                                   color: t.textPrimary,
                                                   fontSize: 13,
                                                 ),
@@ -2670,7 +2678,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                         children: [
                                           Text(
                                             'Categoría',
-                                            style: GoogleFonts.outfit(
+                                            style: TextStyle(
                                               color: t.textSecondary,
                                               fontSize: 11.5,
                                               fontWeight: FontWeight.bold,
@@ -2695,7 +2703,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                                     ? selectedCategory
                                                     : null,
                                                 dropdownColor: t.cardBackground,
-                                                style: GoogleFonts.outfit(
+                                                style: TextStyle(
                                                   color: t.textPrimary,
                                                   fontSize: 13,
                                                 ),
@@ -2728,7 +2736,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                 const SizedBox(height: 14),
                                 Text(
                                   'Fecha',
-                                  style: GoogleFonts.outfit(
+                                  style: TextStyle(
                                     color: t.textSecondary,
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.bold,
@@ -2787,7 +2795,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                                         Text(
                                           DateFormat('dd/MM/yyyy')
                                               .format(selectedDate),
-                                          style: GoogleFonts.outfit(
+                                          style: TextStyle(
                                             color: t.textPrimary,
                                             fontSize: 13,
                                           ),
@@ -2826,9 +2834,9 @@ class _AiChatScreenState extends State<AiChatScreen>
                                     ),
                                   ),
                                   onPressed: () => Navigator.pop(dialogCtx),
-                                  child: Text(
+                                  child: const Text(
                                     'Cancelar',
-                                    style: GoogleFonts.outfit(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
                                     ),
@@ -2930,9 +2938,9 @@ class _AiChatScreenState extends State<AiChatScreen>
                                       );
                                     }
                                   },
-                                  child: Text(
+                                  child: const Text(
                                     'Guardar',
-                                    style: GoogleFonts.outfit(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
                                     ),
@@ -2998,13 +3006,13 @@ class _AiChatScreenState extends State<AiChatScreen>
                 maxLines: 4,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
-                style: GoogleFonts.outfit(
+                style: TextStyle(
                   color: t.textPrimary,
                   fontSize: 14.5,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Pregunta sobre tus finanzas...',
-                  hintStyle: GoogleFonts.outfit(
+                  hintStyle: TextStyle(
                     color: isDiurno ? t.textSecondary : t.textHint,
                     fontSize: 14,
                   ),
@@ -3130,7 +3138,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             children: [
               Text(
                 'El asistente priorizará estas metas al evaluar tus compras:',
-                style: GoogleFonts.outfit(
+                style: TextStyle(
                   color: t.textSecondary,
                   fontSize: 12.5,
                   height: 1.38,
@@ -3140,11 +3148,11 @@ class _AiChatScreenState extends State<AiChatScreen>
               TextField(
                 controller: _goalsController,
                 maxLines: 2,
-                style: GoogleFonts.outfit(color: t.textPrimary, fontSize: 13.5),
+                style: TextStyle(color: t.textPrimary, fontSize: 13.5),
                 decoration: InputDecoration(
                   hintText:
                       'Ej. Ahorrar para una laptop, reducir comidas fuera de casa...',
-                  hintStyle: GoogleFonts.outfit(color: t.textHint, fontSize: 13),
+                  hintStyle: TextStyle(color: t.textHint, fontSize: 13),
                   filled: true,
                   fillColor: t.darkBackground,
                   contentPadding: const EdgeInsets.symmetric(
@@ -3184,9 +3192,9 @@ class _AiChatScreenState extends State<AiChatScreen>
                     ),
                     onPressed: _saveGoals,
                     icon: const Icon(Icons.check_rounded, size: 16),
-                    label: Text(
+                    label: const Text(
                       'Guardar Metas',
-                      style: GoogleFonts.outfit(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
                       ),
@@ -3219,7 +3227,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                 ),
                 title: Text(
                   'Reporte Analítico Detallado (Markdown)',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     color: t.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -3234,21 +3242,21 @@ class _AiChatScreenState extends State<AiChatScreen>
                   MarkdownBody(
                     data: _chatService.userNotes,
                     styleSheet: MarkdownStyleSheet(
-                      p: GoogleFonts.outfit(
+                      p: TextStyle(
                         color: t.textSecondary,
                         fontSize: 13,
-                        height: 1.5,
+                        height: 1.4,
                       ),
-                      strong: GoogleFonts.outfit(
+                      strong: TextStyle(
                         color: t.accent,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
-                      listBullet: GoogleFonts.outfit(
+                      listBullet: TextStyle(
                         color: t.accent,
                         fontSize: 13,
                       ),
-                      h3: GoogleFonts.outfit(
+                      h3: TextStyle(
                         color: t.accent,
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
@@ -3268,9 +3276,9 @@ class _AiChatScreenState extends State<AiChatScreen>
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
             icon: const Icon(Icons.delete_outline_rounded, size: 17),
-            label: Text(
+            label: const Text(
               'Reiniciar Conversación y Memoria',
-              style: GoogleFonts.outfit(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -3286,21 +3294,21 @@ class _AiChatScreenState extends State<AiChatScreen>
                   ),
                   title: Text(
                     '¿Reiniciar todo?',
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(
                       color: t.textPrimary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   content: Text(
                     'Se borrará todo el historial del chat y el asistente comenzará de cero.',
-                    style: GoogleFonts.outfit(color: t.textSecondary),
+                    style: TextStyle(color: t.textSecondary),
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(dialogCtx),
                       child: Text(
                         'Cancelar',
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(
                           color: t.textSecondary,
                           fontWeight: FontWeight.bold,
                         ),
@@ -3313,7 +3321,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                       },
                       child: Text(
                         'Sí, Reiniciar',
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(
                           color: t.error,
                           fontWeight: FontWeight.bold,
                         ),
@@ -3335,7 +3343,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
         title.toUpperCase(),
-        style: GoogleFonts.outfit(
+        style: TextStyle(
           color: t.textSecondary,
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
@@ -3460,7 +3468,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                     children: [
                       Text(
                         statusTitle,
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(
                           color: t.textPrimary,
                           fontSize: 15.5,
                           fontWeight: FontWeight.w700,
@@ -3472,7 +3480,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                             ? 'Analizando tus datos financieros en tiempo real.'
                             : message,
                         softWrap: true,
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(
                           color: t.textSecondary,
                           fontSize: 12.5,
                           height: 1.38,
@@ -3567,7 +3575,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                   maxLines: 2,
                   softWrap: true,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     color: t.textSecondary,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
@@ -3582,7 +3590,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             maxLines: 2,
             softWrap: true,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
+            style: TextStyle(
               color: t.textPrimary,
               fontSize: 15.5,
               fontWeight: FontWeight.w700,
@@ -3596,7 +3604,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             maxLines: 2,
             softWrap: true,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
+            style: TextStyle(
               color: t.textHint,
               fontSize: 11.5,
               height: 1.3,
@@ -3634,7 +3642,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             maxLines: 2,
             softWrap: true,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
+            style: TextStyle(
               color: t.textPrimary,
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -3646,7 +3654,7 @@ class _AiChatScreenState extends State<AiChatScreen>
 
     final amountText = Text(
       amountLabel,
-      style: GoogleFonts.outfit(
+      style: TextStyle(
         color: t.textSecondary,
         fontSize: 12,
         fontWeight: FontWeight.w500,

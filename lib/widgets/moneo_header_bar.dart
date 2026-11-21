@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:finazaap/themes/app_sizes.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
@@ -432,8 +433,8 @@ class MoneoSegmentOption<T> {
 }
 
 /// Selector segmentado compartido que utiliza continuidad por [SpringSimulation]
-/// únicamente en `Diurno` (respetando reducir movimiento) y renderizado sólido
-/// nítido en `Día`, `Nocturno` y `Default`.
+/// en `Diurno` y transición suave (`200 ms`, `Curves.easeOutCubic`) en `Día`,
+/// `Nocturno` y `Default`, respetando `MediaQuery.disableAnimationsOf`.
 class MoneoSegmentedControl<T> extends StatelessWidget {
   final List<MoneoSegmentOption<T>> options;
   final T selectedValue;
@@ -450,11 +451,16 @@ class MoneoSegmentedControl<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.appTheme;
     final isDiurno = context.isDiurno;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
     final useSpring = MoneoSpringMotion.shouldUseSpring(context);
     final selectedIndex = options.indexWhere((o) => o.value == selectedValue);
     final safeIndex = selectedIndex < 0 ? 0 : selectedIndex;
     final textHeight =
         math.max(38.0, MediaQuery.textScalerOf(context).scale(14.0) + 22.0);
+    final animDuration =
+        disableAnimations ? Duration.zero : const Duration(milliseconds: 200);
+    final baseTextStyle = DefaultTextStyle.of(context).style;
 
     return Container(
       height: textHeight + 6,
@@ -464,7 +470,11 @@ class MoneoSegmentedControl<T> extends StatelessWidget {
             ? t.darkBackground.withValues(alpha: 0.72)
             : t.darkBackground,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: t.borderSubtle, width: 1),
+        border: Border.all(
+          color:
+              isLight ? t.borderSubtle : t.borderSubtle.withValues(alpha: 0.9),
+          width: 1,
+        ),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -479,7 +489,9 @@ class MoneoSegmentedControl<T> extends StatelessWidget {
                 segmentWidth: segmentWidth,
                 height: constraints.maxHeight,
                 useSpring: useSpring,
+                disableAnimations: disableAnimations,
                 isDiurno: isDiurno,
+                isLight: isLight,
                 t: t,
               ),
               Row(
@@ -495,21 +507,30 @@ class MoneoSegmentedControl<T> extends StatelessWidget {
                       selected: isSelected,
                       label: opt.label,
                       child: GestureDetector(
-                        onTap: () => onChanged(opt.value),
+                        onTap: () {
+                          if (opt.value != selectedValue) {
+                            HapticFeedback.selectionClick();
+                          }
+                          onChanged(opt.value);
+                        },
                         behavior: HitTestBehavior.opaque,
                         child: Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: Text(
-                              opt.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                            child: AnimatedDefaultTextStyle(
+                              duration: animDuration,
+                              curve: Curves.easeOutCubic,
+                              style: baseTextStyle.copyWith(
                                 color: labelColor,
                                 fontSize: 13,
                                 fontWeight: isSelected
                                     ? FontWeight.w700
                                     : FontWeight.w500,
+                              ),
+                              child: Text(
+                                opt.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
@@ -532,7 +553,9 @@ class _SpringSegmentPill extends StatefulWidget {
   final double segmentWidth;
   final double height;
   final bool useSpring;
+  final bool disableAnimations;
   final bool isDiurno;
+  final bool isLight;
   final AppTheme t;
 
   const _SpringSegmentPill({
@@ -540,7 +563,9 @@ class _SpringSegmentPill extends StatefulWidget {
     required this.segmentWidth,
     required this.height,
     required this.useSpring,
+    required this.disableAnimations,
     required this.isDiurno,
+    required this.isLight,
     required this.t,
   });
 
@@ -565,11 +590,21 @@ class _SpringSegmentPillState extends State<_SpringSegmentPill>
   void didUpdateWidget(covariant _SpringSegmentPill oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.index != widget.index) {
-      MoneoSpringMotion.animateTo(
-        _controller,
-        widget.index.toDouble(),
-        useSpring: widget.useSpring,
-      );
+      if (widget.disableAnimations) {
+        _controller.value = widget.index.toDouble();
+      } else if (widget.useSpring) {
+        MoneoSpringMotion.animateTo(
+          _controller,
+          widget.index.toDouble(),
+          useSpring: true,
+        );
+      } else {
+        _controller.animateTo(
+          widget.index.toDouble(),
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+        );
+      }
     }
   }
 
@@ -581,6 +616,40 @@ class _SpringSegmentPillState extends State<_SpringSegmentPill>
 
   @override
   Widget build(BuildContext context) {
+    final duration = widget.disableAnimations
+        ? Duration.zero
+        : const Duration(milliseconds: 200);
+
+    final BoxBorder border = widget.isDiurno
+        ? Border.all(color: Colors.white.withValues(alpha: 0.92), width: 1)
+        : widget.isLight
+            ? Border.all(
+                color: widget.t.accent.withValues(alpha: 0.18),
+                width: 1,
+              )
+            : Border.all(
+                color: widget.t.buttonForeground.withValues(alpha: 0.12),
+                width: 1,
+              );
+
+    final List<BoxShadow>? shadows = widget.isDiurno
+        ? const [
+            BoxShadow(
+              color: Color(0x140B132B),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ]
+        : widget.isLight
+            ? [
+                BoxShadow(
+                  color: widget.t.accent.withValues(alpha: 0.16),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null;
+
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -592,22 +661,16 @@ class _SpringSegmentPillState extends State<_SpringSegmentPill>
       child: SizedBox(
         width: widget.segmentWidth,
         height: widget.height,
-        child: Container(
+        child: AnimatedContainer(
+          duration: duration,
+          curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
-            color: widget.isDiurno ? widget.t.cardBackground : widget.t.buttonBackground,
+            color: widget.isDiurno
+                ? widget.t.cardBackground
+                : widget.t.buttonBackground,
             borderRadius: BorderRadius.circular(11),
-            border: widget.isDiurno
-                ? Border.all(color: Colors.white.withValues(alpha: 0.9), width: 1)
-                : null,
-            boxShadow: widget.isDiurno
-                ? const [
-                    BoxShadow(
-                      color: Color(0x140B132B),
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ]
-                : null,
+            border: border,
+            boxShadow: shadows,
           ),
         ),
       ),

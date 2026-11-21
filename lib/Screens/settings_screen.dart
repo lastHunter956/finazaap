@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:finazaap/providers/pin_provider.dart';
 import 'package:finazaap/Screens/pin_code_screen.dart';
 import 'package:finazaap/services/notification_service.dart';
@@ -764,10 +765,66 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    final t = context.appTheme;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: t.textHint,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+          fontFeatures: const [FontFeature.enable('smcp')],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionContainer(
+    BuildContext context, {
+    required Widget child,
+  }) {
+    final t = context.appTheme;
+    return Material(
+      color: t.cardBackground,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: t.borderSubtle, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+
+  Widget _buildSquircleIcon(IconData icon, Color color) {
+    return Container(
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, color: color, size: 19),
+    );
+  }
+
+  Widget _buildSectionDivider(BuildContext context, {bool inset = true}) {
+    return Divider(
+      height: 1,
+      indent: inset ? 68 : 0,
+      endIndent: inset ? 16 : 0,
+      color: context.appTheme.borderSubtle,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final t = context.appTheme;
     return Scaffold(
-      backgroundColor: context.appTheme.primaryBackground,
+      backgroundColor: t.primaryBackground,
       body: Column(
         children: [
           MoneoHeaderBar.primaryTab(title: 'Ajustes'),
@@ -775,7 +832,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             child: _isLoading
                 ? Center(
                     child: CircularProgressIndicator(
-                      color: context.appTheme.accent,
+                      color: t.accent,
                     ),
                   )
                 : ListView(
@@ -789,67 +846,67 @@ class _SettingsScreenState extends State<SettingsScreen>
                 // ═══════════════════════════════════════════════════════════════
                 // SECCIÓN: GENERAL
                 // ═══════════════════════════════════════════════════════════════
-                Text(
-                  'General',
-                  style: TextStyle(
-                    color: context.appTheme.accent,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Material(
-                  color: context.appTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(12),
-                  clipBehavior: Clip.antiAlias,
+                _buildSectionHeader(context, 'General'),
+                _buildSectionContainer(
+                  context,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     child: Row(
                       children: [
+                        _buildSquircleIcon(
+                          Icons.currency_exchange_rounded,
+                          t.accent,
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Divisa por defecto',
-                                style: TextStyle(color: context.appTheme.textPrimary, fontSize: 16),
+                                style: TextStyle(
+                                  color: t.textPrimary,
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 _currencies.firstWhere((c) => c['code'] == _selectedCurrency)['name'] ?? _selectedCurrency,
-                                style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                                style: TextStyle(color: t.textSecondary, fontSize: 12),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Semantics(
                           button: true,
                           identifier: 'default_currency_dropdown',
                           label: 'Selector de divisa por defecto: $_selectedCurrency',
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: context.appTheme.accent.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(8),
+                              color: t.accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: DropdownButton<String>(
                               value: _selectedCurrency,
-                              dropdownColor: context.appTheme.cardBackground,
+                              dropdownColor: t.cardBackground,
                               underline: const SizedBox(),
-                              icon: Icon(Icons.arrow_drop_down, color: context.appTheme.accent),
-                              style: TextStyle(color: context.appTheme.accent, fontWeight: FontWeight.bold),
+                              icon: Icon(Icons.arrow_drop_down, color: t.accent),
+                              style: TextStyle(color: t.accent, fontWeight: FontWeight.bold),
                               items: _currencies.map((currency) {
                                 return DropdownMenuItem<String>(
                                   value: currency['code'],
                                   child: Text(
                                     '${currency['symbol']} ${currency['code']}',
-                                    style: TextStyle(color: context.appTheme.textPrimary),
+                                    style: TextStyle(color: t.textPrimary),
                                   ),
                                 );
                               }).toList(),
                               onChanged: (value) {
                                 if (value != null) {
+                                  HapticFeedback.selectionClick();
                                   _saveCurrency(value);
                                 }
                               },
@@ -861,60 +918,48 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
                 // ═══════════════════════════════════════════════════════════════
                 // SECCIÓN: APARIENCIA
                 // ═══════════════════════════════════════════════════════════════
-                Text(
-                  'Apariencia',
-                  style: TextStyle(
-                    color: context.appTheme.accent,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
+                _buildSectionHeader(context, 'Apariencia'),
                 _buildThemeSelector(context),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 Semantics(
                   button: true,
                   identifier: 'settings_open_onboarding',
                   label: 'Abrir guía inicial de Moneo',
-                  child: Material(
-                    color: context.appTheme.cardBackground,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      side: BorderSide(color: context.appTheme.borderSubtle),
-                    ),
-                    clipBehavior: Clip.antiAlias,
+                  child: _buildSectionContainer(
+                    context,
                     child: ListTile(
                       minVerticalPadding: 12,
-                      leading: Icon(
+                      leading: _buildSquircleIcon(
                         Icons.explore_outlined,
-                        color: context.appTheme.accent,
+                        t.accent,
                       ),
                       title: Text(
                         'Guía inicial',
                         style: TextStyle(
-                          color: context.appTheme.textPrimary,
+                          color: t.textPrimary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       subtitle: Text(
                         'Revisar el recorrido inicial y configurar categorías o cuentas',
                         style: TextStyle(
-                          color: context.appTheme.textSecondary,
+                          color: t.textSecondary,
                           fontSize: 12,
                         ),
                       ),
                       trailing: Icon(
                         Icons.chevron_right_rounded,
-                        color: context.appTheme.textSecondary,
+                        color: t.textSecondary,
                       ),
                       onTap: () {
+                        HapticFeedback.selectionClick();
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => const OnboardingScreen(
@@ -928,52 +973,61 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
                 // ═══════════════════════════════════════════════════════════════
                 // SECCIÓN: SEGURIDAD
                 // ═══════════════════════════════════════════════════════════════
-                Text(
-                  'Seguridad',
-                  style: TextStyle(
-                    color: context.appTheme.accent,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Material(
-                  color: context.appTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(12),
-                  clipBehavior: Clip.antiAlias,
+                _buildSectionHeader(context, 'Seguridad'),
+                _buildSectionContainer(
+                  context,
                   child: Column(
                     children: [
                       SwitchListTile(
-                        title: Text('Habilitar PIN', style: TextStyle(color: context.appTheme.textPrimary)),
-                        subtitle: Text('Solicitar PIN al abrir la aplicación', style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12)),
+                        secondary: _buildSquircleIcon(
+                          Icons.pin_outlined,
+                          t.accent,
+                        ),
+                        title: Text('Habilitar PIN', style: TextStyle(color: t.textPrimary)),
+                        subtitle: Text('Solicitar PIN al abrir la aplicación', style: TextStyle(color: t.textSecondary, fontSize: 12)),
                         value: _pinEnabled,
-                        activeColor: context.appTheme.accent,
-                        onChanged: _togglePin,
+                        activeThumbColor: t.accent,
+                        onChanged: (value) {
+                          HapticFeedback.selectionClick();
+                          _togglePin(value);
+                        },
                       ),
                       if (_pinEnabled) ...[
-                        Divider(height: 1, color: context.appTheme.borderSubtle),
+                        _buildSectionDivider(context),
                         ListTile(
-                          title: Text('Cambiar PIN', style: TextStyle(color: context.appTheme.textPrimary)),
-                          trailing: Icon(Icons.chevron_right, color: context.appTheme.textSecondary),
-                          onTap: _changePin,
+                          leading: _buildSquircleIcon(
+                            Icons.lock_reset_rounded,
+                            t.accent,
+                          ),
+                          title: Text('Cambiar PIN', style: TextStyle(color: t.textPrimary)),
+                          trailing: Icon(Icons.chevron_right, color: t.textSecondary),
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _changePin();
+                          },
                         ),
                         // Biometric toggle (only if available)
                         if (_biometricAvailable) ...[
-                          Divider(height: 1, color: context.appTheme.borderSubtle),
+                          _buildSectionDivider(context),
                           SwitchListTile(
-                            title: Text('Desbloqueo Biométrico', style: TextStyle(color: context.appTheme.textPrimary)),
+                            secondary: _buildSquircleIcon(
+                              Icons.fingerprint_rounded,
+                              t.accent,
+                            ),
+                            title: Text('Desbloqueo Biométrico', style: TextStyle(color: t.textPrimary)),
                             subtitle: Text(
                               'Usar huella o Face ID para desbloquear',
-                              style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                              style: TextStyle(color: t.textSecondary, fontSize: 12),
                             ),
                             value: _biometricEnabled,
-                            activeColor: context.appTheme.accent,
+                            activeThumbColor: t.accent,
                             onChanged: (value) async {
+                              HapticFeedback.selectionClick();
                               await _pinProvider.setBiometricEnabled(value);
                               setState(() {
                                 _biometricEnabled = value;
@@ -994,48 +1048,45 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 
                 // ═══════════════════════════════════════════════════════════════
                 // SECCIÓN: NOTIFICACIONES
                 // ═══════════════════════════════════════════════════════════════
-                Text(
-                  'Notificaciones',
-                  style: TextStyle(
-                    color: context.appTheme.accent,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Material(
-                  color: context.appTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(12),
-                  clipBehavior: Clip.antiAlias,
+                _buildSectionHeader(context, 'Notificaciones'),
+                _buildSectionContainer(
+                  context,
                   child: Column(
                     children: [
                       // Toggle principal
                       SwitchListTile(
-                        title: Text('Recordatorios de Pagos', style: TextStyle(color: context.appTheme.textPrimary)),
+                        secondary: _buildSquircleIcon(
+                          Icons.notifications_none_rounded,
+                          t.accent,
+                        ),
+                        title: Text('Recordatorios de Pagos', style: TextStyle(color: t.textPrimary)),
                         subtitle: Text(
                           'Recibir recordatorios de obligaciones',
-                          style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                          style: TextStyle(color: t.textSecondary, fontSize: 12),
                         ),
                         value: _notificationsEnabled,
-                        activeColor: context.appTheme.accent,
-                        onChanged: _toggleNotifications,
+                        activeThumbColor: t.accent,
+                        onChanged: (value) {
+                          HapticFeedback.selectionClick();
+                          _toggleNotifications(value);
+                        },
                       ),
                       
-                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      _buildSectionDivider(context),
                       SwitchListTile(
                         key: const Key('settings_bank_capture_switch'),
-                        secondary: Icon(
+                        secondary: _buildSquircleIcon(
                           Icons.notifications_active_outlined,
-                          color: context.appTheme.accent,
+                          t.accent,
                         ),
                         title: Text(
                           'Captura automática bancaria',
-                          style: TextStyle(color: context.appTheme.textPrimary),
+                          style: TextStyle(color: t.textPrimary),
                         ),
                         subtitle: Text(
                           _buildBankCaptureSubtitle(),
@@ -1044,67 +1095,74 @@ class _SettingsScreenState extends State<SettingsScreen>
                                     (!_notificationAccessGranted ||
                                         _whitelistService
                                             .whitelistedPackages.isEmpty)
-                                ? context.appTheme.warning
-                                : context.appTheme.textSecondary,
+                                ? t.warning
+                                : t.textSecondary,
                             fontSize: 12,
                           ),
                         ),
                         value: _bankCaptureEnabled,
-                        activeThumbColor: context.appTheme.accent,
-                        onChanged: _toggleBankCapture,
+                        activeThumbColor: t.accent,
+                        onChanged: (value) {
+                          HapticFeedback.selectionClick();
+                          _toggleBankCapture(value);
+                        },
                       ),
 
                       if (_bankCaptureEnabled && !_notificationAccessGranted) ...[
-                        Divider(height: 1, color: context.appTheme.borderSubtle),
+                        _buildSectionDivider(context),
                         ListTile(
                           key: const Key('settings_grant_notification_access_tile'),
-                          leading: Icon(
+                          leading: _buildSquircleIcon(
                             Icons.security_update_warning_outlined,
-                            color: context.appTheme.warning,
+                            t.warning,
                           ),
                           title: Text(
                             'Otorgar acceso a notificaciones',
-                            style: TextStyle(color: context.appTheme.warning),
+                            style: TextStyle(color: t.warning),
                           ),
                           subtitle: Text(
                             'Abre Ajustes de Android y habilita "Moneo Notificaciones"',
                             style: TextStyle(
-                              color: context.appTheme.textSecondary,
+                              color: t.textSecondary,
                               fontSize: 12,
                             ),
                           ),
                           trailing: Icon(
                             Icons.open_in_new,
-                            color: context.appTheme.warning,
+                            color: t.warning,
                           ),
-                          onTap: () => _whitelistService
-                              .openNotificationAccessSettings(),
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _whitelistService.openNotificationAccessSettings();
+                          },
                         ),
                         if (_restrictedSettingsBlocked) ...[
-                          Divider(height: 1, color: context.appTheme.borderSubtle),
+                          _buildSectionDivider(context),
                           ListTile(
                             key: const Key('settings_restricted_settings_tile'),
-                            leading: Icon(
+                            leading: _buildSquircleIcon(
                               Icons.admin_panel_settings_outlined,
-                              color: context.appTheme.warning,
+                              t.warning,
                             ),
                             title: Text(
                               'Desbloquear ajustes restringidos',
-                              style: TextStyle(color: context.appTheme.textPrimary),
+                              style: TextStyle(color: t.textPrimary),
                             ),
                             subtitle: Text(
                               'En Info. de la app, toca menú (⋮) > "Permitir ajustes restringidos" si Android bloquea el acceso',
                               style: TextStyle(
-                                color: context.appTheme.textSecondary,
+                                color: t.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
                             trailing: Icon(
                               Icons.open_in_new,
-                              color: context.appTheme.warning,
+                              color: t.warning,
                             ),
-                            onTap: () =>
-                                _whitelistService.openAppDetailsSettings(),
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              _whitelistService.openAppDetailsSettings();
+                            },
                           ),
                         ],
                       ],
@@ -1112,63 +1170,65 @@ class _SettingsScreenState extends State<SettingsScreen>
                       if (_bankCaptureEnabled &&
                           _notificationAccessGranted &&
                           !_batteryOptimizationIgnored) ...[
-                        Divider(height: 1, color: context.appTheme.borderSubtle),
+                        _buildSectionDivider(context),
                         ListTile(
                           key: const Key('settings_battery_optimization_tile'),
-                          leading: Icon(
+                          leading: _buildSquircleIcon(
                             Icons.battery_saver_outlined,
-                            color: context.appTheme.warning,
+                            t.warning,
                           ),
                           title: Text(
                             'Permitir ejecución sin restricciones de batería',
-                            style: TextStyle(color: context.appTheme.textPrimary),
+                            style: TextStyle(color: t.textPrimary),
                           ),
                           subtitle: Text(
                             'Recomendado en Samsung/Android para detectar notificaciones con la app cerrada',
                             style: TextStyle(
-                              color: context.appTheme.textSecondary,
+                              color: t.textSecondary,
                               fontSize: 12,
                             ),
                           ),
                           trailing: Icon(
                             Icons.open_in_new,
-                            color: context.appTheme.warning,
+                            color: t.warning,
                           ),
-                          onTap: () => _whitelistService
-                              .openBatteryOptimizationSettings(),
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _whitelistService.openBatteryOptimizationSettings();
+                          },
                         ),
                       ],
 
-                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      _buildSectionDivider(context),
                       ListenableBuilder(
                         listenable: _pipeline.pendingNotifier,
                         builder: (context, _) {
                           final pendingCount = _pipeline.pendingNotifier.count;
                           return ListTile(
                             key: const Key('settings_real_inbox_tile'),
-                            leading: Icon(
+                            leading: _buildSquircleIcon(
                               Icons.move_to_inbox_outlined,
-                              color: context.appTheme.accent,
+                              t.accent,
                             ),
                             title: Text(
                               'Bandeja de Pendientes',
-                              style:
-                                  TextStyle(color: context.appTheme.textPrimary),
+                              style: TextStyle(color: t.textPrimary),
                             ),
                             subtitle: Text(
                               pendingCount > 0
                                   ? '$pendingCount movimientos detectados por revisar'
                                   : 'Revisa y confirma movimientos antes de afectar saldos',
                               style: TextStyle(
-                                color: context.appTheme.textSecondary,
+                                color: t.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
                             trailing: Icon(
                               Icons.chevron_right,
-                              color: context.appTheme.textSecondary,
+                              color: t.textSecondary,
                             ),
                             onTap: () async {
+                              HapticFeedback.selectionClick();
                               await _pipeline.syncOnResume();
                               if (!context.mounted) return;
                               await Navigator.of(context).push(
@@ -1183,152 +1243,171 @@ class _SettingsScreenState extends State<SettingsScreen>
                         },
                       ),
 
-                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      _buildSectionDivider(context),
                       ListTile(
                         key: const Key('settings_bank_whitelist_tile'),
-                        leading: Icon(
+                        leading: _buildSquircleIcon(
                           Icons.apps_outlined,
-                          color: context.appTheme.accent,
+                          t.accent,
                         ),
                         title: Text(
                           'Apps permitidas para notificaciones',
-                          style: TextStyle(color: context.appTheme.textPrimary),
+                          style: TextStyle(color: t.textPrimary),
                         ),
                         subtitle: Text(
                           '${_whitelistService.whitelistedPackages.length} aplicaciones activas (bancos y mensajería)',
                           style: TextStyle(
-                            color: context.appTheme.textSecondary,
+                            color: t.textSecondary,
                             fontSize: 12,
                           ),
                         ),
                         trailing: Icon(
                           Icons.chevron_right,
-                          color: context.appTheme.textSecondary,
+                          color: t.textSecondary,
                         ),
-                        onTap: _showBankAppsSheet,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _showBankAppsSheet();
+                        },
                       ),
 
-                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      _buildSectionDivider(context),
                       ListTile(
                         key: const Key('settings_notification_diagnostics_tile'),
-                        leading: Icon(
+                        leading: _buildSquircleIcon(
                           Icons.troubleshoot_outlined,
-                          color: context.appTheme.accent,
+                          t.accent,
                         ),
                         title: Text(
                           'Diagnóstico de captura',
-                          style: TextStyle(color: context.appTheme.textPrimary),
+                          style: TextStyle(color: t.textPrimary),
                         ),
                         subtitle: Text(
                           'Últimos ${_pipeline.diagnosticLog.length} avisos de apps permitidas (solo local)',
                           style: TextStyle(
-                            color: context.appTheme.textSecondary,
+                            color: t.textSecondary,
                             fontSize: 12,
                           ),
                         ),
                         trailing: Icon(
                           Icons.chevron_right,
-                          color: context.appTheme.textSecondary,
+                          color: t.textSecondary,
                         ),
-                        onTap: _showNotificationDiagnosticsSheet,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _showNotificationDiagnosticsSheet();
+                        },
                       ),
 
-                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      _buildSectionDivider(context),
                       SwitchListTile(
                         key: const Key('settings_auto_accept_future_switch'),
-                        secondary: Icon(
+                        secondary: _buildSquircleIcon(
                           Icons.bolt_outlined,
-                          color: context.appTheme.accent,
+                          t.accent,
                         ),
                         title: Text(
                           'Aceptar automáticamente futuras',
-                          style: TextStyle(color: context.appTheme.textPrimary),
+                          style: TextStyle(color: t.textPrimary),
                         ),
                         subtitle: Text(
                           'Desactivado por defecto. Solo aplica a futuras notificaciones elegibles de alta confianza (≥85%); ambiguas o sospechosas quedan pendientes.',
                           style: TextStyle(
-                            color: context.appTheme.textSecondary,
+                            color: t.textSecondary,
                             fontSize: 12,
                           ),
                         ),
                         value: _autoAcceptFutureEnabled,
-                        activeThumbColor: context.appTheme.accent,
-                        onChanged: _toggleAutoAcceptFuture,
+                        activeThumbColor: t.accent,
+                        onChanged: (value) {
+                          HapticFeedback.selectionClick();
+                          _toggleAutoAcceptFuture(value);
+                        },
                       ),
 
-                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      _buildSectionDivider(context),
                       ListTile(
                         key: const Key('settings_learned_patterns_tile'),
-                        leading: Icon(
+                        leading: _buildSquircleIcon(
                           Icons.psychology_outlined,
-                          color: context.appTheme.accent,
+                          t.accent,
                         ),
                         title: Text(
                           'Patrones aprendidos',
-                          style: TextStyle(color: context.appTheme.textPrimary),
+                          style: TextStyle(color: t.textPrimary),
                         ),
                         subtitle: Text(
                           'Ver o eliminar reglas locales de comercios',
                           style: TextStyle(
-                            color: context.appTheme.textSecondary,
+                            color: t.textSecondary,
                             fontSize: 12,
                           ),
                         ),
                         trailing: Icon(
                           Icons.chevron_right,
-                          color: context.appTheme.textSecondary,
+                          color: t.textSecondary,
                         ),
-                        onTap: _showLearnedPatternsSheet,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _showLearnedPatternsSheet();
+                        },
                       ),
 
-                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      _buildSectionDivider(context),
                       ListTile(
                         key: const Key('settings_wipe_notifications_tile'),
-                        leading: Icon(
+                        leading: _buildSquircleIcon(
                           Icons.delete_sweep_outlined,
-                          color: context.appTheme.error,
+                          t.error,
                         ),
                         title: Text(
                           'Eliminar datos de notificaciones',
-                          style: TextStyle(color: context.appTheme.error),
+                          style: TextStyle(color: t.error),
                         ),
                         subtitle: Text(
                           'Borra bandeja pendiente, patrones aprendidos y cola nativa',
                           style: TextStyle(
-                            color: context.appTheme.textSecondary,
+                            color: t.textSecondary,
                             fontSize: 12,
                           ),
                         ),
-                        onTap: _confirmWipeNotificationData,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _confirmWipeNotificationData();
+                        },
                       ),
 
                       // Opciones de configuración (solo si está habilitado)
                       if (_notificationsEnabled) ...[
-                        Divider(height: 1, color: context.appTheme.borderSubtle),
+                        _buildSectionDivider(context),
                         
                         // Días de anticipación
                         ListTile(
-                          title: Text('Días de anticipación', style: TextStyle(color: context.appTheme.textPrimary)),
+                          leading: _buildSquircleIcon(
+                            Icons.event_repeat_outlined,
+                            t.accent,
+                          ),
+                          title: Text('Días de anticipación', style: TextStyle(color: t.textPrimary)),
                           subtitle: Text(
                             _daysBefore == 0 
                                 ? 'Sin recordatorio previo'
                                 : _daysBefore == 1
                                     ? '1 día antes'
                                     : '$_daysBefore días antes',
-                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                            style: TextStyle(color: t.textSecondary, fontSize: 12),
                           ),
                           trailing: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: context.appTheme.accent.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(8),
+                              color: t.accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: DropdownButton<int>(
                               value: _daysBefore,
-                              dropdownColor: context.appTheme.cardBackground,
+                              dropdownColor: t.cardBackground,
                               underline: const SizedBox(),
-                              icon: Icon(Icons.arrow_drop_down, color: context.appTheme.accent),
-                              style: TextStyle(color: context.appTheme.accent, fontWeight: FontWeight.bold),
+                              icon: Icon(Icons.arrow_drop_down, color: t.accent),
+                              style: TextStyle(color: t.accent, fontWeight: FontWeight.bold),
                               items: List.generate(8, (i) => i).map((days) {
                                 return DropdownMenuItem<int>(
                                   value: days,
@@ -1338,12 +1417,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                                         : days == 1 
                                             ? '1 día'
                                             : '$days días',
-                                    style: TextStyle(color: context.appTheme.textPrimary),
+                                    style: TextStyle(color: t.textPrimary),
                                   ),
                                 );
                               }).toList(),
                               onChanged: (value) {
                                 if (value != null) {
+                                  HapticFeedback.selectionClick();
                                   _setDaysBefore(value);
                                 }
                               },
@@ -1351,51 +1431,68 @@ class _SettingsScreenState extends State<SettingsScreen>
                           ),
                         ),
                         
-                        Divider(height: 1, color: context.appTheme.borderSubtle),
+                        _buildSectionDivider(context),
                         
                         // Notificar el mismo día
                         SwitchListTile(
-                          title: Text('Notificar el mismo día', style: TextStyle(color: context.appTheme.textPrimary)),
+                          secondary: _buildSquircleIcon(
+                            Icons.today_outlined,
+                            t.accent,
+                          ),
+                          title: Text('Notificar el mismo día', style: TextStyle(color: t.textPrimary)),
                           subtitle: Text(
                             'Recordatorio el día de vencimiento',
-                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                            style: TextStyle(color: t.textSecondary, fontSize: 12),
                           ),
                           value: _sameDay,
-                          activeColor: context.appTheme.accent,
-                          onChanged: _setSameDay,
+                          activeThumbColor: t.accent,
+                          onChanged: (value) {
+                            HapticFeedback.selectionClick();
+                            _setSameDay(value);
+                          },
                         ),
                         
-                        Divider(height: 1, color: context.appTheme.borderSubtle),
+                        _buildSectionDivider(context),
                         
                         // Hora de notificación
                         ListTile(
-                          title: Text('Hora de notificación', style: TextStyle(color: context.appTheme.textPrimary)),
+                          leading: _buildSquircleIcon(
+                            Icons.schedule_rounded,
+                            t.accent,
+                          ),
+                          title: Text('Hora de notificación', style: TextStyle(color: t.textPrimary)),
                           subtitle: Text(
                             'Hora a la que recibirás recordatorios',
-                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                            style: TextStyle(color: t.textSecondary, fontSize: 12),
                           ),
                           trailing: GestureDetector(
-                            onTap: _selectNotificationTime,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              _selectNotificationTime();
+                            },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                               decoration: BoxDecoration(
-                                color: context.appTheme.accent.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(8),
+                                color: t.accent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
                                     Icons.access_time,
-                                    color: context.appTheme.accent,
-                                    size: 18,
+                                    color: t.accent,
+                                    size: 16,
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 5),
                                   Text(
                                     _formatTime(_notificationTime),
                                     style: TextStyle(
-                                      color: context.appTheme.accent,
+                                      color: t.accent,
                                       fontWeight: FontWeight.bold,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -1404,31 +1501,34 @@ class _SettingsScreenState extends State<SettingsScreen>
                           ),
                         ),
                         
-                        Divider(height: 1, color: context.appTheme.borderSubtle),
+                        _buildSectionDivider(context),
                         
                         // Botón de prueba
                         ListTile(
-                          leading: Icon(
+                          leading: _buildSquircleIcon(
                             Icons.notifications_active,
-                            color: context.appTheme.accent,
+                            t.accent,
                           ),
                           title: Text(
                             'Probar notificación',
-                            style: TextStyle(color: context.appTheme.textPrimary),
+                            style: TextStyle(color: t.textPrimary),
                           ),
                           subtitle: Text(
                             'Enviar una notificación de prueba',
-                            style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                            style: TextStyle(color: t.textSecondary, fontSize: 12),
                           ),
-                          trailing: Icon(Icons.chevron_right, color: context.appTheme.textSecondary),
-                          onTap: _sendTestNotification,
+                          trailing: Icon(Icons.chevron_right, color: t.textSecondary),
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _sendTestNotification();
+                          },
                         ),
                       ],
                     ],
                   ),
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
                 // ═══════════════════════════════════════════════════════════════
                 // SECCIÓN: MOTOR DE IA PRINCIPAL Y PROVEEDORES
@@ -1440,90 +1540,74 @@ class _SettingsScreenState extends State<SettingsScreen>
                 // ═══════════════════════════════════════════════════════════
                 // SECCIÓN: DATOS
                 // ═══════════════════════════════════════════════════════════
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Material(
-                    color: context.appTheme.cardBackground,
-                    borderRadius: BorderRadius.circular(16),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(
-                          'Datos',
-                          style: TextStyle(
-                            color: context.appTheme.accent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      
+                _buildSectionHeader(context, 'Datos'),
+                _buildSectionContainer(
+                  context,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       // Exportar datos
                       ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.upload_rounded, color: Colors.blue),
+                        leading: _buildSquircleIcon(
+                          Icons.upload_rounded,
+                          t.accent,
                         ),
-                        title: Text('Exportar datos', style: TextStyle(color: context.appTheme.textPrimary)),
+                        title: Text('Exportar datos', style: TextStyle(color: t.textPrimary)),
                         subtitle: Text(
                           'Crear respaldo de toda la información',
-                          style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                          style: TextStyle(color: t.textSecondary, fontSize: 12),
                         ),
-                        trailing: Icon(Icons.chevron_right, color: context.appTheme.textSecondary),
-                        onTap: _exportData,
+                        trailing: Icon(Icons.chevron_right, color: t.textSecondary),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _exportData();
+                        },
                       ),
                       
-                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      _buildSectionDivider(context),
                       
                       // Importar datos
                       ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.download_rounded, color: Colors.green),
+                        leading: _buildSquircleIcon(
+                          Icons.download_rounded,
+                          t.income,
                         ),
-                        title: Text('Importar datos', style: TextStyle(color: context.appTheme.textPrimary)),
+                        title: Text('Importar datos', style: TextStyle(color: t.textPrimary)),
                         subtitle: Text(
                           'Restaurar desde un respaldo',
-                          style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                          style: TextStyle(color: t.textSecondary, fontSize: 12),
                         ),
-                        trailing: Icon(Icons.chevron_right, color: context.appTheme.textSecondary),
-                        onTap: _importData,
+                        trailing: Icon(Icons.chevron_right, color: t.textSecondary),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _importData();
+                        },
                       ),
                       
-                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      _buildSectionDivider(context),
                       
                       // Eliminar todos los datos
                       ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                        leading: _buildSquircleIcon(
+                          Icons.delete_forever_rounded,
+                          t.error,
                         ),
-                        title: const Text('Eliminar todos los datos', style: TextStyle(color: Colors.red)),
+                        title: Text(
+                          'Eliminar todos los datos',
+                          style: TextStyle(color: t.error),
+                        ),
                         subtitle: Text(
                           'Borrar toda la información de la app',
-                          style: TextStyle(color: context.appTheme.textSecondary, fontSize: 12),
+                          style: TextStyle(color: t.textSecondary, fontSize: 12),
                         ),
-                        trailing: Icon(Icons.chevron_right, color: context.appTheme.textSecondary),
-                        onTap: _confirmDeleteAllData,
+                        trailing: Icon(Icons.chevron_right, color: t.textSecondary),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _confirmDeleteAllData();
+                        },
                       ),
                     ],
                   ),
-                ),
                 ),
                 
                 const SizedBox(height: 8),
@@ -1783,7 +1867,12 @@ class _SettingsScreenState extends State<SettingsScreen>
       label: 'Tema $label',
       excludeSemantics: true,
       child: GestureDetector(
-        onTap: () => ThemeNotifier.setMode(mode),
+        onTap: () {
+          if (!isSelected) {
+            HapticFeedback.selectionClick();
+          }
+          ThemeNotifier.setMode(mode);
+        },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
@@ -1793,7 +1882,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               : isSelected
                   ? context.appTheme.accent.withValues(alpha: 0.12)
                   : context.appTheme.cardBackground,
-          borderRadius: BorderRadius.circular(isDiurno ? 16 : 12),
+          borderRadius: BorderRadius.circular(isDiurno ? 16 : 14),
           border: Border.all(
             color: isSelected
                 ? context.appTheme.accent
@@ -1872,19 +1961,9 @@ class _SettingsScreenState extends State<SettingsScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Motor de IA',
-          style: TextStyle(
-            color: t.accent,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Material(
-          color: t.cardBackground,
-          borderRadius: BorderRadius.circular(12),
-          clipBehavior: Clip.antiAlias,
+        _buildSectionHeader(context, 'Motor de IA'),
+        _buildSectionContainer(
+          context,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1919,11 +1998,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                           vertical: 4,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: t.borderSubtle),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: t.borderSubtle),
                         ),
                       ),
@@ -1949,6 +2028,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                           }).toList(),
                           onChanged: (next) async {
                             if (next == null) return;
+                            HapticFeedback.selectionClick();
                             await _aiStore.setPrimaryProvider(next);
                           },
                         ),
@@ -1957,11 +2037,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ],
                 ),
               ),
-              Divider(height: 1, color: t.borderSubtle),
+              _buildSectionDivider(context, inset: false),
               ListTile(
                 key: const Key('settings_ai_local_model_tile'),
                 minVerticalPadding: 12,
-                leading: Icon(Icons.memory_rounded, color: t.accent),
+                leading: _buildSquircleIcon(Icons.memory_rounded, t.accent),
                 title: Text(
                   'Modelo local (.litertlm)',
                   style: TextStyle(color: t.textPrimary),
@@ -1976,9 +2056,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                   style: TextStyle(color: t.textSecondary, fontSize: 12),
                 ),
                 trailing: Icon(Icons.chevron_right, color: t.textSecondary),
-                onTap: _showHuggingFaceUrlDialog,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  _showHuggingFaceUrlDialog();
+                },
               ),
-              Divider(height: 1, color: t.borderSubtle),
+              _buildSectionDivider(context, inset: false),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                 child: Column(
@@ -2013,7 +2096,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                         ),
                         ElevatedButton.icon(
                           key: const Key('settings_ai_add_key_button'),
-                          onPressed: _showAddApiKeyDialog,
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            _showAddApiKeyDialog();
+                          },
                           icon: const Icon(Icons.add_rounded, size: 18),
                           label: const Text('Agregar API Key'),
                           style: ElevatedButton.styleFrom(
@@ -2027,7 +2113,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               vertical: 10,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                         ),
@@ -2040,7 +2126,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: t.darkBackground.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: t.borderSubtle),
                         ),
                         child: Text(
@@ -2057,10 +2143,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                         Container(
                           key: ValueKey('ai_key_card_${entry.id}'),
                           margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: t.darkBackground.withValues(alpha: 0.65),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: activeKey?.id == entry.id
                                   ? t.accent
@@ -2119,10 +2205,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 children: [
                                   TextButton(
                                     key: ValueKey('ai_key_set_primary_${entry.id}'),
-                                    onPressed: () => _aiStore.setPrimaryProvider(
-                                      entry.provider,
-                                      keyId: entry.id,
-                                    ),
+                                    onPressed: () {
+                                      HapticFeedback.selectionClick();
+                                      _aiStore.setPrimaryProvider(
+                                        entry.provider,
+                                        keyId: entry.id,
+                                      );
+                                    },
                                     style: TextButton.styleFrom(
                                       foregroundColor: t.accent,
                                       minimumSize: const Size(48, 48),
@@ -2133,9 +2222,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                                   ),
                                   TextButton(
                                     key: ValueKey('ai_key_toggle_${entry.id}'),
-                                    onPressed: () => _aiStore.updateApiKey(
-                                      entry.copyWith(isEnabled: !entry.isEnabled),
-                                    ),
+                                    onPressed: () {
+                                      HapticFeedback.selectionClick();
+                                      _aiStore.updateApiKey(
+                                        entry.copyWith(isEnabled: !entry.isEnabled),
+                                      );
+                                    },
                                     style: TextButton.styleFrom(
                                       foregroundColor: t.textSecondary,
                                       minimumSize: const Size(48, 48),
@@ -2148,8 +2240,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                                   ),
                                   TextButton(
                                     key: ValueKey('ai_key_delete_${entry.id}'),
-                                    onPressed: () =>
-                                        _aiStore.removeApiKey(entry.id),
+                                    onPressed: () {
+                                      HapticFeedback.selectionClick();
+                                      _aiStore.removeApiKey(entry.id);
+                                    },
                                     style: TextButton.styleFrom(
                                       foregroundColor: t.error,
                                       minimumSize: const Size(48, 48),
@@ -2167,9 +2261,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ],
                 ),
               ),
-              Divider(height: 1, color: t.borderSubtle),
+              _buildSectionDivider(context, inset: false),
               SwitchListTile(
                 key: const Key('settings_ai_auto_rotate_switch'),
+                secondary: _buildSquircleIcon(
+                  Icons.autorenew_rounded,
+                  t.accent,
+                ),
                 title: Text(
                   'Rotación automática gratuita ante límite (429)',
                   style: TextStyle(color: t.textPrimary, fontSize: 13.5),
@@ -2181,14 +2279,19 @@ class _SettingsScreenState extends State<SettingsScreen>
                 value: cfg.autoRotateFreeModels,
                 activeThumbColor: t.accent,
                 onChanged: (value) async {
+                  HapticFeedback.selectionClick();
                   await _aiStore.saveConfig(
                     cfg.copyWith(autoRotateFreeModels: value),
                   );
                 },
               ),
-              Divider(height: 1, color: t.borderSubtle),
+              _buildSectionDivider(context),
               SwitchListTile(
                 key: const Key('settings_ai_cross_fallback_switch'),
+                secondary: _buildSquircleIcon(
+                  Icons.swap_horiz_rounded,
+                  t.accent,
+                ),
                 title: Text(
                   'Respaldo automático entre mis otras APIs',
                   style: TextStyle(color: t.textPrimary, fontSize: 13.5),
@@ -2200,12 +2303,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                 value: cfg.crossProviderFallback,
                 activeThumbColor: t.accent,
                 onChanged: (value) async {
+                  HapticFeedback.selectionClick();
                   await _aiStore.saveConfig(
                     cfg.copyWith(crossProviderFallback: value),
                   );
                 },
               ),
-              Divider(height: 1, color: t.borderSubtle),
+              _buildSectionDivider(context, inset: false),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
                 child: Column(
@@ -2213,7 +2317,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                   children: [
                     OutlinedButton.icon(
                       key: const Key('settings_ai_test_connection_button'),
-                      onPressed: _isTestingAiConnection ? null : _testAiConnection,
+                      onPressed: _isTestingAiConnection
+                          ? null
+                          : () {
+                              HapticFeedback.selectionClick();
+                              _testAiConnection();
+                            },
                       icon: _isTestingAiConnection
                           ? SizedBox(
                               width: 16,
@@ -2231,7 +2340,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         tapTargetSize: MaterialTapTargetSize.padded,
                         side: BorderSide(color: t.accent.withValues(alpha: 0.5)),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
@@ -2243,7 +2352,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         decoration: BoxDecoration(
                           color: (_lastAiProbeResult!.ok ? t.success : t.error)
                               .withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
