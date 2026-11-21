@@ -163,15 +163,14 @@ void main() {
           contains(const FontFeature.tabularFigures()),
         );
 
-        // Anillo en 1.0 con color t.expense y etiqueta EXCEDIDO
+        // Anillo custom en 1.0 con color t.expense y etiqueta EXCEDIDO
         final t = AppTheme.forMode(AppThemeMode.diurno);
-        final indicator = tester.widget<CircularProgressIndicator>(
-          find.byType(CircularProgressIndicator),
+        final arcPaint = tester.widget<CustomPaint>(
+          find.byKey(const Key('budget_progress_arc')),
         );
-        expect(indicator.value, equals(1.0));
-        final valueColor =
-            indicator.valueColor as AlwaysStoppedAnimation<Color>;
-        expect(valueColor.value, equals(t.expense));
+        final painter = arcPaint.painter! as BudgetArcPainter;
+        expect(painter.progress, equals(1.0));
+        expect(painter.progressColor, equals(t.expense));
         expect(find.text('EXCEDIDO'), findsOneWidget);
       },
     );

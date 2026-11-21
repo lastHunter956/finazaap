@@ -218,7 +218,15 @@ class PendingTransactionsNotifier extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final box = await _getBox();
+      if (_injectedBox == null && _boxEncryption != null) {
+        await _boxEncryption!.getOrCreateKey();
+      }
+      final results = await Future.wait<Box<dynamic>?>([
+        _getBox(),
+        _getSpamBox(),
+      ]);
+      final box = results[0]!;
+      final preloadedSpamBox = results[1];
       final loaded = <PendingTransactionItem>[];
       final keysToDelete = <dynamic>[];
 
@@ -259,7 +267,7 @@ class PendingTransactionsNotifier extends ChangeNotifier {
 
       loaded.sort((a, b) => b.fecha.compareTo(a.fecha));
       _items = loaded;
-      await _loadAndPruneSpamBox();
+      await _loadAndPruneSpamBox(preloadedBox: preloadedSpamBox);
       _errorMessage = null;
     } catch (e) {
       _errorMessage = 'Error al cargar transacciones pendientes: $e';
@@ -269,9 +277,12 @@ class PendingTransactionsNotifier extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadAndPruneSpamBox({DateTime? now}) async {
+  Future<void> _loadAndPruneSpamBox({
+    DateTime? now,
+    Box<dynamic>? preloadedBox,
+  }) async {
     final reference = now ?? DateTime.now();
-    final spamBox = await _getSpamBox();
+    final spamBox = preloadedBox ?? await _getSpamBox();
     if (spamBox == null) {
       _spamItems.removeWhere((s) => s.isExpired(now: reference));
       _spamItems.sort((a, b) => b.detectedAt.compareTo(a.detectedAt));

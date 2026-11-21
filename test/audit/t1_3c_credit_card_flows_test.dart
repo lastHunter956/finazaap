@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:finazaap/Screens/responsibilities_screen.dart';
+import 'package:finazaap/widgets/responsibility_list_item.dart';
 import 'package:finazaap/core/prefs_manager.dart';
 import 'package:finazaap/data/credit_card_calculator.dart';
 import 'package:finazaap/data/model/add_date.dart';
@@ -253,7 +254,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Visa').last);
+    await tester.scrollUntilVisible(
+      find.byType(ResponsibilityListItem),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(ResponsibilityListItem).first);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Pagar Cuota'));

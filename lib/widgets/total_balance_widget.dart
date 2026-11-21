@@ -775,8 +775,9 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
                         curve: Curves.easeOutCubic,
                         builder: (context, animatedProgress, innerChild) {
                           return CustomPaint(
+                            key: const Key('budget_progress_arc'),
                             size: const Size(96, 96),
-                            painter: _BudgetArcPainter(
+                            painter: BudgetArcPainter(
                               progress: animatedProgress,
                               trackColor: t.darkBackground,
                               progressColor: ringStatusColor,
@@ -973,13 +974,13 @@ class _TotalBalanceWidgetState extends State<TotalBalanceWidget> {
   }
 }
 
-class _BudgetArcPainter extends CustomPainter {
+class BudgetArcPainter extends CustomPainter {
   final double progress;
   final Color trackColor;
   final Color progressColor;
   final double strokeWidth;
 
-  const _BudgetArcPainter({
+  const BudgetArcPainter({
     required this.progress,
     required this.trackColor,
     required this.progressColor,
@@ -1022,7 +1023,7 @@ class _BudgetArcPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BudgetArcPainter oldDelegate) {
+  bool shouldRepaint(covariant BudgetArcPainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.trackColor != trackColor ||
         oldDelegate.progressColor != progressColor ||

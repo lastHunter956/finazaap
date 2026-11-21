@@ -143,37 +143,52 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefsFuture = SharedPreferences.getInstance();
     var accessGranted = false;
     var listenerConnected = false;
     var batteryIgnored = true;
-    try {
-      await _pipeline.initialize();
-      final sourceStatus = await _pipeline.source.checkStatus();
-      final diagnostics = await _whitelistService.getListenerDiagnostics();
-      accessGranted = (diagnostics['permissionGranted'] ?? false) ||
-          sourceStatus.permissionStatus == NotificationPermissionStatus.granted;
-      listenerConnected =
-          diagnostics['listenerConnected'] ?? accessGranted;
-      batteryIgnored = diagnostics['batteryOptimizationIgnored'] ?? true;
-    } catch (_) {
-      await _whitelistService.loadFromPrefs();
-    }
-    
-    // Inicializar estado real de PIN (FlutterSecureStorage) y biometría
-    try {
-      await _pinProvider.ensureInitialized();
-      await _pinProvider.checkBiometricAvailability();
-    } catch (_) {}
-    
-    // Cargar configuración de notificaciones
-    final hour = await _notificationService.getHour();
-    final minute = await _notificationService.getMinute();
+    var hour = 9;
+    var minute = 0;
     AiEngineConfig aiCfg = _aiStore.current;
-    try {
-      aiCfg = await _aiStore.loadConfig();
-    } catch (_) {}
-    
+
+    await Future.wait<void>([
+      () async {
+        try {
+          await _pipeline.initialize();
+          final results = await Future.wait<Object>([
+            _pipeline.source.checkStatus(),
+            _whitelistService.getListenerDiagnostics(),
+          ]);
+          final sourceStatus = results[0] as NotificationSourceStatus;
+          final diagnostics = results[1] as Map<String, bool>;
+          accessGranted = (diagnostics['permissionGranted'] ?? false) ||
+              sourceStatus.permissionStatus ==
+                  NotificationPermissionStatus.granted;
+          listenerConnected =
+              diagnostics['listenerConnected'] ?? accessGranted;
+          batteryIgnored = diagnostics['batteryOptimizationIgnored'] ?? true;
+        } catch (_) {
+          await _whitelistService.loadFromPrefs();
+        }
+      }(),
+      () async {
+        try {
+          await _pinProvider.ensureInitialized();
+          await _pinProvider.checkBiometricAvailability();
+        } catch (_) {}
+      }(),
+      () async {
+        hour = await _notificationService.getHour();
+        minute = await _notificationService.getMinute();
+      }(),
+      () async {
+        try {
+          aiCfg = await _aiStore.loadConfig();
+        } catch (_) {}
+      }(),
+    ]);
+
+    final prefs = await prefsFuture;
     if (!mounted) return;
     setState(() {
       _aiConfig = aiCfg;

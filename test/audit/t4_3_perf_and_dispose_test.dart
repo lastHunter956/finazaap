@@ -66,7 +66,7 @@ void main() {
     );
   }
 
-  testWidgets('FloatingActionMenuScreen uses FadeTransition without Opacity over BackdropFilter',
+  testWidgets('FloatingActionMenuScreen uses smooth FadeTransition without heavy BackdropFilter',
       (tester) async {
     tester.view.physicalSize = const Size(1440, 2880);
     tester.view.devicePixelRatio = 3.0;
@@ -76,15 +76,9 @@ void main() {
     await tester.pumpWidget(wrapWithTheme(const FloatingActionMenuScreen()));
     await tester.pump(const Duration(milliseconds: 150));
 
-    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.byType(BackdropFilter), findsNothing);
     expect(find.byType(FadeTransition), findsWidgets);
-    expect(
-      find.ancestor(
-        of: find.byType(BackdropFilter),
-        matching: find.byType(Opacity),
-      ),
-      findsNothing,
-    );
+    expect(find.byType(SlideTransition), findsWidgets);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
