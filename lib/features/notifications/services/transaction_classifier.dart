@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/model/add_date.dart';
 import 'package:finazaap/data/models/account_item.dart';
 import 'package:finazaap/data/monthly_summary_cache.dart';
@@ -10,30 +11,100 @@ import 'package:finazaap/features/notifications/domain/models/transaction_classi
 import 'package:finazaap/features/notifications/services/learned_patterns_service.dart';
 import 'package:finazaap/features/notifications/services/gemma_classifier_adapter.dart';
 import 'package:finazaap/features/notifications/services/notification_parser.dart';
+import 'package:finazaap/features/notifications/services/spam_patterns_service.dart';
 import 'package:finazaap/utils/currency_helper.dart';
+
+typedef UserCategoriesLoader = Future<({List<String> expenses, List<String> income})>
+    Function();
 
 /// Clasificador jerárquico estricto de notificaciones bancarias en Moneo.
 ///
-/// Precedencia de etapas (orden estricto):
-/// - Etapa 0: Anti-Fraude (bloqueo incondicional si hay links o urgencia).
-/// - Etapa 1: Aprendizaje Local (`learned_patterns` en Hive).
-/// - Etapa 2: Reglas Deterministas (palabras clave, indicios de cuenta, categorías).
-/// - Etapa 3: Respaldo On-Device con Gemma (`flutter_gemma`) ante ambigüedad.
+/// Precedencia de etapas:
+/// - Etapa 0A: Anti-Fraude (bloqueo incondicional si hay links o urgencia).
+/// - Etapa 0B: Spam Aprendido (`dismissed_patterns` -> atajo 0-IA directo a pestaña Spam).
+/// - Etapa 1: Aprendizaje Local (`learned_patterns` en Hive, sin claves genéricas de banco).
+/// - Etapa 2/3: IA Context-Aware (sobre tipado + Mini-RAG + cuentas/categorías reales +
+///   contexto cruzado 5 min) con validación cruzada Post-IA, y fallback determinista offline.
 class TransactionClassifier {
   final LearnedPatternsService _patternsService;
   final GemmaClassifierAdapter _gemmaAdapter;
+  final SpamPatternsService? _spamPatternsService;
   final Future<List<AccountItem>> Function()? _accountsLoader;
+  final UserCategoriesLoader? _categoriesLoader;
   final MonthlySummaryCache? _summaryCache;
+  final bool enableAiEnrichment;
 
   TransactionClassifier({
     LearnedPatternsService? patternsService,
     GemmaClassifierAdapter? gemmaAdapter,
+    SpamPatternsService? spamPatternsService,
     Future<List<AccountItem>> Function()? accountsLoader,
+    UserCategoriesLoader? categoriesLoader,
     MonthlySummaryCache? summaryCache,
+    this.enableAiEnrichment = false,
   })  : _patternsService = patternsService ?? LearnedPatternsService(),
         _gemmaAdapter = gemmaAdapter ?? GemmaClassifierAdapter(),
+        _spamPatternsService = spamPatternsService,
         _accountsLoader = accountsLoader,
+        _categoriesLoader = categoriesLoader,
         _summaryCache = summaryCache;
+
+  /// Nombres genéricos de entidades bancarias que NO deben usarse como clave única de comercio.
+  static const Set<String> genericBankMerchantKeys = {
+    'nu',
+    'nu colombia',
+    'nubank',
+    'rappi',
+    'rappipay',
+    'rappi rappipay',
+    'rappicard',
+    'rappicuenta',
+    'bancolombia',
+    'nequi',
+    'davivienda',
+    'daviplata',
+    'bbva',
+    'bbva colombia',
+    'scotiabank colpatria',
+    'banco falabella',
+    'banco de bogota',
+    'banco popular colombia',
+    'banco av villas',
+    'banco de occidente',
+    'lulo bank',
+    'dale',
+    'itau colombia',
+    'uala colombia',
+    'banco caja social',
+    'banco serfinanza',
+    'moneo bank simulador',
+    'comercio',
+    'movimiento detectado',
+    'transferencia detectada',
+  };
+
+  /// Indica si [merchant] es solo un nombre genérico de banco o relleno.
+  static bool isGenericBankMerchant(String? merchant) {
+    if (merchant == null || merchant.trim().isEmpty) return true;
+    final norm = LearnedPatternsService.normalizeMerchant(merchant);
+    return norm.isEmpty || genericBankMerchantKeys.contains(norm);
+  }
+
+  /// Indica si el paquete corresponde a una app híbrida (super-app o correo/mensajería)
+  /// donde conviven promociones/marketing con transacciones financieras reales.
+  static bool isHybridAppPackage(String? packageName) {
+    final pkg = (packageName ?? '').trim().toLowerCase();
+    if (pkg.isEmpty) return false;
+    return pkg == 'com.grability.rappi' ||
+        pkg.contains('rappi') ||
+        pkg == 'com.google.android.gm' ||
+        pkg.contains('mail') ||
+        pkg.contains('outlook') ||
+        pkg.contains('messaging') ||
+        pkg.contains('sms');
+  }
+
+  GemmaClassifierAdapter get gemmaAdapter => _gemmaAdapter;
 
   // ---------------------------------------------------------------------------
   // Expresiones regulares para señales de fraude y urgencia
@@ -62,11 +133,15 @@ class TransactionClassifier {
     String? rawText,
     List<AccountItem>? userAccounts,
     String? packageName,
+    String? appName,
+    String? channelId,
+    List<String> crossNotificationSummaries = const [],
+    bool bypassSpamPatterns = false,
   }) async {
     final text = rawText ?? _extractRawText(parseResult);
 
     // =========================================================================
-    // ETAPA 0: Anti-Fraude (Bloqueo Absoluto)
+    // ETAPA 0A: Anti-Fraude (Bloqueo Absoluto)
     // =========================================================================
     final bool isMarkedSuspicious = parseResult is SuspiciousNotification ||
         parseResult.status == 'sospechosa' ||
@@ -109,14 +184,57 @@ class TransactionClassifier {
       );
     }
 
-    // Cargar cuentas del usuario para enriquecer matching
-    final accounts = userAccounts ?? await _loadAccounts();
+    // =========================================================================
+    // ETAPA 0B: Spam Aprendido (`dismissed_patterns` — Atajo 0-IA)
+    // Si el patrón ya está marcado como spam, NO se invoca a la IA hasta que
+    // el usuario indique "No es spam" en la pestaña Spam.
+    // =========================================================================
+    if (!bypassSpamPatterns && _spamPatternsService != null) {
+      final spamMatch = await _spamPatternsService!.matchSpam(
+        packageName: packageName ?? '',
+        rawText: text,
+        channelId: channelId,
+      );
+      if (spamMatch != null) {
+        final reason = spamMatch.matchedByChannel
+            ? 'Canal promocional marcado como spam (${spamMatch.pattern.channelId})'
+            : 'Patrón marcado como spam (${spamMatch.pattern.confirmations} descarte${spamMatch.pattern.confirmations == 1 ? '' : 's'})';
+        return TransactionClassification(
+          classification: 'spam',
+          moneoType: null,
+          category: null,
+          accountName: null,
+          destinationAccount: null,
+          confidence: spamMatch.score,
+          requiresReview: false,
+          createTransaction: false,
+          decisionSource: 'learned_spam',
+          isTransaction: false,
+          spamReason: reason,
+          matchedSpamRuleKey: spamMatch.pattern.signatureKey,
+          strategicNote: reason,
+        );
+      }
+    }
+
+    // Cargar cuentas y categorías reales del usuario para enriquecer matching
+    final accounts = (userAccounts != null && userAccounts.isNotEmpty)
+        ? userAccounts
+        : await _loadAccounts();
+    final userCategories = await _loadUserCategories();
+    final isPromoSignal =
+        parseResult is ParsedTransaction && parseResult.isPromoSignal;
+    final hasCrossContext = crossNotificationSummaries.isNotEmpty;
 
     // =========================================================================
     // ETAPA 1: Aprendizaje Local (Hive box "learned_patterns")
     // =========================================================================
     final merchant = _extractMerchant(parseResult);
-    if (merchant != null && merchant.trim().isNotEmpty) {
+    if (!isPromoSignal &&
+        merchant != null &&
+        merchant.trim().isNotEmpty &&
+        !isGenericBankMerchant(merchant) &&
+        !(hasCrossContext && enableAiEnrichment)) {
       var pattern = await _patternsService.findPattern(merchant);
       var matchedSemantically = false;
       if (pattern == null && !_patternsService.isKnownEmpty) {
@@ -157,12 +275,17 @@ class TransactionClassifier {
               : isInRevision
                   ? 'Patrón "${pattern.merchantKey}" en revisión → ${pattern.category}'
                   : 'Patrón aprendido "${pattern.merchantKey}" (${pattern.confirmations} conf.) → ${pattern.category}';
+          final resolvedCat = _alignCategoryToUserCatalog(
+            pattern.category,
+            pattern.classification,
+            userCategories,
+          );
           return TransactionClassification(
             classification: pattern.classification,
             moneoType: pattern.moneoType ??
                 TransactionClassification.resolveMoneoType(
                     pattern.classification),
-            category: pattern.category,
+            category: resolvedCat ?? pattern.category,
             accountName: resolvedAccount,
             destinationAccount: destAccount,
             confidence: confidence,
@@ -172,7 +295,7 @@ class TransactionClassifier {
             strategicNote: _buildStrategicNote(
               reason: reason,
               classification: pattern.classification,
-              category: pattern.category,
+              category: resolvedCat ?? pattern.category,
               referenceDate: parseResult.fecha,
             ),
           );
@@ -181,16 +304,30 @@ class TransactionClassifier {
     }
 
     // =========================================================================
-    // ETAPA 2: Reglas Deterministas (Sin LLM)
+    // ETAPA 2: Reglas Deterministas (evaluación base + detección de brechas)
     // =========================================================================
-    final deterministicResult = _evaluateDeterministicRules(
+    final rawDeterministic = isPromoSignal
+        ? null
+        : _evaluateDeterministicRules(
+            parseResult: parseResult,
+            rawText: text,
+            accounts: accounts,
+            packageName: packageName,
+          );
+    final deterministicResult = rawDeterministic == null
+        ? null
+        : _alignDeterministicCategory(rawDeterministic, userCategories);
+
+    final bool shouldConsultAi = _shouldConsultAi(
       parseResult: parseResult,
-      rawText: text,
-      accounts: accounts,
+      deterministicResult: deterministicResult,
       packageName: packageName,
+      isPromoSignal: isPromoSignal,
+      hasCrossContext: hasCrossContext,
     );
 
-    if (deterministicResult != null &&
+    if (!shouldConsultAi &&
+        deterministicResult != null &&
         (deterministicResult.confidence >= 0.80 ||
             deterministicResult.decisionSource ==
                 'ambiguous_account_or_destination')) {
@@ -215,10 +352,17 @@ class TransactionClassifier {
     }
 
     // =========================================================================
-    // ETAPA 3: Respaldo On-Device con Gemma (flutter_gemma)
+    // ETAPA 3: Cerebro IA Context-Aware (API Cloud o Gemma Local con Mini-RAG)
     // =========================================================================
-    final double? amount =
+    final double? parsedAmount =
         parseResult is ParsedTransaction ? parseResult.monto : null;
+    final List<double> candidateAmounts =
+        parseResult is ParsedTransaction ? parseResult.candidateAmounts : const [];
+    final String currency =
+        parseResult is ParsedTransaction ? parseResult.moneda : 'COP';
+    final AccountHint? accountHint =
+        parseResult is ParsedTransaction ? parseResult.cuenta : null;
+
     List<String> fewShot = const [];
     try {
       fewShot = await _patternsService.getFewShotExamples(
@@ -229,55 +373,124 @@ class TransactionClassifier {
       fewShot = const [];
     }
 
-    final gemmaResult = await _gemmaAdapter.classify(
-      rawText: text,
-      merchant: merchant,
-      amount: amount,
-      fewShotExamples: fewShot,
-    );
-
-    if (gemmaResult != null) {
-      final isTransfer = gemmaResult.classification == 'transferencia-propia';
-      final destAccount = isTransfer
-          ? _detectDestinationAccount(parseResult, text, accounts)
-          : null;
-
-      // Transferencia propia exige destino no nulo
-      if (!isTransfer || destAccount != null) {
-        final bool reqReview = gemmaResult.confidence < 0.85;
-        final resolvedCategory =
-            gemmaResult.category ?? deterministicResult?.category ?? 'Otros';
-        final gemmaNote = gemmaResult.strategicNote?.trim();
-        final strategicNote = (gemmaNote != null && gemmaNote.isNotEmpty)
-            ? gemmaNote
-            : _buildStrategicNote(
-                reason: 'Clasificado por asistente IA → $resolvedCategory',
-                classification: gemmaResult.classification,
-                category: resolvedCategory,
-                referenceDate: parseResult.fecha,
-              );
-        return TransactionClassification(
-          classification: gemmaResult.classification,
-          moneoType: TransactionClassification.resolveMoneoType(
-            gemmaResult.classification,
-          ),
-          category: resolvedCategory,
-          accountName: deterministicResult?.accountName ??
-              _detectAccountName(parseResult, text, accounts),
-          destinationAccount: destAccount,
-          confidence: gemmaResult.confidence,
-          requiresReview: reqReview,
-          createTransaction: !reqReview,
-          decisionSource: 'gemma_fallback',
-          strategicNote: strategicNote,
+    List<String> spamExamples = const [];
+    if (_spamPatternsService != null) {
+      try {
+        spamExamples = await _spamPatternsService!.getTopSpamExamples(
+          packageName: packageName,
+          query: text,
+          limit: 2,
         );
+      } catch (_) {
+        spamExamples = const [];
       }
     }
 
-    // Fallback cuando Gemma no está disponible, falla o da timeout
+    final aiContext = NotificationAiContext(
+      rawText: text,
+      packageName: packageName,
+      appName: appName,
+      channelId: channelId,
+      merchant: merchant,
+      amount: parsedAmount,
+      candidateAmounts: candidateAmounts,
+      currency: currency,
+      accountLast4: accountHint?.last4,
+      accountHint: accountHint?.hint,
+      isPromoSignal: isPromoSignal,
+      userAccounts: accounts,
+      expenseCategories: userCategories.expenses,
+      incomeCategories: userCategories.income,
+      fewShotExamples: fewShot,
+      spamExamples: spamExamples,
+      crossNotificationSummaries: crossNotificationSummaries,
+    );
+
+    final gemmaResult = await _gemmaAdapter.classifyWithContext(aiContext);
+
+    if (gemmaResult != null) {
+      // Si la IA dictamina que es promo / marketing / no transacción -> Spam
+      if (!gemmaResult.isTransaction || gemmaResult.classification == 'spam') {
+        final reason = gemmaResult.spamReason ??
+            'Clasificada como promoción o aviso no transaccional por IA';
+        return TransactionClassification(
+          classification: 'spam',
+          moneoType: null,
+          category: null,
+          accountName: null,
+          destinationAccount: null,
+          confidence: gemmaResult.confidence,
+          requiresReview: false,
+          createTransaction: false,
+          decisionSource: 'ai_spam',
+          isTransaction: false,
+          spamReason: reason,
+          strategicNote: reason,
+          aiAnalyzed: true,
+        );
+      }
+
+      // Validación cruzada Post-IA (anti-alucinaciones)
+      final validated = _validateAiResult(
+        gemmaResult: gemmaResult,
+        parseResult: parseResult,
+        rawText: text,
+        accounts: accounts,
+        userCategories: userCategories,
+        deterministicFallback: deterministicResult,
+        packageName: packageName,
+      );
+      if (validated != null) {
+        return validated;
+      }
+    }
+
+    // Si era señal clara de promoción y la IA no estuvo disponible -> Spam local
+    if (isPromoSignal) {
+      return const TransactionClassification(
+        classification: 'spam',
+        moneoType: null,
+        category: null,
+        accountName: null,
+        destinationAccount: null,
+        confidence: 0.85,
+        requiresReview: false,
+        createTransaction: false,
+        decisionSource: 'promo_filter',
+        isTransaction: false,
+        spamReason: 'Promoción o publicidad detectada (sin operación ejecutada)',
+        strategicNote: 'Promoción o publicidad detectada',
+      );
+    }
+
+    // Si el fallback determinista era válido y la IA no estuvo disponible, devolverlo
+    if (deterministicResult != null &&
+        (deterministicResult.confidence >= 0.80 ||
+            deterministicResult.decisionSource ==
+                'ambiguous_account_or_destination')) {
+      final reason = deterministicResult.decisionSource ==
+              'ambiguous_account_or_destination'
+          ? 'Cuenta origen o destino ambigua; requiere confirmación'
+          : 'Regla determinista → ${deterministicResult.category ?? 'Otros'}';
+      return deterministicResult.copyWith(
+        strategicNote: _buildStrategicNote(
+          reason: reason,
+          classification: deterministicResult.classification,
+          category: deterministicResult.category,
+          referenceDate: parseResult.fecha,
+        ),
+      );
+    }
+
+    // Fallback cuando IA no está disponible, falla o da timeout
     final rawFallbackType = deterministicResult?.classification ?? 'gasto';
     final fallbackAccount = deterministicResult?.accountName ??
-        _detectAccountName(parseResult, text, accounts);
+        _detectAccountName(
+          parseResult,
+          text,
+          accounts,
+          packageName: packageName,
+        );
     final fallbackDest = rawFallbackType == 'transferencia-propia'
         ? deterministicResult?.destinationAccount ??
             _detectDestinationAccount(parseResult, text, accounts)
@@ -290,7 +503,13 @@ class TransactionClassifier {
             : rawFallbackType;
     final actualMoneo =
         TransactionClassification.resolveMoneoType(actualClassification);
-    final fallbackCategory = deterministicResult?.category ?? 'Otros';
+    final fallbackCategory = deterministicResult?.category ??
+        _alignCategoryToUserCatalog(
+          'Otros',
+          actualClassification,
+          userCategories,
+        ) ??
+        'Otros';
 
     return TransactionClassification(
       classification: actualClassification,
@@ -315,6 +534,277 @@ class TransactionClassifier {
         referenceDate: parseResult.fecha,
       ),
     );
+  }
+
+  bool _shouldConsultAi({
+    required NotificationParseResult parseResult,
+    required TransactionClassification? deterministicResult,
+    required String? packageName,
+    required bool isPromoSignal,
+    required bool hasCrossContext,
+  }) {
+    if (isPromoSignal) return true;
+    if (hasCrossContext) return true;
+    if (deterministicResult == null) return true;
+    if (deterministicResult.confidence < 0.80 &&
+        deterministicResult.decisionSource != 'ambiguous_account_or_destination') {
+      return true;
+    }
+    if (isHybridAppPackage(packageName)) return true;
+
+    if (enableAiEnrichment) {
+      if (deterministicResult.accountName == null ||
+          deterministicResult.decisionSource ==
+              'ambiguous_account_or_destination') {
+        return true;
+      }
+      final catLower = (deterministicResult.category ?? '').trim().toLowerCase();
+      if (catLower.isEmpty || catLower == 'otros' || catLower == 'ingresos') {
+        return true;
+      }
+      if (parseResult is ParsedTransaction &&
+          (parseResult.comercio == null ||
+              isGenericBankMerchant(parseResult.comercio))) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  TransactionClassification? _validateAiResult({
+    required GemmaClassificationResult gemmaResult,
+    required NotificationParseResult parseResult,
+    required String rawText,
+    required List<AccountItem> accounts,
+    required ({List<String> expenses, List<String> income}) userCategories,
+    required TransactionClassification? deterministicFallback,
+    String? packageName,
+  }) {
+    final isTransfer = gemmaResult.classification == 'transferencia-propia';
+    bool guardrailTriggered = false;
+
+    // 1. Guardia de cuentas contra el catálogo real del usuario
+    String? validatedAccount;
+    if (gemmaResult.accountName != null) {
+      validatedAccount = _matchRealAccountName(gemmaResult.accountName!, accounts);
+      if (validatedAccount == null) {
+        guardrailTriggered = true;
+      }
+    }
+    validatedAccount ??= deterministicFallback?.accountName ??
+        _detectAccountName(
+          parseResult,
+          rawText,
+          accounts,
+          packageName: packageName,
+        );
+
+    String? validatedDest;
+    if (isTransfer) {
+      if (gemmaResult.destinationAccount != null) {
+        validatedDest = _matchRealAccountName(
+          gemmaResult.destinationAccount!,
+          accounts,
+          excludeTitle: validatedAccount,
+        );
+        if (validatedDest == null) {
+          guardrailTriggered = true;
+        }
+      }
+      validatedDest ??= _detectDestinationAccount(
+        parseResult,
+        rawText,
+        accounts,
+        excludeAccount: validatedAccount,
+      );
+      if (validatedDest == null || validatedDest == validatedAccount) {
+        return null;
+      }
+    }
+
+    // 2. Guardia de monto contra los candidatos realmente presentes en la notificación
+    double? validatedAmount;
+    if (gemmaResult.amount != null && gemmaResult.amount! > 0) {
+      final candidates = parseResult is ParsedTransaction
+          ? <double>[
+              if (parseResult.monto != null) parseResult.monto!,
+              ...parseResult.candidateAmounts,
+            ]
+          : const <double>[];
+      final matchesCandidate = candidates.any(
+        (c) => (c - gemmaResult.amount!).abs() < 0.01,
+      );
+      if (matchesCandidate || candidates.isEmpty) {
+        validatedAmount = gemmaResult.amount;
+      } else {
+        guardrailTriggered = true;
+        validatedAmount =
+            parseResult is ParsedTransaction ? parseResult.monto : null;
+      }
+    }
+
+    // 3. Guardia de categoría contra el catálogo real del usuario
+    final rawAiCat = gemmaResult.category;
+    String? resolvedCategory;
+    if (isTransfer) {
+      resolvedCategory = 'Transferencia';
+    } else if (rawAiCat != null && rawAiCat.trim().isNotEmpty) {
+      final hasCatalog = gemmaResult.classification == 'ingreso'
+          ? userCategories.income.isNotEmpty
+          : userCategories.expenses.isNotEmpty;
+      if (hasCatalog) {
+        resolvedCategory = _alignCategoryToUserCatalog(
+          rawAiCat,
+          gemmaResult.classification,
+          userCategories,
+        );
+        if (resolvedCategory == null) {
+          guardrailTriggered = true;
+        }
+      } else {
+        resolvedCategory = rawAiCat.trim();
+      }
+    }
+    resolvedCategory ??= deterministicFallback?.category ??
+        (isTransfer ? 'Transferencia' : 'Otros');
+
+    final description = gemmaResult.description ?? gemmaResult.merchant;
+    final bool reqReview = gemmaResult.confidence < 0.85 ||
+        guardrailTriggered ||
+        (validatedAccount == null && accounts.isNotEmpty && enableAiEnrichment);
+
+    final gemmaNote = gemmaResult.strategicNote?.trim();
+    final strategicNote = (gemmaNote != null && gemmaNote.isNotEmpty)
+        ? gemmaNote
+        : _buildStrategicNote(
+            reason: 'Clasificado por asistente IA → $resolvedCategory',
+            classification: gemmaResult.classification,
+            category: resolvedCategory,
+            referenceDate: parseResult.fecha,
+          );
+
+    return TransactionClassification(
+      classification: gemmaResult.classification,
+      moneoType: TransactionClassification.resolveMoneoType(
+        gemmaResult.classification,
+      ),
+      category: resolvedCategory,
+      accountName: validatedAccount,
+      destinationAccount: validatedDest,
+      confidence: guardrailTriggered
+          ? (gemmaResult.confidence < 0.78 ? gemmaResult.confidence : 0.78)
+          : gemmaResult.confidence,
+      requiresReview: reqReview,
+      createTransaction: !reqReview,
+      decisionSource: 'gemma_fallback',
+      strategicNote: strategicNote,
+      suggestedDescription: description,
+      suggestedAmount: validatedAmount,
+      aiAnalyzed: true,
+    );
+  }
+
+  String? _matchRealAccountName(
+    String candidate,
+    List<AccountItem> accounts, {
+    String? excludeTitle,
+  }) {
+    final normCand = _normalizeSimple(candidate);
+    if (normCand.isEmpty || accounts.isEmpty) return null;
+    for (final acc in accounts) {
+      if (excludeTitle != null && acc.title == excludeTitle) continue;
+      if (_normalizeSimple(acc.title) == normCand) {
+        return acc.title;
+      }
+    }
+    final partial = accounts.where((acc) {
+      if (excludeTitle != null && acc.title == excludeTitle) return false;
+      final normAcc = _normalizeSimple(acc.title);
+      return normAcc.contains(normCand) || normCand.contains(normAcc);
+    }).toList();
+    if (partial.length == 1) {
+      return partial.first.title;
+    }
+    return null;
+  }
+
+  TransactionClassification _alignDeterministicCategory(
+    TransactionClassification result,
+    ({List<String> expenses, List<String> income}) userCategories,
+  ) {
+    if (result.classification == 'transferencia-propia') return result;
+    final current = result.category;
+    if (current == null || current.trim().isEmpty) return result;
+    final aligned = _alignCategoryToUserCatalog(
+      current,
+      result.classification,
+      userCategories,
+    );
+    if (aligned == null || aligned == current) return result;
+    return result.copyWith(category: aligned);
+  }
+
+  static String? _alignCategoryToUserCatalog(
+    String proposed,
+    String classification,
+    ({List<String> expenses, List<String> income}) userCategories,
+  ) {
+    final catalog = classification == 'ingreso'
+        ? userCategories.income
+        : userCategories.expenses;
+    if (catalog.isEmpty) return proposed;
+
+    final normProposed = _normalizeSimple(proposed);
+    // 1. Exacto sin tildes / case-insensitive
+    for (final cat in catalog) {
+      if (_normalizeSimple(cat) == normProposed) return cat;
+    }
+
+    // 2. Sinónimos comunes en español
+    const synonymGroups = <List<String>>[
+      ['alimentacion', 'comida', 'mercado', 'supermercado', 'restaurantes', 'restaurante', 'domicilios'],
+      ['transporte', 'movilidad', 'gasolina', 'uber', 'taxi', 'pasajes', 'vehiculo'],
+      ['servicios', 'servicios publicos', 'facturas', 'internet', 'celular', 'hogar'],
+      ['entretenimiento', 'ocio', 'diversion', 'suscripciones', 'streaming', 'salidas'],
+      ['salud', 'farmacia', 'medicina', 'medico', 'bienestar'],
+      ['educacion', 'estudio', 'estudios', 'cursos', 'universidad'],
+      ['ropa', 'vestuario', 'compras', 'moda', 'shopping'],
+      ['salario', 'nomina', 'sueldo', 'trabajo', 'honorarios', 'pago'],
+      ['inversiones', 'rendimientos', 'intereses', 'ahorro'],
+      ['reembolso', 'devolucion'],
+      ['otros', 'general', 'varios', 'sin categoria'],
+    ];
+
+    final expandedTargets = <String>{normProposed};
+    for (final group in synonymGroups) {
+      if (group.contains(normProposed)) {
+        expandedTargets.addAll(group);
+      }
+    }
+
+    for (final target in expandedTargets) {
+      for (final cat in catalog) {
+        final normCat = _normalizeSimple(cat);
+        if (normCat == target || normCat.contains(target) || target.contains(normCat)) {
+          return cat;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  static String _normalizeSimple(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ñ', 'n');
   }
 
   // ---------------------------------------------------------------------------
@@ -690,7 +1180,53 @@ class TransactionClassifier {
       }
 
       if (bankMatches.length > 1) {
+        final lowerRaw = text.toLowerCase();
         final productHint = hint?.hint?.toLowerCase();
+        final mentionsRappiCard = lowerRaw.contains('rappicard') ||
+            lowerRaw.contains('rappi card') ||
+            lowerRaw.contains('tarjeta de crédito') ||
+            lowerRaw.contains('tarjeta de credito') ||
+            lowerRaw.contains('crédito') ||
+            lowerRaw.contains('credito') ||
+            (productHint?.contains('crédito') ?? false) ||
+            (productHint?.contains('credito') ?? false);
+        final mentionsRappiCuenta = lowerRaw.contains('rappicuenta') ||
+            lowerRaw.contains('rappi cuenta') ||
+            lowerRaw.contains('rappipay') ||
+            lowerRaw.contains('débito') ||
+            lowerRaw.contains('debito') ||
+            lowerRaw.contains('ahorros');
+
+        if (mentionsRappiCard && !mentionsRappiCuenta) {
+          final creditMatches = bankMatches.where((acc) {
+            final combined = '${acc.title} ${acc.subtitle}'.toLowerCase();
+            final hasLimit = acc.creditLimit != null &&
+                (double.tryParse(acc.creditLimit!) ?? 0) > 0;
+            return combined.contains('rappicard') ||
+                combined.contains('card') ||
+                combined.contains('crédito') ||
+                combined.contains('credito') ||
+                combined.contains('tc') ||
+                hasLimit;
+          }).toList();
+          if (creditMatches.length == 1) {
+            return _AccountResolution(creditMatches.first.title);
+          }
+        } else if (mentionsRappiCuenta && !mentionsRappiCard) {
+          final debitMatches = bankMatches.where((acc) {
+            final combined = '${acc.title} ${acc.subtitle}'.toLowerCase();
+            final hasLimit = acc.creditLimit != null &&
+                (double.tryParse(acc.creditLimit!) ?? 0) > 0;
+            return !hasLimit &&
+                !combined.contains('rappicard') &&
+                !combined.contains('crédito') &&
+                !combined.contains('credito');
+          }).toList();
+          if (debitMatches.length == 1) {
+            return _AccountResolution(debitMatches.first.title);
+          }
+        }
+
         if (productHint != null && productHint.isNotEmpty) {
           final narrowed = bankMatches.where((acc) {
             final combined = '${acc.title} ${acc.subtitle}'.toLowerCase();
@@ -761,7 +1297,8 @@ class TransactionClassifier {
       'com.bancobogota': ['banco de bogota', 'banco de bogotá', 'bogota'],
       'com.avvillas': ['av villas', 'avvillas'],
       'com.bancopopular': ['banco popular', 'popular'],
-      'com.rappi': ['rappi', 'rappipay'],
+      'com.grability.rappi': ['rappi', 'rappipay', 'rappicard', 'rappicuenta'],
+      'com.rappi': ['rappi', 'rappipay', 'rappicard', 'rappicuenta'],
       'com.dale': ['dale'],
       'com.lulo': ['lulo'],
     };
@@ -936,6 +1473,34 @@ class TransactionClassifier {
       // Caja 'data' cerrada o con tipo distinto en pruebas unitarias aisladas.
     }
     return null;
+  }
+
+  Future<({List<String> expenses, List<String> income})>
+      _loadUserCategories() async {
+    if (_categoriesLoader != null) {
+      try {
+        return await _categoriesLoader!();
+      } catch (_) {}
+    }
+    try {
+      final expMeta = await CategoryService.getCategoriesWithMetadata('Expenses');
+      final incMeta = await CategoryService.getCategoriesWithMetadata('Income');
+      List<String> extract(List<Map<String, dynamic>> raw) {
+        final seen = <String>{};
+        final list = <String>[];
+        for (final item in raw) {
+          final name = (item['text'] ?? '').toString().trim();
+          if (name.isNotEmpty && seen.add(name)) {
+            list.add(name);
+          }
+        }
+        return list;
+      }
+
+      return (expenses: extract(expMeta), income: extract(incMeta));
+    } catch (_) {
+      return (expenses: const <String>[], income: const <String>[]);
+    }
   }
 
   Future<List<AccountItem>> _loadAccounts() async {

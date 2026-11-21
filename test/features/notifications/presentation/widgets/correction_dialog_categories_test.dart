@@ -216,4 +216,76 @@ void main() {
       expect(result!.destinationAccount, equals('TC Banco de Occidente'));
     },
   );
+
+  testWidgets(
+    'Si accountName viene nulo NO preselecciona NU por defecto y exige elegir cuenta',
+    (tester) async {
+      setMockCategoryPrefs();
+      CorrectionData? result;
+
+      final itemWithoutAccount = PendingTransactionItem(
+        id: 'item_no_acc',
+        notificationId: 'notif_no_acc',
+        rawText: 'Compra en Juan Valdez por \$18.000',
+        comercio: 'Juan Valdez',
+        monto: 18000,
+        moneda: 'COP',
+        fecha: DateTime(2026, 11, 21, 10, 0),
+        classification: 'gasto',
+        moneoType: 'Expenses',
+        category: 'Comida',
+        accountName: null,
+        confidence: 0.70,
+        requiresReview: true,
+        autoProcessable: false,
+        decisionSource: 'deterministic_rules',
+        createdAt: DateTime(2026, 11, 21, 10, 0),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  result = await CorrectionDialog.show(
+                    context,
+                    item: itemWithoutAccount,
+                    availableAccounts: const ['Nu', 'RappiCard', 'Nequi'],
+                  );
+                },
+                child: const Text('Abrir'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Abrir'));
+      await tester.pumpAndSettle();
+
+      // Debe mostrar placeholder 'Elige cuenta' y NO preseleccionar 'Nu'
+      expect(find.text('Elige cuenta'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Guardar corrección'));
+      await tester.tap(find.text('Guardar corrección'));
+      await tester.pumpAndSettle();
+      expect(find.text('Selecciona una cuenta válida'), findsOneWidget);
+      expect(result, isNull);
+
+      // Elegir RappiCard explícitamente y guardar
+      await tester.ensureVisible(find.text('Elige cuenta'));
+      await tester.tap(find.text('Elige cuenta'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('RappiCard').last);
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Guardar corrección'));
+      await tester.tap(find.text('Guardar corrección'));
+      await tester.pumpAndSettle();
+
+      expect(result, isNotNull);
+      expect(result!.accountName, equals('RappiCard'));
+    },
+  );
 }

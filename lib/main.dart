@@ -24,6 +24,7 @@ import 'package:finazaap/themes/app_theme_mode.dart';
 import 'package:finazaap/themes/app_theme_data.dart';
 import 'package:finazaap/core/theme_notifier.dart';
 import 'package:finazaap/features/notifications/services/gemma_classifier_adapter.dart';
+import 'package:finazaap/features/notifications/services/local_gemma_coordinator.dart';
 import 'package:finazaap/features/notifications/services/notification_pipeline_service.dart';
 
 /// Punto de entrada principal de FinazaApp
@@ -77,6 +78,8 @@ void main() async {
     AiProviderRouter.registerHooks();
     AiChatService.ensureGemmaInitialized = _ensureGemmaInitialized;
     DefaultGemmaInferenceClient.ensureGemmaInitialized = _ensureGemmaInitialized;
+    LocalGemmaCoordinator.instance.ensureGemmaInitialized = _ensureGemmaInitialized;
+    LocalGemmaCoordinator.instance.registerLifecycleObserver();
 
     // Ejecutar la aplicación inmediatamente tras inicializar estado esencial
     runApp(const FinazaApp());

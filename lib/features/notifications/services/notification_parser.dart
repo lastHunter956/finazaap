@@ -35,9 +35,29 @@ class NotificationParser {
     r'pago\s+aplicado|pagaste|compra\s+aprobada|compraste|'
     r'transacci[oó]n\s+aprobada|transacci[oó]n\s+exitosa|'
     r'transferencia\s+exitosa|transferencia\s+aprobada|transferiste|'
-    r'se\s+realiz[oó]\s+un\s+pago|hemos\s+debitado|d[eé]bito\s+realizado)\b',
+    r'se\s+realiz[oó]\s+un\s+pago|hemos\s+debitado|d[eé]bito\s+realizado|'
+    r'recibiste|te\s+envi[oó]|te\s+enviaron|te\s+lleg[oó]\s+plata|'
+    r'te\s+transfirieron|te\s+consignaron|enviaste|retiraste|sacaste|'
+    r'cargamos|cobro\s+aprobado|abono\s+exitoso|reembolso\s+aplicado)\b',
     caseSensitive: false,
   );
+
+  /// Señales claras de publicidad, cupón o promoción comercial (apps híbridas como Rappi).
+  static final RegExp _promoMarketingRegex = RegExp(
+    r'\b(descuento|cup[oó]n|cupones|cashback|gana\s+hasta|ahorra|env[ií]o\s+gratis|'
+    r'sin\s+costo\s+de\s+env[ií]o|2x1|promo(?:ci[oó]n|ciones)?|oferta|pide\s+ya|'
+    r'te\s+regalamos|bono\s+de|en\s+tu\s+pr[oó]xim[oa]|aprovecha|solo\s+hoy|'
+    r'exclusiv[oa]\s+para\s+ti|desde\s+\$|hasta\s+\$)\b',
+    caseSensitive: false,
+  );
+
+  /// Distingue promociones/publicidad de operaciones ya ejecutadas.
+  static bool isPromoMarketingSignal(String text) {
+    if (_completedOperationRegex.hasMatch(text)) {
+      return false;
+    }
+    return _promoMarketingRegex.hasMatch(text);
+  }
 
   /// Marcadores de solicitud, recordatorio o pago pendiente aún no consumado.
   static final RegExp _pendingPaymentRequestRegex = RegExp(
@@ -58,9 +78,19 @@ class NotificationParser {
 
   /// Parsea un [NotificationEvent] en un resultado tipado [NotificationParseResult].
   NotificationParseResult parse(NotificationEvent event) {
+    if (event.isOngoing) {
+      return UnparseableNotification(
+        rawText: '${event.title}. ${event.enrichedBody}'.trim(),
+        reason: 'Notificación en curso (ongoing), no es una transacción finalizada',
+        fecha: event.timestamp,
+        flags: const ['non_transactional_text', 'ongoing_notification'],
+      );
+    }
+    final effectiveBody =
+        event.enrichedBody.isNotEmpty ? event.enrichedBody : event.body;
     return parseRaw(
       title: event.title,
-      body: event.body,
+      body: effectiveBody,
       packageName: event.packageName,
       timestamp: event.timestamp,
     );
@@ -141,6 +171,8 @@ class NotificationParser {
     final double amount = amountExtraction.amount;
     final String currency = amountExtraction.currency;
     final bool isAmountAmbiguous = amountExtraction.isAmbiguous;
+    final List<double> candidateAmounts = amountExtraction.candidates;
+    final bool isPromo = isPromoMarketingSignal(fullRawText);
 
     // ─────────────────────────────────────────────────────────────────────────
     // ETAPA 4: EXTRACCIÓN DE TIPO (gasto, ingreso, transferencia, desconocido)
@@ -171,6 +203,7 @@ class NotificationParser {
     if (merchant == null) flags.add('missing_merchant');
     if (transactionType == 'desconocido') flags.add('unknown_transaction_type');
     if (isAmountAmbiguous) flags.add('ambiguous_amount_separator');
+    if (isPromo) flags.add('promo_marketing_signal');
 
     double confidence = 0.90;
 
@@ -192,13 +225,18 @@ class NotificationParser {
       confidence = 0.50;
     }
 
+    if (isPromo) {
+      confidence = min(confidence, 0.45);
+    }
+
     confidence = max(0.0, min(0.98, confidence));
 
     // Reglas e invariantes no negociables:
     // 1. Si confidence < 0.80 -> requiresReview = true
     // 2. Si requiresReview = true -> autoProcessable = false
-    // 3. Si isAmountAmbiguous -> requiresReview = true, autoProcessable = false
-    final bool requiresReview = confidence < 0.80 || isAmountAmbiguous;
+    // 3. Si isAmountAmbiguous o isPromo -> requiresReview = true, autoProcessable = false
+    final bool requiresReview =
+        confidence < 0.80 || isAmountAmbiguous || isPromo;
     final bool autoProcessable = !requiresReview;
 
     return ParsedTransaction(
@@ -212,6 +250,8 @@ class NotificationParser {
       requiresReview: requiresReview,
       autoProcessable: autoProcessable,
       flags: flags,
+      candidateAmounts: candidateAmounts,
+      isPromoSignal: isPromo,
     );
   }
 
@@ -230,67 +270,102 @@ class NotificationParser {
   _AmountResult? _extractAmountAndCurrency(String text) {
     // 1. Detectar divisa explícita o contexto configurado
     String currency = CurrencyHelper.currencyCode;
+    bool explicitCurrencyInText = false;
     if (RegExp(r'\bUSD\b|\bUS\$\b', caseSensitive: false).hasMatch(text)) {
       currency = 'USD';
+      explicitCurrencyInText = true;
     } else if (RegExp(r'\bEUR\b|€', caseSensitive: false).hasMatch(text)) {
       currency = 'EUR';
+      explicitCurrencyInText = true;
     } else if (RegExp(r'\bMXN\b', caseSensitive: false).hasMatch(text)) {
       currency = 'MXN';
+      explicitCurrencyInText = true;
     } else if (RegExp(r'\bPEN\b|S\/', caseSensitive: false).hasMatch(text)) {
       currency = 'PEN';
+      explicitCurrencyInText = true;
     } else if (RegExp(r'\bGBP\b|£', caseSensitive: false).hasMatch(text)) {
       currency = 'GBP';
+      explicitCurrencyInText = true;
     } else if (RegExp(r'\bCOP\b|\bCOL\$\b', caseSensitive: false)
         .hasMatch(text)) {
       currency = 'COP';
+      explicitCurrencyInText = true;
     }
 
-    // 2. Extraer candidatos de montos numéricos asociados a monedas o conectores financieros
+    // 2. Extraer candidatos de montos numéricos asociados a monedas o conectores financieros.
+    // IMPORTANTE: `\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?(?![\d.,])` usa `+` y frontera
+    // negativa para no truncar nunca enteros de 4+ dígitos sin separador (ej. `$5800`).
     final RegExp amountPattern = RegExp(
-      r'(?:(?:\$|COP|USD|MXN|PEN|EUR|GBP|COL\$|US\$|S\/|€|£)\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?))|'
-      r'(?:(?:por|de|valor|monto|total|cargo|pago|retiro)\s+(?:de\s+)?(?:\$|COP|USD|MXN|PEN|EUR|GBP|COL\$|US\$|S\/|€|£)?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?))',
+      r'(?:(?:\$|COP|USD|MXN|PEN|EUR|GBP|COL\$|US\$|S\/|€|£)\s*(\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?(?!(?:\d|[.,]\d))|\d+(?:[.,]\d{1,2})?(?!(?:\d|[.,]\d))))|'
+      r'(?:(?:por|de|valor|monto|total|cargo|pago|retiro)\s+(?:de\s+)?(?:\$|COP|USD|MXN|PEN|EUR|GBP|COL\$|US\$|S\/|€|£)?\s*(\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?(?!(?:\d|[.,]\d))|\d+(?:[.,]\d{1,2})?(?!(?:\d|[.,]\d))))',
       caseSensitive: false,
     );
+
+    _AmountResult? primary;
+    final candidates = <double>[];
+
+    void registerCandidate(_AmountResult parsed) {
+      primary ??= parsed;
+      if (!candidates.any((v) => (v - parsed.amount).abs() < 0.005)) {
+        candidates.add(parsed.amount);
+      }
+    }
 
     final matches = amountPattern.allMatches(text);
     for (final match in matches) {
       final rawNum = (match.group(1) ?? match.group(2))?.trim();
       if (rawNum == null || rawNum.isEmpty) continue;
 
-      // Descartar si el token coincide con años o horas comunes (ej. 2026, 14:30)
+      // Descartar si el token coincide con años comunes sin símbolo de moneda
       if (rawNum.length == 4 &&
           (rawNum.startsWith('19') || rawNum.startsWith('20')) &&
-          !text.contains('\$$rawNum')) {
+          !text.contains('\$$rawNum') &&
+          !text.contains('\$ $rawNum')) {
         continue;
       }
 
-      final parsed = _parseNumericToken(rawNum, currencyContext: currency);
+      final parsed = _parseNumericToken(
+        rawNum,
+        currencyContext: currency,
+        explicitCurrencyInText: explicitCurrencyInText,
+      );
       if (parsed != null && parsed.amount > 0) {
-        return parsed;
+        registerCandidate(parsed);
       }
     }
 
     // Intento de fallback: buscar cualquier valor monetario con símbolo de moneda
     final fallbackPattern = RegExp(
-      r'[\$€£]\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)',
+      r'[\$€£]\s*(\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?(?!(?:\d|[.,]\d))|\d+(?:[.,]\d{1,2})?(?!(?:\d|[.,]\d)))',
     );
-    final fallbackMatch = fallbackPattern.firstMatch(text);
-    if (fallbackMatch != null) {
+    for (final fallbackMatch in fallbackPattern.allMatches(text)) {
       final rawNum = fallbackMatch.group(1)?.trim();
-      if (rawNum != null && rawNum.isNotEmpty) {
-        final parsed = _parseNumericToken(rawNum, currencyContext: currency);
-        if (parsed != null && parsed.amount > 0) {
-          return parsed;
-        }
+      if (rawNum == null || rawNum.isEmpty) continue;
+      final parsed = _parseNumericToken(
+        rawNum,
+        currencyContext: currency,
+        explicitCurrencyInText: explicitCurrencyInText,
+      );
+      if (parsed != null && parsed.amount > 0) {
+        registerCandidate(parsed);
       }
     }
 
-    return null;
+    if (primary == null) return null;
+    return _AmountResult(
+      amount: primary!.amount,
+      currency: primary!.currency,
+      isAmbiguous: primary!.isAmbiguous,
+      candidates: List<double>.unmodifiable(candidates),
+    );
   }
 
   /// Analiza y convierte una cadena numérica a double considerando separadores de miles y decimales.
-  _AmountResult? _parseNumericToken(String token,
-      {required String currencyContext}) {
+  _AmountResult? _parseNumericToken(
+    String token, {
+    required String currencyContext,
+    bool explicitCurrencyInText = false,
+  }) {
     final hasDot = token.contains('.');
     final hasComma = token.contains(',');
 
@@ -320,10 +395,20 @@ class NotificationParser {
 
     // Caso 2: Contiene únicamente puntos
     if (hasDot && !hasComma) {
-      final dotCount = '.'.allMatches(token).length;
+      final parts = token.split('.');
+      final dotCount = parts.length - 1;
 
-      // Múltiples puntos: 1.250.000 (claramente separadores de miles)
+      // Múltiples puntos: ej. 1.250.000 o formato mixto 5.800.00 / 1.250.000.50
       if (dotCount >= 2) {
+        final lastPart = parts.last;
+        if (lastPart.length == 1 || lastPart.length == 2) {
+          final intPart = parts.sublist(0, parts.length - 1).join();
+          final value = double.tryParse('$intPart.$lastPart');
+          return value != null
+              ? _AmountResult(
+                  amount: value, currency: currencyContext, isAmbiguous: false)
+              : null;
+        }
         final clean = token.replaceAll('.', '');
         final value = double.tryParse(clean);
         return value != null
@@ -332,8 +417,7 @@ class NotificationParser {
             : null;
       }
 
-      // Un solo punto: ej. 45.000 vs 1.234 vs 45.50
-      final parts = token.split('.');
+      // Un solo punto: ej. 45.000 vs 5.800 vs 1.234 vs 45.50
       final decimalPart = parts[1];
 
       // Si tiene 1 o 2 dígitos tras el punto, es decimal (ej. 45.50 o 10.5)
@@ -347,9 +431,14 @@ class NotificationParser {
 
       // Si tiene exactamente 3 dígitos tras el punto:
       if (decimalPart.length == 3) {
-        // En contexto COP/Latino con 2 o más dígitos enteros (ej. 45.000, 100.000):
-        // En Colombia no existen transacciones con milésimas de peso; son miles.
-        if (currencyContext == 'COP' && parts[0].length >= 2) {
+        // En contexto COP/Latino:
+        // - >=2 dígitos enteros (ej. 45.000, 100.000)
+        // - COP explícito (ej. COP 5.800)
+        // - O termina en '00' (ej. $5.800, $2.500, $1.000 — centenas exactas en COP)
+        if (currencyContext == 'COP' &&
+            (parts[0].length >= 2 ||
+                explicitCurrencyInText ||
+                decimalPart.endsWith('00'))) {
           final clean = token.replaceAll('.', '');
           final value = double.tryParse(clean);
           return value != null
@@ -358,8 +447,7 @@ class NotificationParser {
               : null;
         }
 
-        // Caso ambiguo: 1.234 (puede ser $1,234 miles o 1.234 decimal en USD)
-        // Se castiga la confianza según SKILL.md y se marca requires_review.
+        // Caso ambiguo: 1.234 sin divisa explícita ni centenas exactas
         final clean = token.replaceAll('.', '');
         final value = double.tryParse(clean);
         return value != null
@@ -371,10 +459,20 @@ class NotificationParser {
 
     // Caso 3: Contiene únicamente comas
     if (hasComma && !hasDot) {
-      final commaCount = ','.allMatches(token).length;
+      final parts = token.split(',');
+      final commaCount = parts.length - 1;
 
-      // Múltiples comas: 1,250,000 (claramente separadores de miles americanos)
+      // Múltiples comas: ej. 1,250,000 o formato mixto 5,800,00
       if (commaCount >= 2) {
+        final lastPart = parts.last;
+        if (lastPart.length == 1 || lastPart.length == 2) {
+          final intPart = parts.sublist(0, parts.length - 1).join();
+          final value = double.tryParse('$intPart.$lastPart');
+          return value != null
+              ? _AmountResult(
+                  amount: value, currency: currencyContext, isAmbiguous: false)
+              : null;
+        }
         final clean = token.replaceAll(',', '');
         final value = double.tryParse(clean);
         return value != null
@@ -383,8 +481,7 @@ class NotificationParser {
             : null;
       }
 
-      // Una sola coma: ej. 123,45 vs 45,000
-      final parts = token.split(',');
+      // Una sola coma: ej. 123,45 vs 5,800 vs 45,000
       final afterComma = parts[1];
 
       // 1 o 2 dígitos tras la coma: decimal europeo/latino (ej. 123,45)
@@ -397,23 +494,25 @@ class NotificationParser {
             : null;
       }
 
-      // Exactamente 3 dígitos tras la coma: separador de miles americano (ej. 45,000)
+      // Exactamente 3 dígitos tras la coma: separador de miles americano (ej. 5,800 / 45,000)
       if (afterComma.length == 3) {
         final isAmericanCurrency =
             ['USD', 'MXN', 'PEN', 'GBP'].contains(currencyContext);
+        final isClearCopThousands = currencyContext == 'COP' &&
+            (parts[0].length >= 2 || afterComma.endsWith('00'));
         final clean = token.replaceAll(',', '');
         final value = double.tryParse(clean);
         return value != null
             ? _AmountResult(
                 amount: value,
                 currency: currencyContext,
-                isAmbiguous: !isAmericanCurrency,
+                isAmbiguous: !(isAmericanCurrency || isClearCopThousands),
               )
             : null;
       }
     }
 
-    // Caso 4: Sin separadores (ej. 45000)
+    // Caso 4: Sin separadores (ej. 5800, 45000)
     final value = double.tryParse(token);
     if (value != null) {
       return _AmountResult(
@@ -435,7 +534,7 @@ class NotificationParser {
       return 'transferencia';
     }
 
-    // 2. Ingresos / Abonos
+    // 2. Ingresos / Abonos (incluyendo expresiones reales de Nequi Colombia)
     final incomeKeywords = [
       'recibiste',
       'te transfirieron',
@@ -452,6 +551,13 @@ class NotificationParser {
       'devolucion',
       'reembolso',
       'te enviaron',
+      'te envió',
+      'te envio',
+      'te llegó plata',
+      'te llego plata',
+      'llegó plata',
+      'llego plata',
+      'te pagaron',
     ];
     for (final kw in incomeKeywords) {
       if (lower.contains(kw)) {
@@ -468,9 +574,16 @@ class NotificationParser {
       'débito',
       'debito',
       'retiro',
+      'retiraste',
+      'sacaste',
       'transferiste',
       'enviaste',
+      'pasaste',
+      'recargaste',
+      'cargamos',
       'cargo',
+      'se cobró',
+      'se cobro',
       'transferencia a',
       'transferencia enviada',
       'descuento',
@@ -530,16 +643,29 @@ class NotificationParser {
           'su cuenta',
           'cuenta',
           'tarjeta',
+          'tu tarjeta',
           'ahorros',
           'corriente',
           'nequi',
+          'tu nequi',
           'daviplata',
+          'rappicard',
+          'tu rappicard',
+          'rappicuenta',
+          'rappipay',
           'banco',
           'cajero',
           'clave',
           'linea',
           'tus cuentas',
           'mis cuentas',
+          'la app',
+          'tu app',
+          'el app',
+          'tus movimientos',
+          'movimientos',
+          'plata',
+          'dinero',
         };
         if (genericTerms.contains(candidate.toLowerCase()) ||
             candidate.length < 2) {
@@ -631,10 +757,12 @@ class _AmountResult {
   final double amount;
   final String currency;
   final bool isAmbiguous;
+  final List<double> candidates;
 
   const _AmountResult({
     required this.amount,
     required this.currency,
     required this.isAmbiguous,
+    this.candidates = const [],
   });
 }

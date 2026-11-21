@@ -627,6 +627,143 @@ class _SettingsScreenState extends State<SettingsScreen>
     await _refreshNotificationPermission();
   }
 
+  Future<void> _showNotificationDiagnosticsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.appTheme.secondaryCardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        final theme = sheetCtx.appTheme;
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final entries = _pipeline.diagnosticLog;
+            return SafeArea(
+              child: DraggableScrollableSheet(
+                expand: false,
+                initialChildSize: 0.65,
+                minChildSize: 0.4,
+                maxChildSize: 0.9,
+                builder: (_, scrollCtrl) => Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: theme.borderSubtle,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Diagnóstico de notificaciones',
+                                  style: TextStyle(
+                                    color: theme.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Solo apps permitidas · en memoria local (lote pendiente: ${_pipeline.bufferedBatchCount})',
+                                  style: TextStyle(
+                                    color: theme.textSecondary,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (entries.isNotEmpty)
+                            TextButton(
+                              onPressed: () {
+                                _pipeline.clearDiagnosticLog();
+                                setSheetState(() {});
+                                if (mounted) setState(() {});
+                              },
+                              child: Text(
+                                'Limpiar',
+                                style: TextStyle(color: theme.error),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Divider(height: 1, color: theme.borderSubtle),
+                    Expanded(
+                      child: entries.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  'Aún no se han recibido avisos en esta sesión. Cuando llegue una notificación de una app permitida (ej. Nequi, Rappi, Nu), aparecerá aquí su paquete, canal y resultado.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: theme.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              controller: scrollCtrl,
+                              itemCount: entries.length,
+                              separatorBuilder: (_, __) =>
+                                  Divider(height: 1, color: theme.borderSubtle),
+                              itemBuilder: (_, idx) {
+                                final e = entries[idx];
+                                final hh = e.timestamp.hour
+                                    .toString()
+                                    .padLeft(2, '0');
+                                final mm = e.timestamp.minute
+                                    .toString()
+                                    .padLeft(2, '0');
+                                final ch = (e.channelId != null &&
+                                        e.channelId!.isNotEmpty)
+                                    ? ' · canal: ${e.channelId}'
+                                    : '';
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(
+                                    '${e.appName} [${e.outcome}] · $hh:$mm',
+                                    style: TextStyle(
+                                      color: theme.textPrimary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${e.packageName}$ch\n${e.detail}',
+                                    style: TextStyle(
+                                      color: theme.textSecondary,
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                  isThreeLine: true,
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1069,6 +1206,31 @@ class _SettingsScreenState extends State<SettingsScreen>
                           color: context.appTheme.textSecondary,
                         ),
                         onTap: _showBankAppsSheet,
+                      ),
+
+                      Divider(height: 1, color: context.appTheme.borderSubtle),
+                      ListTile(
+                        key: const Key('settings_notification_diagnostics_tile'),
+                        leading: Icon(
+                          Icons.troubleshoot_outlined,
+                          color: context.appTheme.accent,
+                        ),
+                        title: Text(
+                          'Diagnóstico de captura',
+                          style: TextStyle(color: context.appTheme.textPrimary),
+                        ),
+                        subtitle: Text(
+                          'Últimos ${_pipeline.diagnosticLog.length} avisos de apps permitidas (solo local)',
+                          style: TextStyle(
+                            color: context.appTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: context.appTheme.textSecondary,
+                        ),
+                        onTap: _showNotificationDiagnosticsSheet,
                       ),
 
                       Divider(height: 1, color: context.appTheme.borderSubtle),

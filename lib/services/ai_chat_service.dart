@@ -13,6 +13,7 @@ import 'package:finazaap/data/category_service.dart';
 import 'package:finazaap/data/monthly_summary_cache.dart';
 import 'package:finazaap/data/transaction_service.dart';
 import 'package:finazaap/services/device_capability_service.dart';
+import 'package:finazaap/features/notifications/services/local_gemma_coordinator.dart';
 import 'package:finazaap/services/ai_financial_tools.dart';
 import 'package:finazaap/services/ai_provider_config.dart';
 import 'package:finazaap/services/ai_provider_router.dart';
@@ -302,6 +303,8 @@ class AiChatService extends ChangeNotifier {
     _gemmaChat = null;
     _gemmaModel = null;
     _sessionTokensUsed = 0;
+    LocalGemmaCoordinator.instance.setChatActive(false);
+    unawaited(LocalGemmaCoordinator.instance.releaseModel().catchError((_) {}));
     if (hadResources) {
       _idleUnloadCount++;
       AppLogger.info(
@@ -491,6 +494,10 @@ class AiChatService extends ChangeNotifier {
     try {
       AppLogger.info('Intentando obtener modelo Gemma activo preexistente...');
       
+      // Liberar cualquier modelo efímero del clasificador antes de cargar el modelo del chat
+      await LocalGemmaCoordinator.instance.releaseModel();
+      LocalGemmaCoordinator.instance.setChatActive(true);
+
       // PASO 1: Intentar obtener un modelo ya instalado sin necesidad de descargar
       bool modelAlreadyInstalled = false;
       try {

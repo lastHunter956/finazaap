@@ -1,6 +1,6 @@
 class TransactionClassification {
   final String
-      classification; // 'gasto', 'ingreso', 'transferencia-propia', 'sospechosa'
+      classification; // 'gasto', 'ingreso', 'transferencia-propia', 'sospechosa', 'spam'
   final String? moneoType; // 'Expenses', 'Income', 'Transfer', null
   final String? category;
   final String? accountName;
@@ -9,8 +9,14 @@ class TransactionClassification {
   final bool requiresReview;
   final bool createTransaction;
   final String
-      decisionSource; // 'anti_fraud', 'learned_patterns', 'deterministic_rules', 'gemma_fallback', 'fallback_ambiguous'
+      decisionSource; // 'anti_fraud', 'learned_spam', 'promo_filter', 'ai_spam', 'learned_patterns', 'deterministic_rules', 'gemma_fallback', 'ai_context_aware', 'fallback_ambiguous'
   final String? strategicNote;
+  final bool isTransaction;
+  final String? spamReason;
+  final String? matchedSpamRuleKey;
+  final String? suggestedDescription;
+  final double? suggestedAmount;
+  final bool aiAnalyzed;
 
   const TransactionClassification({
     required this.classification,
@@ -23,6 +29,12 @@ class TransactionClassification {
     required this.createTransaction,
     required this.decisionSource,
     this.strategicNote,
+    this.isTransaction = true,
+    this.spamReason,
+    this.matchedSpamRuleKey,
+    this.suggestedDescription,
+    this.suggestedAmount,
+    this.aiAnalyzed = false,
   });
 
   static String? resolveMoneoType(String classification) {
@@ -34,12 +46,14 @@ class TransactionClassification {
       case 'transferencia-propia':
         return 'Transfer';
       case 'sospechosa':
+      case 'spam':
       default:
         return null;
     }
   }
 
   bool get isSuspicious => classification == 'sospechosa';
+  bool get isSpam => !isTransaction || classification == 'spam';
   bool get isExpense => classification == 'gasto';
   bool get isIncome => classification == 'ingreso';
   bool get isTransfer => classification == 'transferencia-propia';
@@ -55,6 +69,12 @@ class TransactionClassification {
     bool? createTransaction,
     String? decisionSource,
     String? strategicNote,
+    bool? isTransaction,
+    String? spamReason,
+    String? matchedSpamRuleKey,
+    String? suggestedDescription,
+    double? suggestedAmount,
+    bool? aiAnalyzed,
   }) {
     return TransactionClassification(
       classification: classification ?? this.classification,
@@ -67,6 +87,12 @@ class TransactionClassification {
       createTransaction: createTransaction ?? this.createTransaction,
       decisionSource: decisionSource ?? this.decisionSource,
       strategicNote: strategicNote ?? this.strategicNote,
+      isTransaction: isTransaction ?? this.isTransaction,
+      spamReason: spamReason ?? this.spamReason,
+      matchedSpamRuleKey: matchedSpamRuleKey ?? this.matchedSpamRuleKey,
+      suggestedDescription: suggestedDescription ?? this.suggestedDescription,
+      suggestedAmount: suggestedAmount ?? this.suggestedAmount,
+      aiAnalyzed: aiAnalyzed ?? this.aiAnalyzed,
     );
   }
 
@@ -81,6 +107,14 @@ class TransactionClassification {
         'create_transaction': createTransaction,
         'decision_source': decisionSource,
         if (strategicNote != null) 'strategic_note': strategicNote,
+        if (!isTransaction) 'is_transaction': isTransaction,
+        if (spamReason != null) 'spam_reason': spamReason,
+        if (matchedSpamRuleKey != null)
+          'matched_spam_rule_key': matchedSpamRuleKey,
+        if (suggestedDescription != null)
+          'suggested_description': suggestedDescription,
+        if (suggestedAmount != null) 'suggested_amount': suggestedAmount,
+        if (aiAnalyzed) 'ai_analyzed': aiAnalyzed,
       };
 
   factory TransactionClassification.fromJson(
@@ -102,6 +136,19 @@ class TransactionClassification {
             (json['decision_source'] ?? json['decisionSource']) as String,
         strategicNote:
             (json['strategic_note'] ?? json['strategicNote']) as String?,
+        isTransaction:
+            (json['is_transaction'] ?? json['isTransaction']) as bool? ?? true,
+        spamReason: (json['spam_reason'] ?? json['spamReason']) as String?,
+        matchedSpamRuleKey: (json['matched_spam_rule_key'] ??
+            json['matchedSpamRuleKey']) as String?,
+        suggestedDescription: (json['suggested_description'] ??
+            json['suggestedDescription']) as String?,
+        suggestedAmount:
+            (json['suggested_amount'] ?? json['suggestedAmount']) != null
+                ? ((json['suggested_amount'] ?? json['suggestedAmount']) as num)
+                    .toDouble()
+                : null,
+        aiAnalyzed: (json['ai_analyzed'] ?? json['aiAnalyzed']) == true,
       );
 
   @override

@@ -94,6 +94,10 @@ class _StubNoteClassifier extends TransactionClassifier {
     String? rawText,
     List<AccountItem>? userAccounts,
     String? packageName,
+    String? appName,
+    String? channelId,
+    List<String> crossNotificationSummaries = const [],
+    bool bypassSpamPatterns = false,
   }) async {
     return TransactionClassification(
       classification: 'gasto',

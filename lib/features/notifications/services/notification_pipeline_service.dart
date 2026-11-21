@@ -8,6 +8,7 @@ import 'package:finazaap/features/notifications/adapters/real_transaction_execut
 import 'package:finazaap/features/notifications/domain/models/notification_event.dart';
 import 'package:finazaap/features/notifications/domain/models/notification_parse_result.dart';
 import 'package:finazaap/features/notifications/domain/models/pending_transaction_item.dart';
+import 'package:finazaap/features/notifications/domain/models/spam_models.dart';
 import 'package:finazaap/features/notifications/domain/ports/notification_source_port.dart';
 import 'package:finazaap/features/notifications/domain/ports/transaction_execution_port.dart';
 import 'package:finazaap/features/notifications/presentation/notifiers/pending_transactions_notifier.dart';
@@ -16,14 +17,48 @@ import 'package:finazaap/features/notifications/services/learned_patterns_servic
 import 'package:finazaap/features/notifications/services/notification_box_encryption.dart';
 import 'package:finazaap/features/notifications/services/notification_ingestion_service.dart';
 import 'package:finazaap/features/notifications/services/notification_parser.dart';
+import 'package:finazaap/features/notifications/services/spam_patterns_service.dart';
 import 'package:finazaap/features/notifications/services/transaction_classifier.dart';
 import 'package:finazaap/features/notifications/services/transaction_dedup_correlator.dart';
+
+/// Registro efímero en RAM (solo apps permitidas) para diagnóstico local en Ajustes.
+class NotificationDiagnosticEntry {
+  final DateTime timestamp;
+  final String packageName;
+  final String appName;
+  final String? channelId;
+  final String outcome; // 'pending' | 'spam' | 'auto_accepted' | 'dedup' | 'unparseable' | 'merged' | 'already_confirmed'
+  final String detail;
+  final String titlePreview;
+
+  const NotificationDiagnosticEntry({
+    required this.timestamp,
+    required this.packageName,
+    required this.appName,
+    this.channelId,
+    required this.outcome,
+    required this.detail,
+    required this.titlePreview,
+  });
+}
+
+class _RecentCrossContextRecord {
+  final DateTime timestamp;
+  final String summary;
+
+  const _RecentCrossContextRecord({
+    required this.timestamp,
+    required this.summary,
+  });
+}
 
 /// Coordinador del pipeline real de notificaciones bancarias en Moneo.
 ///
 /// Conecta:
-/// Fuente (Android / puerto inyectado) -> Whitelist + Dedup -> Parser ->
-/// Clasificador jerárquico -> Bandeja cifrada (`PendingTransactionsNotifier`) ->
+/// Fuente (Android / puerto inyectado) -> Whitelist + Dedup -> Pre-filtros + Parser ->
+/// Ventana cruzada adaptativa (5 min en background / flush inmediato al abrir app) ->
+/// Clasificador jerárquico (Anti-Fraude -> Spam 0-IA -> Mini-RAG -> IA Context-Aware -> Fallback) ->
+/// Correlador Multi-App -> Bandeja cifrada (`Pendientes` | `Spam 5 días`) ->
 /// Contabilidad real (`RealTransactionExecutionAdapter`).
 class NotificationPipelineService {
   static const String captureEnabledPrefsKey = 'notifications_capture_enabled';
@@ -31,6 +66,10 @@ class NotificationPipelineService {
       'notifications_auto_accept_future';
   static const String dedupHistoryBoxName = 'notification_dedup_history';
   static const Duration dedupHistoryTtl = Duration(days: 30);
+  static const Duration defaultBatchWindow = Duration(minutes: 5);
+  static const Duration crossContextHorizon = Duration(minutes: 10);
+  static const int maxBatchSize = 6;
+  static const int maxDiagnosticEntries = 25;
 
   static final NotificationPipelineService instance =
       NotificationPipelineService._internal();
@@ -46,8 +85,13 @@ class NotificationPipelineService {
     Box<dynamic>? patternsBox,
     Box<dynamic>? dedupRulesBox,
     Box<dynamic>? recentMovementsBox,
+    Box<dynamic>? spamBox,
+    Box<dynamic>? dismissedPatternsBox,
     TransactionDedupCorrelator? dedupCorrelator,
     TransactionClassifier? classifier,
+    SpamPatternsService? spamPatternsService,
+    Duration? batchWindow,
+    bool? enableAiEnrichment,
   }) {
     if (boxEncryption == null &&
         whitelistService == null &&
@@ -59,8 +103,13 @@ class NotificationPipelineService {
         patternsBox == null &&
         dedupRulesBox == null &&
         recentMovementsBox == null &&
+        spamBox == null &&
+        dismissedPatternsBox == null &&
         dedupCorrelator == null &&
-        classifier == null) {
+        classifier == null &&
+        spamPatternsService == null &&
+        batchWindow == null &&
+        enableAiEnrichment == null) {
       return instance;
     }
     return NotificationPipelineService._custom(
@@ -74,8 +123,13 @@ class NotificationPipelineService {
       patternsBox: patternsBox,
       dedupRulesBox: dedupRulesBox,
       recentMovementsBox: recentMovementsBox,
+      spamBox: spamBox,
+      dismissedPatternsBox: dismissedPatternsBox,
       dedupCorrelator: dedupCorrelator,
       classifier: classifier,
+      spamPatternsService: spamPatternsService,
+      batchWindow: batchWindow ?? Duration.zero,
+      enableAiEnrichment: enableAiEnrichment ?? false,
     );
   }
 
@@ -90,8 +144,13 @@ class NotificationPipelineService {
         _injectedPatternsBox = null,
         _injectedDedupRulesBox = null,
         _injectedRecentMovementsBox = null,
+        _injectedSpamBox = null,
+        _injectedDismissedPatternsBox = null,
         _injectedDedupCorrelator = null,
-        _injectedClassifier = null {
+        _injectedClassifier = null,
+        _injectedSpamPatternsService = null,
+        _batchWindow = defaultBatchWindow,
+        _enableAiEnrichment = true {
     _buildCollaborators();
   }
 
@@ -106,8 +165,13 @@ class NotificationPipelineService {
     Box<dynamic>? patternsBox,
     Box<dynamic>? dedupRulesBox,
     Box<dynamic>? recentMovementsBox,
+    Box<dynamic>? spamBox,
+    Box<dynamic>? dismissedPatternsBox,
     TransactionDedupCorrelator? dedupCorrelator,
     TransactionClassifier? classifier,
+    SpamPatternsService? spamPatternsService,
+    required Duration batchWindow,
+    required bool enableAiEnrichment,
   })  : _boxEncryption = boxEncryption ?? NotificationBoxEncryption(),
         _whitelistService = whitelistService ?? BankWhitelistService(),
         _source = source ?? AndroidNotificationSource(),
@@ -118,8 +182,13 @@ class NotificationPipelineService {
         _injectedPatternsBox = patternsBox,
         _injectedDedupRulesBox = dedupRulesBox,
         _injectedRecentMovementsBox = recentMovementsBox,
+        _injectedSpamBox = spamBox,
+        _injectedDismissedPatternsBox = dismissedPatternsBox,
         _injectedDedupCorrelator = dedupCorrelator,
-        _injectedClassifier = classifier {
+        _injectedClassifier = classifier,
+        _injectedSpamPatternsService = spamPatternsService,
+        _batchWindow = batchWindow,
+        _enableAiEnrichment = enableAiEnrichment {
     _buildCollaborators();
   }
 
@@ -133,18 +202,29 @@ class NotificationPipelineService {
   final Box<dynamic>? _injectedPatternsBox;
   final Box<dynamic>? _injectedDedupRulesBox;
   final Box<dynamic>? _injectedRecentMovementsBox;
+  final Box<dynamic>? _injectedSpamBox;
+  final Box<dynamic>? _injectedDismissedPatternsBox;
   final TransactionDedupCorrelator? _injectedDedupCorrelator;
   final TransactionClassifier? _injectedClassifier;
+  final SpamPatternsService? _injectedSpamPatternsService;
+  final Duration _batchWindow;
+  final bool _enableAiEnrichment;
 
   late final NotificationIngestionService _ingestionService;
   late final NotificationParser _parser;
   late final LearnedPatternsService _patternsService;
+  late final SpamPatternsService? _spamPatternsService;
   late final TransactionClassifier _classifier;
   late final TransactionDedupCorrelator _dedupCorrelator;
   late final PendingTransactionsNotifier _pendingNotifier;
 
   StreamSubscription<NotificationEvent>? _ingestedSubscription;
   Future<void> _processingChain = Future<void>.value();
+  final List<NotificationEvent> _batchBuffer = [];
+  Timer? _batchTimer;
+  final List<_RecentCrossContextRecord> _recentCrossContext = [];
+  final List<NotificationDiagnosticEntry> _diagnosticLog = [];
+
   List<AccountItem>? _cachedAccounts;
   DateTime? _cachedAccountsAt;
   static const Duration _accountsCacheTtl = Duration(seconds: 5);
@@ -161,9 +241,22 @@ class NotificationPipelineService {
       box: _injectedPatternsBox,
       boxEncryption: _injectedPatternsBox == null ? _boxEncryption : null,
     );
+
+    final hasCustomStorage = _injectedPendingBox != null ||
+        _injectedDedupBox != null ||
+        _injectedPatternsBox != null;
+    _spamPatternsService = _injectedSpamPatternsService ??
+        (_injectedDismissedPatternsBox != null
+            ? SpamPatternsService(box: _injectedDismissedPatternsBox)
+            : (!hasCustomStorage
+                ? SpamPatternsService(boxEncryption: _boxEncryption)
+                : null));
+
     _classifier = _injectedClassifier ??
         TransactionClassifier(
           patternsService: _patternsService,
+          spamPatternsService: _spamPatternsService,
+          enableAiEnrichment: _enableAiEnrichment,
         );
     _dedupCorrelator = _injectedDedupCorrelator ??
         TransactionDedupCorrelator(
@@ -177,8 +270,10 @@ class NotificationPipelineService {
     _pendingNotifier = PendingTransactionsNotifier(
       box: _injectedPendingBox,
       executedBox: _injectedExecutedBox,
+      spamBox: _injectedSpamBox,
       boxEncryption: _injectedPendingBox == null ? _boxEncryption : null,
       learnedPatternsService: _patternsService,
+      spamPatternsService: _spamPatternsService,
       executionPort: _executionPort,
       dedupCorrelator: _dedupCorrelator,
     );
@@ -187,10 +282,49 @@ class NotificationPipelineService {
   BankWhitelistService get whitelistService => _whitelistService;
   NotificationSourcePort get source => _source;
   LearnedPatternsService get patternsService => _patternsService;
+  SpamPatternsService? get spamPatternsService => _spamPatternsService;
   TransactionDedupCorrelator get dedupCorrelator => _dedupCorrelator;
   PendingTransactionsNotifier get pendingNotifier => _pendingNotifier;
   bool get isCaptureEnabled => _captureEnabled;
   bool get isAutoAcceptFutureEnabled => _autoAcceptFutureEnabled;
+  int get bufferedBatchCount => _batchBuffer.length;
+
+  /// Últimos 25 eventos recibidos de apps permitidas y su resultado en el pipeline.
+  List<NotificationDiagnosticEntry> get diagnosticLog =>
+      List.unmodifiable(_diagnosticLog);
+
+  void clearDiagnosticLog() {
+    _diagnosticLog.clear();
+  }
+
+  void _recordDiagnostic({
+    required NotificationEvent event,
+    required String outcome,
+    required String detail,
+  }) {
+    final appName =
+        _whitelistService.getBankName(event.packageName) ?? event.packageName;
+    final preview = event.title.trim().isNotEmpty
+        ? event.title.trim()
+        : (event.body.trim().length > 48
+            ? '${event.body.trim().substring(0, 48)}...'
+            : event.body.trim());
+    _diagnosticLog.insert(
+      0,
+      NotificationDiagnosticEntry(
+        timestamp: DateTime.now(),
+        packageName: event.packageName,
+        appName: appName,
+        channelId: event.channelId,
+        outcome: outcome,
+        detail: detail,
+        titlePreview: preview,
+      ),
+    );
+    if (_diagnosticLog.length > maxDiagnosticEntries) {
+      _diagnosticLog.removeRange(maxDiagnosticEntries, _diagnosticLog.length);
+    }
+  }
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -213,6 +347,7 @@ class NotificationPipelineService {
               dedupPruned: 0,
               executedPruned: 0,
               patternsPruned: 0,
+              spamPruned: 0,
             )));
         unawaited(_dedupCorrelator.warmUp().catchError((_) {}));
       }
@@ -269,13 +404,15 @@ class NotificationPipelineService {
 
   /// Ejecuta la poda TTL y compactación (`box.compact()`) sobre las cajas
   /// `notification_dedup_history` (>30 días), `notification_executed_ids`
-  /// (>90 días o tope 500) y `learned_patterns` obsoletos (>180 días).
-  Future<({int dedupPruned, int executedPruned, int patternsPruned})>
+  /// (>90 días o tope 500), `learned_patterns` obsoletos (>180 días) y
+  /// `notification_spam_items` (>5 días).
+  Future<({int dedupPruned, int executedPruned, int patternsPruned, int spamPruned})>
       pruneStorageTtl({DateTime? now}) async {
     final reference = now ?? DateTime.now();
     var dedupPruned = 0;
     var executedPruned = 0;
     var patternsPruned = 0;
+    var spamPruned = 0;
 
     try {
       final dedupBox = await _getDedupBox();
@@ -306,6 +443,10 @@ class NotificationPipelineService {
     } catch (_) {}
 
     try {
+      spamPruned = await _pendingNotifier.pruneExpiredSpam(now: reference);
+    } catch (_) {}
+
+    try {
       await _dedupCorrelator.pruneRecentMovements(now: reference);
     } catch (_) {}
 
@@ -313,10 +454,12 @@ class NotificationPipelineService {
       dedupPruned: dedupPruned,
       executedPruned: executedPruned,
       patternsPruned: patternsPruned,
+      spamPruned: spamPruned,
     );
   }
 
-  /// Drena eventos acumulados cuando la app regresa a primer plano.
+  /// Drena eventos acumulados cuando la app regresa a primer plano y hace flush
+  /// inmediato de la ventana de 5 min para UX instantánea.
   Future<void> syncOnResume() async {
     _cachedAccounts = null;
     _cachedAccountsAt = null;
@@ -340,6 +483,10 @@ class NotificationPipelineService {
         await src.drainPendingEvents(includeActive: true);
       }
     }
+
+    if (_batchBuffer.isNotEmpty) {
+      await flushBatchNow();
+    }
   }
 
   Future<Box<dynamic>> _getDedupBox() async {
@@ -347,13 +494,41 @@ class NotificationPipelineService {
     return _boxEncryption.openEncryptedBox(dedupHistoryBoxName);
   }
 
-  /// Espera a que termine cualquier evento actualmente en la cola de procesamiento.
-  Future<void> flushPendingProcessing() => _processingChain;
+  /// Fuerza el procesamiento inmediato del lote acumulado en la ventana de 5 min
+  /// (usado al abrir la app/bandeja o al finalizar pruebas).
+  Future<void> flushBatchNow() async {
+    _batchTimer?.cancel();
+    _batchTimer = null;
+    if (_batchBuffer.isNotEmpty) {
+      final batch = List<NotificationEvent>.from(_batchBuffer);
+      _batchBuffer.clear();
+      _processingChain = _processingChain
+          .then((_) => _processBatch(batch))
+          .catchError((_) {});
+    }
+    await _processingChain;
+  }
+
+  /// Espera a que termine cualquier evento actualmente en la cola o en la ventana de lote.
+  Future<void> flushPendingProcessing() => flushBatchNow();
 
   void _enqueueEvent(NotificationEvent event) {
-    _processingChain = _processingChain
-        .then((_) => _processIngestedEvent(event))
-        .catchError((_) {});
+    if (_batchWindow == Duration.zero) {
+      _processingChain = _processingChain
+          .then((_) => _processBatch([event]))
+          .catchError((_) {});
+      return;
+    }
+
+    _batchBuffer.add(event);
+    if (_batchBuffer.length >= maxBatchSize) {
+      unawaited(flushBatchNow());
+      return;
+    }
+
+    _batchTimer ??= Timer(_batchWindow, () {
+      unawaited(flushBatchNow());
+    });
   }
 
   Future<List<AccountItem>> _getRecentAccounts() async {
@@ -386,113 +561,285 @@ class NotificationPipelineService {
     }
   }
 
-  Future<void> _processIngestedEvent(NotificationEvent event) async {
-    final dedupHash = _ingestionService.computeDedupHash(event);
+  void _pruneCrossContext(DateTime now) {
+    _recentCrossContext.removeWhere(
+      (r) => now.difference(r.timestamp).abs() > crossContextHorizon,
+    );
+  }
+
+  String _summarizeEventForCrossContext(
+    NotificationEvent event,
+    NotificationParseResult parseResult,
+  ) {
+    final appName =
+        _whitelistService.getBankName(event.packageName) ?? event.packageName;
+    final amountStr = (parseResult is ParsedTransaction &&
+            parseResult.monto != null)
+        ? ' ${parseResult.moneda} ${parseResult.monto!.toStringAsFixed(0)}'
+        : '';
+    final tipo = parseResult is ParsedTransaction ? parseResult.tipo : 'aviso';
+    final rawPreview = [event.title.trim(), event.enrichedBody.trim()]
+        .where((s) => s.isNotEmpty)
+        .join(' - ');
+    final shortPreview = rawPreview.length > 70
+        ? '${rawPreview.substring(0, 70)}...'
+        : rawPreview;
+    return '[$appName|$tipo$amountStr] $shortPreview';
+  }
+
+  /// Procesa un lote de eventos capturados en la ventana cruzada (hasta 5 min)
+  /// compartiendo contexto entre ellos y liberando Gemma local al terminar.
+  Future<void> _processBatch(List<NotificationEvent> batch) async {
+    if (batch.isEmpty) return;
+    final now = DateTime.now();
+    _pruneCrossContext(now);
+
+    final prepared = <({
+      NotificationEvent event,
+      String dedupHash,
+      NotificationParseResult parseResult,
+      String rawText,
+      String summary,
+    })>[];
+
     final dedupBox = await _getDedupBox();
 
-    // Deduplicación persistente entre reinicios (ventana de 5 min)
-    if (dedupBox.containsKey(dedupHash)) {
-      return;
-    }
-    await dedupBox.put(dedupHash, event.timestamp.toIso8601String());
+    for (final event in batch) {
+      final dedupHash = _ingestionService.computeDedupHash(event);
+      if (dedupBox.containsKey(dedupHash)) {
+        _recordDiagnostic(
+          event: event,
+          outcome: 'dedup',
+          detail: 'Duplicado exacto en historial (5 min)',
+        );
+        continue;
+      }
+      await dedupBox.put(dedupHash, event.timestamp.toIso8601String());
 
-    final parseResult = _parser.parse(event);
-    if (parseResult is UnparseableNotification) {
-      return;
+      final parseResult = _parser.parse(event);
+      if (parseResult is UnparseableNotification) {
+        _recordDiagnostic(
+          event: event,
+          outcome: 'unparseable',
+          detail: parseResult.reason,
+        );
+        continue;
+      }
+
+      final bodyText =
+          event.enrichedBody.isNotEmpty ? event.enrichedBody : event.body.trim();
+      final rawText = [event.title.trim(), bodyText]
+          .where((s) => s.isNotEmpty)
+          .join('. ');
+
+      prepared.add((
+        event: event,
+        dedupHash: dedupHash,
+        parseResult: parseResult,
+        rawText: rawText,
+        summary: _summarizeEventForCrossContext(event, parseResult),
+      ));
     }
 
-    final rawText = [event.title.trim(), event.body.trim()]
-        .where((s) => s.isNotEmpty)
-        .join('. ');
+    if (prepared.isEmpty) return;
 
     final accounts = await _getRecentAccounts();
-    final classification = await _classifier.classify(
-      parseResult: parseResult,
-      rawText: rawText,
-      userAccounts: accounts,
-      packageName: event.packageName,
-    );
+    bool usedAiInBatch = false;
 
-    final double? amount =
-        parseResult is ParsedTransaction ? parseResult.monto : null;
-    final String currency =
-        parseResult is ParsedTransaction ? parseResult.moneda : 'COP';
-    final String? merchant =
-        parseResult is ParsedTransaction ? parseResult.comercio : null;
+    for (var i = 0; i < prepared.length; i++) {
+      final current = prepared[i];
+      final crossSummaries = <String>[
+        for (var j = 0; j < prepared.length; j++)
+          if (j != i) prepared[j].summary,
+        ..._recentCrossContext.map((r) => r.summary),
+      ].take(3).toList();
 
-    final item = PendingTransactionItem(
-      id: 'notif_$dedupHash',
-      notificationId: event.id,
-      rawText: rawText,
-      merchantKey:
-          merchant != null ? LearnedPatternsService.normalizeMerchant(merchant) : null,
-      comercio: merchant ?? _whitelistService.getBankName(event.packageName),
-      monto: amount,
-      moneda: currency,
-      fecha: parseResult.fecha,
-      classification: classification.classification,
-      moneoType: classification.moneoType,
-      category: classification.category,
-      accountName: classification.accountName,
-      destinationAccount: classification.destinationAccount,
-      confidence: parseResult.confidence < classification.confidence
-          ? parseResult.confidence
-          : classification.confidence,
-      requiresReview: parseResult.requiresReview || classification.requiresReview,
-      autoProcessable: !(parseResult.requiresReview || classification.requiresReview) &&
-          classification.classification != 'sospechosa',
-      decisionSource: classification.decisionSource,
-      flags: parseResult.flags,
-      createdAt: DateTime.now(),
-      referenceId: TransactionDedupCorrelator.extractReferenceId(rawText),
-      channel: TransactionDedupCorrelator.inferChannel(
-        packageName: event.packageName,
-        rawText: rawText,
-      ).wireValue,
-      packageName: event.packageName,
-      strategicNote: classification.strategicNote,
-    );
+      final appName =
+          _whitelistService.getBankName(current.event.packageName) ??
+              current.event.packageName;
 
-    // Deduplicación y correlación ANTES de crear un nuevo movimiento en bandeja.
-    if (item.classification != 'sospechosa') {
-      final correlation = await _dedupCorrelator.correlate(
-        candidate: item,
-        existingPending: _pendingNotifier.items,
-        packageName: event.packageName,
+      final classification = await _classifier.classify(
+        parseResult: current.parseResult,
+        rawText: current.rawText,
+        userAccounts: accounts,
+        packageName: current.event.packageName,
+        appName: appName,
+        channelId: current.event.channelId,
+        crossNotificationSummaries: crossSummaries,
       );
-      if (correlation.shouldIgnoreAsAlreadyConfirmed) {
-        return;
+      if (classification.aiAnalyzed) {
+        usedAiInBatch = true;
       }
-      if (correlation.shouldMergeIntoExisting) {
-        final existingIdx = _pendingNotifier.items
-            .indexWhere((p) => p.id == correlation.matchedPendingItemId);
-        if (existingIdx >= 0) {
-          final existing = _pendingNotifier.items[existingIdx];
-          final merged = _dedupCorrelator.mergeIntoPendingItem(
-            existing: existing,
-            incoming: item,
-            correlation: correlation,
+
+      final double? parsedAmount = current.parseResult is ParsedTransaction
+          ? (current.parseResult as ParsedTransaction).monto
+          : null;
+      final double? effectiveAmount =
+          classification.suggestedAmount ?? parsedAmount;
+      final String currency = current.parseResult is ParsedTransaction
+          ? (current.parseResult as ParsedTransaction).moneda
+          : 'COP';
+      final String? parsedMerchant = current.parseResult is ParsedTransaction
+          ? (current.parseResult as ParsedTransaction).comercio
+          : null;
+      final String? effectiveMerchant =
+          (classification.suggestedDescription != null &&
+                  classification.suggestedDescription!.trim().isNotEmpty)
+              ? classification.suggestedDescription!.trim()
+              : parsedMerchant;
+
+      final item = PendingTransactionItem(
+        id: 'notif_${current.dedupHash}',
+        notificationId: current.event.id,
+        rawText: current.rawText,
+        merchantKey: (effectiveMerchant != null &&
+                !TransactionClassifier.isGenericBankMerchant(effectiveMerchant))
+            ? LearnedPatternsService.normalizeMerchant(effectiveMerchant)
+            : null,
+        comercio: effectiveMerchant ?? appName,
+        monto: effectiveAmount,
+        moneda: currency,
+        fecha: current.parseResult.fecha,
+        classification: classification.classification,
+        moneoType: classification.moneoType,
+        category: classification.category,
+        accountName: classification.accountName,
+        destinationAccount: classification.destinationAccount,
+        confidence: current.parseResult.confidence < classification.confidence
+            ? current.parseResult.confidence
+            : classification.confidence,
+        requiresReview:
+            current.parseResult.requiresReview || classification.requiresReview,
+        autoProcessable: !(current.parseResult.requiresReview ||
+                classification.requiresReview) &&
+            classification.classification != 'sospechosa' &&
+            !classification.isSpam,
+        decisionSource: classification.decisionSource,
+        flags: current.parseResult.flags,
+        createdAt: DateTime.now(),
+        referenceId: TransactionDedupCorrelator.extractReferenceId(
+          current.rawText,
+        ),
+        channel: TransactionDedupCorrelator.inferChannel(
+          packageName: current.event.packageName,
+          rawText: current.rawText,
+        ).wireValue,
+        packageName: current.event.packageName,
+        channelId: current.event.channelId,
+        strategicNote: classification.strategicNote,
+      );
+
+      // Si fue clasificada como Spam (patrón aprendido 0-IA, filtro de promo o IA)
+      // -> enviar a la pestaña Spam (máx. 5 días), nunca a Pendientes.
+      if (classification.isSpam) {
+        final spamItem = SpamNotificationItem(
+          id: item.id,
+          item: item,
+          spamReason: classification.spamReason ??
+              'Notificación filtrada como promoción o spam',
+          spamSource: classification.decisionSource,
+          matchedRuleKey: classification.matchedSpamRuleKey,
+          channelId: current.event.channelId,
+          detectedAt: DateTime.now(),
+        );
+        await _pendingNotifier.addSpamItem(spamItem);
+        _recordDiagnostic(
+          event: current.event,
+          outcome: 'spam',
+          detail: spamItem.spamReason,
+        );
+        continue;
+      }
+
+      // Registrar en contexto cruzado deslizante (para futuras parejas en < 10 min)
+      _recentCrossContext.insert(
+        0,
+        _RecentCrossContextRecord(
+          timestamp: current.event.timestamp,
+          summary: current.summary,
+        ),
+      );
+      if (_recentCrossContext.length > 12) {
+        _recentCrossContext.removeRange(12, _recentCrossContext.length);
+      }
+
+      // Deduplicación y correlación ANTES de crear un nuevo movimiento en bandeja.
+      if (item.classification != 'sospechosa') {
+        final correlation = await _dedupCorrelator.correlate(
+          candidate: item,
+          existingPending: _pendingNotifier.items,
+          packageName: current.event.packageName,
+        );
+        if (correlation.shouldIgnoreAsAlreadyConfirmed) {
+          _recordDiagnostic(
+            event: current.event,
+            outcome: 'already_confirmed',
+            detail: correlation.reason,
           );
-          await _pendingNotifier.addPendingItem(merged);
-          return;
+          continue;
         }
+        if (correlation.shouldMergeIntoExisting) {
+          final existingIdx = _pendingNotifier.items
+              .indexWhere((p) => p.id == correlation.matchedPendingItemId);
+          if (existingIdx >= 0) {
+            final existing = _pendingNotifier.items[existingIdx];
+            final merged = _dedupCorrelator.mergeIntoPendingItem(
+              existing: existing,
+              incoming: item,
+              correlation: correlation,
+            );
+            await _pendingNotifier.addPendingItem(merged);
+            _recordDiagnostic(
+              event: current.event,
+              outcome: 'merged',
+              detail: correlation.reason,
+            );
+            continue;
+          }
+        }
+      }
+
+      if (_autoAcceptFutureEnabled && item.isEligibleForAcceptAll) {
+        await _pendingNotifier.autoAcceptIfEligible(item);
+        _recordDiagnostic(
+          event: current.event,
+          outcome: 'auto_accepted',
+          detail: 'Aprobada automáticamente (${item.category ?? 'Otros'})',
+        );
+      } else {
+        await _pendingNotifier.addPendingItem(item);
+        _recordDiagnostic(
+          event: current.event,
+          outcome: 'pending',
+          detail:
+              '${item.classification} · ${item.category ?? 'Sin cat.'} (${item.decisionSource})',
+        );
       }
     }
 
-    if (_autoAcceptFutureEnabled && item.isEligibleForAcceptAll) {
-      await _pendingNotifier.autoAcceptIfEligible(item);
-    } else {
-      await _pendingNotifier.addPendingItem(item);
+    // Optimización RAM: al finalizar el lote, descargar Gemma local si quedó en memoria.
+    if (usedAiInBatch) {
+      unawaited(
+        _classifier.gemmaAdapter.releaseLocalModelIfIdle().catchError((_) {}),
+      );
     }
   }
 
-  /// Elimina todos los datos locales de notificaciones (bandeja, historial dedup,
-  /// patrones aprendidos y cola nativa).
+  /// Elimina todos los datos locales de notificaciones (bandeja, spam, historial dedup,
+  /// patrones aprendidos, patrones de spam y cola nativa).
   Future<void> wipeAllNotificationData() async {
+    _batchTimer?.cancel();
+    _batchTimer = null;
+    _batchBuffer.clear();
+    _recentCrossContext.clear();
+    _diagnosticLog.clear();
     _cachedAccounts = null;
     _cachedAccountsAt = null;
     await _pendingNotifier.clearAll();
     await _patternsService.clearAll();
+    if (_spamPatternsService != null) {
+      await _spamPatternsService!.clearAll();
+    }
     await _dedupCorrelator.clearAll();
 
     if (_injectedDedupBox != null) {
@@ -501,7 +848,9 @@ class NotificationPipelineService {
       await _boxEncryption.deleteBoxes([
         PendingTransactionsNotifier.defaultBoxName,
         PendingTransactionsNotifier.executedBoxName,
+        PendingTransactionsNotifier.spamBoxName,
         LearnedPatternsService.defaultBoxName,
+        SpamPatternsService.defaultBoxName,
         TransactionDedupCorrelator.defaultRulesBoxName,
         TransactionDedupCorrelator.defaultRecentMovementsBoxName,
         dedupHistoryBoxName,
@@ -515,6 +864,8 @@ class NotificationPipelineService {
   }
 
   Future<void> dispose() async {
+    _batchTimer?.cancel();
+    _batchTimer = null;
     await _ingestedSubscription?.cancel();
     _ingestedSubscription = null;
     _ingestionService.detachSource();

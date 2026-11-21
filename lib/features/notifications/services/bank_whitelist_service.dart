@@ -111,6 +111,10 @@ class BankWhitelistService {
       name: 'RappiPay',
     ),
     const BankMetadata(
+      packageName: 'com.grability.rappi',
+      name: 'Rappi / RappiPay',
+    ),
+    const BankMetadata(
       packageName: 'co.com.bancopopular.mb',
       name: 'Banco Popular Colombia',
     ),
@@ -167,20 +171,41 @@ class BankWhitelistService {
     }
   }
 
-  /// Verifica si el paquete indicado está registrado y habilitado en la whitelist.
+  /// Verifica si el paquete indicado está registrado y habilitado en la whitelist
+  /// (comparación insensible a mayúsculas para evitar fallos como `com.nequi.MobileApp`).
   bool isWhitelisted(String packageName) {
     final normalized = packageName.trim();
-    return _enabledPackages.contains(normalized);
+    if (_enabledPackages.contains(normalized)) return true;
+    final lower = normalized.toLowerCase();
+    return _enabledPackages.any((pkg) => pkg.toLowerCase() == lower);
   }
 
   /// Obtiene el nombre amigable de la entidad para un paquete dado.
   String? getBankName(String packageName) {
-    return _banks[packageName.trim()]?.name;
+    final normalized = packageName.trim();
+    final direct = _banks[normalized]?.name;
+    if (direct != null) return direct;
+    final lower = normalized.toLowerCase();
+    for (final entry in _banks.entries) {
+      if (entry.key.toLowerCase() == lower) {
+        return entry.value.name;
+      }
+    }
+    return null;
   }
 
   /// Obtiene los metadatos completos para un paquete registrado.
   BankMetadata? getMetadata(String packageName) {
-    return _banks[packageName.trim()];
+    final normalized = packageName.trim();
+    final direct = _banks[normalized];
+    if (direct != null) return direct;
+    final lower = normalized.toLowerCase();
+    for (final entry in _banks.entries) {
+      if (entry.key.toLowerCase() == lower) {
+        return entry.value;
+      }
+    }
+    return null;
   }
 
   /// Conjunto inmutable de identificadores de paquetes actualmente activos.

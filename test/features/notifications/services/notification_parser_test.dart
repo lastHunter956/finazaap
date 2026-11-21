@@ -196,6 +196,74 @@ void main() {
       expect(tx.autoProcessable, isFalse);
       expect(tx.flags, contains('ambiguous_amount_separator'));
     });
+
+    test('no trunca montos de 4+ dígitos sin separador (\$5800, \$50000, \$5800.00)', () {
+      final cases = <String, double>{
+        'Pagaste \$5800 en Cafe Quindio': 5800.0,
+        'Compra aprobada por \$5800.00 en Cafe Quindio': 5800.0,
+        'Compra aprobada por \$5800,00 en Cafe Quindio': 5800.0,
+        'Compra aprobada por \$50000 en D1': 50000.0,
+        'Pagaste \$5.800 en Panaderia': 5800.0,
+        'Pagaste \$5.800,00 en Panaderia': 5800.0,
+        'Pagaste \$5.800.00 en Panaderia': 5800.0,
+        'Pagaste \$5,800.00 en Panaderia': 5800.0,
+      };
+
+      cases.forEach((body, expected) {
+        final result = parser.parseRaw(title: 'Banco', body: body);
+        expect(result, isA<ParsedTransaction>(), reason: 'Falló parseo: $body');
+        final tx = result as ParsedTransaction;
+        expect(tx.monto, equals(expected), reason: 'Monto incorrecto para: $body');
+        expect(tx.requiresReview, isFalse, reason: 'No debió marcar ambiguo: $body');
+      });
+    });
+
+    test('reconoce texto real de Nequi Colombia ("te envió", "te llegó plata") y enrichedBody', () {
+      final event = NotificationEvent(
+        id: 'nequi_real_1',
+        packageName: 'com.nequi.MobileApp',
+        title: '¡Te llegó plata!',
+        body: '',
+        textLines: const [
+          'Juan Perez te envió \$ 50.000. Revisa tus movimientos en la app.',
+        ],
+        timestamp: DateTime(2026, 11, 21, 10, 0),
+      );
+
+      final result = parser.parse(event);
+      expect(result, isA<ParsedTransaction>());
+      final tx = result as ParsedTransaction;
+      expect(tx.tipo, equals('ingreso'));
+      expect(tx.monto, equals(50000.0));
+      expect(tx.comercio, isNot(equals('la app')));
+    });
+
+    test('marca promociones de Rappi con dinero como isPromoSignal=true y descarta ongoing', () {
+      final promo = parser.parseRaw(
+        title: 'Rappi',
+        body: '¡Tienes \$20.000 de descuento en tu próxima compra! Pide ya con envío gratis.',
+        packageName: 'com.grability.rappi',
+      );
+      expect(promo, isA<ParsedTransaction>());
+      final promoTx = promo as ParsedTransaction;
+      expect(promoTx.isPromoSignal, isTrue);
+      expect(promoTx.requiresReview, isTrue);
+      expect(promoTx.autoProcessable, isFalse);
+      expect(promoTx.flags, contains('promo_marketing_signal'));
+
+      final ongoing = parser.parse(
+        NotificationEvent(
+          id: 'rappi_ongoing',
+          packageName: 'com.grability.rappi',
+          title: 'Rappi',
+          body: 'Tu pedido de \$35.000 está en camino',
+          timestamp: DateTime(2026, 11, 21, 11, 0),
+          isOngoing: true,
+        ),
+      );
+      expect(ongoing, isA<UnparseableNotification>());
+      expect(ongoing.flags, contains('ongoing_notification'));
+    });
   });
 
   group('NotificationParser — Extracción de Tipos, Comercios y Cuentas', () {

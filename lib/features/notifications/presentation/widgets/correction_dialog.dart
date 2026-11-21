@@ -69,7 +69,7 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
 
   late String _classification;
   String? _selectedCategory;
-  late String _selectedAccount;
+  String? _selectedAccount;
   String? _selectedDestinationAccount;
   late DateTime _selectedDate;
 
@@ -129,26 +129,28 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
         widget.item.accountName!.trim().isNotEmpty) {
       _accounts = [widget.item.accountName!.trim()];
     } else {
-      _accounts = ['Cuenta Principal'];
+      _accounts = [];
     }
 
-    if (widget.item.accountName != null &&
-        widget.item.accountName!.trim().isNotEmpty &&
-        !_accounts.contains(widget.item.accountName!.trim())) {
-      _accounts.insert(0, widget.item.accountName!.trim());
+    final initialAccount = widget.item.accountName?.trim();
+    if (initialAccount != null && initialAccount.isNotEmpty) {
+      if (!_accounts.contains(initialAccount)) {
+        _accounts.insert(0, initialAccount);
+      }
+      _selectedAccount = initialAccount;
+    } else {
+      // No preseleccionar silenciosamente la primera cuenta (ej. NU) si no fue detectada.
+      _selectedAccount = null;
     }
-    _selectedAccount =
-        (widget.item.accountName != null &&
-                _accounts.contains(widget.item.accountName!.trim()))
-            ? widget.item.accountName!.trim()
-            : _accounts.first;
 
     final dest = widget.item.destinationAccount?.trim();
     if (dest != null && dest.isNotEmpty && _accounts.contains(dest)) {
       _selectedDestinationAccount = dest;
-    } else {
+    } else if (_selectedAccount != null) {
       final other = _accounts.where((a) => a != _selectedAccount).toList();
       _selectedDestinationAccount = other.isNotEmpty ? other.first : null;
+    } else {
+      _selectedDestinationAccount = null;
     }
 
     _expenseCategories = widget.availableCategories != null
@@ -182,16 +184,17 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
 
       setState(() {
         _accounts = titles;
-        if (!_accounts.contains(_selectedAccount)) {
-          _selectedAccount = _accounts.first;
+        if (_selectedAccount != null && !_accounts.contains(_selectedAccount)) {
+          final normSel = _normalizeNoAccents(_selectedAccount!);
+          final ciMatch = _accounts
+              .where((a) => _normalizeNoAccents(a) == normSel)
+              .toList();
+          _selectedAccount = ciMatch.length == 1 ? ciMatch.first : null;
         }
-        if (_selectedDestinationAccount == null ||
-            !_accounts.contains(_selectedDestinationAccount) ||
-            _selectedDestinationAccount == _selectedAccount) {
-          final others =
-              _accounts.where((a) => a != _selectedAccount).toList();
-          _selectedDestinationAccount =
-              others.isNotEmpty ? others.first : null;
+        if (_selectedDestinationAccount != null &&
+            (!_accounts.contains(_selectedDestinationAccount) ||
+                _selectedDestinationAccount == _selectedAccount)) {
+          _selectedDestinationAccount = null;
         }
       });
     } catch (_) {
@@ -236,6 +239,18 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
   List<String> get _currentCategories =>
       _classification == 'ingreso' ? _incomeCategories : _expenseCategories;
 
+  String _normalizeNoAccents(String input) {
+    return input
+        .trim()
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ñ', 'n');
+  }
+
   void _syncSelectedCategory() {
     if (_classification == 'transferencia-propia') {
       _selectedCategory = null;
@@ -250,16 +265,23 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
     final itemCat = widget.item.category?.trim();
     final itemMatchesCurrentType =
         (widget.item.classification == _classification) ||
-            (widget.item.classification == 'sospechosa' &&
+            ((widget.item.classification == 'sospechosa' ||
+                    widget.item.classification == 'spam') &&
                 _classification == 'gasto');
-    if (itemMatchesCurrentType &&
-        itemCat != null &&
-        itemCat.isNotEmpty &&
-        list.contains(itemCat)) {
-      _selectedCategory = itemCat;
-    } else {
-      _selectedCategory = null;
+    if (itemMatchesCurrentType && itemCat != null && itemCat.isNotEmpty) {
+      if (list.contains(itemCat)) {
+        _selectedCategory = itemCat;
+        return;
+      }
+      final normItemCat = _normalizeNoAccents(itemCat);
+      for (final cat in list) {
+        if (_normalizeNoAccents(cat) == normItemCat) {
+          _selectedCategory = cat;
+          return;
+        }
+      }
     }
+    _selectedCategory = null;
   }
 
   @override
@@ -296,6 +318,16 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
     final cleanedAmount =
         CurrencyHelper.cleanAmountString(_amountController.text.trim());
     final parsedAmount = double.tryParse(cleanedAmount) ?? 0.0;
+    final selectedAccount = _selectedAccount;
+    if (selectedAccount == null ||
+        selectedAccount.trim().isEmpty ||
+        !_accounts.contains(selectedAccount)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona una cuenta válida')),
+      );
+      return;
+    }
+
     final dest = _classification == 'transferencia-propia'
         ? _selectedDestinationAccount
         : null;
@@ -322,7 +354,7 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
       category: _classification == 'transferencia-propia'
           ? 'Transferencia'
           : selectedCategory!,
-      accountName: _selectedAccount,
+      accountName: selectedAccount,
       destinationAccount: dest,
       amount: parsedAmount,
       description: _descriptionController.text.trim(),
@@ -545,7 +577,8 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
                                         child: InkWell(
                                           borderRadius:
                                               BorderRadius.circular(20),
-                                          onTap: (_selectedDestinationAccount !=
+                                          onTap: (_selectedAccount != null &&
+                                                  _selectedDestinationAccount !=
                                                       null &&
                                                   _selectedDestinationAccount!
                                                       .isNotEmpty)
@@ -831,11 +864,20 @@ class _CorrectionDialogState extends State<CorrectionDialog> {
   }
 
   Widget _buildAccountDropdown(AppTheme theme) {
+    final currentAcc =
+        (_selectedAccount != null && _accounts.contains(_selectedAccount))
+            ? _selectedAccount
+            : null;
     return _buildMoneoField(
       theme,
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _selectedAccount,
+          value: currentAcc,
+          hint: Text(
+            _accounts.isEmpty ? 'Sin cuentas' : 'Elige cuenta',
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: theme.textHint, fontSize: 14),
+          ),
           dropdownColor: theme.secondaryCardBackground,
           icon: Icon(
             Icons.arrow_drop_down_rounded,

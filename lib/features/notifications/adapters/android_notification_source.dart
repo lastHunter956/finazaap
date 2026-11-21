@@ -209,6 +209,18 @@ class AndroidNotificationSource implements NotificationSourcePort {
     final body = (map['body'] ?? '').toString();
     final tsMs = (map['timestampMs'] as num?)?.toInt() ??
         DateTime.now().millisecondsSinceEpoch;
+    String? optStr(dynamic v) {
+      final s = v?.toString().trim();
+      return (s == null || s.isEmpty) ? null : s;
+    }
+
+    final rawLines = map['textLines'];
+    final textLines = rawLines is Iterable
+        ? rawLines
+            .map((e) => e?.toString().trim() ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList()
+        : const <String>[];
 
     return NotificationEvent(
       id: id.isNotEmpty ? id : '${packageName}_$tsMs',
@@ -216,6 +228,14 @@ class AndroidNotificationSource implements NotificationSourcePort {
       title: title,
       body: body,
       timestamp: DateTime.fromMillisecondsSinceEpoch(tsMs),
+      channelId: optStr(map['channelId']),
+      category: optStr(map['category']),
+      subText: optStr(map['subText']),
+      summaryText: optStr(map['summaryText']),
+      tickerText: optStr(map['tickerText']),
+      textLines: textLines,
+      isOngoing: map['isOngoing'] == true,
+      isGroupSummary: map['isGroupSummary'] == true,
     );
   }
 

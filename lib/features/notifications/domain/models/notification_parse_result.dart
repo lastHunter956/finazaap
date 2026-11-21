@@ -74,6 +74,8 @@ class ParsedTransaction extends NotificationParseResult {
   final bool autoProcessable;
   @override
   final List<String> flags;
+  final List<double> candidateAmounts;
+  final bool isPromoSignal;
 
   const ParsedTransaction({
     required this.tipo,
@@ -86,6 +88,8 @@ class ParsedTransaction extends NotificationParseResult {
     required this.requiresReview,
     required this.autoProcessable,
     this.flags = const [],
+    this.candidateAmounts = const [],
+    this.isPromoSignal = false,
   });
 
   @override
@@ -102,6 +106,8 @@ class ParsedTransaction extends NotificationParseResult {
     bool? requiresReview,
     bool? autoProcessable,
     List<String>? flags,
+    List<double>? candidateAmounts,
+    bool? isPromoSignal,
   }) {
     return ParsedTransaction(
       tipo: tipo ?? this.tipo,
@@ -114,6 +120,8 @@ class ParsedTransaction extends NotificationParseResult {
       requiresReview: requiresReview ?? this.requiresReview,
       autoProcessable: autoProcessable ?? this.autoProcessable,
       flags: flags ?? this.flags,
+      candidateAmounts: candidateAmounts ?? this.candidateAmounts,
+      isPromoSignal: isPromoSignal ?? this.isPromoSignal,
     );
   }
 
@@ -130,6 +138,8 @@ class ParsedTransaction extends NotificationParseResult {
         'requires_review': requiresReview,
         'auto_processable': autoProcessable,
         'flags': flags,
+        if (candidateAmounts.isNotEmpty) 'candidate_amounts': candidateAmounts,
+        if (isPromoSignal) 'is_promo_signal': isPromoSignal,
       };
 
   factory ParsedTransaction.fromJson(Map<String, dynamic> json) {
@@ -139,6 +149,14 @@ class ParsedTransaction extends NotificationParseResult {
         json['cuenta'] as Map<String, dynamic>,
       );
     }
+
+    final rawCandidates = json['candidate_amounts'] ?? json['candidateAmounts'];
+    final candidates = rawCandidates is Iterable
+        ? rawCandidates
+            .whereType<num>()
+            .map((e) => e.toDouble())
+            .toList()
+        : const <double>[];
 
     return ParsedTransaction(
       tipo: (json['tipo'] as String?) ?? 'desconocido',
@@ -160,6 +178,9 @@ class ParsedTransaction extends NotificationParseResult {
       flags: json['flags'] != null
           ? List<String>.from(json['flags'] as List)
           : const [],
+      candidateAmounts: candidates,
+      isPromoSignal:
+          (json['is_promo_signal'] ?? json['isPromoSignal']) == true,
     );
   }
 
