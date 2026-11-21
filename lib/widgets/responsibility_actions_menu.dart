@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui';
 import 'package:finazaap/themes/app_theme_data.dart';
 
 class ResponsibilityActionsMenu extends StatefulWidget {
@@ -28,19 +27,20 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(milliseconds: 200),
     );
-    
-    _scaleAnimation = CurvedAnimation(
+
+    final curvedAnimation = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
+      curve: Curves.easeOutCubic,
     );
-    
-    _fadeAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.1, 0.8, curve: Curves.easeOutCubic),
+
+    _scaleAnimation = Tween<double>(begin: 0.96, end: 1.0).animate(
+      curvedAnimation,
     );
-    
+
+    _fadeAnimation = curvedAnimation;
+
     _controller.forward();
   }
 
@@ -85,18 +85,11 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
             AnimatedBuilder(
               animation: _fadeAnimation,
               builder: (context, child) {
-                return Opacity(
-                  opacity: _fadeAnimation.value,
-                  child: GestureDetector(
-                    onTap: _animatedDismiss,
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(
-                        sigmaX: 12.0 * _fadeAnimation.value,
-                        sigmaY: 12.0 * _fadeAnimation.value,
-                      ),
-                      child: Container(
-                        color: context.appTheme.primaryBackground.withOpacity(0.85 * _fadeAnimation.value),
-                      ),
+                return GestureDetector(
+                  onTap: _animatedDismiss,
+                  child: Container(
+                    color: Colors.black.withValues(
+                      alpha: 0.35 * _fadeAnimation.value,
                     ),
                   ),
                 );
@@ -112,12 +105,12 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                     vertical: 16,
                   ),
                   child: AnimatedBuilder(
-                    animation: _scaleAnimation,
+                    animation: _controller,
                     builder: (context, child) {
                       return Transform.scale(
                         scale: _scaleAnimation.value,
                         child: Opacity(
-                          opacity: _scaleAnimation.value,
+                          opacity: _fadeAnimation.value,
                           child: child,
                         ),
                       );
@@ -127,7 +120,7 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                       constraints: BoxConstraints(maxWidth: menuWidth),
                       decoration: BoxDecoration(
                     color: context.appTheme.secondaryCardBackground,
-                    borderRadius: BorderRadius.circular(28),
+                    borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.25),
@@ -137,7 +130,7 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                     ],
                     border: Border.all(
                       color: context.appTheme.borderSubtle,
-                      width: 1.5,
+                      width: 1,
                     ),
                   ),
                   child: Column(
@@ -230,8 +223,8 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                           child: InkWell(
                             onTap: _animatedDismiss,
                             borderRadius: const BorderRadius.only(
-                              bottomLeft: Radius.circular(28),
-                              bottomRight: Radius.circular(28),
+                              bottomLeft: Radius.circular(24),
+                              bottomRight: Radius.circular(24),
                             ),
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(minHeight: 48),
@@ -241,8 +234,8 @@ class _ResponsibilityActionsMenuState extends State<ResponsibilityActionsMenu> w
                                 decoration: BoxDecoration(
                                   color: context.appTheme.darkBackground,
                                   borderRadius: const BorderRadius.only(
-                                    bottomLeft: Radius.circular(28),
-                                    bottomRight: Radius.circular(28),
+                                    bottomLeft: Radius.circular(24),
+                                    bottomRight: Radius.circular(24),
                                   ),
                                   border: Border(
                                     top: BorderSide(
